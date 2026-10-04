@@ -1,9 +1,13 @@
-package com.rahbar.controller;
+package com.rahbar.service;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.xssf.streaming.SXSSFWorkbook;
+
+import com.rahbar.exception.ApiException;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -13,11 +17,36 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-/** Shared CSV/Excel export helpers used by the *_generate_reports endpoints. */
-final class ReportUtil {
-    private ReportUtil() {}
+/** Builds the CSV / Excel / PDF downloads of the admin and coordinator report screens. */
+@Service
+public class ReportService {
 
-    static byte[] toCsv(List<Map<String, Object>> data) throws IOException {
+    /** A finished download: file bytes, content type and file name. */
+    public record Report(byte[] bytes, String contentType, String filename) {}
+
+    /**
+     * Renders rows as csv (default), excel or pdf. Column order is the key order of the first row.
+     * 404 when there are no rows, like the original report screens.
+     */
+    public Report build(List<Map<String, Object>> data, String baseName, String format, String label) {
+        if (data.isEmpty()) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "No data available for " + label + " report.");
+        }
+        try {
+            if ("pdf".equals(format)) {
+                return new Report(toPdf(data, baseName.replace('_', ' ').toUpperCase()), "application/pdf", baseName + ".pdf");
+            }
+            if ("excel".equals(format)) {
+                return new Report(toExcel(data),
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", baseName + ".xlsx");
+            }
+            return new Report(toCsv(data), "text/csv", baseName + ".csv");
+        } catch (IOException e) {
+            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not build report: " + e.getMessage());
+        }
+    }
+
+    private static byte[] toCsv(List<Map<String, Object>> data) throws IOException {
         var out = new ByteArrayOutputStream();
         List<String> columns = new ArrayList<>(data.get(0).keySet());
         try (var writer = new OutputStreamWriter(out, StandardCharsets.UTF_8);
@@ -32,7 +61,7 @@ final class ReportUtil {
         return out.toByteArray();
     }
 
-    static byte[] toExcel(List<Map<String, Object>> data) throws IOException {
+    private static byte[] toExcel(List<Map<String, Object>> data) throws IOException {
         try (SXSSFWorkbook wb = new SXSSFWorkbook(); var out = new ByteArrayOutputStream()) {
             Sheet sheet = wb.createSheet("Report");
             List<String> columns = new ArrayList<>(data.get(0).keySet());
@@ -51,7 +80,7 @@ final class ReportUtil {
         }
     }
 
-    static byte[] toPdf(List<Map<String, Object>> data, String title) throws IOException {
+    private static byte[] toPdf(List<Map<String, Object>> data, String title) throws IOException {
         try {
             return buildPdf(data, title);
         } catch (IOException e) {

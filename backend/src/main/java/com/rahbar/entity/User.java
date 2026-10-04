@@ -23,6 +23,7 @@ public class User extends Modifiable {
     @Column(name = "sex", nullable = false)
     private String sex; // 'M' or 'F'
 
+    @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
