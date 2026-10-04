@@ -29,7 +29,8 @@ public class SponsorController {
     @GetMapping("/dashboard")
     public Map<String, Object> dashboard() {
         String sponsorId = AuthUtil.currentUser().getUserId();
-        Map<String, Object> sponsor = jdbc.queryForMap("SELECT * FROM users WHERE user_id = ?", sponsorId);
+        Map<String, Object> sponsor = jdbc.queryForMap(
+                "SELECT user_id, name, email, phone, region, status FROM users WHERE user_id = ?", sponsorId);
 
         List<Map<String, Object>> grantorGrantees = jdbc.queryForList("""
             SELECT gg.*, sr.reference_id AS linked_ref_id FROM grantor_grantees gg
@@ -39,7 +40,8 @@ public class SponsorController {
         List<Map<String, Object>> grantees = new ArrayList<>();
         for (Map<String, Object> gg : grantorGrantees) {
             String granteeId = (String) gg.get("grantee_id");
-            Map<String, Object> grantee = first(jdbc.queryForList("SELECT * FROM users WHERE user_id = ?", granteeId));
+            Map<String, Object> grantee = first(jdbc.queryForList(
+                    "SELECT user_id, name, email, phone, region, status, year FROM users WHERE user_id = ?", granteeId));
             Map<String, Object> bank = first(jdbc.queryForList("SELECT * FROM bank_details WHERE user_id = ?", granteeId));
             Map<String, Object> latestPayment = first(jdbc.queryForList(
                     "SELECT * FROM payments WHERE grantee_id = ? ORDER BY created_at DESC LIMIT 1", granteeId));
@@ -47,7 +49,22 @@ public class SponsorController {
                 SELECT sic.assigned_at, c.number_of_semesters FROM student_institution_courses sic
                 JOIN courses c ON sic.course_id = c.course_id WHERE sic.user_id = ?
                 """, granteeId));
-            String paymentStatus = (courseInfo != null && courseInfo.get("assigned_at") != null) ? "On Schedule" : "Pending";
+            // Flask showed "On Schedule" for anyone with a course; this checks installments actually due vs paid.
+            String paymentStatus = "Pending";
+            if (courseInfo != null && courseInfo.get("assigned_at") != null) {
+                java.time.LocalDate start = toLocalDate(courseInfo.get("assigned_at"));
+                int semesters = courseInfo.get("number_of_semesters") == null ? 0 : ((Number) courseInfo.get("number_of_semesters")).intValue();
+                int total = (int) Math.floor(semesters / 2.0 * 4);  // same as the JS schedule: (semesters / 2) * 4
+                int dueSoFar = 0;
+                for (int i = 1; i <= total; i++) {
+                    if (!start.plusMonths(3L * i).isAfter(java.time.LocalDate.now())) dueSoFar++;
+                }
+                Long paid = jdbc.queryForObject("SELECT COUNT(*) FROM payments WHERE grantee_id = ? AND status = 'Paid'", Long.class, granteeId);
+                long paidCount = paid == null ? 0 : paid;
+                if (total > 0 && paidCount >= total) paymentStatus = "Completed";
+                else if (paidCount >= dueSoFar) paymentStatus = "On Schedule";
+                else paymentStatus = "Overdue";
+            }
 
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("user", grantee);
@@ -58,14 +75,24 @@ public class SponsorController {
             grantees.add(entry);
         }
 
-        return Map.of("sponsor", sponsor, "grantees", grantees);
+        // Average marks per academic year of this sponsor's students (Flask's trend chart used sample numbers).
+        List<Map<String, Object>> performance = jdbc.queryForList("""
+            SELECT CONCAT('Year ', sp.year) AS label, ROUND(AVG(CAST(sp.marks AS DECIMAL(10,2))), 1) AS value
+            FROM student_progress sp
+            JOIN grantor_grantees gg ON sp.grantee_id = gg.grantee_id
+            JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
+            WHERE sr.user_id = ? AND sp.year IS NOT NULL
+            GROUP BY sp.year ORDER BY sp.year
+            """, sponsorId);
+
+        return Map.of("sponsor", sponsor, "grantees", grantees, "performanceByYear", performance);
     }
 
     @GetMapping("/payments")
     public Map<String, Object> payments(@RequestParam(required = false) String granteeId) {
         String sponsorId = AuthUtil.currentUser().getUserId();
         List<Map<String, Object>> assignedStudents = jdbc.queryForList("""
-            SELECT u.*, gg.grantor_id AS linked_ref_id FROM users u
+            SELECT u.user_id, u.name, u.email, u.phone, u.region, u.status, u.year, gg.grantor_id AS linked_ref_id FROM users u
             JOIN grantor_grantees gg ON u.user_id = gg.grantee_id
             JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id WHERE sr.user_id = ?
             """, sponsorId);
@@ -122,7 +149,8 @@ public class SponsorController {
                     "Error: Student is not linked to a valid sponsorship reference.");
         }
         String refId = (String) mapping.get("grantor_id");
-        String filename = fileStorageService.sanitizeFilename(receipt.getOriginalFilename());
+        String filename = "sponsor_pay_" + granteeId + "_" + System.currentTimeMillis() + "_"
+                + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());
         String stored = fileStorageService.store(receipt, filename);
         jdbc.update("""
             INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, receipt_url, status, created_at, updated_by)
@@ -134,12 +162,21 @@ public class SponsorController {
     @GetMapping("/student-progress")
     public List<Map<String, Object>> studentProgress() {
         return jdbc.queryForList("""
-            SELECT sp.*, u.name AS grantee_name FROM student_progress sp
+            SELECT sp.*, u.name AS grantee_name, gg.grantor_id AS reference_id FROM student_progress sp
             JOIN users u ON sp.grantee_id = u.user_id
             JOIN grantor_grantees gg ON u.user_id = gg.grantee_id
             JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
             WHERE sr.user_id = ?
+            ORDER BY sp.created_at DESC
             """, AuthUtil.currentUser().getUserId());
+    }
+
+    private static java.time.LocalDate toLocalDate(Object v) {
+        if (v instanceof java.time.LocalDateTime ldt) return ldt.toLocalDate();
+        if (v instanceof java.time.LocalDate ld) return ld;
+        if (v instanceof java.sql.Timestamp ts) return ts.toLocalDateTime().toLocalDate();
+        if (v instanceof java.util.Date d) return new java.sql.Date(d.getTime()).toLocalDate();
+        return java.time.LocalDate.parse(String.valueOf(v).substring(0, 10));
     }
 
     private static Map<String, Object> first(List<Map<String, Object>> list) {

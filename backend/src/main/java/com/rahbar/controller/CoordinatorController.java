@@ -39,7 +39,29 @@ public class CoordinatorController {
         long sponsors = jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE role_id = 5 AND YEAR(created_at) = ?", Long.class, selectedYear);
         long grantees = jdbc.queryForObject("SELECT COUNT(*) FROM users WHERE role_id = 6 AND YEAR(created_at) = ?", Long.class, selectedYear);
 
+        String me = AuthUtil.currentUser().getUserId();
+        Map<String, Object> coordinator = jdbc.queryForMap("SELECT user_id, name, email, phone FROM users WHERE user_id = ?", me);
+
+        // Chart data (the Flask page drew these charts from hard-coded sample numbers)
+        List<Map<String, Object>> byStatus = jdbc.queryForList("""
+            SELECT COALESCE(s.status, 'no status') AS label, COUNT(*) AS value
+            FROM grantee_details gd
+            LEFT JOIN (SELECT grantee_detail_id, MAX(created_at) AS latest FROM application_status GROUP BY grantee_detail_id) ls
+              ON gd.grantee_detail_id = ls.grantee_detail_id
+            LEFT JOIN application_status s ON s.grantee_detail_id = ls.grantee_detail_id AND s.created_at = ls.latest
+            WHERE YEAR(gd.created_at) = ?
+            GROUP BY label ORDER BY value DESC
+            """, selectedYear);
+        List<Map<String, Object>> byRegion = jdbc.queryForList("""
+            SELECT COALESCE(NULLIF(TRIM(region), ''), 'Not set') AS label, COUNT(*) AS value
+            FROM users WHERE role_id = 5 AND YEAR(created_at) = ?
+            GROUP BY label ORDER BY value DESC
+            """, selectedYear);
+
         Map<String, Object> result = new LinkedHashMap<>();
+        result.put("coordinator", coordinator);
+        result.put("applicationsByStatus", byStatus);
+        result.put("sponsorsByRegion", byRegion);
         result.put("availableYears", years);
         result.put("selectedYear", selectedYear);
         result.put("applicationsCount", applications);
@@ -51,7 +73,12 @@ public class CoordinatorController {
     @GetMapping("/applications")
     public List<Map<String, Object>> viewApplications() {
         return jdbc.queryForList("""
-            SELECT gd.*, u.name AS applicant_name FROM grantee_details gd JOIN users u ON gd.user_id = u.user_id
+            SELECT gd.*, u.name AS applicant_name, s.status, s.comments
+            FROM grantee_details gd
+            LEFT JOIN users u ON gd.user_id = u.user_id
+            LEFT JOIN (SELECT grantee_detail_id, MAX(created_at) AS latest FROM application_status GROUP BY grantee_detail_id) ls
+              ON gd.grantee_detail_id = ls.grantee_detail_id
+            LEFT JOIN application_status s ON s.grantee_detail_id = ls.grantee_detail_id AND s.created_at = ls.latest
             """);
     }
 
@@ -155,10 +182,13 @@ public class CoordinatorController {
         String col = allowedColumns.contains(orderBy) ? orderBy : "grantee_name";
         String dir = "desc".equalsIgnoreCase(orderDir) ? "desc" : "asc";
 
+        // payments.grantor_id holds either a sponsor user_id (older rows) or a sponsor reference_id
+        // (rows recorded from the admin Student Directory) - resolve both to the sponsor user.
         String base = """
             FROM payments p
             JOIN users u1 ON p.grantee_id = u1.user_id
-            JOIN users u2 ON p.grantor_id = u2.user_id
+            LEFT JOIN sponsor_references sr ON p.grantor_id = sr.reference_id
+            LEFT JOIN users u2 ON u2.user_id = COALESCE(sr.user_id, p.grantor_id)
             """;
         List<Object> params = new ArrayList<>();
         String where = "";
@@ -176,7 +206,8 @@ public class CoordinatorController {
         finalParams.add(length);
         List<Map<String, Object>> data = jdbc.queryForList("""
             SELECT u1.name AS grantee_name, u1.user_id AS grantee_id, u1.phone AS grantee_phone,
-                   u2.name AS grantor_name, u2.user_id AS grantor_id, u2.phone AS grantor_phone,
+                   u2.name AS grantor_name, COALESCE(u2.user_id, p.grantor_id) AS grantor_id, u2.phone AS grantor_phone,
+                   p.grantor_id AS grantor_reference, p.payment_date,
                    p.amount, p.status, p.receipt_url, p.payment_id
             """ + base + where + " ORDER BY " + col + " " + dir + " LIMIT ?, ?", finalParams.toArray());
 
@@ -200,7 +231,11 @@ public class CoordinatorController {
         byte[] bytes;
         MediaType mediaType;
         String filename = reportType + "_report";
-        if ("excel".equals(format)) {
+        if ("pdf".equals(format)) {
+            bytes = ReportUtil.toPdf(data, filename.replace('_', ' ').toUpperCase());
+            mediaType = MediaType.APPLICATION_PDF;
+            filename += ".pdf";
+        } else if ("excel".equals(format)) {
             bytes = ReportUtil.toExcel(data);
             mediaType = MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             filename += ".xlsx";

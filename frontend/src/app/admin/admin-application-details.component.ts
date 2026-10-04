@@ -47,7 +47,7 @@ import { APPLICATION_STATUSES, ApplicationRow } from './admin-applications.compo
               </div>
               <button type="submit" class="btn btn-success btn-block" [disabled]="saving || !status">Update Status</button>
             </form>
-            <a routerLink="/admin/applications" class="btn btn-secondary btn-block mt-3">Back to Applications</a>
+            <a [routerLink]="['/' + section, 'applications']" class="btn btn-secondary btn-block mt-3">Back to Applications</a>
           </div>
         </div>
       </div>
@@ -56,6 +56,10 @@ import { APPLICATION_STATUSES, ApplicationRow } from './admin-applications.compo
 })
 export class AdminApplicationDetailsComponent implements OnInit {
   @Input() id = '';
+  /** Which area this page is shown in ('admin' or 'coordinator'); set from route data, defaults to admin. */
+  @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
+  get section(): string { return this._section; }
+  private _section = 'admin';
   readonly statuses = APPLICATION_STATUSES;
   app: ApplicationRow | null = null;
   status = '';
