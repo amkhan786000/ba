@@ -25,14 +25,11 @@
 .modal.d-block { background: rgba(0, 0, 0, .5); overflow-y: auto; }
 
 /* Sponsorship pages (manage_sponsorships.html / map_students_to_sponsor.html) */
-.ref-tag { background: #f1f5f7; border: 1px solid #e2e7eb; border-radius: 3px; padding: 1px 5px; font-size: 11px; margin-right: 3px; display: inline-block; margin-bottom: 2px; }
-.ref-badge { background: #eef2f7; color: #323a46; padding: 2px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #ced4da; }
 .table-fixed-head { max-height: 600px; overflow-y: auto; }
 .loading-overlay {
   position: fixed; inset: 0; background: rgba(255, 255, 255, .85); z-index: 2000;
   display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-@media (max-width: 767px) { .lookup-container { width: 100% !important; margin-bottom: 10px; margin-right: 0 !important; } }
 
 /* DataTables-style "Show N entries" / "Search:" header row */
 .dt-toolbar label { font-weight: normal; margin-bottom: 0; }

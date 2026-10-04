@@ -7,9 +7,8 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 
 interface MapScreen {
   sponsor: { user_id: string; name: string; email: string | null; region: string | null };
-  references: { reference_id: string; sponsor_year: string | null; chapter: string | null }[];
-  mappedStudents: { user_id: string; name: string; linked_ref_id: string }[];
-  availableStudents: { user_id: string; name: string; email: string | null; current_sponsor_name: string | null; current_ref_id: string | null }[];
+  mappedStudents: { user_id: string; name: string; email: string | null }[];
+  availableStudents: { user_id: string; name: string; email: string | null; current_sponsor_name: string | null; current_sponsor_id: string | null }[];
 }
 
 /** Port of templates/admin/map_students_to_sponsor.html */
@@ -39,14 +38,7 @@ interface MapScreen {
               <input type="text" class="form-control" placeholder="Search students..." [(ngModel)]="search">
             </div>
             <form (ngSubmit)="submit()">
-              <div class="bg-light p-3 mb-3 border rounded">
-                <label class="font-weight-bold">2. Choose Commitment Reference (Which fund is paying?)</label>
-                <select name="target_reference_id" class="form-control border-primary" [(ngModel)]="targetRef" required>
-                  <option value="">-- Select Reference ID --</option>
-                  <option *ngFor="let r of data.references" [value]="r.reference_id">Ref: {{ r.reference_id }} (Year: {{ r.sponsor_year }}, {{ r.chapter }})</option>
-                </select>
-                <small class="text-muted">Students selected below will be linked to this specific Reference.</small>
-              </div>
+              <p class="text-muted small">Students ticked below will be assigned to <strong>{{ data.sponsor.name }}</strong>. Students who already have another sponsor will be moved.</p>
               <div class="table-responsive table-fixed-head">
                 <table class="table table-hover mb-0">
                   <thead>
@@ -72,8 +64,8 @@ interface MapScreen {
                       </td>
                       <td><strong>{{ s.name }}</strong><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
                       <td>
-                        <span *ngIf="s.current_ref_id; else unassigned" class="badge badge-warning" [title]="'Assigned to Reference ' + s.current_ref_id">
-                          <i class="mdi mdi-account-check"></i> {{ s.current_sponsor_name || s.current_ref_id }}
+                        <span *ngIf="s.current_sponsor_id; else unassigned" class="badge badge-warning" [title]="'Assigned to sponsor ' + s.current_sponsor_id">
+                          <i class="mdi mdi-account-check"></i> {{ s.current_sponsor_name || s.current_sponsor_id }}
                         </span>
                         <ng-template #unassigned><span class="badge badge-success">Unassigned</span></ng-template>
                       </td>
@@ -83,7 +75,7 @@ interface MapScreen {
               </div>
               <div class="mt-3">
                 <button type="submit" class="btn btn-primary btn-block waves-effect waves-light" [disabled]="saving">
-                  <i class="mdi mdi-check-all mr-1"></i> Map Students to Selected Reference
+                  <i class="mdi mdi-check-all mr-1"></i> Map Selected Students to Sponsor
                 </button>
               </div>
             </form>
@@ -95,16 +87,16 @@ interface MapScreen {
         <div class="card">
           <div class="card-body">
             <h4 class="header-title mb-3">Students Mapped to this Sponsor</h4>
-            <p class="text-muted small">Total students supported across all references.</p>
+            <p class="text-muted small">{{ data.mappedStudents.length }} student(s) supported by this sponsor.</p>
             <div class="table-responsive table-fixed-head">
               <table class="table table-striped mb-0">
-                <thead><tr><th>Student Name</th><th>Student ID</th><th>Ref ID</th></tr></thead>
+                <thead><tr><th>Student Name</th><th>Student ID</th><th>Email</th></tr></thead>
                 <tbody>
                   <tr *ngIf="!data.mappedStudents.length"><td colspan="3" class="text-center text-muted">No students assigned yet.</td></tr>
                   <tr *ngFor="let m of data.mappedStudents">
                     <td><strong>{{ m.name }}</strong></td>
                     <td><code class="text-primary">{{ m.user_id }}</code></td>
-                    <td><span class="ref-badge">{{ m.linked_ref_id }}</span></td>
+                    <td>{{ m.email || '-' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -121,7 +113,6 @@ export class AdminSponsorMapComponent implements OnInit {
 
   data: MapScreen | null = null;
   search = '';
-  targetRef = '';
   selected = new Set<string>();
   saving = false;
   message = '';
@@ -141,7 +132,7 @@ export class AdminSponsorMapComponent implements OnInit {
   get visible() {
     const f = this.search.toLowerCase();
     return (this.data?.availableStudents ?? []).filter((s) =>
-      [s.name, s.user_id, s.current_sponsor_name, s.current_ref_id].some((v) => (v ?? '').toLowerCase().includes(f)));
+      [s.name, s.user_id, s.current_sponsor_name, s.current_sponsor_id].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 
   get allChecked(): boolean {
@@ -160,12 +151,10 @@ export class AdminSponsorMapComponent implements OnInit {
 
   submit(): void {
     this.error = '';
-    if (!this.targetRef) { this.error = 'Please select a Reference ID for assignment.'; return; }
     if (!this.selected.size) { this.error = 'Please select at least one student.'; return; }
     this.saving = true;
     this.api.post<{ message: string }>(`/admin/sponsorships/${encodeURIComponent(this.userId)}/map`, {
-      studentIds: [...this.selected],
-      targetReferenceId: this.targetRef
+      studentIds: [...this.selected]
     }).subscribe({
       next: (r) => { this.saving = false; this.message = r.message; this.load(); },
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not map students.'); }

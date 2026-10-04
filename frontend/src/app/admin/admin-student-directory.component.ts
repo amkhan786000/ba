@@ -278,7 +278,7 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
                   </select>
                 </div>
                 <div class="col-md-4 form-group"><label>RCC Name/Center</label><input type="text" name="rccName" class="form-control" [(ngModel)]="manual.rccName"></div>
-                <div class="col-md-12 form-group"><label>Sponsor Reference (User_ID)</label><input type="text" name="sponsorId" class="form-control" placeholder="Enter Sponsor Reference ID" [(ngModel)]="manual.sponsorId"></div>
+                <div class="col-md-12 form-group"><label>Sponsor (User ID)</label><input type="text" name="sponsorId" class="form-control" placeholder="Optional: sponsor's user ID, e.g. USR-2024-001" [(ngModel)]="manual.sponsorId"></div>
               </div>
               <h5 class="text-primary border-bottom pb-2 mt-3">Step 4: Bank</h5>
               <div class="row">

@@ -13,7 +13,6 @@ interface Detail {
   bankDetails: Row | null;
   payments: Row[];
   courseInfo: Row | null;
-  referenceId: string | null;
   annualScheduleAmount: number | string | null;
 }
 
@@ -41,7 +40,7 @@ interface Installment {
               <label for="studentSelect">Select Assigned Student</label>
               <select class="form-control" id="studentSelect" [(ngModel)]="selectedId" (ngModelChange)="select()">
                 <option value="">-- Select a Student --</option>
-                <option *ngFor="let d of details" [value]="d.grantee['user_id']">{{ d.grantee['name'] }} (Ref: {{ d.referenceId }})</option>
+                <option *ngFor="let d of details" [value]="d.grantee['user_id']">{{ d.grantee['name'] }} ({{ d.grantee['user_id'] }})</option>
               </select>
             </div>
 
@@ -49,7 +48,7 @@ interface Installment {
               <div class="row mb-3">
                 <div class="col-12 col-md-6 border-right">
                   <h5 class="text-success mb-1">{{ current.grantee['name'] }}</h5>
-                  <p class="mb-1 text-muted">Ref ID: <span class="font-weight-bold text-dark">{{ current.referenceId }}</span></p>
+                  <p class="mb-1 text-muted">Student ID: <span class="font-weight-bold text-dark">{{ current.grantee['user_id'] }}</span></p>
                   <p class="mb-1 text-muted">Academic Year: <span class="text-dark">{{ current.grantee['year'] || 'N/A' }}</span></p>
                 </div>
                 <div class="col-12 col-md-6 pl-md-4">

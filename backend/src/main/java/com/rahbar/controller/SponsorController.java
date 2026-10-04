@@ -11,8 +11,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.math.BigDecimal;
 import java.util.*;
 
-/** Mirrors routes/sponsor.py (role_id 5). A sponsor is linked to students via
- *  one or more sponsor_references rows, not directly by user_id. */
+/** Mirrors routes/sponsor.py (role_id 5). Students are linked to a sponsor directly:
+ *  grantor_grantees.grantor_id = the sponsor's user_id. */
 @RestController
 @RequestMapping("/api/sponsor")
 @PreAuthorize("hasRole('5')")
@@ -33,8 +33,7 @@ public class SponsorController {
                 "SELECT user_id, name, email, phone, region, status FROM users WHERE user_id = ?", sponsorId);
 
         List<Map<String, Object>> grantorGrantees = jdbc.queryForList("""
-            SELECT gg.*, sr.reference_id AS linked_ref_id FROM grantor_grantees gg
-            JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id WHERE sr.user_id = ?
+            SELECT gg.* FROM grantor_grantees gg WHERE gg.grantor_id = ?
             """, sponsorId);
 
         List<Map<String, Object>> grantees = new ArrayList<>();
@@ -71,7 +70,6 @@ public class SponsorController {
             entry.put("bankDetails", bank);
             entry.put("latestPayment", latestPayment);
             entry.put("paymentStatus", paymentStatus);
-            entry.put("referenceId", gg.get("linked_ref_id"));
             grantees.add(entry);
         }
 
@@ -80,8 +78,7 @@ public class SponsorController {
             SELECT CONCAT('Year ', sp.year) AS label, ROUND(AVG(CAST(sp.marks AS DECIMAL(10,2))), 1) AS value
             FROM student_progress sp
             JOIN grantor_grantees gg ON sp.grantee_id = gg.grantee_id
-            JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
-            WHERE sr.user_id = ? AND sp.year IS NOT NULL
+            WHERE gg.grantor_id = ? AND sp.year IS NOT NULL
             GROUP BY sp.year ORDER BY sp.year
             """, sponsorId);
 
@@ -92,9 +89,8 @@ public class SponsorController {
     public Map<String, Object> payments(@RequestParam(required = false) String granteeId) {
         String sponsorId = AuthUtil.currentUser().getUserId();
         List<Map<String, Object>> assignedStudents = jdbc.queryForList("""
-            SELECT u.user_id, u.name, u.email, u.phone, u.region, u.status, u.year, gg.grantor_id AS linked_ref_id FROM users u
-            JOIN grantor_grantees gg ON u.user_id = gg.grantee_id
-            JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id WHERE sr.user_id = ?
+            SELECT u.user_id, u.name, u.email, u.phone, u.region, u.status, u.year FROM users u
+            JOIN grantor_grantees gg ON u.user_id = gg.grantee_id WHERE gg.grantor_id = ?
             """, sponsorId);
 
         List<Map<String, Object>> paymentDetails = new ArrayList<>();
@@ -116,7 +112,6 @@ public class SponsorController {
             detail.put("bankDetails", bank);
             detail.put("payments", allPayments);
             detail.put("courseInfo", course);
-            detail.put("referenceId", student.get("linked_ref_id"));
             detail.put("annualScheduleAmount", sched == null ? 0 : sched.get("amount"));
             paymentDetails.add(detail);
             studentDataMap.put(sId, detail);
@@ -125,8 +120,7 @@ public class SponsorController {
         List<Map<String, Object>> pastPayments = jdbc.queryForList("""
             SELECT p.*, u.name AS grantee_name FROM payments p
             JOIN users u ON p.grantee_id = u.user_id
-            JOIN sponsor_references sr ON p.grantor_id = sr.reference_id
-            WHERE sr.user_id = ? AND p.status = 'Paid' ORDER BY p.payment_date DESC LIMIT 5
+            WHERE p.grantor_id = ? AND p.status = 'Paid' ORDER BY p.payment_date DESC LIMIT 5
             """, sponsorId);
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -142,31 +136,31 @@ public class SponsorController {
                                                @RequestParam BigDecimal amount,
                                                @RequestParam String paymentDate,
                                                @RequestParam MultipartFile receipt) {
-        Map<String, Object> mapping = first(jdbc.queryForList(
-                "SELECT grantor_id FROM grantor_grantees WHERE grantee_id = ? LIMIT 1", granteeId));
-        if (mapping == null) {
+        // A sponsor can only record payments for students mapped to them.
+        String sponsorId = AuthUtil.currentUser().getUserId();
+        Long mapped = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM grantor_grantees WHERE grantee_id = ? AND grantor_id = ?", Long.class, granteeId, sponsorId);
+        if (mapped == null || mapped == 0) {
             throw new com.rahbar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
-                    "Error: Student is not linked to a valid sponsorship reference.");
+                    "Error: This student is not assigned to you.");
         }
-        String refId = (String) mapping.get("grantor_id");
         String filename = "sponsor_pay_" + granteeId + "_" + System.currentTimeMillis() + "_"
                 + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());
         String stored = fileStorageService.store(receipt, filename);
         jdbc.update("""
             INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, receipt_url, status, created_at, updated_by)
             VALUES (?, ?, ?, ?, ?, 'Paid', NOW(), ?)
-            """, refId, granteeId, amount, paymentDate, stored, AuthUtil.currentUser().getUserId());
+            """, sponsorId, granteeId, amount, paymentDate, stored, sponsorId);
         return Map.of("message", "Payment recorded successfully!");
     }
 
     @GetMapping("/student-progress")
     public List<Map<String, Object>> studentProgress() {
         return jdbc.queryForList("""
-            SELECT sp.*, u.name AS grantee_name, gg.grantor_id AS reference_id FROM student_progress sp
+            SELECT sp.*, u.name AS grantee_name FROM student_progress sp
             JOIN users u ON sp.grantee_id = u.user_id
             JOIN grantor_grantees gg ON u.user_id = gg.grantee_id
-            JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
-            WHERE sr.user_id = ?
+            WHERE gg.grantor_id = ?
             ORDER BY sp.created_at DESC
             """, AuthUtil.currentUser().getUserId());
     }
