@@ -4,12 +4,11 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "notifications")
 @Getter @Setter
-public class Notification {
+public class Notification extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "notification_id")
@@ -27,6 +26,4 @@ public class Notification {
     @Column(name = "notification_date")
     private LocalDate notificationDate;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
 }

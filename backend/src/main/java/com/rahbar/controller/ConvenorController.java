@@ -112,8 +112,8 @@ public class ConvenorController {
 
     @PostMapping("/applications/{applicationId}/status")
     public Map<String, String> updateApplicationStatus(@PathVariable Long applicationId, @RequestBody Map<String, String> body) {
-        jdbc.update("UPDATE grantee_details SET status = ?, comments = ? WHERE application_id = ?",
-                body.get("status"), body.get("comments"), applicationId);
+        jdbc.update("UPDATE grantee_details SET status = ?, comments = ?, updated_by = ?, updated_at = NOW() WHERE application_id = ?",
+                body.get("status"), body.get("comments"), me(), applicationId);
         return Map.of("message", "Application status updated successfully!");
     }
 
@@ -136,9 +136,9 @@ public class ConvenorController {
 
     @PostMapping("/sponsors/{sponsorId}/status/{status}")
     public Map<String, String> updateSponsorStatus(@PathVariable String sponsorId, @PathVariable String status) {
-        jdbc.update("UPDATE users SET status = ? WHERE user_id = ?", status, sponsorId);
+        jdbc.update("UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE user_id = ?", status, me(), sponsorId);
         if ("Inactive".equalsIgnoreCase(status)) {
-            jdbc.update("UPDATE grantor_grantees SET grantor_id = 12 WHERE grantor_id = ?", sponsorId);
+            jdbc.update("UPDATE grantor_grantees SET grantor_id = 12, updated_by = ?, updated_at = NOW() WHERE grantor_id = ?", me(), sponsorId);
         }
         return Map.of("message", "Sponsor status updated to " + status + "!");
     }
@@ -148,7 +148,7 @@ public class ConvenorController {
         @SuppressWarnings("unchecked")
         List<String> studentIds = (List<String>) body.get("studentIds");
         for (String studentId : studentIds) {
-            jdbc.update("UPDATE grantor_grantees SET grantor_id = ? WHERE grantee_id = ?", sponsorId, studentId);
+            jdbc.update("UPDATE grantor_grantees SET grantor_id = ?, updated_by = ?, updated_at = NOW() WHERE grantee_id = ?", sponsorId, me(), studentId);
         }
         return Map.of("message", "Students mapped successfully!");
     }
@@ -178,7 +178,7 @@ public class ConvenorController {
 
     @PostMapping("/profile")
     public Map<String, String> updateProfile(@RequestBody Map<String, String> body) {
-        jdbc.update("UPDATE users SET region = ? WHERE user_id = ?", body.get("region"), AuthUtil.currentUser().getUserId());
+        jdbc.update("UPDATE users SET region = ?, updated_by = ?, updated_at = NOW() WHERE user_id = ?", body.get("region"), me(), AuthUtil.currentUser().getUserId());
         return Map.of("message", "Profile updated successfully!");
     }
 
@@ -241,9 +241,9 @@ public class ConvenorController {
                 + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());
         String path = fileStorageService.store(receipt, filename);
         jdbc.update("""
-            INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, receipt_url, status)
-            VALUES (?, ?, ?, NOW(), ?, 'pending')
-            """, convenorId, granteeId, amount, path);
+            INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, receipt_url, status, created_by, updated_by)
+            VALUES (?, ?, ?, NOW(), ?, 'pending', ?, ?)
+            """, convenorId, granteeId, amount, path, convenorId, convenorId);
         return Map.of("message", "Payment recorded and is now pending approval.");
     }
 
@@ -253,4 +253,10 @@ public class ConvenorController {
         fileStorageService.store(file, filename);
         return Map.of("message", "File uploaded successfully!");
     }
+
+    /** user_id of the logged-in user, written to created_by / updated_by on raw-SQL writes. */
+    private static String me() {
+        return com.rahbar.config.AuditConfig.currentUserId();
+    }
+
 }

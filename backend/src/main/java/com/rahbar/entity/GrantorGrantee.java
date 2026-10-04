@@ -3,12 +3,11 @@ package com.rahbar.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "grantor_grantees")
 @Getter @Setter
-public class GrantorGrantee {
+public class GrantorGrantee extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "grantor_grantee_id")
@@ -23,9 +22,4 @@ public class GrantorGrantee {
     @Column(name = "status")
     private String status = "Pending";
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }

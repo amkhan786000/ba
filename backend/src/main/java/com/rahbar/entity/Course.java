@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "courses")
 @Getter @Setter
-public class Course {
+public class Course extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "course_id")

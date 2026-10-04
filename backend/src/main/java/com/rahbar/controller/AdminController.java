@@ -1,5 +1,6 @@
 package com.rahbar.controller;
 
+import com.rahbar.config.AuditConfig;
 import com.rahbar.entity.*;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.*;
@@ -42,6 +43,11 @@ public class AdminController {
      *  courses/institutions, sponsors (map students only, no contact info) and the student directory. */
     static final int OFFICE_COORDINATOR = 8;
     static final String ADMIN_OR_OFFICE = "hasAnyRole('1','2','8')";
+
+    /** user_id of the logged-in user, written to created_by / updated_by on raw-SQL writes. */
+    private static String me() {
+        return AuditConfig.currentUserId();
+    }
 
     private static boolean isOfficeCoordinator() {
         return Integer.valueOf(OFFICE_COORDINATOR).equals(AuthUtil.currentUser().getRoleId());
@@ -144,7 +150,7 @@ public class AdminController {
 
     @PostMapping("/application-period/end")
     public Map<String, String> endApplicationPeriod() {
-        int updated = jdbc.update("UPDATE application_period SET is_active = 0 WHERE is_active = 1");
+        int updated = jdbc.update("UPDATE application_period SET is_active = 0, updated_by = ?, updated_at = NOW() WHERE is_active = 1", me());
         return Map.of("message", updated > 0 ? updated + " application period(s) ended successfully!" : "No active application period found to end.");
     }
 
@@ -379,11 +385,11 @@ public class AdminController {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid course-institution combination");
         }
         jdbc.update("""
-            INSERT INTO student_institution_courses (user_id, institution_id, course_id, assigned_by, assigned_at)
-            VALUES (?, ?, ?, ?, NOW())
+            INSERT INTO student_institution_courses (user_id, institution_id, course_id, assigned_by, assigned_at, created_by, updated_by)
+            VALUES (?, ?, ?, ?, NOW(), ?, ?)
             ON DUPLICATE KEY UPDATE institution_id = VALUES(institution_id), course_id = VALUES(course_id),
-                assigned_by = VALUES(assigned_by), assigned_at = NOW()
-            """, userId, institutionId, courseId, AuthUtil.currentUser().getUserId());
+                assigned_by = VALUES(assigned_by), assigned_at = NOW(), updated_by = VALUES(updated_by), updated_at = NOW()
+            """, userId, institutionId, courseId, me(), me(), me());
         return Map.of("message", "Assignment updated successfully!");
     }
 
@@ -451,10 +457,10 @@ public class AdminController {
         }
         for (String studentId : studentIds) {
             jdbc.update("""
-                INSERT INTO grantor_grantees (grantee_id, grantor_id, status, created_at)
-                VALUES (?, ?, 'Accepted', NOW())
-                ON DUPLICATE KEY UPDATE grantor_id = VALUES(grantor_id), updated_at = NOW()
-                """, studentId, userId);
+                INSERT INTO grantor_grantees (grantee_id, grantor_id, status, created_at, created_by, updated_by)
+                VALUES (?, ?, 'Accepted', NOW(), ?, ?)
+                ON DUPLICATE KEY UPDATE grantor_id = VALUES(grantor_id), updated_by = VALUES(updated_by), updated_at = NOW()
+                """, studentId, userId, me(), me());
         }
         return Map.of("message", studentIds.size() + " student(s) mapped to the sponsor successfully!");
     }
@@ -561,8 +567,9 @@ public class AdminController {
             }
         }
         if (!userParams.isEmpty()) {
+            userParams.add(me());
             userParams.add(userId);
-            jdbc.update("UPDATE users SET " + userSet + ", updated_at = NOW() WHERE user_id = ?", userParams.toArray());
+            jdbc.update("UPDATE users SET " + userSet + ", updated_by = ?, updated_at = NOW() WHERE user_id = ?", userParams.toArray());
         }
 
         List<Object> gdParams = new ArrayList<>();
@@ -575,28 +582,29 @@ public class AdminController {
             }
         }
         if (!gdParams.isEmpty()) {
+            gdParams.add(me());
             gdParams.add(userId);
-            jdbc.update("UPDATE grantee_details SET " + gdSet + ", updated_at = NOW() WHERE user_id = ?", gdParams.toArray());
+            jdbc.update("UPDATE grantee_details SET " + gdSet + ", updated_by = ?, updated_at = NOW() WHERE user_id = ?", gdParams.toArray());
         }
 
         if (data.get("accountNumber") != null) {
             boolean exists = !jdbc.queryForList("SELECT bank_detail_id FROM bank_details WHERE user_id = ?", userId).isEmpty();
             if (exists) {
-                jdbc.update("UPDATE bank_details SET bank_name=?, account_number=?, ifsc_code=?, account_name=? WHERE user_id=?",
-                        data.get("bankName"), data.get("accountNumber"), data.get("ifscCode"), data.get("accountName"), userId);
+                jdbc.update("UPDATE bank_details SET bank_name=?, account_number=?, ifsc_code=?, account_name=?, updated_by=?, updated_at=NOW() WHERE user_id=?",
+                        data.get("bankName"), data.get("accountNumber"), data.get("ifscCode"), data.get("accountName"), me(), userId);
             } else {
                 Long nextId = jdbc.queryForObject("SELECT COALESCE(MAX(bank_detail_id),0)+1 FROM bank_details", Long.class);
-                jdbc.update("INSERT INTO bank_details (bank_detail_id, user_id, bank_name, account_number, ifsc_code, account_name) VALUES (?,?,?,?,?,?)",
-                        nextId, userId, data.get("bankName"), data.get("accountNumber"), data.get("ifscCode"), data.get("accountName"));
+                jdbc.update("INSERT INTO bank_details (bank_detail_id, user_id, bank_name, account_number, ifsc_code, account_name, created_by, updated_by) VALUES (?,?,?,?,?,?,?,?)",
+                        nextId, userId, data.get("bankName"), data.get("accountNumber"), data.get("ifscCode"), data.get("accountName"), me(), me());
             }
         }
 
         if (data.get("institutionId") != null && data.get("courseId") != null) {
             jdbc.update("""
-                INSERT INTO student_institution_courses (user_id, institution_id, course_id, assigned_by, assigned_at)
-                VALUES (?, ?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE institution_id=VALUES(institution_id), course_id=VALUES(course_id)
-                """, userId, data.get("institutionId"), data.get("courseId"), AuthUtil.currentUser().getUserId());
+                INSERT INTO student_institution_courses (user_id, institution_id, course_id, assigned_by, assigned_at, created_by, updated_by)
+                VALUES (?, ?, ?, ?, NOW(), ?, ?)
+                ON DUPLICATE KEY UPDATE institution_id=VALUES(institution_id), course_id=VALUES(course_id), updated_by=VALUES(updated_by), updated_at=NOW()
+                """, userId, data.get("institutionId"), data.get("courseId"), me(), me(), me());
         }
 
         return Map.of("message", "Successfully updated student record.");
@@ -607,8 +615,8 @@ public class AdminController {
     public Map<String, String> studentAction(@PathVariable String userId, @RequestBody Map<String, String> body) {
         String action = body.get("action");
         switch (action) {
-            case "deactivate" -> jdbc.update("UPDATE users SET status = 'Inactive' WHERE user_id = ?", userId);
-            case "activate" -> jdbc.update("UPDATE users SET status = 'Active' WHERE user_id = ?", userId);
+            case "deactivate" -> jdbc.update("UPDATE users SET status = 'Inactive', updated_by = ?, updated_at = NOW() WHERE user_id = ?", me(), userId);
+            case "activate" -> jdbc.update("UPDATE users SET status = 'Active', updated_by = ?, updated_at = NOW() WHERE user_id = ?", me(), userId);
             case "unmap" -> jdbc.update("DELETE FROM grantor_grantees WHERE grantee_id = ?", userId);
             case "delete" -> {
                 long payCount = jdbc.queryForObject("SELECT COUNT(*) FROM payments WHERE grantee_id = ?", Long.class, userId);
@@ -647,19 +655,19 @@ public class AdminController {
 
                     boolean exists = !jdbc.queryForList("SELECT user_id FROM users WHERE user_id = ?", uId).isEmpty();
                     if (exists) {
-                        jdbc.update("UPDATE users SET name=?, email=?, phone=?, updated_at=NOW() WHERE user_id=?", name, email, phone, uId);
+                        jdbc.update("UPDATE users SET name=?, email=?, phone=?, updated_by=?, updated_at=NOW() WHERE user_id=?", name, email, phone, me(), uId);
                     } else {
                         jdbc.update("""
-                            INSERT INTO users (user_id, name, email, sex, phone, role_id, status, password_hash, created_at, updated_at)
-                            VALUES (?, ?, ?, 'M', ?, 6, 'Active', ?, NOW(), NOW())
-                            """, uId, name, email, phone, passwordEncoder.encode("hello"));
+                            INSERT INTO users (user_id, name, email, sex, phone, role_id, status, password_hash, created_at, updated_at, created_by, updated_by)
+                            VALUES (?, ?, ?, 'M', ?, 6, 'Active', ?, NOW(), NOW(), ?, ?)
+                            """, uId, name, email, phone, passwordEncoder.encode("hello"), me(), me());
                     }
 
                     jdbc.update("""
-                        INSERT INTO grantee_details (user_id, name, father_name, address, course_applied, rcc_name, father_mobile, mother_mobile, student_mobile, created_at, updated_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-                        ON DUPLICATE KEY UPDATE name=VALUES(name), father_name=VALUES(father_name), address=VALUES(address), course_applied=VALUES(course_applied), updated_at=NOW()
-                        """, uId, name, r.get("fathername"), r.get("address"), r.get("course(branch)"), r.get("rccnon-rcc"), r.get("mobile-1"), r.get("mobile-2"), phone);
+                        INSERT INTO grantee_details (user_id, name, father_name, address, course_applied, rcc_name, father_mobile, mother_mobile, student_mobile, created_at, updated_at, created_by, updated_by)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?)
+                        ON DUPLICATE KEY UPDATE name=VALUES(name), father_name=VALUES(father_name), address=VALUES(address), course_applied=VALUES(course_applied), updated_by=VALUES(updated_by), updated_at=NOW()
+                        """, uId, name, r.get("fathername"), r.get("address"), r.get("course(branch)"), r.get("rccnon-rcc"), r.get("mobile-1"), r.get("mobile-2"), phone, me(), me());
 
                     success++;
                 } catch (Exception rowEx) {
@@ -709,11 +717,11 @@ public class AdminController {
                         String given = r.get("sponsorid");
                         userId = given != null ? given : "USR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
                         jdbc.update("""
-                            INSERT INTO users (user_id, name, email, phone, role_id, status, password_hash, region, created_at, updated_at)
-                            VALUES (?, ?, ?, ?, 5, 'active', ?, ?, NOW(), NOW())
-                            """, userId, name, email, mobile1, passwordEncoder.encode("hello"), chapter);
+                            INSERT INTO users (user_id, name, email, phone, role_id, status, password_hash, region, created_at, updated_at, created_by, updated_by)
+                            VALUES (?, ?, ?, ?, 5, 'active', ?, ?, NOW(), NOW(), ?, ?)
+                            """, userId, name, email, mobile1, passwordEncoder.encode("hello"), chapter, me(), me());
                     } else {
-                        jdbc.update("UPDATE users SET updated_at = NOW() WHERE user_id = ?", userId);
+                        jdbc.update("UPDATE users SET updated_by = ?, updated_at = NOW() WHERE user_id = ?", me(), userId);
                     }
 
                     String assigned = r.get("studentassigned");
@@ -721,10 +729,10 @@ public class AdminController {
                         for (String stuId : assigned.split(",")) {
                             if (stuId.isBlank()) continue;
                             jdbc.update("""
-                                INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at)
-                                VALUES (?, ?, 'Accepted', NOW())
-                                ON DUPLICATE KEY UPDATE grantor_id = VALUES(grantor_id), updated_at = NOW()
-                                """, userId, stuId.trim());
+                                INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at, created_by, updated_by)
+                                VALUES (?, ?, 'Accepted', NOW(), ?, ?)
+                                ON DUPLICATE KEY UPDATE grantor_id = VALUES(grantor_id), updated_by = VALUES(updated_by), updated_at = NOW()
+                                """, userId, stuId.trim(), me(), me());
                         }
                     }
                     success++;
@@ -755,29 +763,29 @@ public class AdminController {
         String email = body.get("email") != null ? String.valueOf(body.get("email")) : uId + "@rahbar.com";
 
         jdbc.update("""
-            INSERT INTO users (user_id, name, email, sex, phone, role_id, status, password_hash, year, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, 6, 'Active', ?, ?, NOW(), NOW())
-            ON DUPLICATE KEY UPDATE name=VALUES(name), email=VALUES(email), phone=VALUES(phone), year=VALUES(year), updated_at=NOW()
-            """, uId, name, email, body.get("sex"), body.get("phone"), passwordEncoder.encode("hello"), body.get("year"));
+            INSERT INTO users (user_id, name, email, sex, phone, role_id, status, password_hash, year, created_at, updated_at, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, 6, 'Active', ?, ?, NOW(), NOW(), ?, ?)
+            ON DUPLICATE KEY UPDATE name=VALUES(name), email=VALUES(email), phone=VALUES(phone), year=VALUES(year), updated_by=VALUES(updated_by), updated_at=NOW()
+            """, uId, name, email, body.get("sex"), body.get("phone"), passwordEncoder.encode("hello"), body.get("year"), me(), me());
 
         jdbc.update("""
-            INSERT INTO grantee_details (user_id, name, father_name, mother_name, address, course_applied, rcc_name, father_mobile, mother_mobile, student_mobile, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-            ON DUPLICATE KEY UPDATE father_name=VALUES(father_name), mother_name=VALUES(mother_name), address=VALUES(address), course_applied=VALUES(course_applied), rcc_name=VALUES(rcc_name), updated_at=NOW()
+            INSERT INTO grantee_details (user_id, name, father_name, mother_name, address, course_applied, rcc_name, father_mobile, mother_mobile, student_mobile, created_at, updated_at, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), ?, ?)
+            ON DUPLICATE KEY UPDATE father_name=VALUES(father_name), mother_name=VALUES(mother_name), address=VALUES(address), course_applied=VALUES(course_applied), rcc_name=VALUES(rcc_name), updated_by=VALUES(updated_by), updated_at=NOW()
             """, uId, name, body.get("fatherName"), body.get("motherName"), body.get("address"), body.get("courseName"),
-                body.get("rccName"), body.get("fatherMobile"), body.get("motherMobile"), body.get("phone"));
+                body.get("rccName"), body.get("fatherMobile"), body.get("motherMobile"), body.get("phone"), me(), me());
 
         // Bank details (Flask: only when a bank name is given; account name = student name)
         Object bankName = body.get("bankName");
         if (bankName != null && !String.valueOf(bankName).isBlank()) {
             boolean exists = !jdbc.queryForList("SELECT bank_detail_id FROM bank_details WHERE user_id = ?", uId).isEmpty();
             if (exists) {
-                jdbc.update("UPDATE bank_details SET bank_name=?, account_number=?, ifsc_code=?, account_name=? WHERE user_id=?",
-                        bankName, body.get("accountNumber"), body.get("ifscCode"), name, uId);
+                jdbc.update("UPDATE bank_details SET bank_name=?, account_number=?, ifsc_code=?, account_name=?, updated_by=?, updated_at=NOW() WHERE user_id=?",
+                        bankName, body.get("accountNumber"), body.get("ifscCode"), name, me(), uId);
             } else {
                 Long nextId = jdbc.queryForObject("SELECT COALESCE(MAX(bank_detail_id),0)+1 FROM bank_details", Long.class);
-                jdbc.update("INSERT INTO bank_details (bank_detail_id, user_id, bank_name, account_number, ifsc_code, account_name) VALUES (?,?,?,?,?,?)",
-                        nextId, uId, bankName, body.get("accountNumber"), body.get("ifscCode"), name);
+                jdbc.update("INSERT INTO bank_details (bank_detail_id, user_id, bank_name, account_number, ifsc_code, account_name, created_by, updated_by) VALUES (?,?,?,?,?,?,?,?)",
+                        nextId, uId, bankName, body.get("accountNumber"), body.get("ifscCode"), name, me(), me());
             }
         }
 
@@ -786,10 +794,10 @@ public class AdminController {
         Object courseId = body.get("courseId");
         if (instId != null && courseId != null && !String.valueOf(instId).isBlank() && !String.valueOf(courseId).isBlank()) {
             jdbc.update("""
-                INSERT INTO student_institution_courses (user_id, institution_id, course_id, assigned_by, assigned_at)
-                VALUES (?, ?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE institution_id=VALUES(institution_id), course_id=VALUES(course_id)
-                """, uId, instId, courseId, AuthUtil.currentUser().getUserId());
+                INSERT INTO student_institution_courses (user_id, institution_id, course_id, assigned_by, assigned_at, created_by, updated_by)
+                VALUES (?, ?, ?, ?, NOW(), ?, ?)
+                ON DUPLICATE KEY UPDATE institution_id=VALUES(institution_id), course_id=VALUES(course_id), updated_by=VALUES(updated_by), updated_at=NOW()
+                """, uId, instId, courseId, me(), me(), me());
         }
 
         // Optional sponsor: map the student straight to that sponsor's user account.
@@ -803,10 +811,10 @@ public class AdminController {
                         "Student " + uId + " was saved, but no sponsor with user ID '" + sid + "' exists, so they were not mapped.");
             }
             jdbc.update("""
-                INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at)
-                VALUES (?, ?, 'Accepted', NOW())
-                ON DUPLICATE KEY UPDATE grantor_id = VALUES(grantor_id), updated_at = NOW()
-                """, sid, uId);
+                INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at, created_by, updated_by)
+                VALUES (?, ?, 'Accepted', NOW(), ?, ?)
+                ON DUPLICATE KEY UPDATE grantor_id = VALUES(grantor_id), updated_by = VALUES(updated_by), updated_at = NOW()
+                """, sid, uId, me(), me());
         }
 
         return Map.of("message", "Student " + uId + " registered successfully!");
@@ -830,8 +838,8 @@ public class AdminController {
 
     @PutMapping("/sponsors/{userId}")
     public Map<String, String> updateSponsor(@PathVariable String userId, @RequestBody Map<String, Object> data) {
-        jdbc.update("UPDATE users SET name=?, email=?, phone=?, region=? WHERE user_id=?",
-                data.get("name"), data.get("email"), data.get("phone"), data.get("region"), userId);
+        jdbc.update("UPDATE users SET name=?, email=?, phone=?, region=?, updated_by=?, updated_at=NOW() WHERE user_id=?",
+                data.get("name"), data.get("email"), data.get("phone"), data.get("region"), me(), userId);
         return Map.of("message", "Sponsor profile updated!");
     }
 
@@ -861,9 +869,9 @@ public class AdminController {
             }
             String sponsorId = String.valueOf(mapping.get(0).get("grantor_id"));
             jdbc.update("""
-                INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, status, receipt_url, created_at, updated_by)
-                VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
-                """, sponsorId, granteeId, amount, paymentDate, status, receiptPath, userId);
+                INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, status, receipt_url, created_at, created_by, updated_by)
+                VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, ?)
+                """, sponsorId, granteeId, amount, paymentDate, status, receiptPath, userId, userId);
             return Map.of("message", "Payment recorded and linked to the student's sponsor successfully.");
         } else {
             StringBuilder sql = new StringBuilder("UPDATE payments SET amount=?, payment_date=?, status=?, updated_at=NOW(), updated_by=?");

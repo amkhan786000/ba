@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "payments")
 @Getter @Setter
-public class Payment {
+public class Payment extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "payment_id")
@@ -40,12 +40,4 @@ public class Payment {
     @Column(name = "due_date")
     private LocalDate dueDate;
 
-    @Column(name = "updated_by", length = 50)
-    private String updatedBy;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }

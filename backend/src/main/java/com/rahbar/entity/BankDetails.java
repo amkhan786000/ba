@@ -3,12 +3,11 @@ package com.rahbar.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "bank_details")
 @Getter @Setter
-public class BankDetails {
+public class BankDetails extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "bank_detail_id")
@@ -29,9 +28,4 @@ public class BankDetails {
     @Column(name = "ifsc_code", nullable = false)
     private String ifscCode;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }
