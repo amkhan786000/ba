@@ -3,12 +3,11 @@ package com.rahbar.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "rcc_centers")
 @Getter @Setter
-public class RccCenter {
+public class RccCenter extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "rcc_center_id")
@@ -26,9 +25,4 @@ public class RccCenter {
     @Column(name = "location")
     private String location;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }

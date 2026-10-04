@@ -4,12 +4,11 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "grantee_details")
 @Getter @Setter
-public class GranteeDetails {
+public class GranteeDetails extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "grantee_detail_id")
@@ -57,9 +56,4 @@ public class GranteeDetails {
     @Column(name = "student_mobile")
     private String studentMobile;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }

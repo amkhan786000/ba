@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "application_period")
 @Getter @Setter
-public class ApplicationPeriod {
+public class ApplicationPeriod extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")

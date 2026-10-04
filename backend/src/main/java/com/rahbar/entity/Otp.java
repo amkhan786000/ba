@@ -3,13 +3,12 @@ package com.rahbar.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "otp")
 @IdClass(Otp.OtpId.class)
 @Getter @Setter
-public class Otp {
+public class Otp extends Modifiable {
     @Id
     @Column(name = "user_id", length = 50)
     private String userId;
@@ -17,9 +16,6 @@ public class Otp {
     @Id
     @Column(name = "otp", length = 6)
     private String otp;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
 
     @Column(name = "status")
     private Integer status = 0; // 0=Unused, 1=Used, 2=Expired

@@ -59,7 +59,7 @@ interface Course {
                 </div>
               </div>
               <div class="d-flex justify-content-between">
-                <a routerLink="/admin/courses" class="btn btn-light btn-lg">Back</a>
+                <a [routerLink]="['/', section, 'courses']" class="btn btn-light btn-lg">Back</a>
                 <button type="submit" class="btn btn-primary btn-lg waves-effect waves-light" [disabled]="f.invalid || saving">Save Course</button>
               </div>
             </form>
@@ -70,6 +70,10 @@ interface Course {
   `
 })
 export class AdminCourseEditComponent implements OnInit {
+  /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
+  @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
+  get section(): string { return this._section; }
+  private _section = 'admin';
   @Input() id?: string;
 
   institutions: Institution[] = [];
@@ -107,7 +111,7 @@ export class AdminCourseEditComponent implements OnInit {
   save(): void {
     this.saving = true;
     this.api.post('/admin/courses', this.course).subscribe({
-      next: () => this.router.navigate(['/admin/courses']),
+      next: () => this.router.navigate(['/', this.section, 'courses']),
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not save the course.'); }
     });
   }

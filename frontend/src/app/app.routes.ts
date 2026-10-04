@@ -39,6 +39,7 @@ import { SponsorPaymentsComponent } from './sponsor/sponsor-payments.component';
 import { SponsorProgressComponent } from './sponsor/sponsor-progress.component';
 import { StudentPaymentsComponent } from './student/student-payments.component';
 import { StudentProgressComponent } from './student/student-progress.component';
+import { OfficeDashboardComponent } from './office/office-dashboard.component';
 import { roleGuard } from './core/guards/role.guard';
 import { ROLE } from './core/models/user.model';
 
@@ -180,6 +181,40 @@ export const routes: Routes = [
       { path: 'dashboard', component: StudentDashboardComponent },
       { path: 'payments', component: StudentPaymentsComponent },
       { path: 'progress', component: StudentProgressComponent }
+    ]
+  },
+
+  {
+    path: 'office',
+    component: ShellComponent,
+    canActivate: [roleGuard([ROLE.OFFICE_COORDINATOR])],
+    data: {
+      title: 'Office Coordinator Panel',
+      links: [
+        { path: '/office/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
+        { path: '/office/system-configuration', label: 'Payment Config', icon: 'mdi-settings' },
+        { path: '/office/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank' },
+        { path: '/office/courses', label: 'Courses', icon: 'mdi-book-open' },
+        { path: '/office/sponsorships', label: 'Sponsors', icon: 'mdi-account-switch' },
+        { path: '/office/students', label: 'Student Directory', icon: 'mdi-account-details' }
+      ]
+    },
+    // Reuses the admin pages; section: 'office' keeps their links inside /office,
+    // limited: true hides sponsor contact info, profile editing and bulk upload.
+    children: [
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'dashboard', component: OfficeDashboardComponent },
+      { path: 'system-configuration', component: AdminSystemConfigComponent },
+      { path: 'rcc-centers', component: AdminRccCentersComponent, data: { section: 'office' } },
+      { path: 'rcc-centers/new', component: AdminRccCenterEditComponent, data: { section: 'office' } },
+      { path: 'rcc-centers/:id/edit', component: AdminRccCenterEditComponent, data: { section: 'office' } },
+      { path: 'courses', component: AdminCoursesComponent, data: { section: 'office' } },
+      { path: 'courses/new', component: AdminCourseEditComponent, data: { section: 'office' } },
+      { path: 'courses/:id/edit', component: AdminCourseEditComponent, data: { section: 'office' } },
+      { path: 'institutions/new', component: AdminInstitutionAddComponent, data: { section: 'office' } },
+      { path: 'sponsorships', component: AdminSponsorshipsComponent, data: { section: 'office', limited: true } },
+      { path: 'sponsorships/:userId/map', component: AdminSponsorMapComponent, data: { section: 'office' } },
+      { path: 'students', component: AdminStudentDirectoryComponent }
     ]
   },
 

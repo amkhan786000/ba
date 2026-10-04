@@ -80,13 +80,13 @@ public class StudentController {
         String userId = AuthUtil.currentUser().getUserId();
         boolean exists = !jdbc.queryForList("SELECT bank_detail_id FROM bank_details WHERE user_id = ?", userId).isEmpty();
         if (exists) {
-            jdbc.update("UPDATE bank_details SET bank_name=?, account_number=?, ifsc_code=?, account_name=? WHERE user_id=?",
-                    body.get("bankName"), body.get("accountNumber"), body.get("ifscCode"), body.get("accountName"), userId);
+            jdbc.update("UPDATE bank_details SET bank_name=?, account_number=?, ifsc_code=?, account_name=?, updated_by=?, updated_at=NOW() WHERE user_id=?",
+                    body.get("bankName"), body.get("accountNumber"), body.get("ifscCode"), body.get("accountName"), userId, userId);
         } else {
             // bank_detail_id isn't auto-generated (the admin code assigns MAX+1 the same way)
             Long nextId = jdbc.queryForObject("SELECT COALESCE(MAX(bank_detail_id),0)+1 FROM bank_details", Long.class);
-            jdbc.update("INSERT INTO bank_details (bank_detail_id, user_id, bank_name, account_number, ifsc_code, account_name) VALUES (?,?,?,?,?,?)",
-                    nextId, userId, body.get("bankName"), body.get("accountNumber"), body.get("ifscCode"), body.get("accountName"));
+            jdbc.update("INSERT INTO bank_details (bank_detail_id, user_id, bank_name, account_number, ifsc_code, account_name, created_by, updated_by) VALUES (?,?,?,?,?,?,?,?)",
+                    nextId, userId, body.get("bankName"), body.get("accountNumber"), body.get("ifscCode"), body.get("accountName"), userId, userId);
         }
         return Map.of("success", true, "message", "Bank details updated successfully!");
     }
@@ -108,9 +108,9 @@ public class StudentController {
         fileStorageService.store(file, filename);
 
         jdbc.update("""
-            INSERT INTO student_progress (progress_id, grantee_id, marks, file_path, created_at, updated_at, session, year, updated_by)
-            VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?, ?)
-            """, newId, userId, marks, filename, session, year, userId);
+            INSERT INTO student_progress (progress_id, grantee_id, marks, file_path, created_at, updated_at, session, year, created_by, updated_by)
+            VALUES (?, ?, ?, ?, NOW(), NOW(), ?, ?, ?, ?)
+            """, newId, userId, marks, filename, session, year, userId, userId);
         return Map.of("message", "Progress submitted successfully!");
     }
 
@@ -127,7 +127,7 @@ public class StudentController {
         String filename = fileStorageService.sanitizeFilename("proof_" + paymentId + "_" + System.currentTimeMillis() + "_" + proofFile.getOriginalFilename());
         fileStorageService.store(proofFile, filename);
         int updated = jdbc.update(
-                "UPDATE payments SET student_proof_url = ? WHERE payment_id = ? AND grantee_id = ?", filename, paymentId, userId);
+                "UPDATE payments SET student_proof_url = ?, updated_by = ?, updated_at = NOW() WHERE payment_id = ? AND grantee_id = ?", filename, userId, paymentId, userId);
         if (updated == 0) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Payment not found for this student.");
         }

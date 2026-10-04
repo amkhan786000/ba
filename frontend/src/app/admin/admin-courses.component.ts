@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -26,8 +26,8 @@ export interface CourseRow {
 
     <div class="row mb-3">
       <div class="col-12">
-        <a routerLink="/admin/courses/new" class="btn btn-primary btn-responsive mr-1"><i class="mdi mdi-plus mr-1"></i>Add New Course</a>
-        <a routerLink="/admin/institutions/new" class="btn btn-success btn-responsive"><i class="mdi mdi-bank mr-1"></i>Add New Institution</a>
+        <a [routerLink]="['/', section, 'courses', 'new']" class="btn btn-primary btn-responsive mr-1"><i class="mdi mdi-plus mr-1"></i>Add New Course</a>
+        <a [routerLink]="['/', section, 'institutions', 'new']" class="btn btn-success btn-responsive"><i class="mdi mdi-bank mr-1"></i>Add New Institution</a>
       </div>
     </div>
 
@@ -51,7 +51,7 @@ export interface CourseRow {
                     <td>{{ c.course_description }}</td>
                     <td>{{ c.fees_per_semester }}</td>
                     <td>{{ c.number_of_semesters }}</td>
-                    <td><a [routerLink]="['/admin/courses', c.course_id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a></td>
+                    <td><a [routerLink]="['/', section, 'courses', c.course_id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a></td>
                   </tr>
                 </tbody>
               </table>
@@ -63,6 +63,10 @@ export interface CourseRow {
   `
 })
 export class AdminCoursesComponent implements OnInit {
+  /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
+  @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
+  get section(): string { return this._section; }
+  private _section = 'admin';
   courses: CourseRow[] = [];
   search = '';
   error = '';

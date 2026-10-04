@@ -148,9 +148,9 @@ public class SponsorController {
                 + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());
         String stored = fileStorageService.store(receipt, filename);
         jdbc.update("""
-            INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, receipt_url, status, created_at, updated_by)
-            VALUES (?, ?, ?, ?, ?, 'Paid', NOW(), ?)
-            """, sponsorId, granteeId, amount, paymentDate, stored, sponsorId);
+            INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, receipt_url, status, created_at, created_by, updated_by)
+            VALUES (?, ?, ?, ?, ?, 'Paid', NOW(), ?, ?)
+            """, sponsorId, granteeId, amount, paymentDate, stored, sponsorId, sponsorId);
         return Map.of("message", "Payment recorded successfully!");
     }
 

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -30,7 +30,7 @@ interface SponsorStudent {
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent],
   template: `
-    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Sponsorships</h4></div></div></div>
+    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">{{ limited ? 'Sponsors' : 'Manage Sponsorships' }}</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
 
     <div class="row">
@@ -40,7 +40,7 @@ interface SponsorStudent {
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
               <h4 class="header-title mb-2 mb-md-0">Sponsors</h4>
               <div class="d-flex flex-column flex-sm-row align-items-center">
-                <button type="button" class="btn btn-success waves-effect waves-light" (click)="showUpload = true">
+                <button *ngIf="!limited" type="button" class="btn btn-success waves-effect waves-light" (click)="showUpload = true">
                   <i class="mdi mdi-file-upload"></i> Bulk Upload
                 </button>
               </div>
@@ -60,21 +60,21 @@ interface SponsorStudent {
 
             <div class="table-responsive">
               <table class="table table-bordered table-striped nowrap" style="width:100%">
-                <thead><tr><th>Sponsor Name</th><th>Students</th><th>Contact Info</th><th>Chapter</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Sponsor Name</th><th>Students</th><th *ngIf="!limited">Contact Info</th><th>Chapter</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="!filtered.length"><td colspan="5" class="text-center text-muted">No matching records found</td></tr>
+                  <tr *ngIf="!filtered.length"><td [attr.colspan]="limited ? 4 : 5" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let s of rows">
                     <td><strong>{{ s.name }}</strong><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
                     <td><span class="badge badge-light border">{{ s.student_count }}</span></td>
-                    <td>
+                    <td *ngIf="!limited">
                       <span><i class="mdi mdi-email-outline"></i> {{ s.email || '-' }}</span><br>
                       <span><i class="mdi mdi-phone"></i> {{ s.phone || '-' }}</span>
                     </td>
                     <td>{{ s.region }}</td>
                     <td>
                       <div class="btn-group">
-                        <button class="btn btn-sm btn-info" (click)="openEdit(s.user_id)"><i class="mdi mdi-pencil"></i> Edit Profile</button>
-                        <a [routerLink]="['/admin/sponsorships', s.user_id, 'map']" class="btn btn-sm btn-primary waves-effect waves-light">
+                        <button *ngIf="!limited" class="btn btn-sm btn-info" (click)="openEdit(s.user_id)"><i class="mdi mdi-pencil"></i> Edit Profile</button>
+                        <a [routerLink]="['/', section, 'sponsorships', s.user_id, 'map']" class="btn btn-sm btn-primary waves-effect waves-light">
                           <i class="mdi mdi-account-arrow-right"></i> Map Students
                         </a>
                       </div>
@@ -168,6 +168,15 @@ interface SponsorStudent {
   `
 })
 export class AdminSponsorshipsComponent implements OnInit {
+  /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
+  @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
+  get section(): string { return this._section; }
+  private _section = 'admin';
+
+  /** Office Coordinator view: no contact info, no profile editing, no bulk upload - only Map Students. */
+  @Input() set limited(v: boolean | undefined) { this._limited = !!v; }
+  get limited(): boolean { return this._limited; }
+  private _limited = false;
   sponsors: SponsorRow[] = [];
   search = '';
   page = 1;
@@ -209,7 +218,7 @@ export class AdminSponsorshipsComponent implements OnInit {
   }
 
   upload(): void {
-    if (!this.file) return;
+    if (this.limited || !this.file) return;
     const form = new FormData();
     form.append('file', this.file);
     this.showUpload = false;
@@ -221,6 +230,7 @@ export class AdminSponsorshipsComponent implements OnInit {
   }
 
   openEdit(userId: string): void {
+    if (this.limited) return;
     this.api.get<{ profile: Record<string, string | null>; students: SponsorStudent[] }>(`/admin/sponsors/${encodeURIComponent(userId)}`).subscribe({
       next: (res) => {
         const p = res.profile;

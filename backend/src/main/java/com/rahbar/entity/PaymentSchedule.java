@@ -5,12 +5,11 @@ import lombok.Getter;
 import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "payment_schedules")
 @Getter @Setter
-public class PaymentSchedule {
+public class PaymentSchedule extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "schedule_id")
@@ -28,9 +27,4 @@ public class PaymentSchedule {
     @Column(name = "deadline_date")
     private LocalDate deadlineDate;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @Column(name = "updated_by", length = 50)
-    private String updatedBy;
 }

@@ -4,13 +4,12 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
 @Getter
 @Setter
-public class User {
+public class User extends Modifiable {
     @Id
     @Column(name = "user_id", length = 50)
     private String userId;
@@ -42,9 +41,4 @@ public class User {
     @Column(name = "year")
     private Integer year;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }

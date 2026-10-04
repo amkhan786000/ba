@@ -3,12 +3,11 @@ package com.rahbar.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "institutions")
 @Getter @Setter
-public class Institution {
+public class Institution extends Modifiable {
     @Id
     @Column(name = "institution_id", length = 50)
     private String institutionId;
@@ -25,9 +24,4 @@ public class Institution {
     @Column(name = "email")
     private String email;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }

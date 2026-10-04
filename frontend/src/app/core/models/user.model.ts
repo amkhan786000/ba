@@ -12,7 +12,8 @@ export const ROLE = {
   CONVENOR: 4,
   SPONSOR: 5,
   STUDENT: 6,
-  MANAGEMENT: 7
+  MANAGEMENT: 7,
+  OFFICE_COORDINATOR: 8
 };
 
 export function dashboardPathForRole(roleId: number): string {
@@ -23,6 +24,7 @@ export function dashboardPathForRole(roleId: number): string {
     case ROLE.CONVENOR: return '/convenor/dashboard';
     case ROLE.SPONSOR: return '/sponsor/dashboard';
     case ROLE.STUDENT: return '/student/dashboard';
+    case ROLE.OFFICE_COORDINATOR: return '/office/dashboard';
     default: return '/';
   }
 }

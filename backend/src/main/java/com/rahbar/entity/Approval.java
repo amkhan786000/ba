@@ -3,12 +3,11 @@ package com.rahbar.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "approvals")
 @Getter @Setter
-public class Approval {
+public class Approval extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "approval_id")
@@ -26,9 +25,4 @@ public class Approval {
     @Column(name = "comments")
     private String comments;
 
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }

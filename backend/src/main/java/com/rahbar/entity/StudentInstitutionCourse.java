@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "student_institution_courses")
 @Getter @Setter
-public class StudentInstitutionCourse {
+public class StudentInstitutionCourse extends Modifiable {
     @Id
     @Column(name = "user_id", length = 50)
     private String userId;

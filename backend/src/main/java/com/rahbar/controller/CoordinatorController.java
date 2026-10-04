@@ -89,18 +89,18 @@ public class CoordinatorController {
         boolean exists = !jdbc.queryForList(
                 "SELECT * FROM grantor_grantees WHERE grantee_id = ? AND grantor_id != 12", granteeId).isEmpty();
         if (exists) {
-            jdbc.update("UPDATE grantor_grantees SET grantor_id=?, status='Assigned', updated_at=NOW() WHERE grantee_id=?", grantorId, granteeId);
+            jdbc.update("UPDATE grantor_grantees SET grantor_id=?, status='Assigned', updated_by=?, updated_at=NOW() WHERE grantee_id=?", grantorId, me(), granteeId);
         } else {
-            jdbc.update("INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at, updated_at) VALUES (?,?,'Assigned',NOW(),NOW())", grantorId, granteeId);
+            jdbc.update("INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at, updated_at, created_by, updated_by) VALUES (?,?,'Assigned',NOW(),NOW(),?,?)", grantorId, granteeId, me(), me());
         }
         return Map.of("message", "Sponsor assigned successfully!");
     }
 
     @PostMapping("/users/{userId}/status/{status}")
     public Map<String, String> updateUserStatus(@PathVariable String userId, @PathVariable String status) {
-        jdbc.update("UPDATE users SET status = ? WHERE user_id = ?", status, userId);
+        jdbc.update("UPDATE users SET status = ?, updated_by = ?, updated_at = NOW() WHERE user_id = ?", status, me(), userId);
         if ("Inactive".equalsIgnoreCase(status)) {
-            jdbc.update("UPDATE grantor_grantees SET grantor_id = 12, status = 'Unassigned' WHERE grantor_id = ?", userId);
+            jdbc.update("UPDATE grantor_grantees SET grantor_id = 12, status = 'Unassigned', updated_by = ?, updated_at = NOW() WHERE grantor_id = ?", me(), userId);
         }
         return Map.of("message", "User status updated to " + status + ", and grantees reassigned to default grantor (ID: 12).");
     }
@@ -120,7 +120,7 @@ public class CoordinatorController {
         @SuppressWarnings("unchecked")
         List<String> studentIds = (List<String>) body.get("studentIds");
         for (String studentId : studentIds) {
-            jdbc.update("UPDATE grantor_grantees SET grantor_id = ? WHERE grantee_id = ?", sponsorId, studentId);
+            jdbc.update("UPDATE grantor_grantees SET grantor_id = ?, updated_by = ?, updated_at = NOW() WHERE grantee_id = ?", sponsorId, me(), studentId);
         }
         return Map.of("message", "Students mapped successfully!");
     }
@@ -137,13 +137,13 @@ public class CoordinatorController {
 
     @PostMapping("/appoint-convenor/{sponsorId}")
     public Map<String, String> appointConvenor(@PathVariable String sponsorId, @RequestBody Map<String, String> body) {
-        jdbc.update("UPDATE users SET role_id = 4, region = ? WHERE user_id = ?", body.get("region"), sponsorId);
+        jdbc.update("UPDATE users SET role_id = 4, region = ?, updated_by = ?, updated_at = NOW() WHERE user_id = ?", body.get("region"), me(), sponsorId);
         return Map.of("message", "Sponsor appointed as Convenor successfully!");
     }
 
     @PostMapping("/users/{userId}/region")
     public Map<String, String> changeRegion(@PathVariable String userId, @RequestBody Map<String, String> body) {
-        jdbc.update("UPDATE users SET region = ? WHERE user_id = ?", body.get("region"), userId);
+        jdbc.update("UPDATE users SET region = ?, updated_by = ?, updated_at = NOW() WHERE user_id = ?", body.get("region"), me(), userId);
         return Map.of("message", "Region updated successfully!");
     }
 
@@ -156,9 +156,9 @@ public class CoordinatorController {
             boolean exists = !jdbc.queryForList(
                     "SELECT * FROM grantor_grantees WHERE grantee_id = ? AND grantor_id != 12", studentId).isEmpty();
             if (exists) {
-                jdbc.update("UPDATE grantor_grantees SET grantor_id=?, status='Assigned', updated_at=NOW() WHERE grantee_id=?", sponsorId, studentId);
+                jdbc.update("UPDATE grantor_grantees SET grantor_id=?, status='Assigned', updated_by=?, updated_at=NOW() WHERE grantee_id=?", sponsorId, me(), studentId);
             } else {
-                jdbc.update("INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at, updated_at) VALUES (?,?,'Assigned',NOW(),NOW())", sponsorId, studentId);
+                jdbc.update("INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at, updated_at, created_by, updated_by) VALUES (?,?,'Assigned',NOW(),NOW(),?,?)", sponsorId, studentId, me(), me());
             }
         }
         return Map.of("message", "Students assigned to sponsor successfully!");
@@ -246,4 +246,10 @@ public class CoordinatorController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .body(new ByteArrayResource(bytes));
     }
+
+    /** user_id of the logged-in user, written to created_by / updated_by on raw-SQL writes. */
+    private static String me() {
+        return com.rahbar.config.AuditConfig.currentUserId();
+    }
+
 }

@@ -3,12 +3,11 @@ package com.rahbar.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "student_progress")
 @Getter @Setter
-public class StudentProgress {
+public class StudentProgress extends Modifiable {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "progress_id")
@@ -29,12 +28,4 @@ public class StudentProgress {
     @Column(name = "year", nullable = false)
     private Integer year;
 
-    @Column(name = "updated_by")
-    private String updatedBy;
-
-    @Column(name = "created_at")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
 }
