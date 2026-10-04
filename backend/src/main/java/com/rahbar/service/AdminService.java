@@ -169,10 +169,6 @@ public class AdminService {
         return names;
     }
 
-    public List<Role> listRoles() {
-        return roleRepository.findAll();
-    }
-
     public void createUser(Map<String, Object> body) {
         User user = new User();
         user.setUserId(String.valueOf(body.get("userId")));

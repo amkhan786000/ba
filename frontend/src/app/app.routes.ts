@@ -8,6 +8,8 @@ import { ShellComponent } from './shared/layout/shell.component';
 import { AdminDashboardComponent } from './admin/admin-dashboard.component';
 import { AdminUsersComponent } from './admin/admin-users.component';
 import { AdminUserEditComponent } from './admin/admin-user-edit.component';
+import { AdminRolesComponent } from './admin/admin-roles.component';
+import { AdminRoleEditComponent } from './admin/admin-role-edit.component';
 import { AdminSystemConfigComponent } from './admin/admin-system-config.component';
 import { AdminReportsComponent } from './admin/admin-reports.component';
 import { AdminApplicationPeriodComponent } from './admin/admin-application-period.component';
@@ -59,6 +61,7 @@ export const routes: Routes = [
       links: [
         { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
         { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple' },
+        { path: '/admin/roles', label: 'Roles', icon: 'mdi-shield-account' },
         { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings' },
         { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar' },
         { path: '/admin/application-period', label: 'App Period', icon: 'mdi-calendar' },
@@ -73,6 +76,9 @@ export const routes: Routes = [
       { path: 'dashboard', component: AdminDashboardComponent },
       { path: 'users', component: AdminUsersComponent },
       { path: 'users/:userId/edit', component: AdminUserEditComponent },
+      { path: 'roles', component: AdminRolesComponent },
+      { path: 'roles/new', component: AdminRoleEditComponent },
+      { path: 'roles/:id/edit', component: AdminRoleEditComponent },
       { path: 'system-configuration', component: AdminSystemConfigComponent },
       { path: 'reports', component: AdminReportsComponent },
       { path: 'application-period', component: AdminApplicationPeriodComponent },
