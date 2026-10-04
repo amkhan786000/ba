@@ -34,9 +34,8 @@ public class StudentController {
         Map<String, Object> student = jdbc.queryForMap(
                 "SELECT user_id, name, email, phone, region, status, year FROM users WHERE user_id = ?", userId);
         Map<String, Object> sponsor = first(jdbc.queryForList("""
-            SELECT u.user_id, u.name, u.email, u.phone, u.region, sr.reference_id FROM grantor_grantees gg
-            JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
-            JOIN users u ON sr.user_id = u.user_id WHERE gg.grantee_id = ?
+            SELECT u.user_id, u.name, u.email, u.phone, u.region FROM grantor_grantees gg
+            JOIN users u ON gg.grantor_id = u.user_id WHERE gg.grantee_id = ?
             """, userId));
         return Map.of("student", student, "sponsor", sponsor == null ? Map.of() : sponsor);
     }

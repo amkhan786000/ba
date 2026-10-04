@@ -3,6 +3,7 @@
 -- NOT present in either SQL dump shipped with the project (likely added directly
 -- on the production DB after the last dump was taken):
 --   - table `sponsor_references` (reference_id, user_id, sponsor_year, chapter, ...)
+--     (removed again in V2__remove_sponsor_references.sql)
 --   - `payments.student_proof_url`, `payments.updated_by`
 -- They are included below, inferred from how routes/admin.py, sponsor.py and
 -- convenor.py query/insert them. Please diff this against the live production

@@ -10,7 +10,7 @@ import { uploadUrl } from '../shared/format';
 interface PaymentRow {
   payment_id: number;
   grantee_id: string; grantee_name: string | null; grantee_phone: string | null;
-  grantor_id: string | null; grantor_name: string | null; grantor_phone: string | null; grantor_reference: string | null;
+  grantor_id: string | null; grantor_name: string | null; grantor_phone: string | null;
   amount: number | null; status: string | null; receipt_url: string | null;
 }
 
@@ -67,7 +67,6 @@ type SortCol = 'grantee_name' | 'grantor_name' | 'amount' | 'status';
                     <td><strong>ID:</strong> {{ r.grantee_id || 'N/A' }}<br><strong>Name:</strong> {{ r.grantee_name || 'N/A' }}<br><strong>Phone:</strong> {{ r.grantee_phone || 'N/A' }}</td>
                     <td>
                       <strong>ID:</strong> {{ r.grantor_id || 'N/A' }}<br><strong>Name:</strong> {{ r.grantor_name || 'N/A' }}<br><strong>Phone:</strong> {{ r.grantor_phone || 'N/A' }}
-                      <ng-container *ngIf="r.grantor_reference && r.grantor_reference !== r.grantor_id"><br><strong>Ref:</strong> {{ r.grantor_reference }}</ng-container>
                     </td>
                     <td>{{ r.amount ?? 'N/A' }}</td>
                     <td><span class="badge" [ngClass]="'badge-' + badge(r.status)">{{ r.status || 'N/A' }}</span></td>

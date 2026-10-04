@@ -9,7 +9,6 @@ import { PagerComponent, pageOf } from '../shared/pager/pager.component';
 
 interface Grantee {
   user: { user_id: string; name: string } | null;
-  referenceId: string | null;
   paymentStatus: string;
 }
 
@@ -41,7 +40,7 @@ interface SponsorDashboard {
             <hr>
             <p class="mb-1"><strong>Phone:</strong> {{ data.sponsor.phone || 'N/A' }}</p>
             <p class="mb-1"><strong>Location:</strong> {{ data.sponsor.region || 'N/A' }}</p>
-            <div class="alert alert-light border mt-3 mb-0 small">All commitments linked to this account are managed in the beneficiaries table.</div>
+            <div class="alert alert-light border mt-3 mb-0 small">All students sponsored by this account are listed in the beneficiaries table.</div>
           </div>
         </div>
       </div>
@@ -52,17 +51,16 @@ interface SponsorDashboard {
             <h4 class="header-title card-header-title">Assigned Beneficiaries</h4>
             <div class="row mb-3">
               <div class="col-12">
-                <input type="text" class="form-control" placeholder="Search by student name or reference ID..." [(ngModel)]="search" (ngModelChange)="page = 1" />
+                <input type="text" class="form-control" placeholder="Search by student name or ID..." [(ngModel)]="search" (ngModelChange)="page = 1" />
               </div>
             </div>
             <div class="table-responsive">
               <table class="table table-hover table-centered mb-0">
-                <thead><tr><th>Student Details</th><th>Fund Reference</th><th>Status</th><th class="text-right">Action</th></tr></thead>
+                <thead><tr><th>Student Details</th><th>Status</th><th class="text-right">Action</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="!data.grantees.length"><td colspan="4" class="text-center py-4 text-muted">No students assigned yet.</td></tr>
+                  <tr *ngIf="!data.grantees.length"><td colspan="3" class="text-center py-4 text-muted">No students assigned yet.</td></tr>
                   <tr *ngFor="let g of rows">
-                    <td><span class="font-weight-bold d-block text-dark">{{ g.user?.name }}</span><small class="text-muted">Ref: {{ g.user?.user_id }}</small></td>
-                    <td><span class="badge badge-light border text-monospace">{{ g.referenceId }}</span></td>
+                    <td><span class="font-weight-bold d-block text-dark">{{ g.user?.name }}</span><small class="text-muted">ID: {{ g.user?.user_id }}</small></td>
                     <td><span class="badge px-2 py-1" [ngClass]="badge(g.paymentStatus)">{{ g.paymentStatus }}</span></td>
                     <td class="text-right">
                       <a routerLink="/sponsor/payments" [queryParams]="{ granteeId: g.user?.user_id }" class="btn btn-xs btn-outline-success font-weight-bold">Pay Now</a>
@@ -119,7 +117,7 @@ export class SponsorDashboardComponent implements OnInit {
   get filtered(): Grantee[] {
     const t = this.search.toLowerCase();
     return (this.data?.grantees ?? []).filter((g) =>
-      [g.user?.name, g.user?.user_id, g.referenceId, g.paymentStatus].some((v) => String(v ?? '').toLowerCase().includes(t)));
+      [g.user?.name, g.user?.user_id, g.paymentStatus].some((v) => String(v ?? '').toLowerCase().includes(t)));
   }
   get rows(): Grantee[] { return pageOf(this.filtered, this.page, 5); }
 

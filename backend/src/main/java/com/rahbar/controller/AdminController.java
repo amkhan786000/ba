@@ -374,10 +374,10 @@ public class AdminController {
         return jdbc.queryForList("""
             SELECT u.user_id, MAX(u.name) AS name, MAX(u.email) AS email, MAX(u.phone) AS phone,
                    MAX(u.status) AS status, MAX(u.region) AS region, MAX(r.role_name) AS role_name,
-                   GROUP_CONCAT(sr.reference_id SEPARATOR ', ') AS all_references
+                   COUNT(DISTINCT gg.grantee_id) AS student_count
             FROM users u
             JOIN roles r ON u.role_id = r.role_id
-            LEFT JOIN sponsor_references sr ON u.user_id = sr.user_id
+            LEFT JOIN grantor_grantees gg ON gg.grantor_id = u.user_id
             WHERE u.role_id IN (3,4,5) AND u.status = 'active'
             GROUP BY u.user_id ORDER BY name ASC
             """);
@@ -387,65 +387,47 @@ public class AdminController {
     public Map<String, Object> sponsorMappingScreen(@PathVariable String userId) {
         Map<String, Object> sponsor = jdbc.queryForMap(
                 "SELECT user_id, name, email, region FROM users WHERE user_id = ?", userId);
-        List<Map<String, Object>> references = jdbc.queryForList(
-                "SELECT reference_id, sponsor_year, chapter FROM sponsor_references WHERE user_id = ?", userId);
-        List<String> refIds = references.stream().map(r -> String.valueOf(r.get("reference_id"))).toList();
 
-        List<Map<String, Object>> mapped = refIds.isEmpty() ? List.of() : jdbc.queryForList(
-                "SELECT u.user_id, u.name, u.email, u.phone, u.region, MAX(gg.grantor_id) AS linked_ref_id " +
-                "FROM users u JOIN grantor_grantees gg ON u.user_id = gg.grantee_id " +
-                "WHERE gg.grantor_id IN (" + placeholders(refIds.size()) + ") AND u.status = 'active' " +
-                "GROUP BY u.user_id ORDER BY u.name ASC", refIds.toArray());
+        List<Map<String, Object>> mapped = jdbc.queryForList("""
+            SELECT u.user_id, u.name, u.email, u.phone, u.region
+            FROM users u JOIN grantor_grantees gg ON u.user_id = gg.grantee_id
+            WHERE gg.grantor_id = ? AND u.status = 'active'
+            ORDER BY u.name ASC
+            """, userId);
 
-        List<Object> availableParams = new ArrayList<>(refIds);
-        String notIn = refIds.isEmpty() ? "''" : placeholders(refIds.size());
         List<Map<String, Object>> available = jdbc.queryForList("""
             SELECT u.user_id, u.name, u.email, u.phone, u.region,
-                   MAX(actual_sponsor.name) AS current_sponsor_name, MAX(gg.grantor_id) AS current_ref_id
+                   current_sponsor.name AS current_sponsor_name, gg.grantor_id AS current_sponsor_id
             FROM users u
             LEFT JOIN grantor_grantees gg ON u.user_id = gg.grantee_id
-            LEFT JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
-            LEFT JOIN users actual_sponsor ON sr.user_id = actual_sponsor.user_id
+            LEFT JOIN users current_sponsor ON gg.grantor_id = current_sponsor.user_id
             WHERE u.role_id = 6 AND u.status = 'active'
-              AND (u.user_id NOT IN (SELECT grantee_id FROM grantor_grantees WHERE grantor_id IN (""" + notIn + """
-            )))
-            GROUP BY u.user_id ORDER BY u.name ASC
-            """, availableParams.toArray());
+              AND (gg.grantor_id IS NULL OR gg.grantor_id <> ?)
+            ORDER BY u.name ASC
+            """, userId);
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sponsor", sponsor);
-        result.put("references", references);
         result.put("mappedStudents", mapped);
         result.put("availableStudents", available);
         return result;
     }
 
     @PostMapping("/sponsorships/{userId}/map")
-    public Map<String, String> mapStudentsToReference(@PathVariable String userId, @RequestBody Map<String, Object> body) {
+    public Map<String, String> mapStudentsToSponsor(@PathVariable String userId, @RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<String> studentIds = (List<String>) body.get("studentIds");
-        String targetRefId = String.valueOf(body.get("targetReferenceId"));
-        if (targetRefId == null || targetRefId.isBlank()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Please select a Reference ID for assignment.");
+        if (studentIds == null || studentIds.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Please select at least one student.");
         }
         for (String studentId : studentIds) {
             jdbc.update("""
                 INSERT INTO grantor_grantees (grantee_id, grantor_id, status, created_at)
                 VALUES (?, ?, 'Accepted', NOW())
                 ON DUPLICATE KEY UPDATE grantor_id = VALUES(grantor_id), updated_at = NOW()
-                """, studentId, targetRefId);
+                """, studentId, userId);
         }
-        return Map.of("message", "Students successfully mapped to Reference " + targetRefId + "!");
-    }
-
-    @GetMapping("/sponsorship-lookup")
-    public Map<String, Object> sponsorshipLookup(@RequestParam String refId) {
-        List<Map<String, Object>> rows = jdbc.queryForList(
-                "SELECT user_id FROM sponsor_references WHERE reference_id = ? LIMIT 1", refId);
-        if (rows.isEmpty()) {
-            throw new ApiException(HttpStatus.NOT_FOUND, "No sponsor found for that Reference ID.");
-        }
-        return Map.of("userId", rows.get(0).get("user_id"));
+        return Map.of("message", studentIds.size() + " student(s) mapped to the sponsor successfully!");
     }
 
     // ------------------------------------------------------------- student directory
@@ -460,8 +442,7 @@ public class AdminController {
             FROM users u
             LEFT JOIN grantee_details gd ON u.user_id = gd.user_id
             LEFT JOIN grantor_grantees gg ON u.user_id = gg.grantee_id
-            LEFT JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
-            LEFT JOIN users sponsor ON sr.user_id = sponsor.user_id
+            LEFT JOIN users sponsor ON gg.grantor_id = sponsor.user_id
             LEFT JOIN student_institution_courses sic ON u.user_id = sic.user_id
             LEFT JOIN institutions inst ON sic.institution_id = inst.institution_id
             LEFT JOIN courses c ON sic.course_id = c.course_id
@@ -471,7 +452,7 @@ public class AdminController {
         if (institutionId != null) { body.append(" AND sic.institution_id = ?"); params.add(institutionId); }
         if (courseId != null) { body.append(" AND sic.course_id = ?"); params.add(courseId); }
         if (search != null && !search.isBlank()) {
-            body.append(" AND (u.name LIKE ? OR u.email LIKE ? OR u.user_id LIKE ? OR sponsor.name LIKE ? OR sr.reference_id LIKE ?)");
+            body.append(" AND (u.name LIKE ? OR u.email LIKE ? OR u.user_id LIKE ? OR sponsor.name LIKE ? OR sponsor.user_id LIKE ?)");
             String w = "%" + search + "%";
             params.addAll(List.of(w, w, w, w, w));
         }
@@ -484,7 +465,7 @@ public class AdminController {
         finalParams.add(length);
         List<Map<String, Object>> data = jdbc.queryForList("""
             SELECT u.user_id, u.name, u.email, u.phone, u.region, u.status,
-                   MAX(sr.reference_id) AS sponsor_id, MAX(sponsor.name) AS sponsor_name,
+                   MAX(sponsor.user_id) AS sponsor_id, MAX(sponsor.name) AS sponsor_name,
                    MAX(inst.institution_name) AS institution_name, MAX(c.course_name) AS course_name
             """ + body + " GROUP BY u.user_id ORDER BY u.user_id DESC LIMIT ?, ?", finalParams.toArray());
 
@@ -522,10 +503,9 @@ public class AdminController {
             WHERE sic.user_id = ?
             """, userId)));
         result.put("sponsor", firstOrNull(jdbc.queryForList("""
-            SELECT u.user_id, u.name, u.email, sr.reference_id
+            SELECT u.user_id, u.name, u.email
             FROM grantor_grantees gg
-            JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
-            JOIN users u ON sr.user_id = u.user_id
+            JOIN users u ON gg.grantor_id = u.user_id
             WHERE gg.grantee_id = ?
             """, userId)));
         result.put("payments", jdbc.queryForList("""
@@ -657,8 +637,9 @@ public class AdminController {
     }
 
     /**
-     * Port of admin.bulk_upload_sponsors: merges sponsors by email / phone / name+chapter,
-     * writes their commitment references and maps the "Student Assigned" IDs to each reference.
+     * Port of admin.bulk_upload_sponsors: merges sponsors by email / phone / name+chapter and maps
+     * the "Student Assigned" IDs straight to the sponsor (there are no commitment references any more).
+     * Columns: Sponsor Name, Sponsor Email, Sponsor Mobile1, Sponsor Chapter, Student Assigned, optional Sponsor ID.
      */
     @PostMapping(value = "/sponsors/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, Object> bulkUploadSponsors(@RequestParam MultipartFile file) throws IOException {
@@ -678,12 +659,11 @@ public class AdminController {
                         String key = h.trim().toLowerCase().replace(" ", "").replace("_", "");
                         r.put(key, row.isSet(h) ? blankToNull(row.get(h)) : null);
                     }
-                    String refId = r.get("sponsorreference");
-                    if (refId == null) continue;
                     String name = Objects.requireNonNullElse(r.get("sponsorname"), "");
                     String email = r.get("sponsoremail");
                     String mobile1 = r.get("sponsormobile1");
                     String chapter = Objects.requireNonNullElse(r.get("sponsorchapter"), "General");
+                    if (name.isEmpty() && email == null && mobile1 == null) continue;
 
                     String userId = null;
                     if (email != null) userId = firstUserId("SELECT user_id FROM users WHERE email = ? AND role_id IN (3,4,5) LIMIT 1", email);
@@ -691,7 +671,9 @@ public class AdminController {
                     if (userId == null && !name.isEmpty()) userId = firstUserId("SELECT user_id FROM users WHERE name = ? AND region = ? AND role_id IN (3,4,5) LIMIT 1", name, chapter);
 
                     if (userId == null) {
-                        userId = "USR-" + refId;
+                        // New sponsor: use the sheet's Sponsor ID if given, otherwise generate one.
+                        String given = r.get("sponsorid");
+                        userId = given != null ? given : "USR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
                         jdbc.update("""
                             INSERT INTO users (user_id, name, email, phone, role_id, status, password_hash, region, created_at, updated_at)
                             VALUES (?, ?, ?, ?, 5, 'active', ?, ?, NOW(), NOW())
@@ -700,18 +682,6 @@ public class AdminController {
                         jdbc.update("UPDATE users SET updated_at = NOW() WHERE user_id = ?", userId);
                     }
 
-                    String months = r.get("paymentnumberofmonths");
-                    jdbc.update("""
-                        REPLACE INTO sponsor_references (
-                            reference_id, user_id, sponsor_year, chapter, referral,
-                            installment_date, payment_months, confirm_credit_date,
-                            special_demand, remarks, mobile_1, mobile_2, created_at, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
-                        """, refId, userId, r.get("sponsoryear"), chapter, r.get("sponsorreferal"),
-                            safeDate(r.get("datetransf1stinstallment")), months == null ? "0" : months,
-                            safeDate(r.get("confirmcreditdate")), r.get("specialdemand"), r.get("remarks"),
-                            mobile1, r.get("sponsormobile2"));
-
                     String assigned = r.get("studentassigned");
                     if (assigned != null) {
                         for (String stuId : assigned.split(",")) {
@@ -719,8 +689,8 @@ public class AdminController {
                             jdbc.update("""
                                 INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at)
                                 VALUES (?, ?, 'Accepted', NOW())
-                                ON DUPLICATE KEY UPDATE updated_at = NOW()
-                                """, refId, stuId.trim());
+                                ON DUPLICATE KEY UPDATE grantor_id = VALUES(grantor_id), updated_at = NOW()
+                                """, userId, stuId.trim());
                         }
                     }
                     success++;
@@ -741,18 +711,6 @@ public class AdminController {
         if (v == null) return null;
         String t = v.trim();
         return t.isEmpty() || t.equalsIgnoreCase("nan") || t.equalsIgnoreCase("none") ? null : t;
-    }
-
-    /** Lenient date parsing (pandas.to_datetime did this in Flask); returns yyyy-MM-dd or null. */
-    private static String safeDate(String v) {
-        if (v == null) return null;
-        String t = v.trim().split("[ T]")[0];
-        for (String pattern : List.of("yyyy-MM-dd", "d/M/yyyy", "M/d/yyyy", "d-M-yyyy", "d.M.yyyy", "yyyy/M/d", "d-MMM-yyyy", "d-MMM-yy", "M/d/yy")) {
-            try {
-                return java.time.LocalDate.parse(t, java.time.format.DateTimeFormatter.ofPattern(pattern, Locale.ENGLISH)).toString();
-            } catch (Exception ignored) { }
-        }
-        return null;
     }
 
     @PostMapping("/students/manual-add")
@@ -799,6 +757,23 @@ public class AdminController {
                 """, uId, instId, courseId, AuthUtil.currentUser().getUserId());
         }
 
+        // Optional sponsor: map the student straight to that sponsor's user account.
+        Object sponsorId = body.get("sponsorId");
+        if (sponsorId != null && !String.valueOf(sponsorId).isBlank()) {
+            String sid = String.valueOf(sponsorId).trim();
+            Long isSponsor = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM users WHERE user_id = ? AND role_id IN (3,4,5)", Long.class, sid);
+            if (isSponsor == null || isSponsor == 0) {
+                throw new ApiException(HttpStatus.BAD_REQUEST,
+                        "Student " + uId + " was saved, but no sponsor with user ID '" + sid + "' exists, so they were not mapped.");
+            }
+            jdbc.update("""
+                INSERT INTO grantor_grantees (grantor_id, grantee_id, status, created_at)
+                VALUES (?, ?, 'Accepted', NOW())
+                ON DUPLICATE KEY UPDATE grantor_id = VALUES(grantor_id), updated_at = NOW()
+                """, sid, uId);
+        }
+
         return Map.of("message", "Student " + uId + " registered successfully!");
     }
 
@@ -810,8 +785,12 @@ public class AdminController {
         } catch (Exception e) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Sponsor not found");
         }
-        List<Map<String, Object>> references = jdbc.queryForList("SELECT * FROM sponsor_references WHERE user_id = ?", userId);
-        return Map.of("profile", profile, "references", references);
+        List<Map<String, Object>> students = jdbc.queryForList("""
+            SELECT u.user_id, u.name, u.email, u.phone, u.status
+            FROM grantor_grantees gg JOIN users u ON gg.grantee_id = u.user_id
+            WHERE gg.grantor_id = ? ORDER BY u.name
+            """, userId);
+        return Map.of("profile", profile, "students", students);
     }
 
     @PutMapping("/sponsors/{userId}")
@@ -842,14 +821,14 @@ public class AdminController {
             List<Map<String, Object>> mapping = jdbc.queryForList(
                     "SELECT grantor_id FROM grantor_grantees WHERE grantee_id = ? LIMIT 1", granteeId);
             if (mapping.isEmpty()) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "This student is not assigned to any Sponsor Reference. Mapping required first.");
+                throw new ApiException(HttpStatus.BAD_REQUEST, "This student is not assigned to any sponsor. Map the student to a sponsor first.");
             }
-            String referenceId = String.valueOf(mapping.get(0).get("grantor_id"));
+            String sponsorId = String.valueOf(mapping.get(0).get("grantor_id"));
             jdbc.update("""
                 INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, status, receipt_url, created_at, updated_by)
                 VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)
-                """, referenceId, granteeId, amount, paymentDate, status, receiptPath, userId);
-            return Map.of("message", "Payment recorded and linked to Sponsor Reference successfully.");
+                """, sponsorId, granteeId, amount, paymentDate, status, receiptPath, userId);
+            return Map.of("message", "Payment recorded and linked to the student's sponsor successfully.");
         } else {
             StringBuilder sql = new StringBuilder("UPDATE payments SET amount=?, payment_date=?, status=?, updated_at=NOW(), updated_by=?");
             List<Object> params = new ArrayList<>(List.of(amount, paymentDate, status, userId));
@@ -872,22 +851,20 @@ public class AdminController {
             case "applications" -> {
                 data = jdbc.queryForList("""
                     SELECT gd.grantee_detail_id, gd.name, gd.father_name, gd.rcc_name, gd.course_applied,
-                           sponsor_user.name AS assigned_sponsor_name, sr.reference_id AS assigned_reference_id
+                           sponsor_user.name AS assigned_sponsor_name, sponsor_user.user_id AS assigned_sponsor_id
                     FROM grantee_details gd
                     LEFT JOIN grantor_grantees gg ON gd.user_id = gg.grantee_id
-                    LEFT JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
-                    LEFT JOIN users sponsor_user ON sr.user_id = sponsor_user.user_id
+                    LEFT JOIN users sponsor_user ON gg.grantor_id = sponsor_user.user_id
                     """);
                 filename = "applications_report";
             }
             case "payments" -> {
                 data = jdbc.queryForList("""
                     SELECT p.payment_id, grantee_user.name AS grantee_name, sponsor_user.name AS grantor_name,
-                           p.grantor_id AS grantor_reference_id, p.amount, p.status AS payment_status, p.payment_date
+                           p.grantor_id AS grantor_id, p.amount, p.status AS payment_status, p.payment_date
                     FROM payments p
                     LEFT JOIN users grantee_user ON p.grantee_id = grantee_user.user_id
-                    LEFT JOIN sponsor_references sr ON p.grantor_id = sr.reference_id
-                    LEFT JOIN users sponsor_user ON sr.user_id = sponsor_user.user_id
+                    LEFT JOIN users sponsor_user ON p.grantor_id = sponsor_user.user_id
                     """);
                 filename = "payments_report";
             }

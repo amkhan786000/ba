@@ -13,19 +13,18 @@ interface SponsorRow {
   phone: string | null;
   region: string | null;
   role_name: string;
-  all_references: string | null;
+  student_count: number;
 }
 
-interface SponsorReference {
-  reference_id: string;
-  sponsor_year: string | null;
-  referral: string | null;
-  installment_date: string | null;
-  payment_months: number | string | null;
-  confirm_credit_date: string | null;
+interface SponsorStudent {
+  user_id: string;
+  name: string;
+  email: string | null;
+  phone: string | null;
+  status: string | null;
 }
 
-/** Port of templates/admin/manage_sponsorships.html (DataTable, ref lookup, bulk upload, edit-profile modal). */
+/** Port of templates/admin/manage_sponsorships.html (DataTable, bulk upload, edit-profile modal). Students map straight to sponsors. */
 @Component({
   selector: 'app-admin-sponsorships',
   standalone: true,
@@ -39,12 +38,8 @@ interface SponsorReference {
         <div class="card">
           <div class="card-body">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
-              <h4 class="header-title mb-2 mb-md-0">Sponsors &amp; Direct ID Lookup</h4>
+              <h4 class="header-title mb-2 mb-md-0">Sponsors</h4>
               <div class="d-flex flex-column flex-sm-row align-items-center">
-                <div class="input-group mr-sm-3 lookup-container" style="width: 320px;">
-                  <input type="text" class="form-control" placeholder="Lookup Ref ID (e.g. 2024-001)" [(ngModel)]="lookup" (keyup.enter)="applyLookup()">
-                  <div class="input-group-append"><button class="btn btn-dark" type="button" (click)="applyLookup()">Go</button></div>
-                </div>
                 <button type="button" class="btn btn-success waves-effect waves-light" (click)="showUpload = true">
                   <i class="mdi mdi-file-upload"></i> Bulk Upload
                 </button>
@@ -65,17 +60,12 @@ interface SponsorReference {
 
             <div class="table-responsive">
               <table class="table table-bordered table-striped nowrap" style="width:100%">
-                <thead><tr><th>Sponsor Name</th><th>Commitment References</th><th>Contact Info</th><th>Chapter</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Sponsor Name</th><th>Students</th><th>Contact Info</th><th>Chapter</th><th>Actions</th></tr></thead>
                 <tbody>
                   <tr *ngIf="!filtered.length"><td colspan="5" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let s of rows">
                     <td><strong>{{ s.name }}</strong><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
-                    <td>
-                      <ng-container *ngIf="s.all_references; else noRefs">
-                        <span class="ref-tag" *ngFor="let ref of s.all_references.split(', ')">{{ ref }}</span>
-                      </ng-container>
-                      <ng-template #noRefs><span class="text-muted small">None</span></ng-template>
-                    </td>
+                    <td><span class="badge badge-light border">{{ s.student_count }}</span></td>
                     <td>
                       <span><i class="mdi mdi-email-outline"></i> {{ s.email || '-' }}</span><br>
                       <span><i class="mdi mdi-phone"></i> {{ s.phone || '-' }}</span>
@@ -111,7 +101,7 @@ interface SponsorReference {
             <div class="modal-body">
               <div class="alert alert-info">
                 <strong>Format Required:</strong><br>
-                <small>Sponsor Year, Sponsor Reference, Sponsor Chapter, Sponsor Name, Sponsor Mobile1, Sponsor Email, Student Assigned, etc.</small>
+                <small>Sponsor Name, Sponsor Email, Sponsor Mobile1, Sponsor Chapter, Student Assigned (comma-separated student IDs), and optionally Sponsor ID for new sponsors. Existing sponsors are matched by email, then phone, then name + chapter.</small>
               </div>
               <div class="form-group">
                 <label>Select CSV File</label>
@@ -143,21 +133,18 @@ interface SponsorReference {
               <div class="col-md-6 form-group"><label>Phone (Mobile 1)</label><input type="text" class="form-control" [(ngModel)]="edit.phone"></div>
               <div class="col-md-6 form-group"><label>Chapter</label><input type="text" class="form-control" [(ngModel)]="edit.region"></div>
             </div>
-            <h5 class="text-primary border-bottom pb-2 mt-4"><i class="mdi mdi-clipboard-list-outline"></i> Commitment References</h5>
+            <h5 class="text-primary border-bottom pb-2 mt-4"><i class="mdi mdi-account-multiple"></i> Assigned Students</h5>
             <div class="table-responsive">
               <table class="table table-sm table-bordered">
-                <thead class="bg-light">
-                  <tr><th>Reference ID</th><th>Sponsor Year</th><th>Referral</th><th>Date transf 1st installment</th><th>Payment number of months</th><th>Confirm Credit Date</th></tr>
-                </thead>
+                <thead class="bg-light"><tr><th>Student ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Status</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="!references.length"><td colspan="6" class="text-center">No reference history found.</td></tr>
-                  <tr *ngFor="let r of references">
-                    <td><strong>{{ r.reference_id }}</strong></td>
-                    <td>{{ r.sponsor_year || '-' }}</td>
-                    <td>{{ r.referral || '-' }}</td>
-                    <td>{{ r.installment_date || 'N/A' }}</td>
-                    <td>{{ r.payment_months || '0' }}</td>
-                    <td>{{ r.confirm_credit_date || 'N/A' }}</td>
+                  <tr *ngIf="!students.length"><td colspan="5" class="text-center">No students assigned to this sponsor.</td></tr>
+                  <tr *ngFor="let st of students">
+                    <td><strong>{{ st.user_id }}</strong></td>
+                    <td>{{ st.name }}</td>
+                    <td>{{ st.email || '-' }}</td>
+                    <td>{{ st.phone || '-' }}</td>
+                    <td>{{ st.status || '-' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -183,7 +170,6 @@ interface SponsorReference {
 export class AdminSponsorshipsComponent implements OnInit {
   sponsors: SponsorRow[] = [];
   search = '';
-  lookup = '';
   page = 1;
   pageSize = 10;
   message = '';
@@ -195,7 +181,7 @@ export class AdminSponsorshipsComponent implements OnInit {
 
   edit: { userId: string; name: string; email: string; phone: string; region: string } | null = null;
   editName = '';
-  references: SponsorReference[] = [];
+  students: SponsorStudent[] = [];
   saving = false;
 
   constructor(private api: ApiService) {}
@@ -214,15 +200,9 @@ export class AdminSponsorshipsComponent implements OnInit {
     const f = this.search.trim().toLowerCase();
     if (!f) return this.sponsors;
     return this.sponsors.filter((s) =>
-      [s.name, s.user_id, s.all_references, s.email, s.phone, s.region].some((v) => (v ?? '').toLowerCase().includes(f)));
+      [s.name, s.user_id, s.email, s.phone, s.region].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
   get rows(): SponsorRow[] { return pageOf(this.filtered, this.page, this.pageSize); }
-
-  /** The "Go" box just searches the table, as in Flask. */
-  applyLookup(): void {
-    this.search = this.lookup.trim();
-    this.page = 1;
-  }
 
   onFile(event: Event): void {
     this.file = (event.target as HTMLInputElement).files?.[0] ?? null;
@@ -241,12 +221,12 @@ export class AdminSponsorshipsComponent implements OnInit {
   }
 
   openEdit(userId: string): void {
-    this.api.get<{ profile: Record<string, string | null>; references: SponsorReference[] }>(`/admin/sponsors/${encodeURIComponent(userId)}`).subscribe({
+    this.api.get<{ profile: Record<string, string | null>; students: SponsorStudent[] }>(`/admin/sponsors/${encodeURIComponent(userId)}`).subscribe({
       next: (res) => {
         const p = res.profile;
         this.editName = p['name'] ?? '';
         this.edit = { userId, name: p['name'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', region: p['region'] ?? '' };
-        this.references = res.references ?? [];
+        this.students = res.students ?? [];
       },
       error: (e) => (this.error = errorText(e, 'Could not load sponsor details.'))
     });

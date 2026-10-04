@@ -182,13 +182,11 @@ public class CoordinatorController {
         String col = allowedColumns.contains(orderBy) ? orderBy : "grantee_name";
         String dir = "desc".equalsIgnoreCase(orderDir) ? "desc" : "asc";
 
-        // payments.grantor_id holds either a sponsor user_id (older rows) or a sponsor reference_id
-        // (rows recorded from the admin Student Directory) - resolve both to the sponsor user.
+        // payments.grantor_id is the sponsor's user_id (LEFT JOIN so a payment never disappears from the list).
         String base = """
             FROM payments p
             JOIN users u1 ON p.grantee_id = u1.user_id
-            LEFT JOIN sponsor_references sr ON p.grantor_id = sr.reference_id
-            LEFT JOIN users u2 ON u2.user_id = COALESCE(sr.user_id, p.grantor_id)
+            LEFT JOIN users u2 ON u2.user_id = p.grantor_id
             """;
         List<Object> params = new ArrayList<>();
         String where = "";
@@ -206,8 +204,8 @@ public class CoordinatorController {
         finalParams.add(length);
         List<Map<String, Object>> data = jdbc.queryForList("""
             SELECT u1.name AS grantee_name, u1.user_id AS grantee_id, u1.phone AS grantee_phone,
-                   u2.name AS grantor_name, COALESCE(u2.user_id, p.grantor_id) AS grantor_id, u2.phone AS grantor_phone,
-                   p.grantor_id AS grantor_reference, p.payment_date,
+                   u2.name AS grantor_name, p.grantor_id AS grantor_id, u2.phone AS grantor_phone,
+                   p.payment_date,
                    p.amount, p.status, p.receipt_url, p.payment_id
             """ + base + where + " ORDER BY " + col + " " + dir + " LIMIT ?, ?", finalParams.toArray());
 

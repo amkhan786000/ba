@@ -6,7 +6,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 
 interface Progress {
-  grantee_name: string; reference_id: string | null; marks: string | number | null;
+  grantee_name: string; grantee_id: string | null; marks: string | number | null;
   session: string | null; year: string | number | null; file_path: string | null; created_at: string | null;
 }
 
@@ -27,7 +27,7 @@ interface Progress {
             <form class="mb-4" (ngSubmit)="apply()">
               <div class="row">
                 <div class="col-12 col-md-3 mb-2"><input type="text" name="name" class="form-control" placeholder="Student Name" [(ngModel)]="f.name"></div>
-                <div class="col-12 col-md-2 mb-2"><input type="text" name="ref" class="form-control" placeholder="Reference ID" [(ngModel)]="f.ref"></div>
+                <div class="col-12 col-md-2 mb-2"><input type="text" name="ref" class="form-control" placeholder="Student ID" [(ngModel)]="f.ref"></div>
                 <div class="col-12 col-md-2 mb-2"><input type="text" name="session" class="form-control" placeholder="Session" [(ngModel)]="f.session"></div>
                 <div class="col-12 col-md-2 mb-2"><input type="text" name="year" class="form-control" placeholder="Year" [(ngModel)]="f.year"></div>
                 <div class="col-12 col-md-3">
@@ -38,12 +38,12 @@ interface Progress {
             </form>
             <div class="table-responsive">
               <table class="table table-centered table-striped mb-0">
-                <thead><tr><th>Student Name</th><th>Reference ID</th><th>Progress (%)</th><th>Session</th><th>Year</th><th>File</th><th>Uploaded On</th></tr></thead>
+                <thead><tr><th>Student Name</th><th>Student ID</th><th>Progress (%)</th><th>Session</th><th>Year</th><th>File</th><th>Uploaded On</th></tr></thead>
                 <tbody>
                   <tr *ngIf="!shown.length"><td colspan="7" class="text-center text-muted">{{ rows.length ? 'No matching records found.' : 'No progress data found.' }}</td></tr>
                   <tr *ngFor="let p of shown">
                     <td><strong>{{ p.grantee_name }}</strong></td>
-                    <td><span class="badge badge-light border">{{ p.reference_id }}</span></td>
+                    <td><span class="badge badge-light border">{{ p.grantee_id }}</span></td>
                     <td>{{ p.marks }}%</td>
                     <td>{{ p.session }}</td>
                     <td>{{ p.year }}</td>
@@ -76,7 +76,7 @@ export class SponsorProgressComponent implements OnInit {
 
   apply(): void {
     const has = (v: unknown, q: string) => !q.trim() || String(v ?? '').toLowerCase().includes(q.trim().toLowerCase());
-    this.shown = this.rows.filter((p) => has(p.grantee_name, this.f.name) && has(p.reference_id, this.f.ref) && has(p.session, this.f.session) && has(p.year, this.f.year));
+    this.shown = this.rows.filter((p) => has(p.grantee_name, this.f.name) && has(p.grantee_id, this.f.ref) && has(p.session, this.f.session) && has(p.year, this.f.year));
   }
 
   clear(): void { this.f = { name: '', ref: '', session: '', year: '' }; this.shown = this.rows; }
