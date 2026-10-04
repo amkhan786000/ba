@@ -1,0 +1,39 @@
+/* Page-level tweaks carried over from the Flask templates (admin/*.html) */
+.content-page { padding-bottom: 80px; }
+
+.footer {
+  position: fixed; bottom: 0; left: 0; width: 100%;
+  background-color: #f8f9fa; padding: 10px 20px; text-align: center;
+  font-size: 14px; color: #6c757d; border-top: 1px solid #ddd; z-index: 1030;
+}
+
+.button-menu-mobile {
+  background-color: transparent; border: none; color: #333;
+  font-size: 24px; height: 70px; width: 60px; cursor: pointer;
+}
+
+.navbar-custom .logo-box-centered {
+  position: absolute; left: 50%; transform: translateX(-50%); top: 15px;
+}
+@media (max-width: 768px) { .navbar-custom .logo-box-centered h4 { font-size: 16px; } }
+
+.pagination .page-link { border: none; color: #6c757d; font-size: 13px; margin: 0 2px; border-radius: 4px !important; cursor: pointer; }
+.pagination .page-item.active .page-link { background-color: #28a745; color: #fff; }
+.pagination .page-item.disabled .page-link { background: transparent; color: #ccc; cursor: default; }
+
+.profile-dropdown.show { display: block; right: 0; left: auto; }
+.modal.d-block { background: rgba(0, 0, 0, .5); overflow-y: auto; }
+
+/* Sponsorship pages (manage_sponsorships.html / map_students_to_sponsor.html) */
+.ref-tag { background: #f1f5f7; border: 1px solid #e2e7eb; border-radius: 3px; padding: 1px 5px; font-size: 11px; margin-right: 3px; display: inline-block; margin-bottom: 2px; }
+.ref-badge { background: #eef2f7; color: #323a46; padding: 2px 8px; border-radius: 4px; font-weight: bold; border: 1px solid #ced4da; }
+.table-fixed-head { max-height: 600px; overflow-y: auto; }
+.loading-overlay {
+  position: fixed; inset: 0; background: rgba(255, 255, 255, .85); z-index: 2000;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+@media (max-width: 767px) { .lookup-container { width: 100% !important; margin-bottom: 10px; margin-right: 0 !important; } }
+
+/* DataTables-style "Show N entries" / "Search:" header row */
+.dt-toolbar label { font-weight: normal; margin-bottom: 0; }
+.dt-toolbar select, .dt-toolbar input { display: inline-block; width: auto; margin: 0 .35rem; }

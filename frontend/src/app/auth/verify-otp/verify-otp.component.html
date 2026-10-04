@@ -1,0 +1,14 @@
+<div class="d-flex justify-content-center align-items-center" style="min-height:100vh;">
+  <div class="card shadow-sm" style="width: 360px;">
+    <div class="card-body p-4">
+      <h5 class="mb-3 text-center">Enter the OTP sent to your email</h5>
+      <div *ngIf="error" class="alert alert-danger py-2">{{ error }}</div>
+      <form (ngSubmit)="submit()">
+        <input class="form-control mb-3" name="otp" [(ngModel)]="otp" placeholder="6-digit code" required>
+        <button class="btn btn-primary w-100" type="submit" [disabled]="loading">
+          {{ loading ? 'Verifying…' : 'Verify' }}
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
