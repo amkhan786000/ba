@@ -16,6 +16,18 @@ export const ROLE = {
   OFFICE_COORDINATOR: 8
 };
 
+/** Display names of the built-in roles (shown under the user's name in the top bar). */
+export const ROLE_LABELS: Record<number, string> = {
+  1: 'Super Admin',
+  2: 'Application Admin',
+  3: 'Coordinator',
+  4: 'Convenor',
+  5: 'Sponsor',
+  6: 'Student',
+  7: 'Management',
+  8: 'Office Coordinator'
+};
+
 export function dashboardPathForRole(roleId: number): string {
   switch (roleId) {
     case ROLE.SUPER_ADMIN:

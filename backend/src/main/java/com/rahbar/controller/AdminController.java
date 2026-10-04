@@ -74,11 +74,6 @@ public class AdminController {
         return adminService.listUsers();
     }
 
-    @GetMapping("/roles")
-    public List<Role> listRoles() {
-        return adminService.listRoles();
-    }
-
     @PostMapping("/users")
     public Map<String, String> createUser(@RequestBody Map<String, Object> body) {
         adminService.createUser(body);

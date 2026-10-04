@@ -10,7 +10,7 @@ import lombok.Setter;
 @Setter
 public class Role extends Modifiable {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    // Assigned as MAX + 1 by RoleService (built-in roles keep their fixed ids 1-8)
     @Column(name = "role_id")
     private Integer roleId;
 

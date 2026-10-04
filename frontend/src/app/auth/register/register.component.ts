@@ -3,38 +3,60 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
+import { AuthLayoutComponent } from '../../shared/auth-layout/auth-layout.component';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AuthLayoutComponent],
   template: `
-    <div class="d-flex justify-content-center align-items-center" style="min-height:100vh;">
-      <div class="card shadow-sm p-4" style="width: 400px;">
-        <h5 class="mb-3">Create account</h5>
-        <div *ngIf="message" class="alert alert-success">{{ message }}</div>
-        <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
-        <form (ngSubmit)="submit()" *ngIf="!message">
-          <input class="form-control mb-2" placeholder="Full name" name="name" [(ngModel)]="form.name" required>
-          <input class="form-control mb-2" placeholder="Email" name="email" [(ngModel)]="form.email" required>
-          <input class="form-control mb-2" placeholder="Contact number" name="contact" [(ngModel)]="form.contact" required>
-          <select class="form-control mb-2" name="sex" [(ngModel)]="form.sex" required>
-            <option value="M">Male</option><option value="F">Female</option>
-          </select>
-          <select class="form-control mb-2" name="role" [(ngModel)]="form.role" required>
-            <option [value]="5">Sponsor</option>
-            <option [value]="6">Student / Beneficiary</option>
-          </select>
-          <input class="form-control mb-3" type="password" placeholder="Password" name="password" [(ngModel)]="form.password" required>
-          <button class="btn btn-primary w-100" type="submit">Register</button>
-        </form>
-        <a routerLink="/login" class="mt-3 d-block text-center">Back to sign in</a>
+    <app-auth-layout heading="Create your account" subheading="Join Rahbar as a sponsor or a student. An administrator activates new accounts." [wide]="true">
+      <div *ngIf="message" class="alert alert-success">
+        <i class="mdi mdi-check-circle-outline mr-1"></i>{{ message }}
       </div>
-    </div>
+      <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+      <form (ngSubmit)="submit()" *ngIf="!message">
+        <label class="d-block">I am joining as</label>
+        <div class="segmented">
+          <button type="button" [class.active]="form.role == 5" (click)="form.role = 5"><i class="mdi mdi-hand-heart"></i>Sponsor</button>
+          <button type="button" [class.active]="form.role == 6" (click)="form.role = 6"><i class="mdi mdi-school"></i>Student</button>
+        </div>
+        <div class="form-group">
+          <label for="name">Full name</label>
+          <input class="form-control" id="name" placeholder="Your full name" name="name" [(ngModel)]="form.name" autocomplete="name" required>
+        </div>
+        <div class="row">
+          <div class="col-sm-6 form-group">
+            <label for="email">Email</label>
+            <input class="form-control" id="email" type="email" placeholder="you@example.com" name="email" [(ngModel)]="form.email" autocomplete="email" required>
+          </div>
+          <div class="col-sm-6 form-group">
+            <label for="contact">Contact number</label>
+            <input class="form-control" id="contact" type="tel" placeholder="Mobile number" name="contact" [(ngModel)]="form.contact" autocomplete="tel" required>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-6 form-group">
+            <label for="sex">Gender</label>
+            <select class="form-control" id="sex" name="sex" [(ngModel)]="form.sex" required>
+              <option value="M">Male</option><option value="F">Female</option>
+            </select>
+          </div>
+          <div class="col-sm-6 form-group">
+            <label for="password">Password</label>
+            <input class="form-control" id="password" type="password" placeholder="Choose a password" name="password" [(ngModel)]="form.password" autocomplete="new-password" required>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block mt-2" type="submit">Create account</button>
+      </form>
+      <div class="auth-links center">
+        <span class="text-muted font-weight-normal mr-1">Already have an account?</span><a routerLink="/login">Sign in</a>
+      </div>
+    </app-auth-layout>
   `
 })
 export class RegisterComponent {
-  form: any = {};
+  form: any = { role: 5, sex: 'M' };
   message = '';
   error = '';
   constructor(private auth: AuthService, private router: Router) {}

@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { dashboardPathForRole } from '../../core/models/user.model';
+import { AuthLayoutComponent } from '../../shared/auth-layout/auth-layout.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, AuthLayoutComponent],
   templateUrl: './login.component.html'
 })
 export class LoginComponent {
