@@ -1,0 +1,112 @@
+import { Routes } from '@angular/router';
+import { LoginComponent } from './auth/login/login.component';
+import { VerifyOtpComponent } from './auth/verify-otp/verify-otp.component';
+import { RegisterComponent } from './auth/register/register.component';
+import { ResetPasswordComponent } from './auth/reset-password/reset-password.component';
+import { PublicApplyComponent } from './public/apply.component';
+import { ShellComponent } from './shared/layout/shell.component';
+import { AdminDashboardComponent } from './admin/admin-dashboard.component';
+import { AdminUsersComponent } from './admin/admin-users.component';
+import { AdminUserEditComponent } from './admin/admin-user-edit.component';
+import { AdminSystemConfigComponent } from './admin/admin-system-config.component';
+import { AdminReportsComponent } from './admin/admin-reports.component';
+import { AdminApplicationPeriodComponent } from './admin/admin-application-period.component';
+import { AdminRccCentersComponent } from './admin/admin-rcc-centers.component';
+import { AdminRccCenterEditComponent } from './admin/admin-rcc-center-edit.component';
+import { AdminCoursesComponent } from './admin/admin-courses.component';
+import { AdminCourseEditComponent } from './admin/admin-course-edit.component';
+import { AdminInstitutionAddComponent } from './admin/admin-institution-add.component';
+import { AdminSponsorshipsComponent } from './admin/admin-sponsorships.component';
+import { AdminSponsorMapComponent } from './admin/admin-sponsor-map.component';
+import { AdminStudentDirectoryComponent } from './admin/admin-student-directory.component';
+import { AdminManageStudentsComponent } from './admin/admin-manage-students.component';
+import { AdminApplicationsComponent } from './admin/admin-applications.component';
+import { AdminApplicationDetailsComponent } from './admin/admin-application-details.component';
+import { CoordinatorDashboardComponent } from './coordinator/coordinator-dashboard.component';
+import { ConvenorDashboardComponent } from './convenor/convenor-dashboard.component';
+import { SponsorDashboardComponent } from './sponsor/sponsor-dashboard.component';
+import { StudentDashboardComponent } from './student/student-dashboard.component';
+import { roleGuard } from './core/guards/role.guard';
+import { ROLE } from './core/models/user.model';
+
+export const routes: Routes = [
+  { path: 'login', component: LoginComponent },
+  { path: 'verify-otp', component: VerifyOtpComponent },
+  { path: 'register', component: RegisterComponent },
+  { path: 'reset-password', component: ResetPasswordComponent },
+  { path: 'apply', component: PublicApplyComponent },
+
+  {
+    path: 'admin',
+    component: ShellComponent,
+    canActivate: [roleGuard([ROLE.SUPER_ADMIN, ROLE.APP_ADMIN])],
+    data: {
+      title: 'Admin Panel',
+      links: [
+        { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
+        { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple' },
+        { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings' },
+        { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar' },
+        { path: '/admin/application-period', label: 'App Period', icon: 'mdi-calendar' },
+        { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank' },
+        { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open' },
+        { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch' },
+        { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details' }
+      ]
+    },
+    children: [
+      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'dashboard', component: AdminDashboardComponent },
+      { path: 'users', component: AdminUsersComponent },
+      { path: 'users/:userId/edit', component: AdminUserEditComponent },
+      { path: 'system-configuration', component: AdminSystemConfigComponent },
+      { path: 'reports', component: AdminReportsComponent },
+      { path: 'application-period', component: AdminApplicationPeriodComponent },
+      { path: 'rcc-centers', component: AdminRccCentersComponent },
+      { path: 'rcc-centers/new', component: AdminRccCenterEditComponent },
+      { path: 'rcc-centers/:id/edit', component: AdminRccCenterEditComponent },
+      { path: 'courses', component: AdminCoursesComponent },
+      { path: 'courses/new', component: AdminCourseEditComponent },
+      { path: 'courses/:id/edit', component: AdminCourseEditComponent },
+      { path: 'institutions/new', component: AdminInstitutionAddComponent },
+      { path: 'sponsorships', component: AdminSponsorshipsComponent },
+      { path: 'sponsorships/:userId/map', component: AdminSponsorMapComponent },
+      { path: 'students', component: AdminStudentDirectoryComponent },
+      // Not in the Flask sidebar either: reached by URL (manage students) or from coordinator/convenor menus (applications)
+      { path: 'manage-students', component: AdminManageStudentsComponent },
+      { path: 'applications', component: AdminApplicationsComponent },
+      { path: 'applications/:id', component: AdminApplicationDetailsComponent }
+    ]
+  },
+  {
+    path: 'coordinator',
+    component: ShellComponent,
+    canActivate: [roleGuard([ROLE.COORDINATOR])],
+    data: { title: 'Coordinator', links: [{ path: '/coordinator/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' }] },
+    children: [{ path: 'dashboard', component: CoordinatorDashboardComponent }]
+  },
+  {
+    path: 'convenor',
+    component: ShellComponent,
+    canActivate: [roleGuard([ROLE.CONVENOR])],
+    data: { title: 'Convenor', links: [{ path: '/convenor/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' }] },
+    children: [{ path: 'dashboard', component: ConvenorDashboardComponent }]
+  },
+  {
+    path: 'sponsor',
+    component: ShellComponent,
+    canActivate: [roleGuard([ROLE.SPONSOR])],
+    data: { title: 'Sponsor', links: [{ path: '/sponsor/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' }] },
+    children: [{ path: 'dashboard', component: SponsorDashboardComponent }]
+  },
+  {
+    path: 'student',
+    component: ShellComponent,
+    canActivate: [roleGuard([ROLE.STUDENT])],
+    data: { title: 'Student', links: [{ path: '/student/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' }] },
+    children: [{ path: 'dashboard', component: StudentDashboardComponent }]
+  },
+
+  { path: '', redirectTo: 'login', pathMatch: 'full' },
+  { path: '**', redirectTo: 'login' }
+];
