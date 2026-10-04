@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -39,7 +39,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
                 <input type="email" class="form-control" id="email" name="email" [(ngModel)]="form.email" required>
               </div>
               <div class="d-flex justify-content-between">
-                <a routerLink="/admin/courses" class="btn btn-light">Back</a>
+                <a [routerLink]="['/', section, 'courses']" class="btn btn-light">Back</a>
                 <button type="submit" class="btn btn-primary waves-effect waves-light" [disabled]="f.invalid || saving">Save Institution</button>
               </div>
             </form>
@@ -50,6 +50,10 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
   `
 })
 export class AdminInstitutionAddComponent {
+  /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
+  @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
+  get section(): string { return this._section; }
+  private _section = 'admin';
   form = { institutionId: '', institutionName: '', address: '', contactNumber: '', email: '' };
   saving = false;
   message = '';
@@ -60,7 +64,7 @@ export class AdminInstitutionAddComponent {
   save(): void {
     this.saving = true;
     this.api.post<{ message: string }>('/admin/institutions', this.form).subscribe({
-      next: () => this.router.navigate(['/admin/courses']),
+      next: () => this.router.navigate(['/', this.section, 'courses']),
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not save the institution.'); }
     });
   }

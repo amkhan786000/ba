@@ -127,6 +127,10 @@ public class AuthController {
         if (userRepository.findByEmail(req.getEmail()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "Email address already exists");
         }
+        // Self-registration is only for sponsors (5) and students (6); staff roles are created by an admin.
+        if (req.getRole() == null || (req.getRole() != 5 && req.getRole() != 6)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "You can only register as a Sponsor or a Student.");
+        }
         User user = new User();
         // NOTE: the original schema's user_id is not auto-increment for 'users';
         // real student/sponsor IDs come from the admin-side bulk import flows.

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -26,7 +26,7 @@ export interface RccCenter {
 
     <div class="row mb-3">
       <div class="col-12">
-        <a routerLink="/admin/rcc-centers/new" class="btn btn-primary btn-responsive"><i class="mdi mdi-plus mr-1"></i>Add New RCC Center</a>
+        <a [routerLink]="['/', section, 'rcc-centers', 'new']" class="btn btn-primary btn-responsive"><i class="mdi mdi-plus mr-1"></i>Add New RCC Center</a>
       </div>
     </div>
 
@@ -50,7 +50,7 @@ export interface RccCenter {
                     <td>{{ c.contactNumber }}</td>
                     <td>{{ c.location }}</td>
                     <td>
-                      <a [routerLink]="['/admin/rcc-centers', c.rccCenterId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
+                      <a [routerLink]="['/', section, 'rcc-centers', c.rccCenterId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
                       <button type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="remove(c)">Delete</button>
                     </td>
                   </tr>
@@ -64,6 +64,10 @@ export interface RccCenter {
   `
 })
 export class AdminRccCentersComponent implements OnInit {
+  /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
+  @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
+  get section(): string { return this._section; }
+  private _section = 'admin';
   centers: RccCenter[] = [];
   search = '';
   message = '';

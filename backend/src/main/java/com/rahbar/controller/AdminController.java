@@ -38,6 +38,15 @@ import java.util.*;
 @PreAuthorize("hasAnyRole('1','2')")
 public class AdminController {
 
+    /** Office Coordinator (role 8) shares a subset of the admin screens: payment config, RCC centers,
+     *  courses/institutions, sponsors (map students only, no contact info) and the student directory. */
+    static final int OFFICE_COORDINATOR = 8;
+    static final String ADMIN_OR_OFFICE = "hasAnyRole('1','2','8')";
+
+    private static boolean isOfficeCoordinator() {
+        return Integer.valueOf(OFFICE_COORDINATOR).equals(AuthUtil.currentUser().getRoleId());
+    }
+
     private final JdbcTemplate jdbc;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -195,6 +204,7 @@ public class AdminController {
     // --------------------------------------------------------- system configuration
 
     @GetMapping("/system-configuration")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, Object> systemConfiguration() {
         List<Map<String, Object>> schedules = jdbc.queryForList(
                 "SELECT ps.schedule_id, ps.amount, ps.year, ps.updated_at, u.name AS updated_by_name " +
@@ -205,6 +215,7 @@ public class AdminController {
     }
 
     @PostMapping("/system-configuration")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, String> saveSchedule(@RequestBody Map<String, Object> body) {
         int year = Integer.parseInt(String.valueOf(body.get("year")));
         BigDecimal amount = new BigDecimal(String.valueOf(body.get("amount")));
@@ -225,11 +236,13 @@ public class AdminController {
     // ---------------------------------------------------------------- RCC centers
 
     @GetMapping("/rcc-centers")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public List<RccCenter> listRccCenters() {
         return rccCenterRepository.findAll();
     }
 
     @PostMapping("/rcc-centers")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public RccCenter saveRccCenter(@RequestBody RccCenter center) {
         if (center.getRccCenterId() != null) {
             rccCenterRepository.findById(center.getRccCenterId())
@@ -241,6 +254,7 @@ public class AdminController {
     }
 
     @DeleteMapping("/rcc-centers/{id}")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public void deleteRccCenter(@PathVariable Long id) {
         rccCenterRepository.deleteById(id);
     }
@@ -248,32 +262,38 @@ public class AdminController {
     // --------------------------------------------------------------------- courses
 
     @GetMapping("/courses")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public List<Map<String, Object>> listCourses() {
         return jdbc.queryForList(
                 "SELECT c.*, i.institution_name FROM courses c JOIN institutions i ON c.institution_id = i.institution_id");
     }
 
     @GetMapping("/courses/by-institution/{institutionId}")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public List<Course> coursesByInstitution(@PathVariable String institutionId) {
         return courseRepository.findByInstitutionId(institutionId);
     }
 
     @PostMapping("/courses")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Course saveCourse(@RequestBody Course course) {
         return courseRepository.save(course);
     }
 
     @DeleteMapping("/courses/{id}")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public void deleteCourse(@PathVariable Long id) {
         courseRepository.deleteById(id);
     }
 
     @GetMapping("/institutions")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public List<Institution> listInstitutions() {
         return institutionRepository.findAll();
     }
 
     @PostMapping("/institutions")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, String> addInstitution(@RequestBody Map<String, Object> body) {
         String institutionId = body.get("institutionId") == null || String.valueOf(body.get("institutionId")).isBlank()
                 ? "INST-" + (institutionRepository.count() + 101)
@@ -370,8 +390,9 @@ public class AdminController {
     // --------------------------------------------------------------- sponsorships
 
     @GetMapping("/sponsorships")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public List<Map<String, Object>> manageSponsorships() {
-        return jdbc.queryForList("""
+        List<Map<String, Object>> rows = jdbc.queryForList("""
             SELECT u.user_id, MAX(u.name) AS name, MAX(u.email) AS email, MAX(u.phone) AS phone,
                    MAX(u.status) AS status, MAX(u.region) AS region, MAX(r.role_name) AS role_name,
                    COUNT(DISTINCT gg.grantee_id) AS student_count
@@ -381,12 +402,19 @@ public class AdminController {
             WHERE u.role_id IN (3,4,5) AND u.status = 'active'
             GROUP BY u.user_id ORDER BY name ASC
             """);
+        if (isOfficeCoordinator()) {
+            // Office coordinators may not see sponsor contact details.
+            rows.forEach(r -> { r.remove("email"); r.remove("phone"); });
+        }
+        return rows;
     }
 
     @GetMapping("/sponsorships/{userId}/map")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, Object> sponsorMappingScreen(@PathVariable String userId) {
-        Map<String, Object> sponsor = jdbc.queryForMap(
-                "SELECT user_id, name, email, region FROM users WHERE user_id = ?", userId);
+        Map<String, Object> sponsor = new LinkedHashMap<>(jdbc.queryForMap(
+                "SELECT user_id, name, email, region FROM users WHERE user_id = ?", userId));
+        if (isOfficeCoordinator()) sponsor.remove("email");
 
         List<Map<String, Object>> mapped = jdbc.queryForList("""
             SELECT u.user_id, u.name, u.email, u.phone, u.region
@@ -414,6 +442,7 @@ public class AdminController {
     }
 
     @PostMapping("/sponsorships/{userId}/map")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, String> mapStudentsToSponsor(@PathVariable String userId, @RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<String> studentIds = (List<String>) body.get("studentIds");
@@ -433,6 +462,7 @@ public class AdminController {
     // ------------------------------------------------------------- student directory
 
     @GetMapping("/students")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, Object> listStudents(@RequestParam(defaultValue = "0") int start,
                                              @RequestParam(defaultValue = "10") int length,
                                              @RequestParam(required = false) String search,
@@ -473,6 +503,7 @@ public class AdminController {
     }
 
     @GetMapping("/students/{userId}")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, Object> studentDetails(@PathVariable String userId) {
         Map<String, Object> profile;
         try {
@@ -518,6 +549,7 @@ public class AdminController {
     }
 
     @PutMapping("/students/{userId}")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, String> updateStudent(@PathVariable String userId, @RequestBody Map<String, Object> data) {
         List<Object> userParams = new ArrayList<>();
         StringBuilder userSet = new StringBuilder();
@@ -571,6 +603,7 @@ public class AdminController {
     }
 
     @PostMapping("/students/{userId}/action")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, String> studentAction(@PathVariable String userId, @RequestBody Map<String, String> body) {
         String action = body.get("action");
         switch (action) {
@@ -597,6 +630,7 @@ public class AdminController {
     // --------------------------------------------------------------- bulk uploads
 
     @PostMapping(value = "/students/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, Object> bulkUploadStudents(@RequestParam MultipartFile file) throws IOException {
         int success = 0;
         try (CSVParser parser = CSVFormat.DEFAULT.builder()
@@ -714,6 +748,7 @@ public class AdminController {
     }
 
     @PostMapping("/students/manual-add")
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, String> manualAddStudent(@RequestBody Map<String, Object> body) {
         String uId = String.valueOf(body.get("userId"));
         String name = String.valueOf(body.get("name"));
@@ -803,6 +838,7 @@ public class AdminController {
     // ------------------------------------------------------------------ payments
 
     @PostMapping(value = "/payments/record", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, String> recordPayment(@RequestParam String actionType,
                                               @RequestParam(required = false) Long paymentId,
                                               @RequestParam(required = false) String granteeId,

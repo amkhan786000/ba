@@ -22,7 +22,7 @@ interface MapScreen {
         <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-center">
           <h4 class="page-title mb-2 mb-md-0">Sponsor: <span class="text-primary">{{ data?.sponsor?.name }}</span></h4>
           <div class="page-title-right">
-            <a routerLink="/admin/sponsorships" class="btn btn-secondary waves-effect waves-light"><i class="mdi mdi-arrow-left"></i> Back</a>
+            <a [routerLink]="['/', section, 'sponsorships']" class="btn btn-secondary waves-effect waves-light"><i class="mdi mdi-arrow-left"></i> Back</a>
           </div>
         </div>
       </div>
@@ -108,6 +108,10 @@ interface MapScreen {
   `
 })
 export class AdminSponsorMapComponent implements OnInit {
+  /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
+  @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
+  get section(): string { return this._section; }
+  private _section = 'admin';
   /** Route parameter :userId */
   @Input() userId = '';
 
