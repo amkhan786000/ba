@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -83,7 +83,7 @@ export const APPLICATION_STATUSES = [
                     <td>{{ a.name }}</td>
                     <td>{{ a.rcc_name }}</td>
                     <td>{{ a.status }}</td>
-                    <td><a [routerLink]="['/admin/applications', a.grantee_detail_id]" class="btn btn-primary btn-sm">View Details</a></td>
+                    <td><a [routerLink]="['/' + section, 'applications', a.grantee_detail_id]" class="btn btn-primary btn-sm">View Details</a></td>
                   </tr>
                 </tbody>
               </table>
@@ -95,6 +95,10 @@ export const APPLICATION_STATUSES = [
   `
 })
 export class AdminApplicationsComponent implements OnInit {
+  /** Which area this page is shown in ('admin' or 'coordinator'); set from route data, defaults to admin. */
+  @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
+  get section(): string { return this._section; }
+  private _section = 'admin';
   readonly statuses = APPLICATION_STATUSES;
   apps: ApplicationRow[] = [];
   shown: ApplicationRow[] = [];

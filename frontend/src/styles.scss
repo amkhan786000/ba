@@ -37,3 +37,9 @@
 /* DataTables-style "Show N entries" / "Search:" header row */
 .dt-toolbar label { font-weight: normal; margin-bottom: 0; }
 .dt-toolbar select, .dt-toolbar input { display: inline-block; width: auto; margin: 0 .35rem; }
+
+/* Sponsor pages (sponsor/dashboard.html) */
+.card-header-title { font-weight: 700; color: #333; margin-bottom: 15px; display: block; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+.profile-img-container { width: 100px; height: 100px; margin: 0 auto 15px auto; border: 3px solid #28a745; border-radius: 50%; overflow: hidden; }
+.profile-img-container img { width: 100%; height: auto; }
+.btn-xs { padding: .15rem .45rem; font-size: .75rem; }

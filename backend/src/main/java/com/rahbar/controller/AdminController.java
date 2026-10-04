@@ -293,6 +293,7 @@ public class AdminController {
     // ------------------------------------------------------------------ applications
 
     @GetMapping("/applications")
+    @PreAuthorize("hasAnyRole('1','2','3','4')")
     public List<Map<String, Object>> manageApplications() {
         return jdbc.queryForList("""
             SELECT gd.*, s.status, s.comments, s.created_at AS status_date
@@ -311,6 +312,7 @@ public class AdminController {
             "on hold", "provisional admission letter", "admitted");
 
     @PostMapping("/applications/{granteeDetailId}/status")
+    @PreAuthorize("hasAnyRole('1','2','3','4')")
     public Map<String, String> updateApplicationStatus(@PathVariable Long granteeDetailId, @RequestBody Map<String, String> body) {
         String status = body.get("status");
         if (!VALID_STATUSES.contains(status)) {

@@ -31,9 +31,10 @@ public class StudentController {
     @GetMapping("/dashboard")
     public Map<String, Object> dashboard() {
         String userId = AuthUtil.currentUser().getUserId();
-        Map<String, Object> student = jdbc.queryForMap("SELECT * FROM users WHERE user_id = ?", userId);
+        Map<String, Object> student = jdbc.queryForMap(
+                "SELECT user_id, name, email, phone, region, status, year FROM users WHERE user_id = ?", userId);
         Map<String, Object> sponsor = first(jdbc.queryForList("""
-            SELECT u.*, sr.reference_id FROM grantor_grantees gg
+            SELECT u.user_id, u.name, u.email, u.phone, u.region, sr.reference_id FROM grantor_grantees gg
             JOIN sponsor_references sr ON gg.grantor_id = sr.reference_id
             JOIN users u ON sr.user_id = u.user_id WHERE gg.grantee_id = ?
             """, userId));
@@ -52,7 +53,8 @@ public class StudentController {
             copy.put("receiptLink", receiptUrl != null ? "/uploads/" + receiptUrl : null);
             payments.add(copy);
         }
-        Map<String, Object> student = jdbc.queryForMap("SELECT * FROM users WHERE user_id = ?", userId);
+        Map<String, Object> student = jdbc.queryForMap(
+                "SELECT user_id, name, email, phone, region, status, year FROM users WHERE user_id = ?", userId);
         Map<String, Object> courseInfo = first(jdbc.queryForList("""
             SELECT sic.assigned_at, c.number_of_semesters, c.fees_per_semester FROM student_institution_courses sic
             JOIN courses c ON sic.course_id = c.course_id WHERE sic.user_id = ?
@@ -82,8 +84,10 @@ public class StudentController {
             jdbc.update("UPDATE bank_details SET bank_name=?, account_number=?, ifsc_code=?, account_name=? WHERE user_id=?",
                     body.get("bankName"), body.get("accountNumber"), body.get("ifscCode"), body.get("accountName"), userId);
         } else {
-            jdbc.update("INSERT INTO bank_details (user_id, bank_name, account_number, ifsc_code, account_name) VALUES (?,?,?,?,?)",
-                    userId, body.get("bankName"), body.get("accountNumber"), body.get("ifscCode"), body.get("accountName"));
+            // bank_detail_id isn't auto-generated (the admin code assigns MAX+1 the same way)
+            Long nextId = jdbc.queryForObject("SELECT COALESCE(MAX(bank_detail_id),0)+1 FROM bank_details", Long.class);
+            jdbc.update("INSERT INTO bank_details (bank_detail_id, user_id, bank_name, account_number, ifsc_code, account_name) VALUES (?,?,?,?,?,?)",
+                    nextId, userId, body.get("bankName"), body.get("accountNumber"), body.get("ifscCode"), body.get("accountName"));
         }
         return Map.of("success", true, "message", "Bank details updated successfully!");
     }
@@ -121,7 +125,7 @@ public class StudentController {
     @PostMapping(value = "/payments/{paymentId}/proof", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, String> uploadPaymentProof(@PathVariable Long paymentId, @RequestParam MultipartFile proofFile) {
         String userId = AuthUtil.currentUser().getUserId();
-        String filename = fileStorageService.sanitizeFilename("proof_" + paymentId + "_" + proofFile.getOriginalFilename());
+        String filename = fileStorageService.sanitizeFilename("proof_" + paymentId + "_" + System.currentTimeMillis() + "_" + proofFile.getOriginalFilename());
         fileStorageService.store(proofFile, filename);
         int updated = jdbc.update(
                 "UPDATE payments SET student_proof_url = ? WHERE payment_id = ? AND grantee_id = ?", filename, paymentId, userId);

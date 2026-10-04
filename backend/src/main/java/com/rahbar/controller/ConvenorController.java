@@ -52,10 +52,44 @@ public class ConvenorController {
             JOIN grantee_details gd ON gg.grantee_id = gd.user_id WHERE u.region = ?
             """, region);
 
+        // Per-student status. Flask computed one shared value from the last student only (and crashed when a
+        // student had no payments); here each student is "paid" if their latest payment is within the last year.
+        List<Map<String, Object>> granteesWithStatus = new ArrayList<>();
+        for (Map<String, Object> g : grantees) {
+            Map<String, Object> row = new LinkedHashMap<>(g);
+            row.remove("password_hash");
+            Long recent = jdbc.queryForObject(
+                    "SELECT COUNT(*) FROM payments WHERE grantee_id = ? AND payment_date >= DATE_SUB(NOW(), INTERVAL 365 DAY)",
+                    Long.class, g.get("user_id"));
+            row.put("paymentStatus", recent != null && recent > 0 ? "paid" : "unpaid");
+            granteesWithStatus.add(row);
+        }
+
+        // Chart data (the Flask page drew these from hard-coded sample numbers)
+        List<Map<String, Object>> byStatus = jdbc.queryForList("""
+            SELECT COALESCE(s.status, 'no status') AS label, COUNT(*) AS value
+            FROM grantee_details gd
+            JOIN users u ON gd.user_id = u.user_id
+            LEFT JOIN (SELECT grantee_detail_id, MAX(created_at) AS latest FROM application_status GROUP BY grantee_detail_id) ls
+              ON gd.grantee_detail_id = ls.grantee_detail_id
+            LEFT JOIN application_status s ON s.grantee_detail_id = ls.grantee_detail_id AND s.created_at = ls.latest
+            WHERE u.region = ?
+            GROUP BY label ORDER BY value DESC
+            """, region);
+        List<Map<String, Object>> byRegion = jdbc.queryForList("""
+            SELECT COALESCE(NULLIF(TRIM(region), ''), 'Not set') AS label, COUNT(*) AS value
+            FROM users WHERE role_id = 5 GROUP BY label ORDER BY value DESC
+            """);
+
+        convenor = new LinkedHashMap<>(convenor);
+        convenor.remove("password_hash");
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("convenor", convenor);
         result.put("applications", applications);
-        result.put("grantees", grantees);
+        result.put("grantees", granteesWithStatus);
+        result.put("applicationsByStatus", byStatus);
+        result.put("sponsorsByRegion", byRegion);
         result.put("sponsors", sponsors);
         result.put("grantorGrantee", grantorGrantee);
         return result;
@@ -138,6 +172,7 @@ public class ConvenorController {
         if (startDate != null) { sql.append(" AND sp.created_at >= ?"); params.add(startDate); }
         if (endDate != null) { sql.append(" AND sp.created_at <= ?"); params.add(endDate); }
         if ("marks".equals(sortBy)) sql.append(" ORDER BY sp.marks DESC");
+        else sql.append(" ORDER BY sp.created_at DESC");
         return jdbc.queryForList(sql.toString(), params.toArray());
     }
 
@@ -159,20 +194,34 @@ public class ConvenorController {
         List<Map<String, Object>> studentsForDropdown = new ArrayList<>();
         if (!studentIdsStr.isEmpty()) {
             String ph = String.join(",", Collections.nCopies(studentIdsStr.size(), "?"));
-            List<Map<String, Object>> students = jdbc.queryForList("SELECT * FROM users WHERE user_id IN (" + ph + ")", studentIdsStr.toArray());
+            List<Map<String, Object>> students = jdbc.queryForList(
+                    "SELECT user_id, name, email, phone, region, status, year FROM users WHERE user_id IN (" + ph + ")", studentIdsStr.toArray());
             studentsForDropdown.addAll(students);
             for (Map<String, Object> s : students) {
                 String sid = (String) s.get("user_id");
                 Map<String, Object> bank = jdbc.queryForList("SELECT * FROM bank_details WHERE user_id = ?", sid)
                         .stream().findFirst().orElse(null);
+                Map<String, Object> courseInfo = jdbc.queryForList("""
+                    SELECT sic.assigned_at, c.number_of_semesters, c.fees_per_semester
+                    FROM student_institution_courses sic JOIN courses c ON sic.course_id = c.course_id
+                    WHERE sic.user_id = ?
+                    """, sid).stream().findFirst().orElse(null);
                 List<Map<String, Object>> paidRecords = jdbc.queryForList(
                         "SELECT * FROM payments WHERE grantee_id = ? AND (status='Paid' OR status='pending') ORDER BY payment_date ASC", sid);
-                studentDataMap.put(sid, Map.of("grantee", s, "bankDetails", bank == null ? Map.of() : bank, "paidRecords", paidRecords));
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("grantee", s);
+                entry.put("bankDetails", bank == null ? Map.of() : bank);
+                entry.put("courseInfo", courseInfo);
+                entry.put("paidRecords", paidRecords);
+                studentDataMap.put(sid, entry);
             }
         }
 
         List<Map<String, Object>> pastPayments = jdbc.queryForList(
                 "SELECT p.*, u.name AS grantee_name FROM payments p JOIN users u ON p.grantee_id = u.user_id WHERE p.grantor_id = ?", convenorId);
+
+        convenor = new LinkedHashMap<>(convenor);
+        convenor.remove("password_hash");
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("convenor", convenor);
@@ -187,7 +236,9 @@ public class ConvenorController {
                                                @RequestParam BigDecimal amount,
                                                @RequestParam MultipartFile receipt) {
         String convenorId = AuthUtil.currentUser().getUserId();
-        String filename = fileStorageService.sanitizeFilename(receipt.getOriginalFilename());
+        // Prefixed so two receipts with the same original name don't overwrite each other.
+        String filename = "convenor_pay_" + granteeId + "_" + System.currentTimeMillis() + "_"
+                + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());
         String path = fileStorageService.store(receipt, filename);
         jdbc.update("""
             INSERT INTO payments (grantor_id, grantee_id, amount, payment_date, receipt_url, status)
