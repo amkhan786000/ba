@@ -1,14 +1,14 @@
-<div class="d-flex justify-content-center align-items-center" style="min-height:100vh;">
-  <div class="card shadow-sm" style="width: 360px;">
-    <div class="card-body p-4">
-      <h5 class="mb-3 text-center">Enter the OTP sent to your email</h5>
-      <div *ngIf="error" class="alert alert-danger py-2">{{ error }}</div>
-      <form (ngSubmit)="submit()">
-        <input class="form-control mb-3" name="otp" [(ngModel)]="otp" placeholder="6-digit code" required>
-        <button class="btn btn-primary w-100" type="submit" [disabled]="loading">
-          {{ loading ? 'Verifying…' : 'Verify' }}
-        </button>
-      </form>
+<app-auth-layout heading="Check your email" subheading="We sent a 6-digit code to the email on your account. It is valid for 5 minutes.">
+  <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+  <form (ngSubmit)="submit()">
+    <div class="form-group">
+      <label for="otp">Verification code</label>
+      <input class="form-control otp-input" id="otp" name="otp" [(ngModel)]="otp" placeholder="••••••"
+             inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
     </div>
-  </div>
-</div>
+    <button class="btn btn-primary btn-block mt-4" type="submit" [disabled]="loading">
+      <span *ngIf="loading" class="spinner-border spinner-border-sm mr-2"></span>{{ loading ? 'Verifying…' : 'Verify and continue' }}
+    </button>
+  </form>
+  <div class="auth-links center"><a routerLink="/login"><i class="mdi mdi-arrow-left mr-1"></i>Back to sign in</a></div>
+</app-auth-layout>

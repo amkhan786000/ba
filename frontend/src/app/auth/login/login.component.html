@@ -1,32 +1,43 @@
-<div class="d-flex justify-content-center align-items-center" style="min-height:100vh;">
-  <div class="card shadow-sm" style="width: 380px;">
-    <div class="card-body p-4">
-      <h4 class="mb-3 text-center">Rahbar — Sign in</h4>
-      <div *ngIf="error" class="alert alert-danger py-2">{{ error }}</div>
-      <form (ngSubmit)="submit()">
-        <div class="mb-3">
-          <label class="form-label">Login with</label>
-          <select class="form-control" [(ngModel)]="loginMethod" name="loginMethod">
-            <option value="email">Email</option>
-            <option value="phone">Phone</option>
-          </select>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">{{ loginMethod === 'email' ? 'Email' : 'Phone' }}</label>
-          <input class="form-control" name="identifier" [(ngModel)]="identifier" required>
-        </div>
-        <div class="mb-3">
-          <label class="form-label">Password</label>
-          <input class="form-control" type="password" name="password" [(ngModel)]="password" required>
-        </div>
-        <button class="btn btn-primary w-100" type="submit" [disabled]="loading">
-          {{ loading ? 'Signing in…' : 'Sign in' }}
-        </button>
-      </form>
-      <div class="d-flex justify-content-between mt-3">
-        <a routerLink="/reset-password">Forgot password?</a>
-        <a routerLink="/register">Create account</a>
+<app-auth-layout heading="Welcome back" subheading="Sign in to continue to your Rahbar dashboard.">
+  <div *ngIf="error" class="alert alert-danger">{{ error }}</div>
+  <form (ngSubmit)="submit()">
+    <div class="segmented" role="tablist" aria-label="Sign in with">
+      <button type="button" [class.active]="loginMethod === 'email'" (click)="loginMethod = 'email'">
+        <i class="mdi mdi-email-outline"></i>Email
+      </button>
+      <button type="button" [class.active]="loginMethod === 'phone'" (click)="loginMethod = 'phone'">
+        <i class="mdi mdi-cellphone"></i>Phone
+      </button>
+    </div>
+    <div class="form-group">
+      <label for="identifier">{{ loginMethod === 'email' ? 'Email address' : 'Phone number' }}</label>
+      <div class="input-icon">
+        <i class="mdi" [ngClass]="loginMethod === 'email' ? 'mdi-email-outline' : 'mdi-cellphone'"></i>
+        <input class="form-control" id="identifier" name="identifier" [(ngModel)]="identifier" required
+               [type]="loginMethod === 'email' ? 'email' : 'tel'"
+               [placeholder]="loginMethod === 'email' ? 'you@example.com' : '10-digit mobile number'"
+               [attr.autocomplete]="loginMethod === 'email' ? 'email' : 'tel'">
       </div>
     </div>
+    <div class="form-group">
+      <div class="d-flex justify-content-between align-items-center">
+        <label for="password">Password</label>
+        <a routerLink="/reset-password" class="small font-weight-bold mb-1">Forgot password?</a>
+      </div>
+      <div class="input-icon">
+        <i class="mdi mdi-lock-outline"></i>
+        <input class="form-control" id="password" type="password" name="password" [(ngModel)]="password"
+               placeholder="Your password" autocomplete="current-password" required>
+      </div>
+    </div>
+    <button class="btn btn-primary btn-block mt-4" type="submit" [disabled]="loading">
+      <span *ngIf="loading" class="spinner-border spinner-border-sm mr-2"></span>{{ loading ? 'Signing in…' : 'Sign in' }}
+    </button>
+  </form>
+  <div class="auth-links center">
+    <span class="text-muted font-weight-normal mr-1">New to Rahbar?</span><a routerLink="/register">Create an account</a>
   </div>
-</div>
+  <div class="auth-links center mt-2">
+    <a routerLink="/apply"><i class="mdi mdi-file-document-edit-outline mr-1"></i>Apply for a scholarship</a>
+  </div>
+</app-auth-layout>

@@ -1,7 +1,9 @@
 import { Component, HostListener, Input, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
+import { ROLE_LABELS } from '../../core/models/user.model';
 
 export interface NavLink {
   path: string;
@@ -10,76 +12,67 @@ export interface NavLink {
 }
 
 /**
- * Layout ported from the Flask templates (topbar + left sidebar + fixed footer,
- * Adminto theme). Title and menu come from the route's `data` (see app.routes.ts).
+ * App layout: dark brand sidebar + sticky top bar + content area.
+ * Title and menu come from the route's `data` (see app.routes.ts). Styles live in src/styles.scss (.app-*).
  */
 @Component({
   selector: 'app-shell',
   standalone: true,
   imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
   template: `
-    <div id="wrapper">
-      <!-- Topbar -->
-      <div class="navbar-custom">
-        <div class="container-fluid">
-          <ul class="list-unstyled topnav-menu topnav-menu-left m-0 float-left">
-            <li>
-              <button class="button-menu-mobile waves-effect" (click)="toggleSidebar()">
-                <i class="mdi mdi-menu"></i>
-              </button>
-            </li>
-            <li class="d-none d-lg-block">
-              <h6 class="page-title mb-0 mt-3 ml-2">{{ title }}</h6>
-            </li>
-          </ul>
+    <div class="app" [class.app--collapsed]="collapsed" [class.app--mobile-open]="mobileOpen">
+      <aside class="app-sidebar">
+        <a class="app-brand" [routerLink]="homeLink" (click)="mobileOpen = false">
+          <span class="brand-mark">ba</span>
+          <span class="brand-text"><strong>Rahbar</strong><small>Bihar Anjuman</small></span>
+        </a>
+        <nav class="app-nav">
+          <div class="nav-section">{{ title }}</div>
+          <a *ngFor="let link of links" class="nav-item" [routerLink]="link.path" routerLinkActive="active"
+             [title]="collapsed ? link.label : ''" (click)="mobileOpen = false">
+            <i class="mdi" [ngClass]="link.icon || 'mdi-circle-outline'"></i>
+            <span>{{ link.label }}</span>
+          </a>
+        </nav>
+        <div class="sidebar-foot">Connecting people to serve humanity</div>
+      </aside>
+      <div class="app-backdrop" (click)="mobileOpen = false"></div>
 
-          <ul class="list-unstyled topnav-menu float-right mb-0">
-            <li class="dropdown notification-list" (click)="$event.stopPropagation()">
-              <a class="nav-link dropdown-toggle nav-user waves-effect" href="#" role="button" (click)="toggleMenu($event)">
-                <img src="assets/theme/images/users/avatar-1.jpg" alt="user-image" class="rounded-circle" />
-                <span class="d-none d-sm-inline-block ml-1">{{ auth.currentUser()?.name }}</span>
-              </a>
-              <div class="dropdown-menu dropdown-menu-right profile-dropdown" [class.show]="menuOpen">
-                <a href="#" class="dropdown-item notify-item" (click)="logout($event)">
-                  <i class="mdi mdi-logout-variant"></i>
-                  <span>Logout</span>
-                </a>
+      <div class="app-main">
+        <header class="app-topbar">
+          <button type="button" class="icon-btn" (click)="toggleSidebar()" aria-label="Toggle menu">
+            <i class="mdi mdi-menu"></i>
+          </button>
+          <div class="topbar-crumbs">
+            <small>{{ title }}</small>
+            <strong>{{ currentLabel }}</strong>
+          </div>
+          <div class="topbar-right" (click)="$event.stopPropagation()">
+            <div class="user-chip" role="button" tabindex="0" (click)="menuOpen = !menuOpen" (keydown.enter)="menuOpen = !menuOpen">
+              <span class="avatar">{{ initials }}</span>
+              <span class="user-meta">
+                <strong>{{ auth.currentUser()?.name }}</strong>
+                <small>{{ roleLabel }}</small>
+              </span>
+              <i class="mdi mdi-chevron-down"></i>
+            </div>
+            <div class="user-menu" *ngIf="menuOpen">
+              <div class="user-menu-head">
+                <strong>{{ auth.currentUser()?.name }}</strong>
+                <small>{{ roleLabel }} · {{ auth.currentUser()?.userId }}</small>
               </div>
-            </li>
-          </ul>
-
-          <div class="logo-box-centered">
-            <a [routerLink]="homeLink" class="text-success"><h4 class="m-0">RSMS</h4></a>
+              <a href="#" (click)="logout($event)"><i class="mdi mdi-logout-variant"></i><span>Sign out</span></a>
+            </div>
           </div>
-        </div>
-      </div>
+        </header>
 
-      <!-- Left sidebar -->
-      <div class="left-side-menu">
-        <div class="slimscroll-menu">
-          <div id="sidebar-menu">
-            <ul class="metismenu" id="side-menu">
-              <li class="menu-title">Navigation</li>
-              <li *ngFor="let link of links" routerLinkActive="mm-active">
-                <a [routerLink]="link.path" routerLinkActive="active" class="waves-effect" (click)="closeMobileSidebar()">
-                  <i class="mdi" [ngClass]="link.icon || 'mdi-circle-outline'"></i>
-                  <span>{{ link.label }}</span>
-                </a>
-              </li>
-            </ul>
-          </div>
-        </div>
-      </div>
+        <main class="app-content">
+          <router-outlet></router-outlet>
+        </main>
 
-      <!-- Page content -->
-      <div class="content-page">
-        <div class="content">
-          <div class="container-fluid">
-            <router-outlet></router-outlet>
-          </div>
-        </div>
-        <footer class="footer">
-          <p class="mb-0">Developed by <strong>Cognifly AI System</strong></p>
+        <footer class="app-footer">
+          <span>© {{ year }} Rahbar · Bihar Anjuman</span>
+          <span>Developed by <strong>Cognifly AI System</strong></span>
         </footer>
       </div>
     </div>
@@ -87,34 +80,62 @@ export interface NavLink {
 })
 export class ShellComponent implements OnDestroy {
   @Input() title = '';
-  @Input() links: NavLink[] = [];
+  @Input() set links(v: NavLink[] | undefined) { this._links = v ?? []; this.updateLabel(); }
+  get links(): NavLink[] { return this._links; }
+  private _links: NavLink[] = [];
+
   menuOpen = false;
+  mobileOpen = false;
+  collapsed = false;
+  currentLabel = '';
+  readonly year = new Date().getFullYear();
+  private sub: Subscription;
+
+  constructor(public auth: AuthService, private router: Router) {
+    this.sub = this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
+      this.updateLabel();
+      this.menuOpen = false;
+    });
+  }
 
   get homeLink(): string { return this.links.length ? this.links[0].path : '/'; }
 
-  constructor(public auth: AuthService, private router: Router) {}
+  get roleLabel(): string {
+    const roleId = this.auth.currentUser()?.roleId ?? 0;
+    return ROLE_LABELS[roleId] ?? 'User';
+  }
 
-  /** Same behaviour as the theme's app.min.js: collapse on desktop, slide-in on mobile. */
+  get initials(): string {
+    const name = (this.auth.currentUser()?.name ?? '').trim();
+    if (!name) return '?';
+    const parts = name.split(/\s+/);
+    return ((parts[0][0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+  }
+
+  /** Label of the menu entry the current URL belongs to (longest matching path wins). */
+  private updateLabel(): void {
+    const url = this.router.url.split(/[?#]/)[0];
+    const match = this.links
+      .filter((l) => url === l.path || url.startsWith(l.path + '/'))
+      .sort((a, b) => b.path.length - a.path.length)[0];
+    this.currentLabel = match?.label ?? this.title;
+  }
+
+  /** Desktop: collapse to icons. Mobile: slide the menu in. */
   toggleSidebar(): void {
-    if (window.innerWidth < 768) {
-      document.body.classList.toggle('sidebar-enable');
-    } else {
-      document.body.classList.toggle('enlarged');
-    }
-  }
-
-  closeMobileSidebar(): void {
-    document.body.classList.remove('sidebar-enable');
-  }
-
-  toggleMenu(event: Event): void {
-    event.preventDefault();
-    this.menuOpen = !this.menuOpen;
+    if (window.innerWidth < 992) this.mobileOpen = !this.mobileOpen;
+    else this.collapsed = !this.collapsed;
   }
 
   @HostListener('document:click')
   closeMenu(): void {
     this.menuOpen = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.menuOpen = false;
+    this.mobileOpen = false;
   }
 
   logout(event: Event): void {
@@ -124,6 +145,6 @@ export class ShellComponent implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    document.body.classList.remove('sidebar-enable', 'enlarged');
+    this.sub.unsubscribe();
   }
 }
