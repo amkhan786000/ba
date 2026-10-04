@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 /**
  * Audit columns shared by every table: who created / last changed a row and when.
  * Filled automatically on JPA save (see config/AuditConfig). created_* are never updated after insert.
- * Raw-SQL writes in the controllers set the same columns explicitly.
+ * Every write goes through JPA (repositories / services), so these are always filled automatically.
  */
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)

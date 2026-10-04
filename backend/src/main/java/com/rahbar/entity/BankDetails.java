@@ -9,7 +9,7 @@ import lombok.Setter;
 @Getter @Setter
 public class BankDetails extends Modifiable {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    // Assigned as MAX + 1 by the services (see the repository nextId())
     @Column(name = "bank_detail_id")
     private Long bankDetailId;
 
