@@ -149,6 +149,12 @@ npm install
 npm start               # http://localhost:4200, proxies to :5000 for /api
 ```
 
+## Deploying to the Contabo server
+
+Merging to `main` builds Docker images in GitHub Actions. *Actions → Build & deploy → Run workflow* deploys
+them to the server, with a database backup first and an automatic rollback if the new version isn't healthy.
+Setup and day-to-day commands: [`deploy/README.md`](deploy/README.md).
+
 ## Running with Docker
 
 Everything (MySQL, backend, frontend) can run via Docker Compose — this
