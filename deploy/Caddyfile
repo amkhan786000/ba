@@ -1,0 +1,5 @@
+# HTTPS front door (only used with COMPOSE_PROFILES=https). Caddy gets and renews the certificate itself.
+{$DOMAIN} {
+	encode gzip
+	reverse_proxy frontend:80
+}
