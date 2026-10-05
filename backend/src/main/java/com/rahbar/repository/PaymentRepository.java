@@ -22,6 +22,7 @@ public interface PaymentRepository extends JpaRepository<Payment, Long> {
     Optional<Payment> findByPaymentIdAndGranteeId(Long paymentId, String granteeId);
     long countByGranteeId(String granteeId);
     long countByGranteeIdAndStatus(String granteeId, String status);
+    List<Payment> findByStatusIgnoreCaseOrderByPaymentDateDesc(String status);
     boolean existsByGranteeIdAndPaymentDateGreaterThanEqual(String granteeId, LocalDateTime since);
 
     @Query("select distinct extract(year from p.paymentDate) from Payment p where p.paymentDate is not null")

@@ -28,4 +28,17 @@ public class StudentProgress extends Modifiable {
     @Column(name = "year", nullable = false)
     private Integer year;
 
+    /** Pending / Approved / Rejected, set by the sponsor, convenor or an admin. */
+    @Column(name = "review_status")
+    private String reviewStatus = "Pending";
+
+    @Column(name = "review_comment")
+    private String reviewComment;
+
+    @Column(name = "reviewed_by", length = 50)
+    private String reviewedBy;
+
+    @Column(name = "reviewed_at")
+    private java.time.LocalDateTime reviewedAt;
+
 }

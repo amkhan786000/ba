@@ -12,6 +12,7 @@ interface LoginResponse {
   roleId?: number;
   status?: string;
   message?: string;
+  mustChangePassword?: boolean;
 }
 
 const TOKEN_KEY = 'rahbar_token';
@@ -43,7 +44,19 @@ export class AuthService {
   persistSession(res: LoginResponse): void {
     if (!res.token) return;
     localStorage.setItem(TOKEN_KEY, res.token);
-    const user: AuthUser = { userId: res.userId, name: res.name ?? '', roleId: res.roleId ?? 0, status: res.status ?? '' };
+    const user: AuthUser = {
+      userId: res.userId, name: res.name ?? '', roleId: res.roleId ?? 0, status: res.status ?? '',
+      mustChangePassword: !!res.mustChangePassword
+    };
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+    this.currentUser.set(user);
+  }
+
+  /** Updates the stored user (e.g. after a profile edit or a password change). */
+  updateUser(changes: Partial<AuthUser>): void {
+    const current = this.currentUser();
+    if (!current) return;
+    const user = { ...current, ...changes };
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     this.currentUser.set(user);
   }

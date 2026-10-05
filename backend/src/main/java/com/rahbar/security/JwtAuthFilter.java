@@ -41,6 +41,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                        // Accounts created with the default password may only change it (and sign out) until they do.
+                        if (userDetails instanceof RahbarUserPrincipal p
+                                && Boolean.TRUE.equals(p.getUser().getMustChangePassword())
+                                && !allowedBeforePasswordChange(request.getRequestURI())) {
+                            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"error\":\"Please change your password before continuing.\","
+                                    + "\"code\":\"PASSWORD_CHANGE_REQUIRED\"}");
+                            return;
+                        }
                     }
                 }
             } catch (Exception ignored) {
@@ -48,5 +59,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    private static boolean allowedBeforePasswordChange(String path) {
+        return path == null || !path.startsWith("/api/") || path.startsWith("/api/auth/") || path.startsWith("/api/account/")
+                || path.startsWith("/api/public/");
     }
 }

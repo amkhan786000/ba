@@ -29,6 +29,9 @@ public class ConvenorService {
     private final StudentInstitutionCourseRepository studentCourseRepository;
     private final StudentProgressRepository studentProgressRepository;
     private final FileStorageService fileStorageService;
+    private final SponsorMappingService sponsorMappingService;
+    private final NotificationService notificationService;
+    private final ApplicationService applicationService;
 
     public ConvenorService(UserRepository userRepository, GranteeDetailsRepository granteeDetailsRepository,
                            GrantorGranteeRepository grantorGranteeRepository,
@@ -36,7 +39,8 @@ public class ConvenorService {
                            PaymentRepository paymentRepository, BankDetailsRepository bankDetailsRepository,
                            StudentInstitutionCourseRepository studentCourseRepository,
                            StudentProgressRepository studentProgressRepository,
-                           FileStorageService fileStorageService) {
+                           FileStorageService fileStorageService, SponsorMappingService sponsorMappingService,
+                           NotificationService notificationService, ApplicationService applicationService) {
         this.userRepository = userRepository;
         this.granteeDetailsRepository = granteeDetailsRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
@@ -46,6 +50,9 @@ public class ConvenorService {
         this.studentCourseRepository = studentCourseRepository;
         this.studentProgressRepository = studentProgressRepository;
         this.fileStorageService = fileStorageService;
+        this.sponsorMappingService = sponsorMappingService;
+        this.notificationService = notificationService;
+        this.applicationService = applicationService;
     }
 
     private User convenor(String convenorId) {
@@ -124,14 +131,7 @@ public class ConvenorService {
 
     /** Adds a new status row to the application (the status history lives in application_status). */
     public void updateApplicationStatus(Long applicationId, String status, String comments) {
-        if (!granteeDetailsRepository.existsById(applicationId)) {
-            throw new ApiException(HttpStatus.NOT_FOUND, "Application not found");
-        }
-        ApplicationStatus as = new ApplicationStatus();
-        as.setGranteeDetailId(applicationId);
-        as.setStatus(status);
-        as.setComments(comments);
-        applicationStatusRepository.save(as);
+        applicationService.updateStatus(applicationId, status, comments);
     }
 
     public Map<String, Object> manageSponsors(String convenorId, String sortBy, String order) {
@@ -160,8 +160,10 @@ public class ConvenorService {
     public void mapStudents(String sponsorId, List<String> studentIds) {
         for (String studentId : studentIds) {
             grantorGranteeRepository.findFirstByGranteeId(studentId).ifPresent(gg -> {
+                boolean changed = !sponsorId.equals(gg.getGrantorId());
                 gg.setGrantorId(sponsorId);
                 grantorGranteeRepository.save(gg);
+                if (changed) sponsorMappingService.notifyMapped(studentId, sponsorId);
             });
         }
     }
@@ -251,6 +253,9 @@ public class ConvenorService {
         payment.setReceiptUrl(fileStorageService.store(receipt, filename));
         payment.setStatus("pending");
         paymentRepository.save(payment);
+        notificationService.notify(granteeId, "Payment recorded",
+                "A payment of " + amount + " was recorded for you and is awaiting approval.",
+                NotificationService.PAYMENT, "/student/payments", false);
     }
 
     public void uploadFile(MultipartFile file) {

@@ -30,12 +30,13 @@ public class StudentService {
     private final StudentInstitutionCourseRepository studentCourseRepository;
     private final StudentProgressRepository studentProgressRepository;
     private final FileStorageService fileStorageService;
+    private final NotificationService notificationService;
 
     public StudentService(UserRepository userRepository, GrantorGranteeRepository grantorGranteeRepository,
                           PaymentRepository paymentRepository, BankDetailsRepository bankDetailsRepository,
                           StudentInstitutionCourseRepository studentCourseRepository,
                           StudentProgressRepository studentProgressRepository,
-                          FileStorageService fileStorageService) {
+                          FileStorageService fileStorageService, NotificationService notificationService) {
         this.userRepository = userRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
         this.paymentRepository = paymentRepository;
@@ -43,6 +44,7 @@ public class StudentService {
         this.studentCourseRepository = studentCourseRepository;
         this.studentProgressRepository = studentProgressRepository;
         this.fileStorageService = fileStorageService;
+        this.notificationService = notificationService;
     }
 
     public Map<String, Object> dashboard(String userId) {
@@ -113,7 +115,14 @@ public class StudentService {
         progress.setFilePath(filename);
         progress.setSession(session);
         progress.setYear(academicYear);
+        progress.setReviewStatus("Pending");
         studentProgressRepository.save(progress);
+
+        String studentName = userRepository.findById(userId).map(User::getName).orElse(userId);
+        String summary = studentName + " uploaded marks (" + marks + ") for " + session + " " + academicYear + ".";
+        grantorGranteeRepository.findFirstByGranteeId(userId).ifPresent(gg -> notificationService.notify(gg.getGrantorId(),
+                "New progress report to review", summary,
+                NotificationService.PROGRESS, "/sponsor/progress", false));
     }
 
     public List<Map<String, Object>> progressHistory(String userId) {
@@ -128,6 +137,10 @@ public class StudentService {
         fileStorageService.store(proofFile, filename);
         payment.setStudentProofUrl(filename);
         paymentRepository.save(payment);
+        String studentName = userRepository.findById(userId).map(User::getName).orElse(userId);
+        notificationService.notify(payment.getGrantorId(), "Payment proof uploaded",
+                studentName + " uploaded proof of receipt for a payment of " + payment.getAmount() + ".",
+                NotificationService.PAYMENT, "/sponsor/payments", false);
     }
 
     /** Picks the safe user columns shown on student cards. */

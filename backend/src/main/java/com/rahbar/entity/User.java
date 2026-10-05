@@ -42,4 +42,8 @@ public class User extends Modifiable {
     @Column(name = "year")
     private Integer year;
 
+    /** Set when an admin or a bulk upload creates the account: the user must choose a new password at first sign-in. */
+    @Column(name = "must_change_password")
+    private Boolean mustChangePassword = false;
+
 }

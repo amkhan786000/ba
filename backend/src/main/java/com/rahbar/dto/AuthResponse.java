@@ -8,6 +8,8 @@ public class AuthResponse {
     private Integer roleId;
     private String status;
     private String message;
+    /** True when the user must choose a new password before using the app. */
+    private boolean mustChangePassword;
 
     public static AuthResponse otpRequired(String userId, String message) {
         AuthResponse r = new AuthResponse();
@@ -39,6 +41,8 @@ public class AuthResponse {
     public void setRoleId(Integer roleId) { this.roleId = roleId; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+    public boolean isMustChangePassword() { return mustChangePassword; }
+    public void setMustChangePassword(boolean mustChangePassword) { this.mustChangePassword = mustChangePassword; }
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }
 }

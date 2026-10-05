@@ -3,6 +3,8 @@ package com.rahbar.controller;
 import com.rahbar.dto.*;
 import com.rahbar.entity.User;
 import com.rahbar.service.AuthService;
+import com.rahbar.web.ActivityLogInterceptor;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -23,13 +25,13 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody LoginRequest req) {
-        return authService.login(req);
+    public AuthResponse login(@RequestBody LoginRequest req, HttpServletRequest request) {
+        return authService.login(req, ActivityLogInterceptor.clientIp(request));
     }
 
     @PostMapping("/verify-otp")
-    public AuthResponse verifyOtp(@RequestBody OtpVerifyRequest req) {
-        return authService.verifyOtp(req);
+    public AuthResponse verifyOtp(@RequestBody OtpVerifyRequest req, HttpServletRequest request) {
+        return authService.verifyOtp(req, ActivityLogInterceptor.clientIp(request));
     }
 
     @PostMapping("/register")

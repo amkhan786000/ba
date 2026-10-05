@@ -4,14 +4,15 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
+import { ProgressReviewComponent } from '../shared/review/progress-review.component';
 
-interface Progress { year: string | number | null; session: string | null; marks: string | number | null; file_path: string | null; created_at: string | null }
+interface Progress { progress_id: number; review_status?: string | null; review_comment?: string | null; year: string | number | null; session: string | null; marks: string | number | null; file_path: string | null; created_at: string | null }
 
 /** Port of templates/student/student_progress.html */
 @Component({
   selector: 'app-student-progress',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, ProgressReviewComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Academic Progress</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -52,15 +53,16 @@ interface Progress { year: string | number | null; session: string | null; marks
             <h4 class="header-title mb-3">Submission History</h4>
             <div class="table-responsive mt-4">
               <table class="table table-striped table-centered mb-0">
-                <thead><tr><th>Year</th><th>Session</th><th>Marks</th><th>File</th><th>Date Submitted</th></tr></thead>
+                <thead><tr><th>Year</th><th>Session</th><th>Marks</th><th>File</th><th>Date Submitted</th><th>Review</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="!rows.length"><td colspan="5" class="text-center text-muted">No progress data found.</td></tr>
+                  <tr *ngIf="!rows.length"><td colspan="6" class="text-center text-muted">No progress data found.</td></tr>
                   <tr *ngFor="let p of rows">
                     <td>Year {{ p.year }}</td>
                     <td>{{ p.session }}</td>
                     <td><span class="badge badge-primary">{{ p.marks }}</span></td>
                     <td><a *ngIf="p.file_path" [href]="url(p.file_path)" target="_blank" class="btn btn-xs btn-outline-primary waves-effect waves-light">View File</a></td>
                     <td>{{ p.created_at ? (p.created_at | date: 'yyyy-MM-dd') : '--' }}</td>
+                    <td><app-progress-review [row]="p"></app-progress-review></td>
                   </tr>
                 </tbody>
               </table>

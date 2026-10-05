@@ -56,4 +56,10 @@ public class GranteeDetails extends Modifiable {
     @Column(name = "student_mobile")
     private String studentMobile;
 
+    @Column(name = "interview_at")
+    private java.time.LocalDateTime interviewAt;
+
+    @Column(name = "interview_venue")
+    private String interviewVenue;
+
 }

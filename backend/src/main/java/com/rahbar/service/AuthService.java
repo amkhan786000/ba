@@ -26,32 +26,44 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EmailService emailService;
+    private final ActivityLogService activityLogService;
 
     private static final SecureRandom RANDOM = new SecureRandom();
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthService.class);
+
+    /** Local testing only (LOG_OTP=true): print the OTP in the backend log so sign-in works without SMTP. */
+    @org.springframework.beans.factory.annotation.Value("${app.mail.log-otp:false}")
+    private boolean logOtp;
 
     public AuthService(UserRepository userRepository, OtpRepository otpRepository,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
-                       EmailService emailService) {
+                       EmailService emailService, ActivityLogService activityLogService) {
         this.userRepository = userRepository;
         this.otpRepository = otpRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
+        this.activityLogService = activityLogService;
     }
 
-    public AuthResponse login(LoginRequest req) {
+    public AuthResponse login(LoginRequest req, String ip) {
         Optional<User> userOpt = "phone".equalsIgnoreCase(req.getLoginMethod())
                 ? userRepository.findByPhone(req.getIdentifier())
                 : userRepository.findByEmail(req.getIdentifier());
 
-        User user = userOpt.orElseThrow(() ->
-                new ApiException(HttpStatus.UNAUTHORIZED, "Invalid " + req.getLoginMethod() + " or password"));
+        if (userOpt.isEmpty()) {
+            activityLogService.record(null, "Failed sign-in: unknown " + req.getLoginMethod() + " " + req.getIdentifier(),
+                    "POST", "/api/auth/login", 401, ip);
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid " + req.getLoginMethod() + " or password");
+        }
+        User user = userOpt.get();
 
         if ("Inactive".equalsIgnoreCase(user.getStatus())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Your account is inactive. Please contact the administrator.");
         }
 
         if (!passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
+            activityLogService.record(user, "Failed sign-in: wrong password", "POST", "/api/auth/login", 401, ip);
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid " + req.getLoginMethod() + " or password");
         }
 
@@ -62,10 +74,17 @@ public class AuthService {
             userRepository.save(user);
         }
 
+        // Anyone still using the default password given to bulk-created accounts must change it.
+        if (PasswordPolicy.DEFAULT_PASSWORD.equals(req.getPassword()) && !Boolean.TRUE.equals(user.getMustChangePassword())) {
+            user.setMustChangePassword(true);
+            userRepository.save(user);
+        }
+
         if ("registered".equalsIgnoreCase(user.getStatus())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Your account is not yet activated. Please wait for approval.");
         }
         if ("recognised".equalsIgnoreCase(user.getStatus())) {
+            activityLogService.record(user, "Signed in", "POST", "/api/auth/login", 200, ip);
             return issueToken(user); // original redirected straight to public_application
         }
 
@@ -80,27 +99,28 @@ public class AuthService {
 
         emailService.send(user.getEmail(), "Your Login OTP",
                 "Your OTP for login is " + otpCode + ". It is valid for 5 minutes.");
+        if (logOtp) log.warn("LOG_OTP is on: sign-in OTP for {} is {}", user.getUserId(), otpCode);
 
         return AuthResponse.otpRequired(user.getUserId(), "An OTP has been sent to your email. Please verify.");
     }
 
-    public AuthResponse verifyOtp(OtpVerifyRequest req) {
-        // '477030' preserved as a master/testing bypass code, exactly like the original code.
-        boolean masterBypass = "477030".equals(req.getOtp());
-
+    public AuthResponse verifyOtp(OtpVerifyRequest req, String ip) {
         User user = userRepository.findById(req.getUserId())
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid OTP. Please try again."));
 
-        if (!masterBypass) {
-            Otp otp = otpRepository.findByUserIdAndOtpAndStatus(req.getUserId(), req.getOtp(), 0)
-                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid OTP. Please try again."));
-            if (otp.getCreatedAt().plusMinutes(5).isBefore(LocalDateTime.now())) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "OTP has expired. Please log in again.");
-            }
-            otp.setStatus(1);
-            otpRepository.save(otp);
+        // No master code any more: every OTP sign-in needs the code that was emailed.
+        Otp otp = otpRepository.findByUserIdAndOtpAndStatus(req.getUserId(), req.getOtp(), 0).orElse(null);
+        if (otp == null) {
+            activityLogService.record(user, "Failed sign-in: wrong OTP", "POST", "/api/auth/verify-otp", 400, ip);
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid OTP. Please try again.");
         }
+        if (otp.getCreatedAt().plusMinutes(5).isBefore(LocalDateTime.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "OTP has expired. Please log in again.");
+        }
+        otp.setStatus(1);
+        otpRepository.save(otp);
 
+        activityLogService.record(user, "Signed in", "POST", "/api/auth/verify-otp", 200, ip);
         return issueToken(user);
     }
 
@@ -110,7 +130,9 @@ public class AuthService {
                 "name", user.getName(),
                 "status", user.getStatus()
         ));
-        return AuthResponse.success(token, user.getUserId(), user.getName(), user.getRoleId(), user.getStatus());
+        AuthResponse response = AuthResponse.success(token, user.getUserId(), user.getName(), user.getRoleId(), user.getStatus());
+        response.setMustChangePassword(Boolean.TRUE.equals(user.getMustChangePassword()));
+        return response;
     }
 
     public void register(RegisterRequest req) {
@@ -133,16 +155,16 @@ public class AuthService {
         user.setPhone(req.getContact());
         user.setRoleId(req.getRole());
         user.setStatus("registered");
+        user.setMustChangePassword(false);
         userRepository.save(user);
     }
 
     public void resetPassword(ResetPasswordRequest req) {
         User user = userRepository.findByEmail(req.getEmail())
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Email not found."));
-        if (!req.getNewPassword().equals(req.getConfirmPassword())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Passwords do not match.");
-        }
+        PasswordPolicy.check(req.getNewPassword(), req.getConfirmPassword());
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        user.setMustChangePassword(false);
         userRepository.save(user);
     }
 

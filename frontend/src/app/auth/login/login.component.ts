@@ -31,7 +31,7 @@ export class LoginComponent {
           this.router.navigate(['/verify-otp'], { queryParams: { userId: res.userId } });
         } else {
           this.auth.persistSession(res);
-          this.router.navigate([dashboardPathForRole(res.roleId ?? 0)]);
+          this.router.navigate([res.mustChangePassword ? '/change-password' : dashboardPathForRole(res.roleId ?? 0)]);
         }
       },
       error: (err) => {

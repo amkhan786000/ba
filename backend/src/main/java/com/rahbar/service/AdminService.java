@@ -33,12 +33,8 @@ import static com.rahbar.service.ServiceSupport.*;
 @Service
 public class AdminService {
 
-    public static final Set<String> VALID_APPLICATION_STATUSES = Set.of(
-            "draft", "submitted", "interviewing", "accepted", "rejected",
-            "on hold", "provisional admission letter", "admitted");
-
-    /** Initial password of accounts created by bulk upload / manual add. */
-    private static final String DEFAULT_PASSWORD = "hello";
+    /** Initial password of accounts created by an admin, bulk upload or manual add (must be changed at first sign-in). */
+    private static final String DEFAULT_PASSWORD = PasswordPolicy.DEFAULT_PASSWORD;
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -56,7 +52,8 @@ public class AdminService {
     private final StudentProgressRepository studentProgressRepository;
     private final SponsorMappingService sponsorMappingService;
     private final StudentService studentService;
-    private final ReportService reportService;
+    private final ApplicationService applicationService;
+    private final NotificationService notificationService;
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
 
@@ -72,7 +69,8 @@ public class AdminService {
                         BankDetailsRepository bankDetailsRepository, PaymentRepository paymentRepository,
                         StudentProgressRepository studentProgressRepository,
                         SponsorMappingService sponsorMappingService, StudentService studentService,
-                        ReportService reportService, PasswordEncoder passwordEncoder,
+                        ApplicationService applicationService, NotificationService notificationService,
+                        PasswordEncoder passwordEncoder,
                         FileStorageService fileStorageService) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -90,7 +88,8 @@ public class AdminService {
         this.studentProgressRepository = studentProgressRepository;
         this.sponsorMappingService = sponsorMappingService;
         this.studentService = studentService;
-        this.reportService = reportService;
+        this.applicationService = applicationService;
+        this.notificationService = notificationService;
         this.passwordEncoder = passwordEncoder;
         this.fileStorageService = fileStorageService;
     }
@@ -180,6 +179,7 @@ public class AdminService {
         user.setRegion(String.valueOf(body.getOrDefault("region", "Jeddah")));
         user.setSex(String.valueOf(body.getOrDefault("sex", "M")));
         user.setPasswordHash(passwordEncoder.encode(String.valueOf(body.get("password"))));
+        user.setMustChangePassword(true); // the admin chose this password; the user picks their own at first sign-in
         userRepository.save(user);
     }
 
@@ -305,14 +305,7 @@ public class AdminService {
     }
 
     public void updateApplicationStatus(Long granteeDetailId, String status, String comments) {
-        if (!VALID_APPLICATION_STATUSES.contains(status)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid status selected!");
-        }
-        ApplicationStatus as = new ApplicationStatus();
-        as.setGranteeDetailId(granteeDetailId);
-        as.setStatus(status);
-        as.setComments(comments);
-        applicationStatusRepository.save(as);
+        applicationService.updateStatus(granteeDetailId, status, comments);
     }
 
     // ------------------------------------------------------------------ manage students
@@ -518,27 +511,33 @@ public class AdminService {
 
     // --------------------------------------------------------------- bulk uploads
 
-    /** Creates / updates students and their application details from a CSV; returns how many rows were saved. */
-    public int bulkUploadStudents(MultipartFile file) throws IOException {
-        int success = 0;
+    /** Creates / updates students and their application details from a CSV; returns a row-by-row report. */
+    public BulkUploadReport bulkUploadStudents(MultipartFile file) throws IOException {
+        BulkUploadReport report = new BulkUploadReport();
         try (CSVParser parser = CSVFormat.DEFAULT.builder()
-                .setHeader().setSkipHeaderRecord(true).setIgnoreHeaderCase(true).setTrim(true)
+                .setHeader().setSkipHeaderRecord(true).setIgnoreHeaderCase(true).setTrim(true).setAllowMissingColumnNames(true)
                 .build().parse(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
+            requireColumns(parser.getHeaderNames(), "studentreference", "studentname");
             for (CSVRecord row : parser) {
+                int rowNumber = (int) row.getRecordNumber() + 1; // +1 for the header line
+                report.row();
+                Map<String, String> r = normalizeHeaders(row, parser.getHeaderNames());
+                String uId = r.getOrDefault("studentreference", "").trim();
                 try {
-                    Map<String, String> r = normalizeHeaders(row, parser.getHeaderNames());
-                    String uId = r.getOrDefault("studentreference", "").trim();
-                    if (uId.isEmpty()) continue;
+                    if (uId.isEmpty()) { report.skipped(rowNumber, null, "No Student Reference."); continue; }
                     String name = r.getOrDefault("studentname", "").trim();
-                    String email = r.getOrDefault("email", uId + "@rahbar.com");
-                    String phone = r.getOrDefault("mobilestudent", "");
+                    if (name.isEmpty()) { report.skipped(rowNumber, uId, "No Student Name."); continue; }
+                    String email = blankToNull(r.get("email"));
+                    String phone = r.getOrDefault("mobilestudent", "").trim();
 
-                    User user = userRepository.findById(uId).orElseGet(() -> newStudent(uId));
+                    User existing = userRepository.findById(uId).orElse(null);
+                    User user = existing != null ? existing : newStudent(uId);
                     if (user.getSex() == null) user.setSex("M");
                     user.setName(name);
-                    user.setEmail(email);
+                    user.setEmail(email != null ? email : (existing != null ? existing.getEmail() : uId + "@rahbar.com"));
                     user.setPhone(phone);
                     userRepository.save(user);
+                    if (existing == null) report.created(); else report.updated();
 
                     GranteeDetails gd = granteeDetailsRepository.findFirstByUserIdOrderByGranteeDetailIdAsc(uId).orElse(null);
                     if (gd == null) {
@@ -554,14 +553,25 @@ public class AdminService {
                     gd.setAddress(r.get("address"));
                     gd.setCourseApplied(r.get("course(branch)"));
                     granteeDetailsRepository.save(gd);
-
-                    success++;
                 } catch (Exception rowEx) {
-                    // Skip bad rows, mirroring the original's per-row try/except.
+                    // Keep going with the next row, but tell the admin why this one failed.
+                    report.failed(rowNumber, uId, rowEx);
                 }
             }
         }
-        return success;
+        return report;
+    }
+
+    /** 400 when the CSV doesn't have the columns the upload needs (wrong file or wrong template). */
+    private static void requireColumns(List<String> headers, String... required) {
+        Set<String> present = new HashSet<>();
+        for (String h : headers) present.add(h.trim().toLowerCase().replace(" ", "").replace("_", ""));
+        List<String> missing = new ArrayList<>();
+        for (String r : required) if (!present.contains(r)) missing.add(r);
+        if (!missing.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "The file is missing required column(s): " + String.join(", ", missing)
+                    + ". Download the template from the upload window and use its column names.");
+        }
     }
 
     private User newStudent(String userId) {
@@ -570,6 +580,7 @@ public class AdminService {
         user.setRoleId(STUDENT_ROLE);
         user.setStatus("Active");
         user.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
+        user.setMustChangePassword(true);
         return user;
     }
 
@@ -579,17 +590,21 @@ public class AdminService {
      * Columns: Sponsor Name, Sponsor Email, Sponsor Mobile1, Sponsor Chapter, Student Assigned, optional Sponsor ID.
      * Returns how many rows were processed.
      */
-    public int bulkUploadSponsors(MultipartFile file) throws IOException {
+    public BulkUploadReport bulkUploadSponsors(MultipartFile file) throws IOException {
         byte[] raw = file.getBytes();
         String text = new String(raw, StandardCharsets.UTF_8);
-        if (text.contains("�")) text = new String(raw, StandardCharsets.ISO_8859_1); // latin-1 fallback, as in Flask
-        if (text.startsWith("﻿")) text = text.substring(1);
+        if (text.contains("\uFFFD")) text = new String(raw, StandardCharsets.ISO_8859_1); // latin-1 fallback, as in Flask
+        if (text.startsWith("\uFEFF")) text = text.substring(1);
 
-        int success = 0;
+        BulkUploadReport report = new BulkUploadReport();
         try (CSVParser parser = CSVFormat.DEFAULT.builder()
                 .setHeader().setSkipHeaderRecord(true).setIgnoreHeaderCase(true).setTrim(true).setAllowMissingColumnNames(true)
                 .build().parse(new StringReader(text))) {
+            requireColumns(parser.getHeaderNames(), "sponsorname");
             for (CSVRecord row : parser) {
+                int rowNumber = (int) row.getRecordNumber() + 1;
+                report.row();
+                String reference = null;
                 try {
                     Map<String, String> r = new HashMap<>();
                     for (String h : parser.getHeaderNames()) {
@@ -600,7 +615,11 @@ public class AdminService {
                     String email = r.get("sponsoremail");
                     String mobile1 = r.get("sponsormobile1");
                     String chapter = Objects.requireNonNullElse(r.get("sponsorchapter"), "General");
-                    if (name.isEmpty() && email == null && mobile1 == null) continue;
+                    reference = !name.isEmpty() ? name : email != null ? email : mobile1;
+                    if (name.isEmpty() && email == null && mobile1 == null) {
+                        report.skipped(rowNumber, null, "Empty row (no name, email or mobile).");
+                        continue;
+                    }
 
                     Optional<User> existing = Optional.empty();
                     if (email != null) existing = userRepository.findFirstByEmailAndRoleIdIn(email, SPONSOR_ROLES);
@@ -610,6 +629,7 @@ public class AdminService {
                     String userId;
                     if (existing.isPresent()) {
                         userId = existing.get().getUserId();
+                        report.updated();
                     } else {
                         // New sponsor: use the sheet's Sponsor ID if given, otherwise generate one.
                         String given = r.get("sponsorid");
@@ -624,23 +644,42 @@ public class AdminService {
                         sponsor.setStatus("active");
                         sponsor.setRegion(chapter);
                         sponsor.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
+                        sponsor.setMustChangePassword(true);
                         userRepository.save(sponsor);
+                        report.created();
                     }
 
                     String assigned = r.get("studentassigned");
                     if (assigned != null) {
                         for (String stuId : assigned.split(",")) {
-                            if (stuId.isBlank()) continue;
-                            sponsorMappingService.map(stuId.trim(), userId, "Accepted", false);
+                            String sid = stuId.trim();
+                            if (sid.isEmpty()) continue;
+                            if (!userRepository.existsById(sid)) {
+                                report.warning(rowNumber, reference, "Student '" + sid + "' does not exist, so it was not mapped.");
+                                continue;
+                            }
+                            sponsorMappingService.map(sid, userId, "Accepted", false);
+                            report.mapped();
                         }
                     }
-                    success++;
                 } catch (Exception rowEx) {
-                    // Skip bad rows, as the Flask version did.
+                    // Keep going with the next row, but tell the admin why this one failed.
+                    report.failed(rowNumber, reference, rowEx);
                 }
             }
         }
-        return success;
+        return report;
+    }
+
+    /** Header line of the CSV templates offered in the upload windows (matches what the uploads read). */
+    public String csvTemplate(String kind) {
+        return switch (kind) {
+            case "students" -> "Student Reference,Student Name,Email,Mobile Student,Father Name,Address,Course (Branch),RCC Non-RCC,Mobile-1,Mobile-2\n"
+                    + "STU-1001,Ayesha Khan,ayesha@example.com,9876543210,Imran Khan,Patna,B.Tech (CSE),RCC,9876500001,9876500002\n";
+            case "sponsors" -> "Sponsor ID,Sponsor Name,Sponsor Email,Sponsor Mobile1,Sponsor Chapter,Student Assigned\n"
+                    + ",Abdul Rahman,abdul@example.com,9800000001,Jeddah,\"STU-1001,STU-1002\"\n";
+            default -> throw new ApiException(HttpStatus.NOT_FOUND, "Unknown template.");
+        };
     }
 
     /** Adds (or updates) one student with application, bank, course and sponsor details. Returns the user id. */
@@ -746,24 +785,14 @@ public class AdminService {
         payment.setPaymentDate(parseDateTime(paymentDate));
         payment.setStatus(status);
         paymentRepository.save(payment);
-        return create ? "Payment recorded and linked to the student's sponsor successfully." : "Payment updated successfully.";
-    }
-
-    // ------------------------------------------------------------------- reports
-
-    public ReportService.Report report(String type, String format) {
-        List<Map<String, Object>> data = new ArrayList<>();
-        switch (type) {
-            case "applications" -> granteeDetailsRepository.findApplicationsReport().forEach(r -> data.add(Rows.ordered(r,
-                    "grantee_detail_id", "name", "father_name", "rcc_name", "course_applied",
-                    "assigned_sponsor_name", "assigned_sponsor_id")));
-            case "payments" -> paymentRepository.findPaymentsReport().forEach(r -> data.add(Rows.ordered(r,
-                    "payment_id", "grantee_name", "grantor_name", "grantor_id", "amount", "payment_status", "payment_date")));
-            case "sponsors_convenors" -> data.addAll(Rows.list(userRepository.findByRoleIdIn(SPONSOR_CONVENOR_ROLES)));
-            case "grantees" -> data.addAll(Rows.list(userRepository.findByRoleId(STUDENT_ROLE)));
-            default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid report type selected.");
+        if (create) {
+            String text = "A payment of " + amount + " was recorded for you (status: " + status + ").";
+            notificationService.notify(granteeId, "Payment recorded", text, NotificationService.PAYMENT, "/student/payments", false);
+            notificationService.notify(payment.getGrantorId(), "Payment recorded",
+                    "The office recorded a payment of " + amount + " for your student " + granteeId + ".",
+                    NotificationService.PAYMENT, "/sponsor/payments", false);
         }
-        return reportService.build(data, type + "_report", format, type);
+        return create ? "Payment recorded and linked to the student's sponsor successfully." : "Payment updated successfully.";
     }
 
     // ------------------------------------------------------------------- helpers

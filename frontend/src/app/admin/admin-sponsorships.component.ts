@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { BulkReport, BulkReportComponent } from '../shared/bulk-report.component';
 import { PagerComponent, pageOf } from '../shared/pager/pager.component';
 
 interface SponsorRow {
@@ -28,7 +29,7 @@ interface SponsorStudent {
 @Component({
   selector: 'app-admin-sponsorships',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, BulkReportComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">{{ limited ? 'Sponsors' : 'Manage Sponsorships' }}</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -89,6 +90,9 @@ interface SponsorStudent {
       </div>
     </div>
 
+    <app-bulk-report *ngIf="report" [report]="report" title="Sponsor upload results" createdLabel="New sponsors"
+                     updatedLabel="Merged with existing" [showMappings]="true" (closed)="report = null"></app-bulk-report>
+
     <!-- Bulk upload modal -->
     <div *ngIf="showUpload" class="modal fade show d-block" tabindex="-1" (click)="showUpload = false">
       <div class="modal-dialog modal-dialog-centered" (click)="$event.stopPropagation()">
@@ -102,6 +106,7 @@ interface SponsorStudent {
               <div class="alert alert-info">
                 <strong>Format Required:</strong><br>
                 <small>Sponsor Name, Sponsor Email, Sponsor Mobile1, Sponsor Chapter, Student Assigned (comma-separated student IDs), and optionally Sponsor ID for new sponsors. Existing sponsors are matched by email, then phone, then name + chapter.</small>
+                <div class="mt-2"><button type="button" class="btn btn-sm btn-outline-primary" (click)="template()"><i class="mdi mdi-download"></i> Download CSV template</button></div>
               </div>
               <div class="form-group">
                 <label>Select CSV File</label>
@@ -213,6 +218,15 @@ export class AdminSponsorshipsComponent implements OnInit {
   }
   get rows(): SponsorRow[] { return pageOf(this.filtered, this.page, this.pageSize); }
 
+  /** Result of the last bulk upload (shown in a results window). */
+  report: BulkReport | null = null;
+
+  template(): void {
+    this.api.download('/admin/templates/sponsors', undefined, 'sponsors_template.csv').subscribe({
+      error: (e) => (this.error = errorText(e, 'Could not download the template.'))
+    });
+  }
+
   onFile(event: Event): void {
     this.file = (event.target as HTMLInputElement).files?.[0] ?? null;
   }
@@ -223,8 +237,8 @@ export class AdminSponsorshipsComponent implements OnInit {
     form.append('file', this.file);
     this.showUpload = false;
     this.uploading = true;
-    this.api.post<{ message: string }>('/admin/sponsors/bulk-upload', form).subscribe({
-      next: (r) => { this.uploading = false; this.file = null; this.message = r.message; this.load(); },
+    this.api.post<{ message: string; report?: BulkReport }>('/admin/sponsors/bulk-upload', form).subscribe({
+      next: (r) => { this.uploading = false; this.file = null; this.message = r.message; this.report = r.report ?? null; this.load(); },
       error: (e) => { this.uploading = false; this.error = errorText(e, 'Upload failed.'); }
     });
   }

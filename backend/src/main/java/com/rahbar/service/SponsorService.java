@@ -31,13 +31,14 @@ public class SponsorService {
     private final StudentInstitutionCourseRepository studentCourseRepository;
     private final StudentProgressRepository studentProgressRepository;
     private final FileStorageService fileStorageService;
+    private final NotificationService notificationService;
 
     public SponsorService(UserRepository userRepository, GrantorGranteeRepository grantorGranteeRepository,
                           PaymentRepository paymentRepository, PaymentScheduleRepository paymentScheduleRepository,
                           BankDetailsRepository bankDetailsRepository,
                           StudentInstitutionCourseRepository studentCourseRepository,
                           StudentProgressRepository studentProgressRepository,
-                          FileStorageService fileStorageService) {
+                          FileStorageService fileStorageService, NotificationService notificationService) {
         this.userRepository = userRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
         this.paymentRepository = paymentRepository;
@@ -46,6 +47,7 @@ public class SponsorService {
         this.studentCourseRepository = studentCourseRepository;
         this.studentProgressRepository = studentProgressRepository;
         this.fileStorageService = fileStorageService;
+        this.notificationService = notificationService;
     }
 
     public Map<String, Object> dashboard(String sponsorId) {
@@ -150,6 +152,10 @@ public class SponsorService {
         payment.setReceiptUrl(fileStorageService.store(receipt, filename));
         payment.setStatus("Paid");
         paymentRepository.save(payment);
+        String sponsorName = userRepository.findById(sponsorId).map(User::getName).orElse("Your sponsor");
+        notificationService.notify(granteeId, "Payment received",
+                sponsorName + " recorded a payment of " + amount + " for you. Please upload your proof of receipt.",
+                NotificationService.PAYMENT, "/student/payments", true);
     }
 
     public List<Map<String, Object>> studentProgress(String sponsorId) {
