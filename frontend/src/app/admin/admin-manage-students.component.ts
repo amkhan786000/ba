@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CourseRow } from './admin-courses.component';
 import { Institution } from './admin-course-edit.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface ManagedStudent {
   user_id: string; student_name: string; student_email: string | null; student_phone: string | null; region: string | null;
@@ -16,7 +17,7 @@ interface ManagedStudent {
 @Component({
   selector: 'app-admin-manage-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
   styles: [`.btn-xs { padding: .15rem .45rem; font-size: .75rem; } .filter-btns { margin-right: 4px; }`],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Students</h4></div></div></div>
@@ -69,7 +70,7 @@ interface ManagedStudent {
               <table class="table table-centered table-striped mb-0">
                 <thead><tr><th>Student Name</th><th>Email</th><th>Student Phone</th><th>Rcc Center</th><th>Sponsor</th><th>Institution</th><th>Course</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngFor="let s of shown">
+                  <tr *ngFor="let s of shown | paginate: pg.page : pg.size">
                     <td><strong>{{ s.student_name }}</strong></td>
                     <td>{{ s.student_email }}</td>
                     <td>{{ s.student_phone }}</td>
@@ -82,6 +83,7 @@ interface ManagedStudent {
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="shown.length"></app-pager>
           </div>
         </div>
       </div>
@@ -120,6 +122,7 @@ interface ManagedStudent {
   `
 })
 export class AdminManageStudentsComponent implements OnInit {
+  readonly pg = new PageState();
   students: ManagedStudent[] = [];
   shown: ManagedStudent[] = [];
   institutions: Institution[] = [];

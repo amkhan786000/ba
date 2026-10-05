@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 export interface SponsorUser {
   user_id: string; name: string; email: string | null; phone: string | null;
@@ -13,7 +14,7 @@ export interface SponsorUser {
 @Component({
   selector: 'app-coordinator-sponsors',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Sponsors</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -26,7 +27,7 @@ export interface SponsorUser {
               <table class="table table-striped">
                 <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngFor="let s of sponsors">
+                  <tr *ngFor="let s of sponsors | paginate: pg.page : pg.size">
                     <td>{{ s.name }}</td>
                     <td>{{ s.email }}</td>
                     <td>{{ s.phone }}</td>
@@ -43,6 +44,7 @@ export interface SponsorUser {
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="sponsors.length"></app-pager>
           </div>
         </div>
       </div>
@@ -50,6 +52,7 @@ export interface SponsorUser {
   `
 })
 export class CoordinatorSponsorsComponent implements OnInit {
+  readonly pg = new PageState();
   sponsors: SponsorUser[] = [];
   message = '';
   error = '';

@@ -69,9 +69,20 @@ public class AdminController {
 
     // ---------------------------------------------------------------- manage users
 
+    /** Paged: { data, total, page, size }. page is 1-based. */
     @GetMapping("/users")
-    public List<Map<String, Object>> listUsers() {
-        return adminService.listUsers();
+    public Map<String, Object> listUsers(@RequestParam(defaultValue = "1") int page,
+                                         @RequestParam(defaultValue = "10") int size,
+                                         @RequestParam(required = false) String name,
+                                         @RequestParam(required = false) String email,
+                                         @RequestParam(required = false) Integer roleId,
+                                         @RequestParam(required = false) String status) {
+        return adminService.listUsers(page, size, name, email, roleId, status);
+    }
+
+    @GetMapping("/users/{userId}")
+    public Map<String, Object> getUser(@PathVariable String userId) {
+        return adminService.getUser(userId);
     }
 
     @PostMapping("/users")
@@ -171,8 +182,12 @@ public class AdminController {
 
     @GetMapping("/applications")
     @PreAuthorize("hasAnyRole('1','2','3','4')")
-    public List<Map<String, Object>> manageApplications() {
-        return adminService.applications();
+    public Map<String, Object> manageApplications(@RequestParam(defaultValue = "1") int page,
+                                                  @RequestParam(defaultValue = "10") int size,
+                                                  @RequestParam(required = false) String name,
+                                                  @RequestParam(required = false) String status,
+                                                  @RequestParam(required = false) String rcc) {
+        return adminService.applications(page, size, name, status, rcc);
     }
 
     @PostMapping("/applications/{granteeDetailId}/status")

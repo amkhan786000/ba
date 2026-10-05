@@ -1,8 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
+import { PagerComponent, PageState } from '../shared/pager/pager.component';
+import { EMPTY, Subject, Subscription, catchError, debounceTime, merge, switchMap } from 'rxjs';
 
 export interface UserRow {
   user_id: string;
@@ -20,13 +22,11 @@ export interface RoleOption {
   roleName: string;
 }
 
-type PageItem = { label: string; page: number; active?: boolean; disabled?: boolean; dots?: boolean };
-
-/** Port of templates/admin/manage_users.html (filters, 10-per-page pagination, Add User modal). */
+/** Port of templates/admin/manage_users.html (filters, server-side pagination, Add User modal). */
 @Component({
   selector: 'app-admin-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, PagerComponent],
   template: `
     <div class="row">
       <div class="col-12">
@@ -57,19 +57,19 @@ type PageItem = { label: string; page: number; active?: boolean; disabled?: bool
 
             <div class="row mb-3">
               <div class="col-12 col-md-3 mb-2">
-                <input type="text" class="form-control" placeholder="Filter by Name" [(ngModel)]="fName" (ngModelChange)="applyFilters()" />
+                <input type="text" class="form-control" placeholder="Filter by Name" [(ngModel)]="fName" (ngModelChange)="filterChanged()" />
               </div>
               <div class="col-12 col-md-3 mb-2">
-                <input type="text" class="form-control" placeholder="Filter by Email" [(ngModel)]="fEmail" (ngModelChange)="applyFilters()" />
+                <input type="text" class="form-control" placeholder="Filter by Email" [(ngModel)]="fEmail" (ngModelChange)="filterChanged()" />
               </div>
               <div class="col-12 col-md-3 mb-2">
-                <select class="form-control" [(ngModel)]="fRole" (ngModelChange)="applyFilters()">
-                  <option value="">Filter by Role</option>
-                  <option *ngFor="let r of roles" [value]="r.roleName">{{ r.roleName }}</option>
+                <select class="form-control" [(ngModel)]="fRole" (ngModelChange)="filterChanged(true)">
+                  <option [ngValue]="null">Filter by Role</option>
+                  <option *ngFor="let r of roles" [ngValue]="r.roleId">{{ r.roleName }}</option>
                 </select>
               </div>
               <div class="col-12 col-md-3 mb-2">
-                <select class="form-control" [(ngModel)]="fStatus" (ngModelChange)="applyFilters()">
+                <select class="form-control" [(ngModel)]="fStatus" (ngModelChange)="filterChanged(true)">
                   <option value="">Filter by Status</option>
                   <option value="Active">Active</option>
                   <option value="Inactive">Inactive</option>
@@ -83,8 +83,9 @@ type PageItem = { label: string; page: number; active?: boolean; disabled?: bool
                   <tr><th>User Id</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
-                  <tr *ngIf="loading"><td colspan="6" class="text-center text-muted">Loading…</td></tr>
-                  <tr *ngFor="let u of pageRows">
+                  <tr *ngIf="loading && !users.length"><td colspan="6" class="text-center text-muted">Loading…</td></tr>
+                  <tr *ngIf="!loading && !users.length"><td colspan="6" class="text-center text-muted">No users match these filters.</td></tr>
+                  <tr *ngFor="let u of users" [class.text-muted]="loading">
                     <td>{{ u.user_id }}</td>
                     <td>{{ u.name }}</td>
                     <td>{{ u.email ?? 'None' }}</td>
@@ -95,22 +96,7 @@ type PageItem = { label: string; page: number; active?: boolean; disabled?: bool
                 </tbody>
               </table>
             </div>
-
-            <div class="row mt-3">
-              <div class="col-sm-12 col-md-5">
-                <div class="text-muted">Showing {{ showingStart }} to {{ showingEnd }} of {{ filtered.length }} entries</div>
-              </div>
-              <div class="col-sm-12 col-md-7">
-                <nav>
-                  <ul class="pagination pagination-rounded justify-content-end mb-0">
-                    <li *ngFor="let p of pageItems" class="page-item" [class.active]="p.active" [class.disabled]="p.disabled || p.dots">
-                      <span *ngIf="p.dots" class="page-link">...</span>
-                      <a *ngIf="!p.dots" class="page-link" href="#" (click)="goTo($event, p)">{{ p.label }}</a>
-                    </li>
-                  </ul>
-                </nav>
-              </div>
-            </div>
+            <app-pager [state]="pg" [total]="total" (pageChange)="load()"></app-pager>
           </div>
         </div>
       </div>
@@ -163,21 +149,21 @@ type PageItem = { label: string; page: number; active?: boolean; disabled?: bool
     </ng-container>
   `
 })
-export class AdminUsersComponent implements OnInit {
-  readonly rowsPerPage = 10;
-
+export class AdminUsersComponent implements OnInit, OnDestroy {
+  /** Current page of users (the server pages and filters them). */
   users: UserRow[] = [];
+  total = 0;
+  readonly pg = new PageState(10);
   roles: RoleOption[] = [];
-  filtered: UserRow[] = [];
-  pageRows: UserRow[] = [];
-  pageItems: PageItem[] = [];
-  currentPage = 1;
   loading = false;
 
   fName = '';
   fEmail = '';
-  fRole = '';
+  fRole: number | null = null;
   fStatus = '';
+  private typing = new Subject<void>();
+  private reload = new Subject<void>();
+  private sub?: Subscription;
 
   message = '';
   error = '';
@@ -191,70 +177,32 @@ export class AdminUsersComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.get<RoleOption[]>('/admin/roles').subscribe({ next: (r) => (this.roles = r) });
+    // One request stream: a newer request cancels an older one, so a slow reply can't overwrite a newer page.
+    this.sub = merge(this.typing.pipe(debounceTime(300)), this.reload).pipe(
+      switchMap(() => {
+        this.loading = true;
+        return this.api.get<{ data: UserRow[]; total: number }>('/admin/users', {
+          page: this.pg.page, size: this.pg.size, name: this.fName, email: this.fEmail, roleId: this.fRole, status: this.fStatus
+        }).pipe(catchError((err) => {
+          // Keep the stream alive so the next filter / page change still loads.
+          this.loading = false;
+          this.error = err?.error?.error ?? 'Could not load users.';
+          return EMPTY;
+        }));
+      })
+    ).subscribe((r) => { this.users = r.data; this.total = r.total; this.loading = false; });
     this.load();
   }
 
-  load(): void {
-    this.loading = true;
-    this.api.get<UserRow[]>('/admin/users').subscribe({
-      next: (u) => {
-        this.users = u;
-        this.loading = false;
-        this.applyFilters(false);
-      },
-      error: (err) => {
-        this.loading = false;
-        this.error = err?.error?.error ?? 'Could not load users.';
-      }
-    });
+  ngOnDestroy(): void { this.sub?.unsubscribe(); }
+
+  /** Any filter change goes back to page 1; text filters wait until typing pauses. */
+  filterChanged(immediate = false): void {
+    this.pg.reset();
+    if (immediate) this.load(); else this.typing.next();
   }
 
-  /** Same matching rules as the original page script (case-insensitive "contains"). */
-  applyFilters(resetPage = true): void {
-    const has = (v: unknown, f: string) => String(v ?? '').toLowerCase().includes(f.toLowerCase());
-    this.filtered = this.users.filter((u) =>
-      has(u.name, this.fName) &&
-      has(u.email ?? 'None', this.fEmail) &&
-      has(u.role_name, this.fRole) &&
-      has(u.status, this.fStatus)
-    );
-    if (resetPage) this.currentPage = 1;
-    this.render();
-  }
-
-  get totalPages(): number { return Math.ceil(this.filtered.length / this.rowsPerPage); }
-  get showingStart(): number { return this.filtered.length === 0 ? 0 : (this.currentPage - 1) * this.rowsPerPage + 1; }
-  get showingEnd(): number { return Math.min(this.currentPage * this.rowsPerPage, this.filtered.length); }
-
-  goTo(event: Event, p: PageItem): void {
-    event.preventDefault();
-    if (p.disabled || p.dots) return;
-    this.currentPage = p.page;
-    this.render();
-  }
-
-  private render(): void {
-    if (this.currentPage > Math.max(this.totalPages, 1)) this.currentPage = 1;
-    const start = (this.currentPage - 1) * this.rowsPerPage;
-    this.pageRows = this.filtered.slice(start, start + this.rowsPerPage);
-
-    const total = this.totalPages;
-    const items: PageItem[] = [];
-    if (total > 1) {
-      const cur = this.currentPage;
-      const range = 1;
-      items.push({ label: 'Previous', page: cur - 1, disabled: cur === 1 });
-      for (let i = 1; i <= total; i++) {
-        if (i === 1 || i === total || (i >= cur - range && i <= cur + range)) {
-          items.push({ label: String(i), page: i, active: i === cur });
-        } else if (i === cur - range - 1 || i === cur + range + 1) {
-          items.push({ label: '...', page: i, dots: true });
-        }
-      }
-      items.push({ label: 'Next', page: cur + 1, disabled: cur === total });
-    }
-    this.pageItems = items;
-  }
+  load(): void { this.reload.next(); }
 
   openAdd(): void {
     this.newUser = this.blankUser();
@@ -263,7 +211,8 @@ export class AdminUsersComponent implements OnInit {
   }
 
   saveUser(): void {
-    const body = { ...this.newUser, userId: this.newUser.userId.trim() || this.nextUserId() };
+    // A blank user id is filled in by the server (next number after the highest numeric id).
+    const body = { ...this.newUser, userId: this.newUser.userId.trim() };
     this.saving = true;
     this.addError = '';
     this.api.post<{ message: string }>('/admin/users', body).subscribe({
@@ -278,12 +227,6 @@ export class AdminUsersComponent implements OnInit {
         this.addError = err?.error?.error ?? 'Could not save user.';
       }
     });
-  }
-
-  /** Same rule as the Flask page: highest numeric id + 1, or 1001 if there are none. */
-  private nextUserId(): string {
-    const ids = this.users.map((u) => Number(u.user_id)).filter((n) => Number.isInteger(n));
-    return String(ids.length ? Math.max(...ids) + 1 : 1001);
   }
 
   private blankUser() {

@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { REGION_NOT_SET } from './convenor-dashboard.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface Sponsor { user_id: string; name: string; email: string | null; phone: string | null; status: string | null; region: string | null }
 
@@ -14,7 +15,7 @@ interface Sponsor { user_id: string; name: string; email: string | null; phone: 
 @Component({
   selector: 'app-convenor-sponsors',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Sponsors</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -29,13 +30,14 @@ interface Sponsor { user_id: string; name: string; email: string | null; phone: 
                 <thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Status</th></tr></thead>
                 <tbody>
                   <tr *ngIf="!sponsors.length"><td colspan="4" class="text-center text-muted">No sponsors in your region.</td></tr>
-                  <tr *ngFor="let s of sponsors">
+                  <tr *ngFor="let s of sponsors | paginate: pg.page : pg.size">
                     <td>{{ s.name }}</td><td>{{ s.email }}</td><td>{{ s.phone }}</td>
                     <td><span class="badge" [ngClass]="s.status === 'Active' ? 'badge-success' : 'badge-danger'">{{ s.status === 'Active' ? 'Active' : 'Inactive' }}</span></td>
                   </tr>
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="sponsors.length"></app-pager>
           </div>
         </div>
       </div>
@@ -43,6 +45,7 @@ interface Sponsor { user_id: string; name: string; email: string | null; phone: 
   `
 })
 export class ConvenorSponsorsComponent implements OnInit {
+  readonly pg = new PageState();
   sponsors: Sponsor[] = [];
   region = '';
   needsRegion = false;

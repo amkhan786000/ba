@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { PagerComponent, PageState } from '../shared/pager/pager.component';
 
 export interface ApplicationRow {
   grantee_detail_id: number;
@@ -32,7 +33,7 @@ export const APPLICATION_STATUSES = [
 @Component({
   selector: 'app-admin-applications',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Applications</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -75,8 +76,9 @@ export const APPLICATION_STATUSES = [
               <table class="table table-bordered table-hover">
                 <thead class="thead-dark"><tr><th>ID</th><th>Applicant Name</th><th>RCC Center</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="!shown.length">
-                    <td colspan="5" class="text-center">{{ apps.length ? 'No matching applications found for the current filters.' : 'No applications found.' }}</td>
+                  <tr *ngIf="loading && !shown.length"><td colspan="5" class="text-center text-muted">Loading…</td></tr>
+                  <tr *ngIf="!loading && !shown.length">
+                    <td colspan="5" class="text-center">{{ filtered ? 'No matching applications found for the current filters.' : 'No applications found.' }}</td>
                   </tr>
                   <tr *ngFor="let a of shown">
                     <td>{{ a.grantee_detail_id }}</td>
@@ -88,6 +90,7 @@ export const APPLICATION_STATUSES = [
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="total" (pageChange)="load()"></app-pager>
           </div>
         </div>
       </div>
@@ -100,37 +103,66 @@ export class AdminApplicationsComponent implements OnInit {
   get section(): string { return this._section; }
   private _section = 'admin';
   readonly statuses = APPLICATION_STATUSES;
-  apps: ApplicationRow[] = [];
+  /** Current page of applications (the server pages and filters them, newest first). */
   shown: ApplicationRow[] = [];
+  total = 0;
+  readonly pg = new PageState(10);
+  loading = false;
   fName = '';
   fStatus = '';
   fRcc = '';
+  /** Filters as of the last "Apply Filters" (typing alone doesn't change the list). */
+  private applied = { name: '', status: '', rcc: '' };
   error = '';
 
   constructor(private api: ApiService) {}
 
-  ngOnInit(): void {
-    this.api.get<ApplicationRow[]>('/admin/applications').subscribe({
-      next: (a) => { this.apps = a; this.shown = a; },
-      error: (e) => (this.error = errorText(e, 'Could not load applications.'))
+  ngOnInit(): void { this.load(); }
+
+  get filtered(): boolean { return !!(this.applied.name || this.applied.status || this.applied.rcc); }
+
+  private params(page: number, size: number): Record<string, unknown> {
+    return { page, size, ...this.applied };
+  }
+
+  load(): void {
+    this.loading = true;
+    this.api.get<{ data: ApplicationRow[]; total: number }>('/admin/applications', this.params(this.pg.page, this.pg.size)).subscribe({
+      next: (r) => { this.loading = false; this.shown = r.data; this.total = r.total; },
+      error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load applications.'); }
     });
   }
 
   filter(): void {
-    const n = this.fName.toLowerCase(), st = this.fStatus.toLowerCase(), r = this.fRcc.toLowerCase();
-    this.shown = this.apps.filter((a) =>
-      (a.name ?? '').toLowerCase().includes(n) &&
-      (!st || (a.status ?? '').toLowerCase() === st) &&
-      (a.rcc_name ?? '').toLowerCase().includes(r));
+    this.applied = { name: this.fName.trim(), status: this.fStatus, rcc: this.fRcc.trim() };
+    this.pg.reset();
+    this.load();
   }
 
-  reset(): void { this.fName = ''; this.fStatus = ''; this.fRcc = ''; this.shown = this.apps; }
+  reset(): void { this.fName = ''; this.fStatus = ''; this.fRcc = ''; this.filter(); }
 
+  /** Downloads every application matching the filters (not just the current page). */
   downloadCsv(): void {
-    if (!this.shown.length) { alert('No data to download based on current filters.'); return; }
+    const size = 1000;
+    const all: ApplicationRow[] = [];
+    const fetchPage = (page: number): void => {
+      this.api.get<{ data: ApplicationRow[]; total: number }>('/admin/applications', this.params(page, size)).subscribe({
+        next: (r) => {
+          all.push(...r.data);
+          if (all.length < r.total && r.data.length === size) fetchPage(page + 1);
+          else this.saveCsv(all);
+        },
+        error: (e) => (this.error = errorText(e, 'Could not download applications.'))
+      });
+    };
+    fetchPage(1);
+  }
+
+  private saveCsv(rows: ApplicationRow[]): void {
+    if (!rows.length) { this.error = 'No data to download based on current filters.'; return; }
     const q = (v: unknown) => '"' + String(v ?? '').trim().replace(/"/g, '""') + '"';
     const csv = 'ID,Applicant Name,RCC Center,Status\n' +
-      this.shown.map((a) => [a.grantee_detail_id, a.name, a.rcc_name, a.status].map(q).join(',')).join('\n') + '\n';
+      rows.map((a) => [a.grantee_detail_id, a.name, a.rcc_name, a.status].map(q).join(',')).join('\n') + '\n';
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
     link.href = url;

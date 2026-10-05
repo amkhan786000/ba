@@ -18,6 +18,29 @@ import java.util.stream.Collectors;
 final class ServiceSupport {
     private ServiceSupport() {}
 
+    /** Largest page a client may ask for (exports ask for everything up to this). */
+    static final int MAX_PAGE_SIZE = 5000;
+
+    /** Spring page request from 1-based page / size coming from the UI (size clamped to 1..MAX_PAGE_SIZE). */
+    static org.springframework.data.domain.PageRequest pageRequest(int page, int size, org.springframework.data.domain.Sort sort) {
+        return org.springframework.data.domain.PageRequest.of(Math.max(page, 1) - 1, Math.min(Math.max(size, 1), MAX_PAGE_SIZE), sort);
+    }
+
+    /** Paged response shape used by every paged list: { data, total, page (1-based), size }. */
+    static Map<String, Object> pageBody(org.springframework.data.domain.Page<?> page, List<Map<String, Object>> data) {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("data", data);
+        body.put("total", page.getTotalElements());
+        body.put("page", page.getNumber() + 1);
+        body.put("size", page.getSize());
+        return body;
+    }
+
+    /** "%text%" in lower case for LIKE filters, or null when the filter is empty. */
+    static String likePattern(String text) {
+        return text == null || text.isBlank() ? null : "%" + text.trim().toLowerCase(Locale.ROOT) + "%";
+    }
+
     /** Default "unassigned" grantor: students of a deactivated sponsor are parked on user 12. */
     static final String UNASSIGNED_GRANTOR = "12";
     static final List<Integer> SPONSOR_ROLES = List.of(3, 4, 5);

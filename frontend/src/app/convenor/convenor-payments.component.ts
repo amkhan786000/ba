@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { asDate, localDate, uploadUrl } from '../shared/format';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 type Row = Record<string, any>;
 
@@ -20,7 +21,7 @@ interface Installment { n: number; due: string; amount: string; status: string; 
 @Component({
   selector: 'app-convenor-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Convenor Payments</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -84,7 +85,7 @@ interface Installment { n: number; due: string; amount: string; status: string; 
                 <thead><tr><th>Student Name</th><th>Amount</th><th>Date</th><th>Status</th><th>Receipt</th></tr></thead>
                 <tbody>
                   <tr *ngIf="!history.length"><td colspan="5" class="text-center">No past payments found.</td></tr>
-                  <tr *ngFor="let p of history">
+                  <tr *ngFor="let p of history | paginate: pg.page : pg.size">
                     <td>{{ p['grantee_name'] }}</td>
                     <td>₹{{ p['amount'] | number: '1.2-2' }}</td>
                     <td>{{ p['payment_date'] ? (iso(p['payment_date'])) : 'N/A' }}</td>
@@ -98,6 +99,7 @@ interface Installment { n: number; due: string; amount: string; status: string; 
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="history.length"></app-pager>
           </div>
         </div>
       </div>
@@ -135,6 +137,7 @@ interface Installment { n: number; due: string; amount: string; status: string; 
   `
 })
 export class ConvenorPaymentsComponent implements OnInit {
+  readonly pg = new PageState();
   students: Row[] = [];
   dataMap: Record<string, StudentData> = {};
   history: Row[] = [];

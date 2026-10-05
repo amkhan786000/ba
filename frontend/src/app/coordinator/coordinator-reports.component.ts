@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface AppPreview { grantee_detail_id: number; name: string; student_mobile: string | null; status: string | null }
 
@@ -10,7 +11,7 @@ interface AppPreview { grantee_detail_id: number; name: string; student_mobile: 
 @Component({
   selector: 'app-coordinator-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Generate Reports</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -58,12 +59,13 @@ interface AppPreview { grantee_detail_id: number; name: string; student_mobile: 
                 <tbody>
                   <tr *ngIf="!apps.length"><td colspan="4" class="text-center">No applications to display. Select a report type and generate.</td></tr>
                   <tr *ngIf="apps.length && !shown.length"><td colspan="4" class="text-center">No matching applications found.</td></tr>
-                  <tr *ngFor="let a of shown">
+                  <tr *ngFor="let a of shown | paginate: pg.page : pg.size">
                     <td>{{ a.grantee_detail_id }}</td><td>{{ a.name }}</td><td>{{ a.student_mobile }}</td><td>{{ a.status }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="shown.length"></app-pager>
           </div>
         </div>
       </div>
@@ -71,6 +73,7 @@ interface AppPreview { grantee_detail_id: number; name: string; student_mobile: 
   `
 })
 export class CoordinatorReportsComponent implements OnInit {
+  readonly pg = new PageState();
   reportType = 'applications';
   format = 'csv';
   busy = false;

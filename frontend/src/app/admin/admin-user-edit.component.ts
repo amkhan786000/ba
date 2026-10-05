@@ -79,11 +79,8 @@ export class AdminUserEditComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.get<RoleOption[]>('/admin/roles').subscribe({ next: (r) => (this.roles = r) });
-    // There is no single-user endpoint for this page, so pick the user out of the list (as the list page has it loaded anyway).
-    this.api.get<UserRow[]>('/admin/users').subscribe({
-      next: (users) => {
-        const u = users.find((x) => String(x.user_id) === this.userId);
-        if (!u) { this.error = 'User not found.'; return; }
+    this.api.get<UserRow>(`/admin/users/${encodeURIComponent(this.userId)}`).subscribe({
+      next: (u) => {
         this.form = { name: u.name, email: u.email ?? '', roleId: u.role_id, status: u.status };
       },
       error: (err) => (this.error = err?.error?.error ?? 'Could not load user.')

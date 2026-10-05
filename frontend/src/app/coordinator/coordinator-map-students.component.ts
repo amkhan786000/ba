@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface StudentUser { user_id: string; name: string; email: string | null; phone: string | null }
 
@@ -10,7 +11,7 @@ interface StudentUser { user_id: string; name: string; email: string | null; pho
 @Component({
   selector: 'app-coordinator-map-students',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row">
       <div class="col-12">
@@ -31,9 +32,10 @@ interface StudentUser { user_id: string; name: string; email: string | null; pho
               <thead><tr><th>Name</th><th>Email</th><th>Phone</th></tr></thead>
               <tbody>
                 <tr *ngIf="!mapped.length"><td colspan="3" class="text-center text-muted">No students mapped yet.</td></tr>
-                <tr *ngFor="let s of mapped"><td>{{ s.name }}</td><td>{{ s.email }}</td><td>{{ s.phone }}</td></tr>
+                <tr *ngFor="let s of mapped | paginate: pgMapped.page : pgMapped.size"><td>{{ s.name }}</td><td>{{ s.email }}</td><td>{{ s.phone }}</td></tr>
               </tbody>
             </table>
+            <app-pager [state]="pgMapped" [total]="mapped.length"></app-pager>
           </div>
         </div>
       </div>
@@ -48,12 +50,13 @@ interface StudentUser { user_id: string; name: string; email: string | null; pho
               <thead><tr><th>Select</th><th>Name</th><th>Email</th><th>Phone</th></tr></thead>
               <tbody>
                 <tr *ngIf="!students.length"><td colspan="4" class="text-center text-muted">No unassigned students.</td></tr>
-                <tr *ngFor="let s of students">
+                <tr *ngFor="let s of students | paginate: pg.page : pg.size">
                   <td><input type="checkbox" [checked]="selected.has(s.user_id)" (change)="toggle(s.user_id)" /></td>
                   <td>{{ s.name }}</td><td>{{ s.email }}</td><td>{{ s.phone }}</td>
                 </tr>
               </tbody>
             </table>
+            <app-pager [state]="pg" [total]="students.length"></app-pager>
             <div class="mt-3">
               <button type="button" class="btn btn-primary" (click)="save()" [disabled]="!selected.size || saving">Map Selected Students</button>
             </div>
@@ -64,6 +67,8 @@ interface StudentUser { user_id: string; name: string; email: string | null; pho
   `
 })
 export class CoordinatorMapStudentsComponent implements OnInit {
+  readonly pg = new PageState();
+  readonly pgMapped = new PageState();
   @Input() sponsorId = '';
   students: StudentUser[] = [];
   mapped: StudentUser[] = [];

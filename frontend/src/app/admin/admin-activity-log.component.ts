@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { ROLE_LABELS } from '../core/models/user.model';
+import { PagerComponent, PageState } from '../shared/pager/pager.component';
 
 interface LogRow {
   log_id: number; user_id: string | null; user_name: string | null; role_id: number | null; action: string;
@@ -14,14 +15,14 @@ interface LogRow {
 @Component({
   selector: 'app-admin-activity-log',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Activity Log</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
 
     <div class="card">
       <div class="card-body">
-        <form class="row align-items-end" (ngSubmit)="go(0)">
+        <form class="row align-items-end" (ngSubmit)="search()">
           <div class="col-12 col-md-4 form-group">
             <label for="q">Search</label>
             <input id="q" class="form-control" name="q" [(ngModel)]="q" placeholder="Action, user name, user ID or path">
@@ -70,13 +71,7 @@ interface LogRow {
           </table>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mt-3" *ngIf="total > 0">
-          <small class="text-muted">Showing {{ page * size + 1 }}–{{ min((page + 1) * size, total) }} of {{ total }}</small>
-          <div>
-            <button class="btn btn-light btn-sm" [disabled]="page === 0" (click)="go(page - 1)"><i class="mdi mdi-chevron-left"></i> Newer</button>
-            <button class="btn btn-light btn-sm" [disabled]="(page + 1) * size >= total" (click)="go(page + 1)">Older <i class="mdi mdi-chevron-right"></i></button>
-          </div>
-        </div>
+        <app-pager [state]="pg" [total]="total" (pageChange)="load()"></app-pager>
       </div>
     </div>
   `
@@ -84,32 +79,32 @@ interface LogRow {
 export class AdminActivityLogComponent implements OnInit {
   rows: LogRow[] = [];
   total = 0;
-  page = 0;
-  readonly size = 25;
+  readonly pg = new PageState(25);
   q = '';
   userId = '';
   from = '';
   to = '';
   loading = false;
   error = '';
-  readonly min = Math.min;
 
   constructor(private api: ApiService) {}
 
-  ngOnInit(): void { this.go(0); }
+  ngOnInit(): void { this.load(); }
 
-  go(page: number): void {
+  search(): void { this.pg.reset(); this.load(); }
+
+  load(): void {
     this.loading = true;
-    this.page = page;
+    // The activity endpoint counts pages from 0.
     this.api.get<{ total: number; data: LogRow[] }>('/admin/activity', {
-      search: this.q, userId: this.userId, from: this.from, to: this.to, page, size: this.size
+      search: this.q, userId: this.userId, from: this.from, to: this.to, page: this.pg.page - 1, size: this.pg.size
     }).subscribe({
       next: (r) => { this.loading = false; this.rows = r.data; this.total = r.total; },
       error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load the activity log.'); }
     });
   }
 
-  reset(): void { this.q = this.userId = this.from = this.to = ''; this.go(0); }
+  reset(): void { this.q = this.userId = this.from = this.to = ''; this.search(); }
 
   ok(r: LogRow): boolean { return !r.status_code || r.status_code < 400; }
 

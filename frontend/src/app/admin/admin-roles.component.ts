@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { localDate } from '../shared/format';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 export interface RoleRow {
   roleId?: number;
@@ -20,7 +21,7 @@ export interface RoleRow {
 @Component({
   selector: 'app-admin-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Roles</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -45,7 +46,7 @@ export interface RoleRow {
               <table class="table table-striped table-centered mb-0">
                 <thead><tr><th>ID</th><th>Role Name</th><th>Description</th><th>Users</th><th>Last Updated</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngFor="let r of visible">
+                  <tr *ngFor="let r of visible | paginate: pg.page : pg.size">
                     <td>{{ r.roleId }}</td>
                     <td>
                       {{ r.roleName }}
@@ -65,6 +66,7 @@ export interface RoleRow {
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="visible.length"></app-pager>
           </div>
         </div>
       </div>
@@ -72,6 +74,7 @@ export interface RoleRow {
   `
 })
 export class AdminRolesComponent implements OnInit {
+  readonly pg = new PageState();
   roles: RoleRow[] = [];
   search = '';
   message = '';

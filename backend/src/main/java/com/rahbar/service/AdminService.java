@@ -149,17 +149,27 @@ public class AdminService {
 
     // ---------------------------------------------------------------- manage users
 
-    /** All users (with role_name) ordered by user_id; password hashes are never included. */
-    public List<Map<String, Object>> listUsers() {
+    /** One page of users (with role_name) ordered by user_id; every filter is optional. */
+    public Map<String, Object> listUsers(int page, int size, String name, String email, Integer roleId, String status) {
         Map<Integer, String> roleNames = roleNames();
+        org.springframework.data.domain.Page<User> result = userRepository.searchUsers(likePattern(name), likePattern(email), roleId,
+                isBlank(status) ? null : status.trim().toLowerCase(Locale.ROOT),
+                pageRequest(page, size, org.springframework.data.domain.Sort.by("userId")));
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (User u : userRepository.findAllByOrderByUserIdAsc()) {
-            if (!roleNames.containsKey(u.getRoleId())) continue;
+        for (User u : result.getContent()) {
             Map<String, Object> row = Rows.of(u);
             row.put("role_name", roleNames.get(u.getRoleId()));
             rows.add(row);
         }
-        return rows;
+        return pageBody(result, rows);
+    }
+
+    /** One user (with role_name) for the edit page. */
+    public Map<String, Object> getUser(String userId) {
+        User u = requireUser(userRepository, userId, "User not found");
+        Map<String, Object> row = Rows.of(u);
+        row.put("role_name", roleRepository.findById(u.getRoleId()).map(Role::getRoleName).orElse(null));
+        return row;
     }
 
     private Map<Integer, String> roleNames() {
@@ -170,7 +180,8 @@ public class AdminService {
 
     public void createUser(Map<String, Object> body) {
         User user = new User();
-        user.setUserId(String.valueOf(body.get("userId")));
+        // Blank id: next number after the highest numeric user id (what the Add User form used to work out itself).
+        user.setUserId(isBlank(body.get("userId")) ? nextNumericUserId() : String.valueOf(body.get("userId")).trim());
         user.setName(String.valueOf(body.get("name")));
         user.setEmail(String.valueOf(body.get("email")));
         user.setPhone(String.valueOf(body.get("contact")));
@@ -181,6 +192,13 @@ public class AdminService {
         user.setPasswordHash(passwordEncoder.encode(String.valueOf(body.get("password"))));
         user.setMustChangePassword(true); // the admin chose this password; the user picks their own at first sign-in
         userRepository.save(user);
+    }
+
+    private String nextNumericUserId() {
+        long max = userRepository.findAllUserIds().stream()
+                .filter(id -> id != null && id.matches("\\d{1,15}"))
+                .mapToLong(Long::parseLong).max().orElse(1000);
+        return String.valueOf(max + 1);
     }
 
     public void updateUser(String userId, Map<String, Object> body) {
@@ -289,11 +307,16 @@ public class AdminService {
 
     // ------------------------------------------------------------------ applications
 
-    /** Every application with its latest status, comments and status_date. */
-    public List<Map<String, Object>> applications() {
-        Map<Long, ApplicationStatus> latest = latestByApplication(applicationStatusRepository.findLatestPerApplication());
+    /** One page of applications (newest first) with their latest status; filters are optional. */
+    public Map<String, Object> applications(int page, int size, String name, String status, String rcc) {
+        org.springframework.data.domain.Page<GranteeDetails> result = granteeDetailsRepository.searchApplications(
+                likePattern(name), likePattern(rcc), isBlank(status) ? null : status.trim().toLowerCase(Locale.ROOT),
+                pageRequest(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "granteeDetailId")));
+        List<Long> ids = result.getContent().stream().map(GranteeDetails::getGranteeDetailId).toList();
+        Map<Long, ApplicationStatus> latest = ids.isEmpty() ? Map.of()
+                : latestByApplication(applicationStatusRepository.findLatestFor(ids));
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (GranteeDetails gd : granteeDetailsRepository.findAll()) {
+        for (GranteeDetails gd : result.getContent()) {
             ApplicationStatus s = latest.get(gd.getGranteeDetailId());
             Map<String, Object> row = Rows.of(gd);
             row.put("status", s == null ? null : s.getStatus());
@@ -301,7 +324,7 @@ public class AdminService {
             row.put("status_date", s == null ? null : s.getCreatedAt());
             rows.add(row);
         }
-        return rows;
+        return pageBody(result, rows);
     }
 
     public void updateApplicationStatus(Long granteeDetailId, String status, String comments) {
