@@ -42,6 +42,19 @@ public class ReportCatalogService {
             new Definition("student_progress", "Students", "Progress reports",
                     "Marks uploaded by students with the review status and reviewer comments.", true),
 
+            new Definition("students_by_institution", "Student breakdowns", "Students by institution",
+                    "Number of students at each college: active, inactive, with and without a sponsor.", false),
+            new Definition("students_by_course", "Student breakdowns", "Students by course",
+                    "Number of students in each course (with its college, length and fees), including empty courses.", false),
+            new Definition("students_by_region", "Student breakdowns", "Students by region",
+                    "Number of students in each region / city.", false),
+            new Definition("students_by_year", "Student breakdowns", "Students by academic year",
+                    "Number of students in each academic year.", false),
+            new Definition("applications_by_course", "Student breakdowns", "Applications by course applied",
+                    "Demand before admission: applications per course applied for, with accepted / admitted and rejected counts.", true),
+            new Definition("applications_by_rcc", "Student breakdowns", "Applications by RCC center",
+                    "Applications per RCC center, with accepted / admitted and rejected counts.", true),
+
             new Definition("sponsors_convenors", "Sponsors", "Sponsors & convenors",
                     "Every sponsor and convenor with number of students and total paid.", false),
             new Definition("sponsors_by_region", "Sponsors", "Sponsors by region",
@@ -145,6 +158,12 @@ public class ReportCatalogService {
             case "payment_dues" -> paymentReminderService.dues();
             case "payment_schedules" -> paymentSchedules();
             case "institutions_courses" -> institutionsCourses();
+            case "students_by_institution" -> studentsByInstitution();
+            case "students_by_course" -> studentsByCourse();
+            case "students_by_region" -> studentsBy(u -> ServiceSupport.regionLabel(u.getRegion()), "region");
+            case "students_by_year" -> studentsBy(u -> u.getYear() == null ? "Not set" : String.valueOf(u.getYear()), "academic_year");
+            case "applications_by_course" -> applicationsBy(GranteeDetails::getCourseApplied, "course_applied", range);
+            case "applications_by_rcc" -> applicationsBy(GranteeDetails::getRccName, "rcc_center", range);
             case "rcc_centers" -> rccCenters();
             case "users_by_role" -> usersByRole();
             case "activity_log" -> activityLog(from, to);
@@ -286,6 +305,144 @@ public class ReportCatalogService {
                             "reviewed_at", p.getReviewedAt(),
                             "file", p.getFilePath()));
                 });
+        return rows;
+    }
+
+    // ---------------------------------------------------------------- student breakdowns
+
+    /** Running counts for one group of students. */
+    private static final class Tally {
+        long total, active, inactive, sponsored;
+
+        void add(User u, boolean hasSponsor) {
+            total++;
+            if ("Inactive".equalsIgnoreCase(u.getStatus())) inactive++; else active++;
+            if (hasSponsor) sponsored++;
+        }
+
+        void into(Map<String, Object> row) {
+            row.put("total_students", total);
+            row.put("active", active);
+            row.put("inactive", inactive);
+            row.put("with_sponsor", sponsored);
+            row.put("without_sponsor", total - sponsored);
+        }
+    }
+
+    private boolean hasSponsor(Map<String, String> sponsorOf, String studentId) {
+        String sponsorId = sponsorOf.get(studentId);
+        return sponsorId != null && !ServiceSupport.UNASSIGNED_GRANTOR.equals(sponsorId);
+    }
+
+    private Map<String, StudentInstitutionCourse> enrolments() {
+        Map<String, StudentInstitutionCourse> map = new HashMap<>();
+        studentCourseRepository.findAll().forEach(s -> map.put(s.getUserId(), s));
+        return map;
+    }
+
+    private List<Map<String, Object>> studentsByInstitution() {
+        Map<String, String> sponsorOf = sponsorIdByStudent();
+        Map<String, StudentInstitutionCourse> enrolment = enrolments();
+        Map<String, Long> coursesOffered = courseRepository.findAll().stream()
+                .collect(Collectors.groupingBy(Course::getInstitutionId, Collectors.counting()));
+        Map<String, Tally> tallies = new HashMap<>();
+        Tally unassigned = new Tally();
+        for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) {
+            StudentInstitutionCourse sic = enrolment.get(u.getUserId());
+            Tally t = sic == null ? unassigned : tallies.computeIfAbsent(sic.getInstitutionId(), k -> new Tally());
+            t.add(u, hasSponsor(sponsorOf, u.getUserId()));
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Institution i : institutionRepository.findAll()) {
+            Tally t = tallies.getOrDefault(i.getInstitutionId(), new Tally());
+            Map<String, Object> row = row("institution_id", i.getInstitutionId(), "institution", i.getInstitutionName(),
+                    "courses_offered", coursesOffered.getOrDefault(i.getInstitutionId(), 0L));
+            t.into(row);
+            rows.add(row);
+        }
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> (Long) r.get("total_students")).reversed()
+                .thenComparing(r -> String.valueOf(r.get("institution")), String.CASE_INSENSITIVE_ORDER));
+        if (unassigned.total > 0) {
+            Map<String, Object> row = row("institution_id", null, "institution", "No course assigned yet", "courses_offered", null);
+            unassigned.into(row);
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> studentsByCourse() {
+        Map<String, String> sponsorOf = sponsorIdByStudent();
+        Map<String, StudentInstitutionCourse> enrolment = enrolments();
+        Map<String, String> institutionNames = new HashMap<>();
+        institutionRepository.findAll().forEach(i -> institutionNames.put(i.getInstitutionId(), i.getInstitutionName()));
+        Map<Long, Tally> tallies = new HashMap<>();
+        Tally unassigned = new Tally();
+        for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) {
+            StudentInstitutionCourse sic = enrolment.get(u.getUserId());
+            Tally t = sic == null ? unassigned : tallies.computeIfAbsent(sic.getCourseId(), k -> new Tally());
+            t.add(u, hasSponsor(sponsorOf, u.getUserId()));
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Course c : courseRepository.findAll()) {
+            Tally t = tallies.getOrDefault(c.getCourseId(), new Tally());
+            Map<String, Object> row = row("institution", institutionNames.get(c.getInstitutionId()), "course_id", c.getCourseId(),
+                    "course", c.getCourseName(), "semesters", c.getNumberOfSemesters(), "fees_per_semester", c.getFeesPerSemester());
+            t.into(row);
+            rows.add(row);
+        }
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> (Long) r.get("total_students")).reversed()
+                .thenComparing(r -> String.valueOf(r.get("institution")), String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(r -> String.valueOf(r.get("course")), String.CASE_INSENSITIVE_ORDER));
+        if (unassigned.total > 0) {
+            Map<String, Object> row = row("institution", null, "course_id", null, "course", "No course assigned yet",
+                    "semesters", null, "fees_per_semester", null);
+            unassigned.into(row);
+            rows.add(row);
+        }
+        return rows;
+    }
+
+    /** Students grouped by any label (region, academic year...), biggest group first. */
+    private List<Map<String, Object>> studentsBy(Function<User, String> label, String column) {
+        Map<String, String> sponsorOf = sponsorIdByStudent();
+        Map<String, Tally> tallies = new HashMap<>();
+        for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) {
+            tallies.computeIfAbsent(label.apply(u), k -> new Tally()).add(u, hasSponsor(sponsorOf, u.getUserId()));
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        tallies.forEach((key, t) -> {
+            Map<String, Object> row = row(column, key);
+            t.into(row);
+            rows.add(row);
+        });
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> (Long) r.get("total_students")).reversed()
+                .thenComparing(r -> String.valueOf(r.get(column)), String.CASE_INSENSITIVE_ORDER));
+        return rows;
+    }
+
+    /** Applications grouped by a free-text field of the form (course applied, RCC), with outcome counts. */
+    private List<Map<String, Object>> applicationsBy(Function<GranteeDetails, String> field, String column, DateRange range) {
+        Map<Long, ApplicationStatus> latest = ServiceSupport.latestByApplication(applicationStatusRepository.findLatestPerApplication());
+        Map<String, long[]> counts = new HashMap<>();   // [applications, accepted/admitted, rejected]
+        Map<String, String> display = new HashMap<>();  // first spelling seen for each case-insensitive key
+        for (GranteeDetails g : granteeDetailsRepository.findAll()) {
+            if (!range.contains(g.getCreatedAt())) continue;
+            String value = field.apply(g);
+            String shown = value == null || value.isBlank() ? "Not given" : value.trim().replaceAll("\\s+", " ");
+            String key = shown.toLowerCase(Locale.ROOT);
+            display.putIfAbsent(key, shown);
+            long[] c = counts.computeIfAbsent(key, k -> new long[3]);
+            c[0]++;
+            ApplicationStatus s = latest.get(g.getGranteeDetailId());
+            String status = s == null || s.getStatus() == null ? "" : s.getStatus().toLowerCase(Locale.ROOT);
+            if (status.equals("accepted") || status.equals("admitted") || status.equals("provisional admission letter")) c[1]++;
+            if (status.equals("rejected")) c[2]++;
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        counts.forEach((key, c) -> rows.add(row(column, display.get(key), "applications", c[0],
+                "accepted_or_admitted", c[1], "rejected", c[2], "in_progress", c[0] - c[1] - c[2])));
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> (Long) r.get("applications")).reversed()
+                .thenComparing(r -> String.valueOf(r.get(column)), String.CASE_INSENSITIVE_ORDER));
         return rows;
     }
 
