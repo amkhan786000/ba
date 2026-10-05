@@ -9,6 +9,7 @@ interface ReportDef { key: string; category: string; title: string; description:
 const CATEGORY_ICONS: Record<string, string> = {
   Applications: 'mdi-file-document-outline',
   Students: 'mdi-school',
+  'Student breakdowns': 'mdi-chart-pie',
   Sponsors: 'mdi-hand-heart',
   Payments: 'mdi-cash-multiple',
   Setup: 'mdi-cog-outline',
