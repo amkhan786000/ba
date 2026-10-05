@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AuthLayoutComponent } from '../shared/auth-layout/auth-layout.component';
 
@@ -64,7 +64,10 @@ import { AuthLayoutComponent } from '../shared/auth-layout/auth-layout.component
         </div>
         <button class="btn btn-primary btn-block mt-2" type="submit">Submit application</button>
       </form>
-      <div class="auth-links center"><a routerLink="/login"><i class="mdi mdi-arrow-left mr-1"></i>Back to sign in</a></div>
+      <div class="auth-links center">
+        <a routerLink="/track-application">Already applied? Track your application</a>
+        <a routerLink="/login"><i class="mdi mdi-arrow-left mr-1"></i>Back to sign in</a>
+      </div>
     </app-auth-layout>
   `
 })
@@ -72,12 +75,14 @@ export class PublicApplyComponent implements OnInit {
   form: any = {};
   message = '';
   error = '';
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private router: Router) {}
   ngOnInit(): void {}
   submit(): void {
     this.error = '';
-    this.api.post<{ message: string }>('/public/apply', this.form).subscribe({
-      next: (res) => (this.message = res.message),
+    this.api.post<{ message: string; applicationId: number }>('/public/apply', this.form).subscribe({
+      // Straight on to the tracker, where documents can be uploaded.
+      next: (res) => this.router.navigate(['/track-application'],
+        { queryParams: { id: res.applicationId, mobile: this.form.studentMobile, new: 1 } }),
       error: (err) => (this.error = err?.error?.error ?? 'Could not submit application.')
     });
   }

@@ -7,8 +7,15 @@ export function roleGuard(allowedRoles: number[]): CanActivateFn {
     const auth = inject(AuthService);
     const router = inject(Router);
     const user = auth.currentUser();
-    if (user && allowedRoles.includes(user.roleId)) return true;
-    router.navigate(['/login']);
-    return false;
+    if (!user || !allowedRoles.includes(user.roleId)) {
+      router.navigate(['/login']);
+      return false;
+    }
+    // Accounts still on the password an admin gave them must choose their own first.
+    if (user.mustChangePassword) {
+      router.navigate(['/change-password']);
+      return false;
+    }
+    return true;
   };
 }

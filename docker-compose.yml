@@ -36,6 +36,8 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-no-reply@rahbar.org}
+      # Local testing without SMTP: LOG_OTP=true prints sign-in OTPs in the backend log (never in production)
+      LOG_OTP: ${LOG_OTP:-false}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:4200}
       UPLOAD_DIR: /app/uploads
       SERVER_PORT: 5000

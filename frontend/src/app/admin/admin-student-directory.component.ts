@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Subject, Subscription, debounceTime } from 'rxjs';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { BulkReport, BulkReportComponent } from '../shared/bulk-report.component';
 import { PagerComponent } from '../shared/pager/pager.component';
 import { asDate, isoDate, localDate, uploadUrl } from '../shared/format';
 import { CourseRow } from './admin-courses.component';
@@ -36,7 +37,7 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
 @Component({
   selector: 'app-admin-student-directory',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, BulkReportComponent],
   styles: [`
     .nav-pills .nav-link { cursor: pointer; }
     .table-schedule td, .table-schedule th { vertical-align: middle; }
@@ -300,14 +301,27 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
     <div *ngIf="showUpload" class="modal fade show d-block" tabindex="-1" (click)="showUpload = false">
       <div class="modal-dialog modal-dialog-centered" (click)="$event.stopPropagation()">
         <div class="modal-content">
-          <div class="modal-header text-success"><h5 class="m-0">Bulk Upload</h5><button type="button" class="close" (click)="showUpload = false">&times;</button></div>
+          <div class="modal-header"><h5 class="modal-title"><i class="mdi mdi-file-upload mr-1"></i>Bulk upload students</h5><button type="button" class="close" (click)="showUpload = false">&times;</button></div>
           <form (ngSubmit)="upload()">
-            <div class="modal-body"><input type="file" accept=".csv" (change)="csv = fileOf($event)" required></div>
-            <div class="modal-footer"><button type="submit" class="btn btn-success" [disabled]="!csv">Upload</button></div>
+            <div class="modal-body">
+              <div class="alert alert-info">
+                <small>Columns: Student Reference, Student Name, Email, Mobile Student, Father Name, Address, Course (Branch), RCC Non-RCC, Mobile-1, Mobile-2.
+                Existing students (same Student Reference) are updated. New accounts get the default password and must change it at first sign-in.</small>
+                <div class="mt-2"><button type="button" class="btn btn-sm btn-outline-primary" (click)="template()"><i class="mdi mdi-download"></i> Download CSV template</button></div>
+              </div>
+              <input type="file" class="form-control-file" accept=".csv" (change)="csv = fileOf($event)" required>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-light" (click)="showUpload = false">Cancel</button>
+              <button type="submit" class="btn btn-primary" [disabled]="!csv">Upload &amp; process</button>
+            </div>
           </form>
         </div>
       </div>
     </div>
+
+    <app-bulk-report *ngIf="report" [report]="report" title="Student upload results" createdLabel="New students"
+                     (closed)="report = null"></app-bulk-report>
 
     <div *ngIf="busyOverlay" class="loading-overlay">
       <div class="spinner-border text-success" role="status" style="width: 4rem; height: 4rem;"></div>
@@ -519,14 +533,23 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Result of the last bulk upload (shown in a results window). */
+  report: BulkReport | null = null;
+
+  template(): void {
+    this.api.download('/admin/templates/students', undefined, 'students_template.csv').subscribe({
+      error: (e) => (this.error = errorText(e, 'Could not download the template.'))
+    });
+  }
+
   upload(): void {
     if (!this.csv) return;
     const f = new FormData();
     f.append('file', this.csv);
     this.showUpload = false;
     this.busyOverlay = true;
-    this.api.post<{ message: string }>('/admin/students/bulk-upload', f).subscribe({
-      next: (r) => { this.busyOverlay = false; this.csv = null; this.message = r.message; this.load(); },
+    this.api.post<{ message: string; report?: BulkReport }>('/admin/students/bulk-upload', f).subscribe({
+      next: (r) => { this.busyOverlay = false; this.csv = null; this.message = r.message; this.report = r.report ?? null; this.load(); },
       error: (err) => { this.busyOverlay = false; this.error = errorText(err, 'Upload failed.'); }
     });
   }

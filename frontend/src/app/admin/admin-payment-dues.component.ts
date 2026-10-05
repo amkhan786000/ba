@@ -1,0 +1,130 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ApiService } from '../core/services/api.service';
+import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+
+interface Due {
+  student_id: string; student_name: string; student_phone: string | null; sponsor_id: string; sponsor_name: string | null;
+  course_start: string | null; installments_total: number; installments_due: number; installments_paid: number;
+  overdue: number; next_due_date: string | null; status: string;
+}
+
+/** Admin > Payment Dues: quarterly installments due vs paid per sponsored student, and reminders. */
+@Component({
+  selector: 'app-admin-payment-dues',
+  standalone: true,
+  imports: [CommonModule, FormsModule, AlertsComponent],
+  template: `
+    <div class="row">
+      <div class="col-12">
+        <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+          <h4 class="page-title mb-2 mb-md-0">Payment Dues</h4>
+          <button class="btn btn-primary" (click)="send()" [disabled]="sending">
+            <i class="mdi mdi-send mr-1"></i>{{ sending ? 'Sending…' : 'Send reminders now' }}
+          </button>
+        </div>
+      </div>
+    </div>
+    <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
+
+    <div class="row">
+      <div class="col-6 col-xl-3" *ngFor="let s of summary">
+        <div class="card-box clickable" [class.selected]="filter === s.status" (click)="filter = filter === s.status ? '' : s.status">
+          <h4 class="header-title mt-0">{{ s.status }}</h4>
+          <h2>{{ s.count }}</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-body">
+        <div class="d-flex flex-column flex-md-row justify-content-between mb-3">
+          <p class="text-muted mb-2 mb-md-0">
+            Sponsors pay in quarterly installments from the day the student's course was assigned.
+            Reminders go out automatically every morning: once per overdue installment, and a week before the next one.
+          </p>
+          <input class="form-control" style="max-width: 260px" placeholder="Search student or sponsor" [(ngModel)]="q">
+        </div>
+        <div class="table-responsive">
+          <table class="table mb-0">
+            <thead><tr><th>Student</th><th>Sponsor</th><th>Course start</th><th>Paid / due / total</th><th>Next due</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr *ngIf="loading"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
+              <tr *ngIf="!loading && !visible.length"><td colspan="6" class="text-center text-muted">Nothing to show.</td></tr>
+              <tr *ngFor="let d of visible">
+                <td><strong>{{ d.student_name }}</strong><div class="small text-muted">{{ d.student_id }}</div></td>
+                <td>{{ d.sponsor_name || '--' }}<div class="small text-muted">{{ d.sponsor_id }}</div></td>
+                <td>{{ d.course_start ? (d.course_start | date: 'd MMM yyyy') : '--' }}</td>
+                <td>
+                  <strong>{{ d.installments_paid }}</strong> / {{ d.installments_due }} / {{ d.installments_total }}
+                  <div class="progress mt-1" style="max-width: 140px" *ngIf="d.installments_total">
+                    <div class="progress-bar" [style.width.%]="pct(d)"></div>
+                  </div>
+                </td>
+                <td>{{ d.next_due_date ? (d.next_due_date | date: 'd MMM yyyy') : '--' }}</td>
+                <td>
+                  <span class="badge" [ngClass]="badge(d.status)">{{ d.status }}</span>
+                  <div class="small text-danger" *ngIf="d.overdue">{{ d.overdue }} overdue</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `
+})
+export class AdminPaymentDuesComponent implements OnInit {
+  rows: Due[] = [];
+  q = '';
+  filter = '';
+  loading = false;
+  sending = false;
+  message = '';
+  error = '';
+
+  constructor(private api: ApiService) {}
+
+  ngOnInit(): void { this.load(); }
+
+  load(): void {
+    this.loading = true;
+    this.api.get<Due[]>('/admin/payments/dues').subscribe({
+      next: (r) => { this.loading = false; this.rows = r; },
+      error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load payment dues.'); }
+    });
+  }
+
+  get summary(): { status: string; count: number }[] {
+    return ['Overdue', 'Due soon', 'On schedule', 'Completed'].map((status) => ({
+      status, count: this.rows.filter((r) => r.status === status).length
+    }));
+  }
+
+  get visible(): Due[] {
+    const q = this.q.trim().toLowerCase();
+    return this.rows.filter((r) => (!this.filter || r.status === this.filter)
+      && (!q || [r.student_name, r.student_id, r.sponsor_name, r.sponsor_id].some((v) => (v ?? '').toLowerCase().includes(q))));
+  }
+
+  pct(d: Due): number { return d.installments_total ? Math.min(100, (d.installments_paid / d.installments_total) * 100) : 0; }
+
+  badge(status: string): string {
+    switch (status) {
+      case 'Overdue': return 'badge-danger';
+      case 'Due soon': return 'badge-warning';
+      case 'On schedule': return 'badge-info';
+      case 'Completed': return 'badge-success';
+      default: return 'badge-light';
+    }
+  }
+
+  send(): void {
+    this.sending = true;
+    this.api.post<{ message: string }>('/admin/payments/reminders/run', {}).subscribe({
+      next: (r) => { this.sending = false; this.message = r.message; },
+      error: (e) => { this.sending = false; this.error = errorText(e, 'Could not send reminders.'); }
+    });
+  }
+}

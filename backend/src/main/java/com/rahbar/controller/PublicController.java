@@ -1,6 +1,9 @@
 package com.rahbar.controller;
 
+import com.rahbar.service.ApplicationService;
 import com.rahbar.service.PublicService;
+import org.springframework.http.MediaType;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -20,9 +23,30 @@ import java.util.Map;
 public class PublicController {
 
     private final PublicService publicService;
+    private final ApplicationService applicationService;
 
-    public PublicController(PublicService publicService) {
+    public PublicController(PublicService publicService, ApplicationService applicationService) {
         this.publicService = publicService;
+        this.applicationService = applicationService;
+    }
+
+    /** "Track my application": needs the application number and one of the mobile numbers on the form. */
+    @PostMapping("/track-application")
+    public Map<String, Object> track(@RequestBody Map<String, String> body) {
+        Long id;
+        try {
+            id = Long.valueOf(String.valueOf(body.get("applicationId")).trim());
+        } catch (NumberFormatException e) {
+            id = null;
+        }
+        return applicationService.track(id, body.get("mobile"));
+    }
+
+    @PostMapping(value = "/applications/{id}/documents", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Map<String, Object> uploadDocument(@PathVariable Long id, @RequestParam String mobile,
+                                              @RequestParam(required = false) String docType,
+                                              @RequestParam MultipartFile file) {
+        return applicationService.uploadByApplicant(id, mobile, docType, file);
     }
 
     @GetMapping("/application-form-options")

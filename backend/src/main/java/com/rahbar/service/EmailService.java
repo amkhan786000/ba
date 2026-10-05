@@ -13,6 +13,9 @@ public class EmailService {
     @Value("${app.mail.from}")
     private String fromAddress;
 
+    @Value("${spring.mail.username:}")
+    private String mailUsername;
+
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
@@ -27,7 +30,12 @@ public class EmailService {
             mailSender.send(message);
         } catch (Exception e) {
             // Mirrors the original Flask behaviour: log and don't fail the request.
-            System.err.println("Failed to send email to " + to + ": " + e.getMessage());
+            // Spring only says "Authentication failed"; the SMTP server's own reply (the root cause) says why.
+            Throwable root = e;
+            while (root.getCause() != null && root.getCause() != root) root = root.getCause();
+            System.err.println("Failed to send email to " + to + ": " + e.getMessage()
+                    + (root != e ? " | server said: " + root.getMessage() : "")
+                    + " | signed in as '" + mailUsername + "'");
         }
     }
 }

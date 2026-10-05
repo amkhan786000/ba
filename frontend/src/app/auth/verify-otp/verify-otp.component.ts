@@ -28,7 +28,7 @@ export class VerifyOtpComponent {
     this.auth.verifyOtp(this.userId, this.otp).subscribe({
       next: (res) => {
         this.loading = false;
-        this.router.navigate([dashboardPathForRole(res.roleId ?? 0)]);
+        this.router.navigate([res.mustChangePassword ? '/change-password' : dashboardPathForRole(res.roleId ?? 0)]);
       },
       error: (err) => {
         this.loading = false;

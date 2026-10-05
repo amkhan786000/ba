@@ -42,6 +42,12 @@ import { SponsorProgressComponent } from './sponsor/sponsor-progress.component';
 import { StudentPaymentsComponent } from './student/student-payments.component';
 import { StudentProgressComponent } from './student/student-progress.component';
 import { OfficeDashboardComponent } from './office/office-dashboard.component';
+import { AdminActivityLogComponent } from './admin/admin-activity-log.component';
+import { AdminPaymentDuesComponent } from './admin/admin-payment-dues.component';
+import { ChangePasswordComponent } from './auth/change-password/change-password.component';
+import { TrackApplicationComponent } from './public/track.component';
+import { ProfileComponent } from './shared/profile/profile.component';
+import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
 import { ROLE } from './core/models/user.model';
 
@@ -51,6 +57,8 @@ export const routes: Routes = [
   { path: 'register', component: RegisterComponent },
   { path: 'reset-password', component: ResetPasswordComponent },
   { path: 'apply', component: PublicApplyComponent },
+  { path: 'track-application', component: TrackApplicationComponent },
+  { path: 'change-password', component: ChangePasswordComponent, canActivate: [authGuard] },
 
   {
     path: 'admin',
@@ -63,16 +71,19 @@ export const routes: Routes = [
         { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple' },
         { path: '/admin/roles', label: 'Roles', icon: 'mdi-shield-account' },
         { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings' },
+        { path: '/admin/payment-dues', label: 'Payment Dues', icon: 'mdi-alarm' },
         { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar' },
         { path: '/admin/application-period', label: 'App Period', icon: 'mdi-calendar' },
         { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank' },
         { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open' },
         { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch' },
-        { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details' }
+        { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details' },
+        { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history' }
       ]
     },
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: AdminDashboardComponent },
       { path: 'users', component: AdminUsersComponent },
       { path: 'users/:userId/edit', component: AdminUserEditComponent },
@@ -80,6 +91,8 @@ export const routes: Routes = [
       { path: 'roles/new', component: AdminRoleEditComponent },
       { path: 'roles/:id/edit', component: AdminRoleEditComponent },
       { path: 'system-configuration', component: AdminSystemConfigComponent },
+      { path: 'payment-dues', component: AdminPaymentDuesComponent },
+      { path: 'activity', component: AdminActivityLogComponent },
       { path: 'reports', component: AdminReportsComponent },
       { path: 'application-period', component: AdminApplicationPeriodComponent },
       { path: 'rcc-centers', component: AdminRccCentersComponent },
@@ -115,6 +128,7 @@ export const routes: Routes = [
     },
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: CoordinatorDashboardComponent },
       { path: 'applications', component: AdminApplicationsComponent, data: { section: 'coordinator' } },
       { path: 'applications/:id', component: AdminApplicationDetailsComponent, data: { section: 'coordinator' } },
@@ -143,6 +157,7 @@ export const routes: Routes = [
     },
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: ConvenorDashboardComponent },
       { path: 'applications', component: AdminApplicationsComponent, data: { section: 'convenor' } },
       { path: 'applications/:id', component: AdminApplicationDetailsComponent, data: { section: 'convenor' } },
@@ -165,6 +180,7 @@ export const routes: Routes = [
     },
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: SponsorDashboardComponent },
       { path: 'payments', component: SponsorPaymentsComponent },
       { path: 'progress', component: SponsorProgressComponent }
@@ -184,6 +200,7 @@ export const routes: Routes = [
     },
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: StudentDashboardComponent },
       { path: 'payments', component: StudentPaymentsComponent },
       { path: 'progress', component: StudentProgressComponent }
@@ -209,6 +226,7 @@ export const routes: Routes = [
     // limited: true hides sponsor contact info, profile editing and bulk upload.
     children: [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: OfficeDashboardComponent },
       { path: 'system-configuration', component: AdminSystemConfigComponent },
       { path: 'rcc-centers', component: AdminRccCentersComponent, data: { section: 'office' } },

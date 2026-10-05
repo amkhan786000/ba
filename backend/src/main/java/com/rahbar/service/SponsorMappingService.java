@@ -1,17 +1,26 @@
 package com.rahbar.service;
 
 import com.rahbar.entity.GrantorGrantee;
+import com.rahbar.entity.User;
 import com.rahbar.repository.GrantorGranteeRepository;
+import com.rahbar.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
-/** Maps a student to a sponsor (grantor_grantees has one row per student). */
+import java.util.Objects;
+
+/** Maps a student to a sponsor (grantor_grantees has one row per student) and tells both of them. */
 @Service
 public class SponsorMappingService {
 
     private final GrantorGranteeRepository grantorGranteeRepository;
+    private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
-    public SponsorMappingService(GrantorGranteeRepository grantorGranteeRepository) {
+    public SponsorMappingService(GrantorGranteeRepository grantorGranteeRepository, UserRepository userRepository,
+                                 NotificationService notificationService) {
         this.grantorGranteeRepository = grantorGranteeRepository;
+        this.userRepository = userRepository;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -22,6 +31,7 @@ public class SponsorMappingService {
      */
     public void map(String granteeId, String grantorId, String status, boolean replaceStatus) {
         GrantorGrantee gg = grantorGranteeRepository.findFirstByGranteeId(granteeId).orElse(null);
+        String previous = gg == null ? null : gg.getGrantorId();
         if (gg == null) {
             gg = new GrantorGrantee();
             gg.setGranteeId(granteeId);
@@ -31,5 +41,19 @@ public class SponsorMappingService {
         }
         gg.setGrantorId(grantorId);
         grantorGranteeRepository.save(gg);
+        if (!Objects.equals(previous, grantorId)) notifyMapped(granteeId, grantorId);
+    }
+
+    /** Tells the sponsor and the student about a new mapping (nothing for the "unassigned" grantor 12). */
+    public void notifyMapped(String granteeId, String grantorId) {
+        if (grantorId == null || ServiceSupport.UNASSIGNED_GRANTOR.equals(grantorId)) return;
+        User student = userRepository.findById(granteeId).orElse(null);
+        User sponsor = userRepository.findById(grantorId).orElse(null);
+        if (student == null || sponsor == null) return;
+        notificationService.notify(grantorId, "New student mapped to you",
+                student.getName() + " (" + student.getUserId() + ") is now one of your sponsored students.",
+                NotificationService.MAPPING, Integer.valueOf(5).equals(sponsor.getRoleId()) ? "/sponsor/dashboard" : null, true);
+        notificationService.notify(granteeId, "You have a sponsor",
+                sponsor.getName() + " is now your sponsor.", NotificationService.MAPPING, "/student/dashboard", false);
     }
 }

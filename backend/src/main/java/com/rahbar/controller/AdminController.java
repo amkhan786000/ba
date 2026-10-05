@@ -3,7 +3,7 @@ package com.rahbar.controller;
 import com.rahbar.entity.*;
 import com.rahbar.security.AuthUtil;
 import com.rahbar.service.AdminService;
-import org.springframework.core.io.ByteArrayResource;
+import com.rahbar.service.BulkUploadReport;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -257,14 +257,30 @@ public class AdminController {
     @PostMapping(value = "/students/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, Object> bulkUploadStudents(@RequestParam MultipartFile file) throws IOException {
-        int success = adminService.bulkUploadStudents(file);
-        return Map.of("message", "Success! Processed " + success + " unique students.");
+        BulkUploadReport report = adminService.bulkUploadStudents(file);
+        return Map.of("message", "Processed " + report.processed() + " student(s): " + report.toMap().get("created") + " added, "
+                        + report.toMap().get("updated") + " updated, " + report.failedCount() + " failed.",
+                "report", report.toMap());
     }
 
     @PostMapping(value = "/sponsors/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Map<String, Object> bulkUploadSponsors(@RequestParam MultipartFile file) throws IOException {
-        int success = adminService.bulkUploadSponsors(file);
-        return Map.of("message", "Success! Processed " + success + " rows. Sponsors merged and students mapped.");
+        BulkUploadReport report = adminService.bulkUploadSponsors(file);
+        return Map.of("message", "Processed " + report.processed() + " sponsor row(s): " + report.toMap().get("created") + " new, "
+                        + report.toMap().get("updated") + " merged, " + report.toMap().get("mappings") + " student mapping(s), "
+                        + report.failedCount() + " failed.",
+                "report", report.toMap());
+    }
+
+    /** Empty CSV template (with one example row) for the student or sponsor bulk upload. */
+    @GetMapping("/templates/{kind}")
+    @PreAuthorize(ADMIN_OR_OFFICE)
+    public ResponseEntity<byte[]> csvTemplate(@PathVariable String kind) {
+        byte[] bytes = adminService.csvTemplate(kind).getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + kind + "_template.csv\"")
+                .body(bytes);
     }
 
     @PostMapping("/students/manual-add")
@@ -297,13 +313,5 @@ public class AdminController {
                                              @RequestParam(defaultValue = "Paid") String status,
                                              @RequestParam(required = false) MultipartFile receipt) {
         return Map.of("message", adminService.recordPayment(actionType, paymentId, granteeId, amount, paymentDate, status, receipt));
-    }
-
-    // ------------------------------------------------------------------- reports
-
-    @GetMapping("/reports/{type}")
-    public ResponseEntity<ByteArrayResource> downloadReport(@PathVariable String type,
-                                                            @RequestParam(defaultValue = "csv") String format) {
-        return Downloads.of(adminService.report(type, format));
     }
 }

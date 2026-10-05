@@ -1,9 +1,10 @@
-import { Component, HostListener, Input, OnDestroy } from '@angular/core';
+import { Component, HostListener, Input, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
 import { ROLE_LABELS } from '../../core/models/user.model';
+import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 export interface NavLink {
   path: string;
@@ -18,7 +19,7 @@ export interface NavLink {
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [CommonModule, RouterLink, RouterLinkActive, RouterOutlet, NotificationBellComponent],
   template: `
     <div class="app" [class.app--collapsed]="collapsed" [class.app--mobile-open]="mobileOpen">
       <aside class="app-sidebar">
@@ -47,8 +48,10 @@ export interface NavLink {
             <small>{{ title }}</small>
             <strong>{{ currentLabel }}</strong>
           </div>
-          <div class="topbar-right" (click)="$event.stopPropagation()">
-            <div class="user-chip" role="button" tabindex="0" (click)="menuOpen = !menuOpen" (keydown.enter)="menuOpen = !menuOpen">
+          <div class="topbar-right">
+            <app-notification-bell (opened)="menuOpen = false"></app-notification-bell>
+            <div class="user-wrap" (click)="$event.stopPropagation()">
+            <div class="user-chip" role="button" tabindex="0" (click)="toggleUserMenu()" (keydown.enter)="toggleUserMenu()">
               <span class="avatar">{{ initials }}</span>
               <span class="user-meta">
                 <strong>{{ auth.currentUser()?.name }}</strong>
@@ -61,7 +64,9 @@ export interface NavLink {
                 <strong>{{ auth.currentUser()?.name }}</strong>
                 <small>{{ roleLabel }} · {{ auth.currentUser()?.userId }}</small>
               </div>
-              <a href="#" (click)="logout($event)"><i class="mdi mdi-logout-variant"></i><span>Sign out</span></a>
+              <a [routerLink]="[sectionRoot, 'profile']" (click)="menuOpen = false"><i class="mdi mdi-account-circle-outline"></i><span>My profile</span></a>
+              <a href="#" class="danger" (click)="logout($event)"><i class="mdi mdi-logout-variant"></i><span>Sign out</span></a>
+            </div>
             </div>
           </div>
         </header>
@@ -84,6 +89,8 @@ export class ShellComponent implements OnDestroy {
   get links(): NavLink[] { return this._links; }
   private _links: NavLink[] = [];
 
+  @ViewChild(NotificationBellComponent) private bell?: NotificationBellComponent;
+
   menuOpen = false;
   mobileOpen = false;
   collapsed = false;
@@ -99,6 +106,9 @@ export class ShellComponent implements OnDestroy {
   }
 
   get homeLink(): string { return this.links.length ? this.links[0].path : '/'; }
+
+  /** "/admin", "/sponsor", ... taken from the first menu link. */
+  get sectionRoot(): string { return '/' + (this.homeLink.split('/')[1] ?? ''); }
 
   get roleLabel(): string {
     const roleId = this.auth.currentUser()?.roleId ?? 0;
@@ -118,7 +128,13 @@ export class ShellComponent implements OnDestroy {
     const match = this.links
       .filter((l) => url === l.path || url.startsWith(l.path + '/'))
       .sort((a, b) => b.path.length - a.path.length)[0];
-    this.currentLabel = match?.label ?? this.title;
+    this.currentLabel = url.endsWith('/profile') ? 'My profile' : match?.label ?? this.title;
+  }
+
+  /** Opens / closes the user menu (and closes the notifications list, so only one menu is open). */
+  toggleUserMenu(): void {
+    this.menuOpen = !this.menuOpen;
+    this.bell?.close();
   }
 
   /** Desktop: collapse to icons. Mobile: slide the menu in. */

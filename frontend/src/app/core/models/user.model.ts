@@ -3,6 +3,8 @@ export interface AuthUser {
   name: string;
   roleId: number;
   status: string;
+  /** True until the user replaces the password an admin / bulk upload gave them. */
+  mustChangePassword?: boolean;
 }
 
 export const ROLE = {

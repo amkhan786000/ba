@@ -18,6 +18,8 @@ public interface UserRepository extends JpaRepository<User, String> {
     @Query("select u from User u where u.roleId = :roleId and u.region = :region")
     List<User> findByRoleIdAndRegion(@Param("roleId") Integer roleId, @Param("region") String region);
     long countByRoleId(Integer roleId);
+    boolean existsByEmailAndUserIdNot(String email, String userId);
+    boolean existsByPhoneAndUserIdNot(String phone, String userId);
 
     /** Number of users per role: [Integer roleId, Long count]. */
     @Query("select u.roleId, count(u) from User u group by u.roleId")

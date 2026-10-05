@@ -119,8 +119,10 @@ public class CoordinatorService {
     public void mapStudents(String sponsorId, List<String> studentIds) {
         for (String studentId : studentIds) {
             grantorGranteeRepository.findFirstByGranteeId(studentId).ifPresent(gg -> {
+                boolean changed = !sponsorId.equals(gg.getGrantorId());
                 gg.setGrantorId(sponsorId);
                 grantorGranteeRepository.save(gg);
+                if (changed) sponsorMappingService.notifyMapped(studentId, sponsorId);
             });
         }
     }
