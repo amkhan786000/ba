@@ -4,6 +4,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 import { ProgressReviewComponent } from '../shared/review/progress-review.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface Progress { progress_id: number; review_status?: string | null; review_comment?: string | null; grantee_name: string; marks: number | string | null; session: string | null; year: string | number | null; file_path: string | null; created_at: string | null }
 
@@ -11,7 +12,7 @@ interface Progress { progress_id: number; review_status?: string | null; review_
 @Component({
   selector: 'app-convenor-progress',
   standalone: true,
-  imports: [CommonModule, AlertsComponent, ProgressReviewComponent],
+  imports: [CommonModule, AlertsComponent, ProgressReviewComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Student Progress</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -26,7 +27,7 @@ interface Progress { progress_id: number; review_status?: string | null; review_
                 <thead><tr><th>Student Name</th><th>Marks</th><th>Session</th><th>Year</th><th>File</th><th>Date</th><th>Review</th></tr></thead>
                 <tbody>
                   <tr *ngIf="!rows.length"><td colspan="7" class="text-center text-muted">No progress uploaded yet.</td></tr>
-                  <tr *ngFor="let p of rows">
+                  <tr *ngFor="let p of rows | paginate: pg.page : pg.size">
                     <td>{{ p.grantee_name }}</td>
                     <td [ngClass]="low(p.marks) ? 'text-danger' : 'text-success'">{{ p.marks }}</td>
                     <td>{{ p.session }}</td>
@@ -38,6 +39,7 @@ interface Progress { progress_id: number; review_status?: string | null; review_
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="rows.length"></app-pager>
           </div>
         </div>
       </div>
@@ -45,6 +47,7 @@ interface Progress { progress_id: number; review_status?: string | null; review_
   `
 })
 export class ConvenorProgressComponent implements OnInit {
+  readonly pg = new PageState();
   rows: Progress[] = [];
   region = '';
   error = '';

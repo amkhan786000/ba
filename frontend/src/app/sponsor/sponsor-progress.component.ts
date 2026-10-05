@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 import { ProgressReviewComponent } from '../shared/review/progress-review.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface Progress {
   progress_id: number; review_status?: string | null; review_comment?: string | null; reviewed_at?: string | null;
@@ -16,7 +17,7 @@ interface Progress {
 @Component({
   selector: 'app-sponsor-progress',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, ProgressReviewComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, ProgressReviewComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Student Progress Reports</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -44,7 +45,7 @@ interface Progress {
                 <thead><tr><th>Student Name</th><th>Student ID</th><th>Progress (%)</th><th>Session</th><th>Year</th><th>File</th><th>Uploaded On</th><th>Review</th></tr></thead>
                 <tbody>
                   <tr *ngIf="!shown.length"><td colspan="8" class="text-center text-muted">{{ rows.length ? 'No matching records found.' : 'No progress data found.' }}</td></tr>
-                  <tr *ngFor="let p of shown">
+                  <tr *ngFor="let p of shown | paginate: pg.page : pg.size">
                     <td><strong>{{ p.grantee_name }}</strong></td>
                     <td><span class="badge badge-light border">{{ p.grantee_id }}</span></td>
                     <td>{{ p.marks }}%</td>
@@ -57,6 +58,7 @@ interface Progress {
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="shown.length"></app-pager>
           </div>
         </div>
       </div>
@@ -64,6 +66,7 @@ interface Progress {
   `
 })
 export class SponsorProgressComponent implements OnInit {
+  readonly pg = new PageState();
   rows: Progress[] = [];
   shown: Progress[] = [];
   f = { name: '', ref: '', session: '', year: '' };

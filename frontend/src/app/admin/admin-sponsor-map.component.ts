@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { PagerComponent, PageState, PaginatePipe, pageOf } from '../shared/pager/pager.component';
 
 interface MapScreen {
   sponsor: { user_id: string; name: string; email: string | null; region: string | null };
@@ -15,7 +16,7 @@ interface MapScreen {
 @Component({
   selector: 'app-admin-sponsor-map',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row">
       <div class="col-12">
@@ -55,7 +56,7 @@ interface MapScreen {
                   </thead>
                   <tbody>
                     <tr *ngIf="!data.availableStudents.length"><td colspan="3" class="text-center">No students available.</td></tr>
-                    <tr *ngFor="let s of visible">
+                    <tr *ngFor="let s of visible | paginate: pg.page : pg.size">
                       <td>
                         <div class="custom-control custom-checkbox">
                           <input type="checkbox" class="custom-control-input" [id]="'check' + s.user_id" [checked]="selected.has(s.user_id)" (change)="toggle(s.user_id)">
@@ -73,9 +74,10 @@ interface MapScreen {
                   </tbody>
                 </table>
               </div>
+              <app-pager [state]="pg" [total]="visible.length"></app-pager>
               <div class="mt-3">
                 <button type="submit" class="btn btn-primary btn-block waves-effect waves-light" [disabled]="saving">
-                  <i class="mdi mdi-check-all mr-1"></i> Map Selected Students to Sponsor
+                  <i class="mdi mdi-check-all mr-1"></i> Map Selected Students to Sponsor <span *ngIf="selected.size">({{ selected.size }})</span>
                 </button>
               </div>
             </form>
@@ -93,7 +95,7 @@ interface MapScreen {
                 <thead><tr><th>Student Name</th><th>Student ID</th><th>Email</th></tr></thead>
                 <tbody>
                   <tr *ngIf="!data.mappedStudents.length"><td colspan="3" class="text-center text-muted">No students assigned yet.</td></tr>
-                  <tr *ngFor="let m of data.mappedStudents">
+                  <tr *ngFor="let m of data.mappedStudents | paginate: pgMapped.page : pgMapped.size">
                     <td><strong>{{ m.name }}</strong></td>
                     <td><code class="text-primary">{{ m.user_id }}</code></td>
                     <td>{{ m.email || '-' }}</td>
@@ -101,6 +103,7 @@ interface MapScreen {
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pgMapped" [total]="data.mappedStudents.length"></app-pager>
           </div>
         </div>
       </div>
@@ -108,6 +111,8 @@ interface MapScreen {
   `
 })
 export class AdminSponsorMapComponent implements OnInit {
+  readonly pg = new PageState();
+  readonly pgMapped = new PageState();
   /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
   @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
   get section(): string { return this._section; }
@@ -139,8 +144,13 @@ export class AdminSponsorMapComponent implements OnInit {
       [s.name, s.user_id, s.current_sponsor_name, s.current_sponsor_id].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 
+  /** Students on the page being shown (select-all only ticks these). */
+  get pageRows() {
+    return pageOf(this.visible, Math.min(this.pg.page, Math.max(1, Math.ceil(this.visible.length / this.pg.size))), this.pg.size);
+  }
+
   get allChecked(): boolean {
-    const v = this.visible;
+    const v = this.pageRows;
     return v.length > 0 && v.every((s) => this.selected.has(s.user_id));
   }
 
@@ -150,7 +160,7 @@ export class AdminSponsorMapComponent implements OnInit {
 
   toggleAll(event: Event): void {
     const on = (event.target as HTMLInputElement).checked;
-    for (const s of this.visible) { if (on) this.selected.add(s.user_id); else this.selected.delete(s.user_id); }
+    for (const s of this.pageRows) { if (on) this.selected.add(s.user_id); else this.selected.delete(s.user_id); }
   }
 
   submit(): void {

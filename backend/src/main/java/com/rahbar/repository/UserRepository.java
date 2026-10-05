@@ -18,6 +18,28 @@ public interface UserRepository extends JpaRepository<User, String> {
     @Query("select u from User u where u.roleId = :roleId and u.region = :region")
     List<User> findByRoleIdAndRegion(@Param("roleId") Integer roleId, @Param("region") String region);
     long countByRoleId(Integer roleId);
+
+    @Query("select u.userId from User u")
+    List<String> findAllUserIds();
+
+    /** Manage Users page: every filter optional (null = any); name / email are lower-case LIKE patterns. */
+    @Query(value = """
+        select u from User u
+        where (:name is null or lower(u.name) like :name)
+          and (:email is null or lower(u.email) like :email)
+          and (:roleId is null or u.roleId = :roleId)
+          and (:status is null or lower(u.status) = :status)
+        """,
+        countQuery = """
+        select count(u) from User u
+        where (:name is null or lower(u.name) like :name)
+          and (:email is null or lower(u.email) like :email)
+          and (:roleId is null or u.roleId = :roleId)
+          and (:status is null or lower(u.status) = :status)
+        """)
+    org.springframework.data.domain.Page<User> searchUsers(@Param("name") String name, @Param("email") String email,
+                                                           @Param("roleId") Integer roleId, @Param("status") String status,
+                                                           org.springframework.data.domain.Pageable pageable);
     boolean existsByEmailAndUserIdNot(String email, String userId);
     boolean existsByPhoneAndUserIdNot(String phone, String userId);
 

@@ -17,6 +17,29 @@ public interface GranteeDetailsRepository extends JpaRepository<GranteeDetails, 
     List<GranteeDetails> findByUserId(String userId);
     List<GranteeDetails> findByStudentMobileOrFatherMobileOrMotherMobile(String m1, String m2, String m3);
 
+    /** Applications page: filters optional; status matches the latest status row (lower-case). */
+    @Query(value = """
+        select g from GranteeDetails g
+        where (:name is null or lower(g.name) like :name)
+          and (:rcc is null or lower(g.rccName) like :rcc)
+          and (:status is null or exists (
+                select 1 from ApplicationStatus s
+                where s.granteeDetailId = g.granteeDetailId and lower(s.status) = :status
+                  and s.createdAt = (select max(s2.createdAt) from ApplicationStatus s2 where s2.granteeDetailId = g.granteeDetailId)))
+        """,
+        countQuery = """
+        select count(g) from GranteeDetails g
+        where (:name is null or lower(g.name) like :name)
+          and (:rcc is null or lower(g.rccName) like :rcc)
+          and (:status is null or exists (
+                select 1 from ApplicationStatus s
+                where s.granteeDetailId = g.granteeDetailId and lower(s.status) = :status
+                  and s.createdAt = (select max(s2.createdAt) from ApplicationStatus s2 where s2.granteeDetailId = g.granteeDetailId)))
+        """)
+    org.springframework.data.domain.Page<GranteeDetails> searchApplications(@Param("name") String name, @Param("rcc") String rcc,
+                                                                          @Param("status") String status,
+                                                                          org.springframework.data.domain.Pageable pageable);
+
     @Query("select distinct extract(year from g.createdAt) from GranteeDetails g where g.createdAt is not null")
     List<Integer> findCreatedYears();
 

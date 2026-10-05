@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface Due {
   student_id: string; student_name: string; student_phone: string | null; sponsor_id: string; sponsor_name: string | null;
@@ -14,7 +15,7 @@ interface Due {
 @Component({
   selector: 'app-admin-payment-dues',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row">
       <div class="col-12">
@@ -52,7 +53,7 @@ interface Due {
             <tbody>
               <tr *ngIf="loading"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
               <tr *ngIf="!loading && !visible.length"><td colspan="6" class="text-center text-muted">Nothing to show.</td></tr>
-              <tr *ngFor="let d of visible">
+              <tr *ngFor="let d of visible | paginate: pg.page : pg.size">
                 <td><strong>{{ d.student_name }}</strong><div class="small text-muted">{{ d.student_id }}</div></td>
                 <td>{{ d.sponsor_name || '--' }}<div class="small text-muted">{{ d.sponsor_id }}</div></td>
                 <td>{{ d.course_start ? (d.course_start | date: 'd MMM yyyy') : '--' }}</td>
@@ -71,11 +72,13 @@ interface Due {
             </tbody>
           </table>
         </div>
+        <app-pager [state]="pg" [total]="visible.length"></app-pager>
       </div>
     </div>
   `
 })
 export class AdminPaymentDuesComponent implements OnInit {
+  readonly pg = new PageState();
   rows: Due[] = [];
   q = '';
   filter = '';

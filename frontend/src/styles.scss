@@ -627,3 +627,13 @@ hr { border-top-color: var(--line); }
 .card-box.clickable { cursor: pointer; }
 .card-box.selected { outline: 2px solid var(--accent); outline-offset: -2px; }
 .review-comment { max-width: 260px; white-space: normal; }
+
+/* ------------------------------------------------------------------ pager (shared/pager) */
+
+.pager { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-top: 16px; }
+.pager-info { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; color: var(--muted); font-size: 13px; }
+.pager-info strong { color: var(--ink); font-weight: 600; }
+.pager-size { display: flex; align-items: center; gap: 8px; margin: 0; font-weight: 500; color: var(--muted); }
+.pager-size select { width: auto; min-width: 70px; }
+.pager .page-link i { font-size: 16px; line-height: 1; vertical-align: -2px; }
+@media (max-width: 575.98px) { .pager { justify-content: center; } .pager-info { justify-content: center; } }

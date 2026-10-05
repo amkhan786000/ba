@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 export interface CourseRow {
   course_id: number;
@@ -19,7 +20,7 @@ export interface CourseRow {
 @Component({
   selector: 'app-admin-courses',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Courses</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -45,7 +46,7 @@ export interface CourseRow {
               <table class="table table-striped table-centered mb-0">
                 <thead><tr><th>Course Name</th><th>Institution</th><th>Description</th><th>Fees/Sem</th><th>Semesters</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngFor="let c of visible">
+                  <tr *ngFor="let c of visible | paginate: pg.page : pg.size">
                     <td>{{ c.course_name }}</td>
                     <td>{{ c.institution_name }}</td>
                     <td>{{ c.course_description }}</td>
@@ -56,6 +57,7 @@ export interface CourseRow {
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="visible.length"></app-pager>
           </div>
         </div>
       </div>
@@ -63,6 +65,7 @@ export interface CourseRow {
   `
 })
 export class AdminCoursesComponent implements OnInit {
+  readonly pg = new PageState();
   /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
   @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
   get section(): string { return this._section; }

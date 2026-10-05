@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 export interface RccCenter {
   rccCenterId?: number;
@@ -19,7 +20,7 @@ export interface RccCenter {
 @Component({
   selector: 'app-admin-rcc-centers',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage RCC Centers</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -44,7 +45,7 @@ export interface RccCenter {
               <table class="table table-striped table-centered mb-0">
                 <thead><tr><th>Center Name</th><th>Incharge Name</th><th>Contact Number</th><th>Location</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngFor="let c of visible">
+                  <tr *ngFor="let c of visible | paginate: pg.page : pg.size">
                     <td>{{ c.centerName }}</td>
                     <td>{{ c.inchargeName }}</td>
                     <td>{{ c.contactNumber }}</td>
@@ -57,6 +58,7 @@ export interface RccCenter {
                 </tbody>
               </table>
             </div>
+            <app-pager [state]="pg" [total]="visible.length"></app-pager>
           </div>
         </div>
       </div>
@@ -64,6 +66,7 @@ export interface RccCenter {
   `
 })
 export class AdminRccCentersComponent implements OnInit {
+  readonly pg = new PageState();
   /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
   @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
   get section(): string { return this._section; }
