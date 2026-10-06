@@ -107,7 +107,15 @@ fi
 # ---- 3. Pull and start the new version ----
 export TAG
 log "Pulling images"
-"${COMPOSE[@]}" pull --quiet backend frontend
+# Downloads from ghcr.io sometimes get "connection reset" (seen on Contabo over IPv6): retry each image.
+for svc in backend frontend; do
+  for attempt in 1 2 3 4 5 6; do
+    if "${COMPOSE[@]}" pull --quiet "$svc"; then break; fi
+    if [ "$attempt" = 6 ]; then log "ERROR: could not download the $svc image after 6 tries."; exit 1; fi
+    log "Download of $svc failed (try $attempt of 6), retrying in $((attempt * 10))s"
+    sleep $((attempt * 10))
+  done
+done
 log "Starting containers"
 "${COMPOSE[@]}" up -d --remove-orphans
 
