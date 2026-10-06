@@ -13,5 +13,5 @@ RUN addgroup -S spring && adduser -S spring -G spring
 COPY --from=build /app/target/rahbar-backend.jar app.jar
 RUN mkdir -p /app/uploads && chown -R spring:spring /app
 USER spring
-EXPOSE 5000
+EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

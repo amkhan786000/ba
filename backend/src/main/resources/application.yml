@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:5000}
+  port: ${SERVER_PORT:8080}
   # Behind nginx: trust X-Forwarded-* only from private-network proxies (used for the activity log's IP address)
   forward-headers-strategy: native
 
