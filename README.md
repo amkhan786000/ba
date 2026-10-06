@@ -2,7 +2,7 @@
 
 This is a migration of the Flask/MySQL app in your `rahbar` folder to:
 
-- **backend/** — Java 17, Spring Boot 3.3, Spring Data JPA, Spring Security (JWT), Flyway
+- **backend/** — Java 21, Spring Boot 3.3, Spring Data JPA, Spring Security (JWT), Flyway
 - **frontend/** — Angular 18 standalone app, Bootstrap 5
 
 ## ⚠️ Please read before anything else
@@ -162,7 +162,7 @@ sidesteps the Maven/npm network restrictions I had in my own sandbox,
 since the build happens on your machine with full internet access.
 
 Files added for this:
-- `backend/Dockerfile` — multi-stage build (Maven+JDK17 → slim JRE Alpine image)
+- `backend/Dockerfile` — multi-stage build (Maven+JDK21 → slim JRE Alpine image)
 - `frontend/Dockerfile` — multi-stage build (Node 20 → nginx Alpine, serving the compiled Angular app and reverse-proxying `/api/**` and `/uploads/**` to the backend container)
 - `frontend/nginx.conf` — the nginx config used above
 - `docker-compose.yml` — wires up `mysql` + `backend` + `frontend`
