@@ -1,0 +1,52 @@
+# Clears fail2ban SSH blocks on the Contabo server (e.g. after too many failed logins from your own computer).
+# Actions -> "Server: unblock SSH" -> Run workflow. Optionally enter your IP to never block it again.
+# Uses the same CONTABO_* secrets as Build & deploy; needs CONTABO_USER to be root (or a user with sudo).
+
+name: "Server: unblock SSH"
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_ip:
+        description: "Optional: your public IP (run `curl -4 ifconfig.me` on your computer) to never block again"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  unblock:
+    runs-on: ubuntu-latest
+    env:
+      SSH_PORT: ${{ secrets.CONTABO_SSH_PORT || '22' }}
+    steps:
+      - name: Set up SSH
+        env:
+          KEY: ${{ secrets.CONTABO_SSH_KEY }}
+          HOST: ${{ secrets.CONTABO_HOST }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          ssh-keyscan -p "$SSH_PORT" -H "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          printf 'Host contabo\n  HostName %s\n  User %s\n  Port %s\n  IdentityFile ~/.ssh/id_deploy\n' \
+            "$HOST" "${{ secrets.CONTABO_USER }}" "$SSH_PORT" > ~/.ssh/config
+
+      - name: Unblock
+        env:
+          ALLOW_IP: ${{ inputs.allow_ip }}
+        run: |
+          case "$ALLOW_IP" in ""|*[!0-9a-fA-F.:/]*) [ -z "$ALLOW_IP" ] || { echo "::error::Not an IP address: $ALLOW_IP"; exit 1; } ;; esac
+          ssh contabo "ALLOW_IP='$ALLOW_IP' bash -s" <<'REMOTE'
+          set -e
+          SUDO=""; [ "$(id -u)" -eq 0 ] || SUDO="sudo -n"
+          echo "Blocked before:"; $SUDO fail2ban-client status sshd | grep -i 'banned' || true
+          $SUDO fail2ban-client unban --all
+          if [ -n "$ALLOW_IP" ]; then
+            printf '[DEFAULT]\nignoreip = 127.0.0.1/8 ::1 %s\n' "$ALLOW_IP" | $SUDO tee /etc/fail2ban/jail.d/allow-home.conf >/dev/null
+            $SUDO systemctl restart fail2ban
+            echo "Will never block: $ALLOW_IP"
+          fi
+          echo "Blocked now:"; $SUDO fail2ban-client status sshd | grep -i 'banned' || true
+          REMOTE
