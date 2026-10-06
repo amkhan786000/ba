@@ -15,13 +15,70 @@ HEALTH_URL="http://127.0.0.1:${HEALTH_PORT:-80}/api/public/application-form-opti
 cd "$APP_DIR"
 log() { echo "[deploy $(date '+%F %T')] $*"; }
 
-# ---- 1. Settings sanity checks ----
-[ -f .env ] || { log "Missing $APP_DIR/.env (copy .env.production.example and fill it in)."; exit 1; }
+# ---- 1. Settings: create .env on the first deploy, then sanity-check it ----
 # Read single values from .env without executing it (values may contain spaces).
-envval() { grep -E "^$1=" .env | tail -n1 | cut -d= -f2- | sed -e 's/^["'"'"']//' -e 's/["'"'"']$//'; }
+envval() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | sed -e 's/^["'"'"']//' -e 's/["'"'"']$//'; }
+# Set KEY=VALUE in .env (replace the line, or add it).
+setval() {
+  local key="$1" value="$2" tmp
+  tmp="$(mktemp)"
+  grep -vE "^#?\s*$key=" .env > "$tmp" || true
+  printf '%s=%s\n' "$key" "$value" >> "$tmp"
+  cat "$tmp" > .env && rm -f "$tmp"
+}
+rand() { openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c "$1"; }
+
+if [ ! -f .env ]; then
+  log "No .env yet: creating one with new random database passwords and JWT secret."
+  umask 077
+  SERVER_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
+  cat > .env <<ENV
+# Created automatically by deploy.sh on the first deploy. Safe to edit; keep it private.
+DB_NAME=rahbar
+DB_USER=rahbar
+DB_PASSWORD=$(rand 32)
+DB_ROOT_PASSWORD=$(rand 32)
+JWT_SECRET=$(rand 64)
+JWT_EXPIRATION_MS=28800000
+MAIL_HOST=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_FROM=
+PUBLIC_URL=http://${SERVER_IP:-localhost}
+JAVA_OPTS=-Xms256m -Xmx768m
+ENV
+  chmod 600 .env
+fi
+
+# Mail settings sent by GitHub Actions (from the MAIL_* repository secrets) replace the ones in .env.
+if [ -f .incoming-secrets ]; then
+  while IFS='=' read -r key value; do
+    case "$key" in
+      MAIL_USERNAME|MAIL_PASSWORD|MAIL_FROM|MAIL_HOST|MAIL_PORT) [ -n "$value" ] && setval "$key" "$value" ;;
+    esac
+  done < .incoming-secrets
+  rm -f .incoming-secrets
+  chmod 600 .env
+fi
+[ -n "$(envval MAIL_USERNAME)" ] || log "Note: MAIL_USERNAME / MAIL_PASSWORD are empty, so emails (sign-in codes!) can't be sent. Add the MAIL_USERNAME and MAIL_PASSWORD secrets in GitHub and deploy again."
+[ -n "$(envval MAIL_FROM)" ] || { [ -n "$(envval MAIL_USERNAME)" ] && setval MAIL_FROM "$(envval MAIL_USERNAME)"; } || true
+# Empty or example placeholder values are replaced with random ones. Database passwords only while the
+# database has never been started (afterwards MySQL keeps the original password, so it must not change).
+DB_EXISTS=no
+docker volume inspect rahbar_mysql-data >/dev/null 2>&1 && DB_EXISTS=yes
 for v in DB_PASSWORD DB_ROOT_PASSWORD JWT_SECRET; do
-  [ -n "$(envval "$v")" ] || { log "$v is empty in .env"; exit 1; }
+  cur="$(envval "$v")"
+  if [ -z "$cur" ] || [[ "$cur" == *change* ]] || [[ "$cur" == *CHANGE* ]]; then
+    if [ "$v" = JWT_SECRET ] || [ "$DB_EXISTS" = no ]; then
+      log "$v was empty or a placeholder: setting a random value."
+      if [ "$v" = JWT_SECRET ]; then setval "$v" "$(rand 64)"; else setval "$v" "$(rand 32)"; fi
+    else
+      log "ERROR: $v is empty in /opt/rahbar/.env but the database already exists. Put the original password back."; exit 1
+    fi
+  fi
 done
+chmod 600 .env
 JWT="$(envval JWT_SECRET)"
 if [ "${#JWT}" -lt 32 ] || [[ "$JWT" == *change-this* ]]; then
   log "JWT_SECRET must be a long random value (openssl rand -base64 48)."; exit 1

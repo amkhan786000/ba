@@ -39,23 +39,11 @@ ssh-copy-id -i ~/.ssh/rahbar_deploy.pub deploy@YOUR_SERVER_IP   # or paste the .
 ssh -i ~/.ssh/rahbar_deploy deploy@YOUR_SERVER_IP 'docker ps'      # should print an empty table
 ```
 
-### 3. Server settings: `/opt/rahbar/.env`
+### 3. Server settings: nothing to do
 
-```bash
-ssh deploy@YOUR_SERVER_IP
-cd /opt/rahbar
-curl -fsSL https://raw.githubusercontent.com/amkhan786000/ba/main/deploy/.env.production.example -o .env
-chmod 600 .env
-nano .env
-```
-
-Fill in **new** values. Don't reuse the passwords from your laptop, because older ones are visible in the
-public repository's history.
-
-- `openssl rand -base64 32`: use it for `DB_PASSWORD` and `DB_ROOT_PASSWORD`.
-- `openssl rand -base64 48`: use it for `JWT_SECRET`.
-- `MAIL_*`: the Gmail address and its 16-letter app password.
-- `PUBLIC_URL=http://YOUR_SERVER_IP`.
+The first deploy creates `/opt/rahbar/.env` by itself, with new random database passwords and JWT secret
+and `PUBLIC_URL=http://<server IP>`. Mail settings come from the GitHub secrets below. You can still edit
+`.env` on the server later; deploys never overwrite your values (only the `MAIL_*` lines, when those secrets are set).
 
 ### 4. GitHub secrets
 
@@ -67,6 +55,11 @@ In the repository: *Settings → Secrets and variables → Actions → New repos
 | `CONTABO_USER` | `deploy` |
 | `CONTABO_SSH_KEY` | the whole content of `~/.ssh/rahbar_deploy` (the private key, including the BEGIN/END lines) |
 | `CONTABO_SSH_PORT` | only if SSH isn't on port 22 |
+| `MAIL_USERNAME` | optional: the Gmail address that sends e-mails (OTP codes, notifications) |
+| `MAIL_PASSWORD` | optional: its 16-letter Google app password |
+| `MAIL_FROM` | optional: sender address, defaults to `MAIL_USERNAME` |
+
+If a deploy fails, the reason is shown at the top of the run page under *Annotations*.
 
 Optional: under *Settings → Environments → production* you can require an approval before each deploy.
 

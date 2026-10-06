@@ -10,6 +10,8 @@
 #   CONTABO_USER      SSH user on the server (deploy)
 #   CONTABO_SSH_KEY   private SSH key whose public half is in ~deploy/.ssh/authorized_keys
 #   CONTABO_SSH_PORT  optional, defaults to 22
+#   MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM  optional, Gmail address + app password for e-mails
+# The server's .env (DB passwords, JWT secret) is created automatically on the first deploy.
 # Server setup: deploy/README.md
 
 name: Build & deploy
@@ -121,8 +123,28 @@ jobs:
           # This run's short-lived token goes over stdin (never on a command line); it is removed again below.
           printf '%s' "$GHCR_TOKEN" | ssh contabo "docker login ghcr.io -u '${{ github.actor }}' --password-stdin" >/dev/null
 
+      - name: Send the mail settings (optional secrets)
+        env:
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+        run: |
+          # Goes over stdin into a private file that deploy.sh merges into .env and then deletes.
+          if [ -z "$MAIL_USERNAME$MAIL_PASSWORD$MAIL_FROM" ]; then echo "No MAIL_* secrets set - skipping."; exit 0; fi
+          printf 'MAIL_USERNAME=%s\nMAIL_PASSWORD=%s\nMAIL_FROM=%s\n' "$MAIL_USERNAME" "${MAIL_PASSWORD// /}" "$MAIL_FROM" \
+            | ssh contabo 'umask 077; cat > /opt/rahbar/.incoming-secrets'
+
       - name: Deploy ${{ env.TAG }}
-        run: ssh contabo "REGISTRY='${{ env.REGISTRY }}' /opt/rahbar/deploy.sh '${TAG}'"
+        run: |
+          set -o pipefail
+          if ssh contabo "REGISTRY='${{ env.REGISTRY }}' /opt/rahbar/deploy.sh '${TAG}'" 2>&1 | tee deploy.log; then
+            exit 0
+          fi
+          # Put the reason on the run page (annotations are visible without opening the log).
+          reason="$(grep -E '\[deploy|ERROR|error|denied|No such|not found|unhealthy' deploy.log | tail -n 8 | tr '\n' ' ' | cut -c1-900)"
+          echo "::error title=Deploy failed::${reason:-see the step log}"
+          echo "::error title=Last output::$(tail -n 15 deploy.log | tr '\n' ' ' | cut -c1-900)"
+          exit 1
 
       - name: Sign the server out of ghcr.io
         if: always()
