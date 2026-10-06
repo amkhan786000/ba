@@ -146,7 +146,7 @@ mvn spring-boot:run
 # 3. Frontend (separate terminal)
 cd frontend
 npm install
-npm start               # http://localhost:4200, proxies to :5000 for /api
+npm start               # http://localhost:4200, proxies to :8080 for /api
 ```
 
 ## Deploying to the Contabo server
@@ -185,7 +185,7 @@ docker compose up --build
 This will:
 1. Start MySQL 8 and wait for it to be healthy (schema is empty at first).
 2. Build and start the backend — Flyway runs `V1__baseline.sql` automatically
-   on first boot to create all tables, then the JAR starts on port 5000.
+   on first boot to create all tables, then the JAR starts on port 8080.
 3. Build and start the frontend — Angular is compiled to static files and
    served by nginx on port 80 (mapped to `4200` on your host), proxying
    `/api/**` to the backend container.
@@ -193,7 +193,7 @@ This will:
 ### 3. Use it
 
 - App: http://localhost:4200
-- Backend API directly (if needed): http://localhost:5000
+- Backend API directly (if needed): http://localhost:8080
 - MySQL (if you want to connect with a client): `localhost:3307`, user/password from your `.env`
 
 ### 4. Stop / reset

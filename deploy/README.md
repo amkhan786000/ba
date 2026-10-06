@@ -75,7 +75,7 @@ gunzip -c rahbar.sql.gz | docker exec -i rahbar-mysql sh -c 'mysql -uroot -p"$MY
 2. Add to `/opt/rahbar/.env`:
    ```
    DOMAIN=rahbar.example.org
-   HTTP_BIND=127.0.0.1:8080
+   HTTP_BIND=127.0.0.1:8081
    COMPOSE_PROFILES=https
    PUBLIC_URL=https://rahbar.example.org
    ```

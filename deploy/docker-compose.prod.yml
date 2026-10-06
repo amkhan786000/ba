@@ -47,7 +47,7 @@ services:
       LOG_OTP: "false"
       CORS_ALLOWED_ORIGINS: ${PUBLIC_URL:-http://localhost}
       UPLOAD_DIR: /app/uploads
-      SERVER_PORT: 5000
+      SERVER_PORT: 8080
       JAVA_TOOL_OPTIONS: ${JAVA_OPTS:--Xms256m -Xmx768m}
     # No published port: nginx (frontend) proxies /api and /uploads to it.
     volumes:
@@ -61,11 +61,11 @@ services:
       - backend
     ports:
       # Without a domain the site is served straight on port 80 (http://<server-ip>).
-      # With HTTPS (see deploy/README.md) set HTTP_BIND=127.0.0.1:8080 so only Caddy faces the internet.
+      # With HTTPS (see deploy/README.md) set HTTP_BIND=127.0.0.1:8081 so only Caddy faces the internet.
       - "${HTTP_BIND:-80}:80"
 
   # Optional HTTPS with a free Let's Encrypt certificate. Needs a domain pointing to the server:
-  # set DOMAIN, HTTP_BIND=127.0.0.1:8080 and COMPOSE_PROFILES=https in /opt/rahbar/.env.
+  # set DOMAIN, HTTP_BIND=127.0.0.1:8081 and COMPOSE_PROFILES=https in /opt/rahbar/.env.
   caddy:
     image: caddy:2-alpine
     container_name: rahbar-caddy
