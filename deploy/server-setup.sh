@@ -24,6 +24,9 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 systemctl enable --now docker
 
+echo "==> Prefer IPv4 for outgoing connections (Contabo IPv6 to GitHub can reset image downloads)"
+grep -qE '^precedence ::ffff:0:0/96 +100' /etc/gai.conf 2>/dev/null || echo 'precedence ::ffff:0:0/96  100' >> /etc/gai.conf
+
 echo "==> Creating the $DEPLOY_USER user"
 if ! id "$DEPLOY_USER" >/dev/null 2>&1; then
   adduser --disabled-password --gecos "Rahbar deploy" "$DEPLOY_USER"
