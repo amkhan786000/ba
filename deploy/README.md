@@ -102,6 +102,14 @@ gunzip -c rahbar.sql.gz | docker exec -i rahbar-mysql sh -c 'mysql -uroot -p"$MY
    ```
 3. Run the deploy again. Caddy gets and renews the Let's Encrypt certificate by itself.
 
+## Looking at the database with DBeaver (or another client)
+
+MySQL is only open on the server itself, at `127.0.0.1:3307`. Connect through SSH:
+
+- **SSH tab**: *Use SSH Tunnel*, host = server IP, your SSH user and password / key.
+- **Main tab**: host `localhost`, port `3307`, database = `DB_NAME` from `.env`, user = `DB_USER`, password = `DB_PASSWORD`
+  (or `root` with `DB_ROOT_PASSWORD`). See them with `grep '^DB_' /opt/rahbar/.env`.
+
 ## Everyday commands on the server (`ssh deploy@YOUR_SERVER_IP`, then `cd /opt/rahbar`)
 
 | What | Command |
