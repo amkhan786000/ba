@@ -57,7 +57,7 @@ fi
 if [ -f .incoming-secrets ]; then
   while IFS='=' read -r key value; do
     case "$key" in
-      MAIL_USERNAME|MAIL_PASSWORD|MAIL_FROM|MAIL_HOST|MAIL_PORT) [ -n "$value" ] && setval "$key" "$value" ;;
+      MAIL_USERNAME|MAIL_PASSWORD|MAIL_FROM|MAIL_HOST|MAIL_PORT|ADMIN_EMAIL) [ -n "$value" ] && setval "$key" "$value" ;;
     esac
   done < .incoming-secrets
   rm -f .incoming-secrets

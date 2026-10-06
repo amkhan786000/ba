@@ -47,6 +47,11 @@ app:
     from: ${MAIL_FROM:no-reply@rahbar.org}
     # Local testing without SMTP: set LOG_OTP=true to also print sign-in OTPs in the backend log. Never in production.
     log-otp: ${LOG_OTP:false}
+  bootstrap:
+    # Empty database: the first Super Admin is created for this e-mail (falls back to MAIL_USERNAME).
+    admin-email: ${ADMIN_EMAIL:}
+    admin-name: ${ADMIN_NAME:Administrator}
+    admin-phone: ${ADMIN_PHONE:0000000000}
   reminders:
     # Payment reminders job (sec min hour day month weekday), server time. Default: every day at 08:00.
     cron: ${REMINDERS_CRON:0 0 8 * * *}

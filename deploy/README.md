@@ -52,6 +52,7 @@ In the repository: *Settings → Secrets and variables → Actions → New repos
 | `MAIL_USERNAME` | optional: the Gmail address that sends e-mails (OTP codes, notifications) |
 | `MAIL_PASSWORD` | optional: its 16-letter Google app password |
 | `MAIL_FROM` | optional: sender address, defaults to `MAIL_USERNAME` |
+| `ADMIN_EMAIL` | optional: who becomes the first Super Admin on an empty database, defaults to `MAIL_USERNAME` |
 
 If a deploy fails, the reason is shown at the top of the run page under *Annotations*.
 
@@ -61,7 +62,27 @@ Optional: under *Settings → Environments → production* you can require an ap
 
 *Actions → Build & deploy → Run workflow*. When it's green, open `http://YOUR_SERVER_IP`.
 
-The first start creates an empty database. To bring over existing data, restore a dump once:
+The first start creates the database with the built-in roles and a **first Super Admin** for `ADMIN_EMAIL`
+(or `MAIL_USERNAME`). Its temporary password is e-mailed to that address and also printed once in the backend log:
+
+```bash
+docker logs rahbar-backend 2>&1 | grep "first Super Admin"
+```
+
+Sign in with it; you then get a one-time code by e-mail and must choose a new password. This only happens while
+there is no Super Admin, so it never touches a database that is in use.
+
+**Start over with a brand-new, empty database** (deletes all data on the server!):
+
+```bash
+cd /opt/rahbar
+docker compose -f docker-compose.prod.yml --env-file .env down
+docker volume rm rahbar_mysql-data
+```
+
+then *Run workflow* again.
+
+To bring over existing data instead, restore a dump once:
 
 ```bash
 gunzip -c rahbar.sql.gz | docker exec -i rahbar-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"'
