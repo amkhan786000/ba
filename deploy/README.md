@@ -24,20 +24,14 @@ for HTTPS. Nothing is compiled there.
 
 ```bash
 ssh root@YOUR_SERVER_IP
-curl -fsSL https://raw.githubusercontent.com/amkhan786000/ba/main/deploy/server-setup.sh -o server-setup.sh
-bash server-setup.sh
+curl -fsSL https://raw.githubusercontent.com/amkhan786000/ba/main/deploy/server-setup.sh | bash
 ```
 
 This installs Docker, creates a `deploy` user, turns on the firewall (SSH, 80, 443), fail2ban and automatic
-security updates, prepares `/opt/rahbar`, and schedules a nightly database backup at 02:30 (kept 14 days).
+security updates, prepares `/opt/rahbar`, schedules a nightly database backup at 02:30 (kept 14 days), and
+**creates the SSH key GitHub uses**. At the end it prints exactly what to paste into the GitHub secrets.
 
-### 2. Create the SSH key GitHub uses (on your laptop)
-
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/rahbar_deploy -N "" -C "github-actions-rahbar"
-ssh-copy-id -i ~/.ssh/rahbar_deploy.pub deploy@YOUR_SERVER_IP   # or paste the .pub line into /home/deploy/.ssh/authorized_keys
-ssh -i ~/.ssh/rahbar_deploy deploy@YOUR_SERVER_IP 'docker ps'      # should print an empty table
-```
+### 2. (Nothing to do: the key is made by step 1)
 
 ### 3. Server settings: nothing to do
 
@@ -53,7 +47,7 @@ In the repository: *Settings → Secrets and variables → Actions → New repos
 | --- | --- |
 | `CONTABO_HOST` | the server IP |
 | `CONTABO_USER` | `deploy` |
-| `CONTABO_SSH_KEY` | the whole content of `~/.ssh/rahbar_deploy` (the private key, including the BEGIN/END lines) |
+| `CONTABO_SSH_KEY` | the private key printed by step 1 (including the BEGIN/END lines) |
 | `CONTABO_SSH_PORT` | only if SSH isn't on port 22 |
 | `MAIL_USERNAME` | optional: the Gmail address that sends e-mails (OTP codes, notifications) |
 | `MAIL_PASSWORD` | optional: its 16-letter Google app password |
