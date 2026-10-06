@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
+import { Chapter } from './admin-chapters.component';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, merge, switchMap } from 'rxjs';
 
 export interface UserRow {
@@ -121,7 +122,13 @@ export interface RoleOption {
                 <div class="form-group"><label>Name</label><input type="text" class="form-control" name="name" [(ngModel)]="newUser.name" required /></div>
                 <div class="form-group"><label>Contact</label><input type="text" class="form-control" name="contact" [(ngModel)]="newUser.contact" required /></div>
                 <div class="form-group"><label>Email</label><input type="email" class="form-control" name="email" [(ngModel)]="newUser.email" /></div>
-                <div class="form-group"><label>Chapter</label><input type="text" class="form-control" name="region" [(ngModel)]="newUser.region" required /></div>
+                <div class="form-group">
+                  <label>Chapter <small class="text-muted">(optional)</small></label>
+                  <select class="form-control" name="region" [(ngModel)]="newUser.region">
+                    <option value="">No chapter</option>
+                    <option *ngFor="let c of chapters" [value]="c.chapterName">{{ c.chapterName }}</option>
+                  </select>
+                </div>
                 <div class="form-group">
                   <label>Role</label>
                   <select class="form-control" name="roleId" [(ngModel)]="newUser.roleId" required>
@@ -155,6 +162,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   total = 0;
   readonly pg = new PageState(10);
   roles: RoleOption[] = [];
+  chapters: Chapter[] = [];
   loading = false;
 
   fName = '';
@@ -177,6 +185,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.api.get<RoleOption[]>('/admin/roles').subscribe({ next: (r) => (this.roles = r) });
+    this.api.get<Chapter[]>('/admin/chapters').subscribe({ next: (c) => (this.chapters = c) });
     // One request stream: a newer request cancels an older one, so a slow reply can't overwrite a newer page.
     this.sub = merge(this.typing.pipe(debounceTime(300)), this.reload).pipe(
       switchMap(() => {

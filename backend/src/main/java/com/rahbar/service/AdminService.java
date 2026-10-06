@@ -187,7 +187,7 @@ public class AdminService {
         user.setPhone(String.valueOf(body.get("contact")));
         user.setRoleId(Integer.valueOf(String.valueOf(body.get("roleId"))));
         user.setStatus(String.valueOf(body.getOrDefault("status", "Active")));
-        user.setRegion(String.valueOf(body.getOrDefault("region", "Jeddah")));
+        user.setRegion(isBlank(body.get("region")) ? null : String.valueOf(body.get("region")).trim()); // chapter is optional
         user.setSex(String.valueOf(body.getOrDefault("sex", "M")));
         user.setPasswordHash(passwordEncoder.encode(String.valueOf(body.get("password"))));
         user.setMustChangePassword(true); // the admin chose this password; the user picks their own at first sign-in

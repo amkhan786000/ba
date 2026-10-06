@@ -49,6 +49,8 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/admin/system-configuration", "Saved the payment amount for a year");
         label("POST /api/admin/rcc-centers", "Saved an RCC center");
         label("DELETE /api/admin/rcc-centers/[^/]+", "Deleted an RCC center");
+        label("POST /api/admin/chapters", "Saved a chapter");
+        label("DELETE /api/admin/chapters/[^/]+", "Deleted a chapter");
         label("POST /api/admin/courses", "Saved a course");
         label("DELETE /api/admin/courses/[^/]+", "Deleted a course");
         label("POST /api/admin/institutions", "Added an institution");
