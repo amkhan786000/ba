@@ -53,10 +53,35 @@ cat > /etc/cron.d/rahbar-backup <<'CRON'
 CRON
 chmod 644 /etc/cron.d/rahbar-backup
 
+echo "==> SSH key for GitHub Actions"
+KEY_FILE=/root/rahbar_deploy_key
+if [ ! -f "$KEY_FILE" ]; then
+  ssh-keygen -q -t ed25519 -N "" -C "github-actions-rahbar" -f "$KEY_FILE"
+fi
+grep -qF "$(cat "$KEY_FILE.pub")" "/home/$DEPLOY_USER/.ssh/authorized_keys" \
+  || cat "$KEY_FILE.pub" >> "/home/$DEPLOY_USER/.ssh/authorized_keys"
+SERVER_IP="$(curl -fsS4 https://ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"
+SSH_PORT="$(sshd -T 2>/dev/null | awk '/^port /{print $2; exit}')"
+
 cat <<NEXT
 
-Server is ready. Next steps (details in deploy/README.md):
-  1. Add the GitHub Actions public key to /home/$DEPLOY_USER/.ssh/authorized_keys
-  2. Create $APP_DIR/.env from deploy/.env.production.example (chmod 600, owner $DEPLOY_USER)
-  3. Add the CONTABO_HOST / CONTABO_USER / CONTABO_SSH_KEY secrets in GitHub and click "Run workflow"
+==================================================================================
+ Server is ready. Now add these in GitHub:
+ github.com/amkhan786000/ba -> Settings -> Secrets and variables -> Actions
+ -> New repository secret (one per row):
+
+   CONTABO_HOST     = ${SERVER_IP}
+   CONTABO_USER     = ${DEPLOY_USER}
+   CONTABO_SSH_KEY  = everything between the two lines below, including BEGIN/END
+NEXT
+if [ -n "$SSH_PORT" ] && [ "$SSH_PORT" != 22 ]; then echo "   CONTABO_SSH_PORT = ${SSH_PORT}"; fi
+echo "----------------------------------------------------------------------------------"
+cat "$KEY_FILE"
+echo "----------------------------------------------------------------------------------"
+cat <<NEXT
+ Optional, for e-mails: MAIL_USERNAME (Gmail address), MAIL_PASSWORD (app password)
+
+ Then: Actions -> Build & deploy -> Run workflow.
+ (Show the key again any time with: cat ${KEY_FILE})
+==================================================================================
 NEXT

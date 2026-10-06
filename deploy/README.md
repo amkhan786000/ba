@@ -24,38 +24,20 @@ for HTTPS. Nothing is compiled there.
 
 ```bash
 ssh root@YOUR_SERVER_IP
-curl -fsSL https://raw.githubusercontent.com/amkhan786000/ba/main/deploy/server-setup.sh -o server-setup.sh
-bash server-setup.sh
+curl -fsSL https://raw.githubusercontent.com/amkhan786000/ba/main/deploy/server-setup.sh | bash
 ```
 
 This installs Docker, creates a `deploy` user, turns on the firewall (SSH, 80, 443), fail2ban and automatic
-security updates, prepares `/opt/rahbar`, and schedules a nightly database backup at 02:30 (kept 14 days).
+security updates, prepares `/opt/rahbar`, schedules a nightly database backup at 02:30 (kept 14 days), and
+**creates the SSH key GitHub uses**. At the end it prints exactly what to paste into the GitHub secrets.
 
-### 2. Create the SSH key GitHub uses (on your laptop)
+### 2. (Nothing to do: the key is made by step 1)
 
-```bash
-ssh-keygen -t ed25519 -f ~/.ssh/rahbar_deploy -N "" -C "github-actions-rahbar"
-ssh-copy-id -i ~/.ssh/rahbar_deploy.pub deploy@YOUR_SERVER_IP   # or paste the .pub line into /home/deploy/.ssh/authorized_keys
-ssh -i ~/.ssh/rahbar_deploy deploy@YOUR_SERVER_IP 'docker ps'      # should print an empty table
-```
+### 3. Server settings: nothing to do
 
-### 3. Server settings: `/opt/rahbar/.env`
-
-```bash
-ssh deploy@YOUR_SERVER_IP
-cd /opt/rahbar
-curl -fsSL https://raw.githubusercontent.com/amkhan786000/ba/main/deploy/.env.production.example -o .env
-chmod 600 .env
-nano .env
-```
-
-Fill in **new** values. Don't reuse the passwords from your laptop, because older ones are visible in the
-public repository's history.
-
-- `openssl rand -base64 32`: use it for `DB_PASSWORD` and `DB_ROOT_PASSWORD`.
-- `openssl rand -base64 48`: use it for `JWT_SECRET`.
-- `MAIL_*`: the Gmail address and its 16-letter app password.
-- `PUBLIC_URL=http://YOUR_SERVER_IP`.
+The first deploy creates `/opt/rahbar/.env` by itself, with new random database passwords and JWT secret
+and `PUBLIC_URL=http://<server IP>`. Mail settings come from the GitHub secrets below. You can still edit
+`.env` on the server later; deploys never overwrite your values (only the `MAIL_*` lines, when those secrets are set).
 
 ### 4. GitHub secrets
 
@@ -65,8 +47,13 @@ In the repository: *Settings → Secrets and variables → Actions → New repos
 | --- | --- |
 | `CONTABO_HOST` | the server IP |
 | `CONTABO_USER` | `deploy` |
-| `CONTABO_SSH_KEY` | the whole content of `~/.ssh/rahbar_deploy` (the private key, including the BEGIN/END lines) |
+| `CONTABO_SSH_KEY` | the private key printed by step 1 (including the BEGIN/END lines) |
 | `CONTABO_SSH_PORT` | only if SSH isn't on port 22 |
+| `MAIL_USERNAME` | optional: the Gmail address that sends e-mails (OTP codes, notifications) |
+| `MAIL_PASSWORD` | optional: its 16-letter Google app password |
+| `MAIL_FROM` | optional: sender address, defaults to `MAIL_USERNAME` |
+
+If a deploy fails, the reason is shown at the top of the run page under *Annotations*.
 
 Optional: under *Settings → Environments → production* you can require an approval before each deploy.
 
