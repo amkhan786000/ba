@@ -45,6 +45,9 @@ services:
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
       LOG_OTP: "false"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_NAME: ${ADMIN_NAME:-}
+      ADMIN_PHONE: ${ADMIN_PHONE:-}
       CORS_ALLOWED_ORIGINS: ${PUBLIC_URL:-http://localhost}
       UPLOAD_DIR: /app/uploads
       SERVER_PORT: 5000

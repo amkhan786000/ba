@@ -11,6 +11,7 @@
 #   CONTABO_SSH_KEY   private SSH key whose public half is in ~deploy/.ssh/authorized_keys
 #   CONTABO_SSH_PORT  optional, defaults to 22
 #   MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM  optional, Gmail address + app password for e-mails
+#   ADMIN_EMAIL       optional, first Super Admin on an empty database (defaults to MAIL_USERNAME)
 # The server's .env (DB passwords, JWT secret) is created automatically on the first deploy.
 # Server setup: deploy/README.md
 
@@ -128,10 +129,11 @@ jobs:
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
         run: |
           # Goes over stdin into a private file that deploy.sh merges into .env and then deletes.
-          if [ -z "$MAIL_USERNAME$MAIL_PASSWORD$MAIL_FROM" ]; then echo "No MAIL_* secrets set - skipping."; exit 0; fi
-          printf 'MAIL_USERNAME=%s\nMAIL_PASSWORD=%s\nMAIL_FROM=%s\n' "$MAIL_USERNAME" "${MAIL_PASSWORD// /}" "$MAIL_FROM" \
+          if [ -z "$MAIL_USERNAME$MAIL_PASSWORD$MAIL_FROM$ADMIN_EMAIL" ]; then echo "No MAIL_* / ADMIN_EMAIL secrets set - skipping."; exit 0; fi
+          printf 'MAIL_USERNAME=%s\nMAIL_PASSWORD=%s\nMAIL_FROM=%s\nADMIN_EMAIL=%s\n' "$MAIL_USERNAME" "${MAIL_PASSWORD// /}" "$MAIL_FROM" "$ADMIN_EMAIL" \
             | ssh contabo 'umask 077; cat > /opt/rahbar/.incoming-secrets'
 
       - name: Deploy ${{ env.TAG }}
