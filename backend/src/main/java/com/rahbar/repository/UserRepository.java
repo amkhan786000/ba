@@ -2,6 +2,7 @@ package com.rahbar.repository;
 
 import com.rahbar.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -18,6 +19,12 @@ public interface UserRepository extends JpaRepository<User, String> {
     @Query("select u from User u where u.roleId = :roleId and u.region = :region")
     List<User> findByRoleIdAndRegion(@Param("roleId") Integer roleId, @Param("region") String region);
     long countByRoleId(Integer roleId);
+    long countByRegion(String region);
+
+    /** Chapter renamed: move its users (users.region holds the chapter name) to the new name. */
+    @Modifying
+    @Query("update User u set u.region = :newName where u.region = :oldName")
+    int renameRegion(@Param("oldName") String oldName, @Param("newName") String newName);
 
     @Query("select u.userId from User u")
     List<String> findAllUserIds();

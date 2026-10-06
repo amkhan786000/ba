@@ -15,6 +15,8 @@ import { AdminReportsComponent } from './admin/admin-reports.component';
 import { AdminApplicationPeriodComponent } from './admin/admin-application-period.component';
 import { AdminRccCentersComponent } from './admin/admin-rcc-centers.component';
 import { AdminRccCenterEditComponent } from './admin/admin-rcc-center-edit.component';
+import { AdminChaptersComponent } from './admin/admin-chapters.component';
+import { AdminChapterEditComponent } from './admin/admin-chapter-edit.component';
 import { AdminCoursesComponent } from './admin/admin-courses.component';
 import { AdminCourseEditComponent } from './admin/admin-course-edit.component';
 import { AdminInstitutionAddComponent } from './admin/admin-institution-add.component';
@@ -75,6 +77,7 @@ export const routes: Routes = [
         { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar' },
         { path: '/admin/application-period', label: 'App Period', icon: 'mdi-calendar' },
         { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank' },
+        { path: '/admin/chapters', label: 'Chapters', icon: 'mdi-map-marker-multiple' },
         { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open' },
         { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch' },
         { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details' },
@@ -98,6 +101,9 @@ export const routes: Routes = [
       { path: 'rcc-centers', component: AdminRccCentersComponent },
       { path: 'rcc-centers/new', component: AdminRccCenterEditComponent },
       { path: 'rcc-centers/:id/edit', component: AdminRccCenterEditComponent },
+      { path: 'chapters', component: AdminChaptersComponent },
+      { path: 'chapters/new', component: AdminChapterEditComponent },
+      { path: 'chapters/:id/edit', component: AdminChapterEditComponent },
       { path: 'courses', component: AdminCoursesComponent },
       { path: 'courses/new', component: AdminCourseEditComponent },
       { path: 'courses/:id/edit', component: AdminCourseEditComponent },

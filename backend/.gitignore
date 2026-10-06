@@ -3,3 +3,6 @@ uploads/
 *.log
 .idea/
 *.iml
+
+# Local-only Spring profile (holds real passwords / secrets)
+src/main/resources/application-local.yml
