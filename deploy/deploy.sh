@@ -5,7 +5,7 @@
 # If the new version doesn't come up healthy, the previous version is started again.
 set -euo pipefail
 
-APP_DIR=/opt/rahbar
+APP_DIR="${APP_DIR:-/opt/rahbar}"
 TAG="${1:?usage: deploy.sh <image-tag>}"
 COMPOSE=(docker compose -f "$APP_DIR/docker-compose.prod.yml" --env-file "$APP_DIR/.env")
 STATE_FILE="$APP_DIR/.deployed-tag"
@@ -14,10 +14,12 @@ HEALTH_URL="http://127.0.0.1:${HEALTH_PORT:-80}/api/public/application-form-opti
 
 cd "$APP_DIR"
 log() { echo "[deploy $(date '+%F %T')] $*"; }
+# Any unexpected failure says where it happened (instead of a silent exit code 1).
+trap 'rc=$?; log "ERROR: step failed (exit $rc) at line $LINENO: $BASH_COMMAND"' ERR
 
 # ---- 1. Settings: create .env on the first deploy, then sanity-check it ----
 # Read single values from .env without executing it (values may contain spaces).
-envval() { grep -E "^$1=" .env 2>/dev/null | tail -n1 | cut -d= -f2- | sed -e 's/^["'"'"']//' -e 's/["'"'"']$//'; }
+envval() { { grep -E "^$1=" .env 2>/dev/null || true; } | tail -n1 | cut -d= -f2- | sed -e 's/^["'"'"']//' -e 's/["'"'"']$//'; }
 # Set KEY=VALUE in .env (replace the line, or add it).
 setval() {
   local key="$1" value="$2" tmp
@@ -26,7 +28,7 @@ setval() {
   printf '%s=%s\n' "$key" "$value" >> "$tmp"
   cat "$tmp" > .env && rm -f "$tmp"
 }
-rand() { openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c "$1"; }
+rand() { local s; s="$(openssl rand -base64 120 | tr -dc 'A-Za-z0-9')"; printf '%s' "${s:0:$1}"; }
 
 if [ ! -f .env ]; then
   log "No .env yet: creating one with new random database passwords and JWT secret."
@@ -99,7 +101,7 @@ if docker ps --format '{{.Names}}' | grep -qx rahbar-mysql; then
   docker exec rahbar-mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" --single-transaction --routines --triggers "$MYSQL_DATABASE"' \
     | gzip > "$FILE"
   # Keep the 20 most recent pre-deploy backups.
-  ls -1t "$BACKUP_DIR"/rahbar-*-before-*.sql.gz 2>/dev/null | tail -n +21 | xargs -r rm -f
+  ls -1t "$BACKUP_DIR"/rahbar-*-before-*.sql.gz 2>/dev/null | tail -n +21 | xargs -r rm -f || true
 fi
 
 # ---- 3. Pull and start the new version ----

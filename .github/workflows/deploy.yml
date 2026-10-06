@@ -141,6 +141,7 @@ jobs:
             exit 0
           fi
           # Put the reason on the run page (annotations are visible without opening the log).
+          set +e +o pipefail
           reason="$(grep -E '\[deploy|ERROR|error|denied|No such|not found|unhealthy' deploy.log | tail -n 8 | tr '\n' ' ' | cut -c1-900)"
           echo "::error title=Deploy failed::${reason:-see the step log}"
           echo "::error title=Last output::$(tail -n 15 deploy.log | tr '\n' ' ' | cut -c1-900)"
