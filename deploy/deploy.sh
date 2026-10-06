@@ -116,6 +116,14 @@ for svc in backend frontend; do
     sleep $((attempt * 10))
   done
 done
+# A web server already on the public port (e.g. Apache preinstalled by the VPS image) blocks the frontend.
+PORT="${HTTP_BIND##*:}"; PORT="${PORT:-80}"
+if ! docker ps --format '{{.Names}} {{.Ports}}' | grep -q "^rahbar-frontend .*:${PORT}->" \
+   && (ss -ltnH "sport = :${PORT}" 2>/dev/null | grep -q .); then
+  log "ERROR: port ${PORT} is already used by another program on the server (often Apache or nginx)."
+  log "Fix once as root:  ss -ltnp 'sport = :${PORT}'   then e.g.  systemctl disable --now apache2 nginx"
+  exit 1
+fi
 log "Starting containers"
 "${COMPOSE[@]}" up -d --remove-orphans
 

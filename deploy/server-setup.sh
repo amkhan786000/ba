@@ -40,6 +40,13 @@ chown "$DEPLOY_USER:$DEPLOY_USER" "/home/$DEPLOY_USER/.ssh/authorized_keys"
 echo "==> Preparing $APP_DIR"
 install -d -m 750 -o "$DEPLOY_USER" -g "$DEPLOY_USER" "$APP_DIR" "$APP_DIR/backups"
 
+echo "==> Freeing port 80/443 (stopping a preinstalled web server, if any)"
+for svc in apache2 nginx httpd lighttpd caddy; do
+  if systemctl list-unit-files "$svc.service" >/dev/null 2>&1 && systemctl is-enabled --quiet "$svc" 2>/dev/null; then
+    systemctl disable --now "$svc" && echo "    stopped $svc"
+  fi
+done
+
 echo "==> Firewall: allow SSH, HTTP, HTTPS"
 ufw allow OpenSSH
 ufw allow 80/tcp
