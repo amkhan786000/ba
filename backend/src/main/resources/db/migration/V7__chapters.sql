@@ -22,6 +22,19 @@ CREATE TABLE IF NOT EXISTS chapters (
 -- A user does not have to belong to a chapter.
 ALTER TABLE users MODIFY region VARCHAR(100) NULL DEFAULT NULL;
 
+-- The chapters we have so far.
+INSERT IGNORE INTO chapters (chapter_name) VALUES
+  ('Jeddah Chapter'),
+  ('Muscat'),
+  ('USA'),
+  ('Patna included'),
+  ('Madinah'),
+  ('Bangaluru'),
+  ('Riyadh'),
+  ('Jubail'),
+  ('Qatar'),
+  ('Dammam Al Khobar');
+
 -- Seed one chapter per chapter name already used by users, so existing values appear in the dropdown.
 INSERT IGNORE INTO chapters (chapter_name)
 SELECT DISTINCT TRIM(region) FROM users WHERE region IS NOT NULL AND TRIM(region) <> '';
