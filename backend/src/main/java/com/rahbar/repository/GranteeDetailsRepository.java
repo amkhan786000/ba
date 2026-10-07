@@ -2,10 +2,8 @@ package com.rahbar.repository;
 
 import com.rahbar.entity.GranteeDetails;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -13,8 +11,8 @@ import java.util.Optional;
 
 public interface GranteeDetailsRepository extends JpaRepository<GranteeDetails, Long> {
     /** user_id isn't unique in the legacy table, so take the oldest application of a student. */
-    Optional<GranteeDetails> findFirstByUserIdOrderByGranteeDetailIdAsc(String userId);
-    List<GranteeDetails> findByUserId(String userId);
+    Optional<GranteeDetails> findFirstByUserIdOrderByGranteeDetailIdAsc(Long userId);
+    List<GranteeDetails> findByUserId(Long userId);
     List<GranteeDetails> findByStudentMobileOrFatherMobileOrMotherMobile(String m1, String m2, String m3);
 
     /** Applications page: filters optional; status matches the latest status row (lower-case). */
@@ -50,11 +48,11 @@ public interface GranteeDetailsRepository extends JpaRepository<GranteeDetails, 
     List<GranteeDetails> findCreatedInYear(@Param("year") Integer year);
 
     /** Applications with the applicant's account name (LEFT JOIN users): [GranteeDetails, String]. */
-    @Query("select g, u.name from GranteeDetails g left join User u on u.userId = g.userId")
+    @Query("select g, u.name from GranteeDetails g left join User u on u.id = g.userId")
     List<Object[]> findAllWithApplicantName();
 
     /** Applications of students living in a region: [GranteeDetails, String applicantName]. */
-    @Query("select g, u.name from GranteeDetails g join User u on u.userId = g.userId where u.region = :region")
+    @Query("select g, u.name from GranteeDetails g join User u on u.id = g.userId where u.region = :region")
     List<Object[]> findWithApplicantNameByRegion(@Param("region") String region);
 
     /** Every application joined with every status row it has had: [GranteeDetails, ApplicationStatus]. */
@@ -68,12 +66,7 @@ public interface GranteeDetailsRepository extends JpaRepository<GranteeDetails, 
                        s.name as assigned_sponsor_name, s.userId as assigned_sponsor_id)
         from GranteeDetails g
         left join GrantorGrantee gg on gg.granteeId = g.userId
-        left join User s on s.userId = gg.grantorId
+        left join User s on s.id = gg.grantorId
         """)
     List<Map<String, Object>> findApplicationsReport();
-
-    @Transactional
-    @Modifying
-    @Query("delete from GranteeDetails g where g.userId = :userId")
-    int deleteByUserId(@Param("userId") String userId);
 }

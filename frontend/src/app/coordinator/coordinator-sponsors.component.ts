@@ -6,7 +6,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 export interface SponsorUser {
-  user_id: string; name: string; email: string | null; phone: string | null;
+  id: number; user_id: string; name: string; email: string | null; phone: string | null;
   region: string | null; status: string | null; role_name: string;
 }
 
@@ -38,7 +38,7 @@ export interface SponsorUser {
                     <td>
                       <button *ngIf="s.status === 'Active'" class="btn btn-sm btn-danger" (click)="setStatus(s, 'Inactive')">Deactivate</button>
                       <button *ngIf="s.status !== 'Active'" class="btn btn-sm btn-success" (click)="setStatus(s, 'Active')">Activate</button>
-                      <a [routerLink]="['/coordinator/sponsors', s.user_id, 'map']" class="btn btn-sm btn-primary ml-1">Map Students</a>
+                      <a [routerLink]="['/coordinator/sponsors', s.id, 'map']" class="btn btn-sm btn-primary ml-1">Map Students</a>
                     </td>
                   </tr>
                 </tbody>
@@ -69,7 +69,7 @@ export class CoordinatorSponsorsComponent implements OnInit {
   }
 
   setStatus(s: SponsorUser, status: 'Active' | 'Inactive'): void {
-    this.api.post<{ message: string }>(`/coordinator/users/${encodeURIComponent(s.user_id)}/status/${status}`, {}).subscribe({
+    this.api.post<{ message: string }>(`/coordinator/users/${s.id}/status/${status}`, {}).subscribe({
       next: (r) => { this.message = r.message; this.load(); },
       error: (e) => (this.error = errorText(e, 'Could not update the status.'))
     });

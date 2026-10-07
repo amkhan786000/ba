@@ -10,8 +10,8 @@ import lombok.Setter;
 @Getter @Setter
 public class Otp extends Modifiable {
     @Id
-    @Column(name = "user_id", length = 50)
-    private String userId;
+    @Column(name = "user_id")
+    private Long userId;
 
     @Id
     @Column(name = "otp", length = 6)
@@ -21,11 +21,11 @@ public class Otp extends Modifiable {
     private Integer status = 0; // 0=Unused, 1=Used, 2=Expired
 
     public static class OtpId implements java.io.Serializable {
-        private String userId;
+        private Long userId;
         private String otp;
 
         public OtpId() {}
-        public OtpId(String userId, String otp) { this.userId = userId; this.otp = otp; }
+        public OtpId(Long userId, String otp) { this.userId = userId; this.otp = otp; }
 
         @Override
         public boolean equals(Object o) {

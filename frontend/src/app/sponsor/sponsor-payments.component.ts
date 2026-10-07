@@ -40,7 +40,7 @@ interface Installment {
               <label for="studentSelect">Select Assigned Student</label>
               <select class="form-control" id="studentSelect" [(ngModel)]="selectedId" (ngModelChange)="select()">
                 <option value="">-- Select a Student --</option>
-                <option *ngFor="let d of details" [value]="d.grantee['user_id']">{{ d.grantee['name'] }} ({{ d.grantee['user_id'] }})</option>
+                <option *ngFor="let d of details" [value]="d.grantee['id']">{{ d.grantee['name'] }} ({{ d.grantee['user_id'] }})</option>
               </select>
             </div>
 
@@ -136,7 +136,7 @@ export class SponsorPaymentsComponent implements OnInit {
   constructor(private api: ApiService, private route: ActivatedRoute) {}
 
   ngOnInit(): void {
-    // "Pay Now" on the dashboard links here with ?granteeId=...
+    // "Pay Now" on the dashboard links here with ?granteeId=<users.id>
     this.selectedId = this.route.snapshot.queryParamMap.get('granteeId') ?? '';
     this.load();
   }

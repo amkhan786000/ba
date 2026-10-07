@@ -22,8 +22,8 @@ public class StudentController {
         this.studentService = studentService;
     }
 
-    private static String me() {
-        return AuthUtil.currentUser().getUserId();
+    private static Long me() {
+        return AuthUtil.currentUser().getId();
     }
 
     @GetMapping("/dashboard")

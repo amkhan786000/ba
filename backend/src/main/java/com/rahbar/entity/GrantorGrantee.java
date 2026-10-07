@@ -13,11 +13,11 @@ public class GrantorGrantee extends Modifiable {
     @Column(name = "grantor_grantee_id")
     private Long grantorGranteeId;
 
-    @Column(name = "grantor_id", nullable = false, length = 50)
-    private String grantorId;
+    @Column(name = "grantor_id", nullable = false)
+    private Long grantorId;
 
-    @Column(name = "grantee_id", nullable = false, length = 50)
-    private String granteeId;
+    @Column(name = "grantee_id", nullable = false)
+    private Long granteeId;
 
     @Column(name = "status")
     private String status = "Pending";

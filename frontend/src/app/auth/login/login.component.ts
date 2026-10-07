@@ -28,7 +28,7 @@ export class LoginComponent {
       next: (res) => {
         this.loading = false;
         if (res.otpRequired) {
-          this.router.navigate(['/verify-otp'], { queryParams: { userId: res.userId } });
+          this.router.navigate(['/verify-otp'], { queryParams: { id: res.id } });
         } else {
           this.auth.persistSession(res);
           this.router.navigate([res.mustChangePassword ? '/change-password' : dashboardPathForRole(res.roleId ?? 0)]);

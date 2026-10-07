@@ -19,7 +19,7 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> 
           and (:from is null or a.createdAt >= :from)
           and (:to is null or a.createdAt < :to)
           and (:search is null or lower(a.action) like :search or lower(a.userName) like :search
-               or lower(a.userId) like :search or lower(a.path) like :search)
+               or lower(a.path) like :search)
         order by a.createdAt desc, a.logId desc
         """,
         countQuery = """
@@ -28,9 +28,9 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> 
           and (:from is null or a.createdAt >= :from)
           and (:to is null or a.createdAt < :to)
           and (:search is null or lower(a.action) like :search or lower(a.userName) like :search
-               or lower(a.userId) like :search or lower(a.path) like :search)
+               or lower(a.path) like :search)
         """)
-    Page<ActivityLog> search(@Param("userId") String userId, @Param("search") String search,
+    Page<ActivityLog> search(@Param("userId") Long userId, @Param("search") String search,
                              @Param("from") LocalDateTime from, @Param("to") LocalDateTime to, Pageable pageable);
 
     List<ActivityLog> findByCreatedAtBetweenOrderByCreatedAtDesc(LocalDateTime from, LocalDateTime to);

@@ -7,6 +7,7 @@ import com.rahbar.exception.ApiException;
 import com.rahbar.repository.ApplicationDocumentRepository;
 import com.rahbar.repository.ApplicationStatusRepository;
 import com.rahbar.repository.GranteeDetailsRepository;
+import com.rahbar.repository.UserRepository;
 import com.rahbar.util.Rows;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -39,16 +40,18 @@ public class ApplicationService {
     private final ApplicationDocumentRepository documentRepository;
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
+    private final UserRepository userRepository;
 
     public ApplicationService(GranteeDetailsRepository granteeDetailsRepository,
                               ApplicationStatusRepository applicationStatusRepository,
                               ApplicationDocumentRepository documentRepository, FileStorageService fileStorageService,
-                              NotificationService notificationService) {
+                              NotificationService notificationService, UserRepository userRepository) {
         this.granteeDetailsRepository = granteeDetailsRepository;
         this.applicationStatusRepository = applicationStatusRepository;
         this.documentRepository = documentRepository;
         this.fileStorageService = fileStorageService;
         this.notificationService = notificationService;
+        this.userRepository = userRepository;
     }
 
     private GranteeDetails require(Long applicationId) {
@@ -104,6 +107,8 @@ public class ApplicationService {
         app.put("status", latest == null ? null : latest.getStatus());
         app.put("comments", latest == null ? null : latest.getComments());
         app.put("status_date", latest == null ? null : latest.getCreatedAt());
+        app.put("user_code", gd.getUserId() == null ? null
+                : userRepository.findById(gd.getUserId()).map(com.rahbar.entity.User::getUserId).orElse(null));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("application", app);

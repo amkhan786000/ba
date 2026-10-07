@@ -50,13 +50,13 @@ public class SponsorService {
         this.notificationService = notificationService;
     }
 
-    public Map<String, Object> dashboard(String sponsorId) {
+    public Map<String, Object> dashboard(Long sponsorId) {
         Map<String, Object> sponsor = Rows.pick(requireUser(userRepository, sponsorId, "Sponsor not found"),
-                "user_id", "name", "email", "phone", "region", "status");
+                "id", "user_id", "name", "email", "phone", "region", "status");
 
         List<Map<String, Object>> grantees = new ArrayList<>();
         for (GrantorGrantee gg : grantorGranteeRepository.findByGrantorId(sponsorId)) {
-            String granteeId = gg.getGranteeId();
+            Long granteeId = gg.getGranteeId();
             Map<String, Object> entry = new LinkedHashMap<>();
             entry.put("user", userRepository.findById(granteeId).map(StudentService::studentCard).orElse(null));
             entry.put("bankDetails", bankDetailsRepository.findFirstByUserId(granteeId).map(Rows::of).orElse(null));
@@ -72,7 +72,7 @@ public class SponsorService {
      * Flask showed "On Schedule" for anyone with a course; this checks quarterly installments actually due vs paid
      * (same schedule as the payments page: (semesters / 2) * 4 installments, one every 3 months).
      */
-    private String paymentStatus(String granteeId) {
+    private String paymentStatus(Long granteeId) {
         Map<String, Object> courseInfo = Rows.first(studentCourseRepository.findCourseInfo(granteeId));
         if (courseInfo == null || courseInfo.get("assigned_at") == null) return "Pending";
         LocalDate start = ((LocalDateTime) courseInfo.get("assigned_at")).toLocalDate();
@@ -89,8 +89,8 @@ public class SponsorService {
     }
 
     /** Average marks per academic year of this sponsor's students: [{label: "Year N", value}]. */
-    private List<Map<String, Object>> performanceByYear(String sponsorId) {
-        List<String> granteeIds = granteeIds(sponsorId);
+    private List<Map<String, Object>> performanceByYear(Long sponsorId) {
+        List<Long> granteeIds = granteeIds(sponsorId);
         if (granteeIds.isEmpty()) return List.of();
         Map<Integer, List<Double>> byYear = new TreeMap<>();
         for (StudentProgress sp : studentProgressRepository.findByGranteeIdInOrderByCreatedAtDesc(granteeIds)) {
@@ -110,11 +110,11 @@ public class SponsorService {
         return rows;
     }
 
-    public Map<String, Object> payments(String sponsorId, String selectedGranteeId) {
+    public Map<String, Object> payments(Long sponsorId, Long selectedGranteeId) {
         List<Map<String, Object>> paymentDetails = new ArrayList<>();
         Map<String, Object> studentDataMap = new LinkedHashMap<>();
         for (User student : userRepository.findGranteesOf(sponsorId)) {
-            String sId = student.getUserId();
+            Long sId = student.getId();
             Object annualAmount = student.getYear() == null ? 0 : paymentScheduleRepository
                     .findFirstByYearAndStatus(student.getYear(), 1).map(s -> (Object) s.getAmount()).orElse(0);
 
@@ -125,7 +125,7 @@ public class SponsorService {
             detail.put("courseInfo", Rows.first(studentCourseRepository.findCourseInfo(sId)));
             detail.put("annualScheduleAmount", annualAmount);
             paymentDetails.add(detail);
-            studentDataMap.put(sId, detail);
+            studentDataMap.put(String.valueOf(sId), detail);
         }
 
         List<Payment> recent = paymentRepository.findTop5ByGrantorIdAndStatusOrderByPaymentDateDesc(sponsorId, "Paid");
@@ -138,7 +138,7 @@ public class SponsorService {
     }
 
     /** A sponsor can only record payments for students mapped to them. */
-    public void recordPayment(String sponsorId, String granteeId, BigDecimal amount, String paymentDate, MultipartFile receipt) {
+    public void recordPayment(Long sponsorId, Long granteeId, BigDecimal amount, String paymentDate, MultipartFile receipt) {
         if (!grantorGranteeRepository.existsByGranteeIdAndGrantorId(granteeId, sponsorId)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Error: This student is not assigned to you.");
         }
@@ -158,28 +158,31 @@ public class SponsorService {
                 NotificationService.PAYMENT, "/student/payments", true);
     }
 
-    public List<Map<String, Object>> studentProgress(String sponsorId) {
-        List<String> ids = granteeIds(sponsorId);
+    public List<Map<String, Object>> studentProgress(Long sponsorId) {
+        List<Long> ids = granteeIds(sponsorId);
         if (ids.isEmpty()) return List.of();
         List<StudentProgress> progress = studentProgressRepository.findByGranteeIdInOrderByCreatedAtDesc(ids);
-        Map<String, String> names = userNames(userRepository, ids);
+        Map<Long, User> students = new HashMap<>();
+        userRepository.findAllById(ids).forEach(u -> students.put(u.getId(), u));
         List<Map<String, Object>> rows = new ArrayList<>();
         for (StudentProgress sp : progress) {
-            if (!names.containsKey(sp.getGranteeId())) continue;
+            User student = students.get(sp.getGranteeId());
+            if (student == null) continue;
             Map<String, Object> row = Rows.of(sp);
-            row.put("grantee_name", names.get(sp.getGranteeId()));
+            row.put("grantee_name", student.getName());
+            row.put("grantee_code", student.getUserId());
             rows.add(row);
         }
         return rows;
     }
 
-    private List<String> granteeIds(String sponsorId) {
+    private List<Long> granteeIds(Long sponsorId) {
         return grantorGranteeRepository.findByGrantorId(sponsorId).stream().map(GrantorGrantee::getGranteeId).toList();
     }
 
     /** Payment rows with the student's name as grantee_name (payments of unknown students are dropped). */
     private List<Map<String, Object>> withGranteeName(List<Payment> payments) {
-        Map<String, String> names = userNames(userRepository, payments.stream().map(Payment::getGranteeId).toList());
+        Map<Long, String> names = userNames(userRepository, payments.stream().map(Payment::getGranteeId).toList());
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Payment p : payments) {
             if (!names.containsKey(p.getGranteeId())) continue;

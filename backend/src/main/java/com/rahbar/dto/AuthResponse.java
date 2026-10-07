@@ -3,6 +3,9 @@ package com.rahbar.dto;
 public class AuthResponse {
     private boolean otpRequired;
     private String token;
+    /** users.id: identifies the user in every later request. */
+    private Long id;
+    /** The user's code (users.user_id), for display only. */
     private String userId;
     private String name;
     private Integer roleId;
@@ -11,17 +14,18 @@ public class AuthResponse {
     /** True when the user must choose a new password before using the app. */
     private boolean mustChangePassword;
 
-    public static AuthResponse otpRequired(String userId, String message) {
+    public static AuthResponse otpRequired(Long id, String message) {
         AuthResponse r = new AuthResponse();
         r.otpRequired = true;
-        r.userId = userId;
+        r.id = id;
         r.message = message;
         return r;
     }
 
-    public static AuthResponse success(String token, String userId, String name, Integer roleId, String status) {
+    public static AuthResponse success(String token, Long id, String userId, String name, Integer roleId, String status) {
         AuthResponse r = new AuthResponse();
         r.token = token;
+        r.id = id;
         r.userId = userId;
         r.name = name;
         r.roleId = roleId;
@@ -33,6 +37,8 @@ public class AuthResponse {
     public void setOtpRequired(boolean otpRequired) { this.otpRequired = otpRequired; }
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
     public String getUserId() { return userId; }
     public void setUserId(String userId) { this.userId = userId; }
     public String getName() { return name; }

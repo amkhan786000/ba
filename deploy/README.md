@@ -126,3 +126,13 @@ the app adds new tables and columns itself on start. If a release notes a script
 ```bash
 docker exec -i rahbar-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' < V6__platform_features.sql
 ```
+
+**V8 (numeric user ids) changes the shape of every user reference, so it has an order:**
+
+1. Back up: `docker exec rahbar-mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > backups/before-v8.sql`
+2. Deploy the release (the new backend will log errors until step 3; that is expected).
+3. Run `V7__chapters.sql` (if not run yet), then `V8__numeric_user_id.sql`, with the command above.
+4. Restart the backend: `docker compose -f docker-compose.prod.yml --env-file .env restart backend`
+
+Everyone has to sign in again afterwards. Rows that pointed at users that don't exist are copied into
+`orphans_<table>_<column>` tables before they are removed (or cleared), so nothing is lost.

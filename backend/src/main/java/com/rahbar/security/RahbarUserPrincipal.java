@@ -31,7 +31,7 @@ public class RahbarUserPrincipal implements UserDetails {
 
     @Override
     public String getUsername() {
-        return user.getUserId();
+        return String.valueOf(user.getId());
     }
 
     @Override

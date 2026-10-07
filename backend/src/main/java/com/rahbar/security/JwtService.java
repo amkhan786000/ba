@@ -25,12 +25,13 @@ public class JwtService {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    public String generateToken(String userId, Map<String, Object> claims) {
+    /** The token's subject is the user's numeric id (users.id). */
+    public String generateToken(Long id, Map<String, Object> claims) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
         return Jwts.builder()
                 .claims(claims)
-                .subject(userId)
+                .subject(String.valueOf(id))
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(key())

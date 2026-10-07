@@ -17,9 +17,18 @@ public class RahbarUserDetailsService implements UserDetailsService {
     }
 
     @Override
-    public UserDetails loadUserByUsername(String userId) {
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + userId));
+    /** The "username" is users.id (the JWT subject). */
+    public UserDetails loadUserByUsername(String id) {
+        User user = parseId(id).flatMap(userRepository::findById)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + id));
         return new RahbarUserPrincipal(user);
+    }
+
+    private static java.util.Optional<Long> parseId(String id) {
+        try {
+            return java.util.Optional.of(Long.valueOf(id));
+        } catch (NumberFormatException e) {
+            return java.util.Optional.empty(); // e.g. a token issued before user ids were numeric
+        }
     }
 }

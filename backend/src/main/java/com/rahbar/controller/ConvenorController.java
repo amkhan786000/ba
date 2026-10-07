@@ -1,5 +1,6 @@
 package com.rahbar.controller;
 
+import com.rahbar.util.Ids;
 import com.rahbar.security.AuthUtil;
 import com.rahbar.service.ConvenorService;
 import org.springframework.http.MediaType;
@@ -23,8 +24,8 @@ public class ConvenorController {
         this.convenorService = convenorService;
     }
 
-    private static String me() {
-        return AuthUtil.currentUser().getUserId();
+    private static Long me() {
+        return AuthUtil.currentUser().getId();
     }
 
     @GetMapping("/dashboard")
@@ -51,15 +52,14 @@ public class ConvenorController {
     }
 
     @PostMapping("/sponsors/{sponsorId}/status/{status}")
-    public Map<String, String> updateSponsorStatus(@PathVariable String sponsorId, @PathVariable String status) {
+    public Map<String, String> updateSponsorStatus(@PathVariable Long sponsorId, @PathVariable String status) {
         convenorService.updateSponsorStatus(sponsorId, status);
         return Map.of("message", "Sponsor status updated to " + status + "!");
     }
 
     @PostMapping("/map-students/{sponsorId}")
-    @SuppressWarnings("unchecked")
-    public Map<String, String> mapStudents(@PathVariable String sponsorId, @RequestBody Map<String, Object> body) {
-        convenorService.mapStudents(sponsorId, (List<String>) body.get("studentIds"));
+    public Map<String, String> mapStudents(@PathVariable Long sponsorId, @RequestBody Map<String, Object> body) {
+        convenorService.mapStudents(sponsorId, Ids.toLongs(body.get("studentIds")));
         return Map.of("message", "Students mapped successfully!");
     }
 
@@ -85,7 +85,7 @@ public class ConvenorController {
     }
 
     @PostMapping(value = "/payments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Map<String, String> recordPayment(@RequestParam String granteeId,
+    public Map<String, String> recordPayment(@RequestParam Long granteeId,
                                              @RequestParam BigDecimal amount,
                                              @RequestParam MultipartFile receipt) {
         convenorService.recordPayment(me(), granteeId, amount, receipt);

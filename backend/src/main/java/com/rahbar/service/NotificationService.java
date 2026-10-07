@@ -42,7 +42,7 @@ public class NotificationService {
     }
 
     /** Notifies one user in the app (and by email when {@code email} is true and the user has an address). */
-    public void notify(String userId, String title, String message, String category, String link, boolean email) {
+    public void notify(Long userId, String title, String message, String category, String link, boolean email) {
         send(userId, title, message, category, link, null, email);
     }
 
@@ -50,7 +50,7 @@ public class NotificationService {
      * Like {@link #notify} but only once per {@code refKey}: returns false (and sends nothing) when a
      * notification with that key already exists. Used by the payment reminders.
      */
-    public boolean notifyOnce(String refKey, String userId, String title, String message, String category,
+    public boolean notifyOnce(String refKey, Long userId, String title, String message, String category,
                               String link, boolean email) {
         if (refKey != null && notificationRepository.existsByRefKey(refKey)) return false;
         return send(userId, title, message, category, link, refKey, email);
@@ -59,13 +59,13 @@ public class NotificationService {
     /** Notifies every active user with one of the roles. */
     public void notifyRoles(List<Integer> roleIds, String title, String message, String category, String link) {
         for (User u : userRepository.findByRoleIdIn(roleIds)) {
-            if (!"Inactive".equalsIgnoreCase(u.getStatus())) notify(u.getUserId(), title, message, category, link, false);
+            if (!"Inactive".equalsIgnoreCase(u.getStatus())) notify(u.getId(), title, message, category, link, false);
         }
     }
 
-    private boolean send(String userId, String title, String message, String category, String link, String refKey,
+    private boolean send(Long userId, String title, String message, String category, String link, String refKey,
                          boolean email) {
-        if (userId == null || userId.isBlank()) return false;
+        if (userId == null) return false;
         try {
             Notification n = new Notification();
             n.setUserId(userId);
@@ -92,7 +92,7 @@ public class NotificationService {
 
     // ---------------------------------------------------------------- the user's own notifications
 
-    public Map<String, Object> mine(String userId) {
+    public Map<String, Object> mine(Long userId) {
         List<Map<String, Object>> items = new ArrayList<>();
         for (Notification n : notificationRepository.findTop30ByUserIdOrderByNotificationIdDesc(userId)) {
             Map<String, Object> row = new LinkedHashMap<>();
@@ -112,11 +112,11 @@ public class NotificationService {
         return result;
     }
 
-    public long unreadCount(String userId) {
+    public long unreadCount(Long userId) {
         return notificationRepository.countByUserIdAndStatus(userId, "Unread");
     }
 
-    public void markRead(String userId, Long notificationId) {
+    public void markRead(Long userId, Long notificationId) {
         Notification n = notificationRepository.findByNotificationIdAndUserId(notificationId, userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Notification not found."));
         if (!"Read".equalsIgnoreCase(n.getStatus())) {
@@ -125,7 +125,7 @@ public class NotificationService {
         }
     }
 
-    public int markAllRead(String userId) {
+    public int markAllRead(Long userId) {
         return notificationRepository.markAllRead(userId, LocalDateTime.now());
     }
 }

@@ -55,7 +55,7 @@ public class ConvenorService {
         this.applicationService = applicationService;
     }
 
-    private User convenor(String convenorId) {
+    private User convenor(Long convenorId) {
         return requireUser(userRepository, convenorId, "User not found");
     }
 
@@ -66,7 +66,7 @@ public class ConvenorService {
         return region;
     }
 
-    public Map<String, Object> dashboard(String convenorId) {
+    public Map<String, Object> dashboard(Long convenorId) {
         User convenor = convenor(convenorId);
         String region = requireRegion(convenor);
 
@@ -80,7 +80,7 @@ public class ConvenorService {
             userRepository.findById(gg.getGranteeId()).ifPresent(u -> {
                 Map<String, Object> row = Rows.of(u);
                 row.put("paymentStatus",
-                        paymentRepository.existsByGranteeIdAndPaymentDateGreaterThanEqual(u.getUserId(), yearAgo) ? "paid" : "unpaid");
+                        paymentRepository.existsByGranteeIdAndPaymentDateGreaterThanEqual(u.getId(), yearAgo) ? "paid" : "unpaid");
                 grantees.add(row);
             });
         }
@@ -116,7 +116,7 @@ public class ConvenorService {
     }
 
     /** Applications of the convenor's region, sorted by application_id, applicant_name, status or date_submitted. */
-    public List<Map<String, Object>> applications(String convenorId, String sortBy, String order) {
+    public List<Map<String, Object>> applications(Long convenorId, String sortBy, String order) {
         String region = requireRegion(convenor(convenorId));
         String column = switch (sortBy == null ? "" : sortBy) {
             case "applicant_name" -> "applicant_name";
@@ -134,31 +134,37 @@ public class ConvenorService {
         applicationService.updateStatus(applicationId, status, comments);
     }
 
-    public Map<String, Object> manageSponsors(String convenorId, String sortBy, String order) {
+    public Map<String, Object> manageSponsors(Long convenorId, String sortBy, String order) {
         String region = requireRegion(convenor(convenorId));
         String column = List.of("user_id", "name", "email", "status").contains(sortBy) ? sortBy : "user_id";
         List<Map<String, Object>> sponsors = new ArrayList<>(Rows.list(userRepository.findByRoleIdAndRegion(5, region)));
         sponsors.sort(byColumn(column, "desc".equalsIgnoreCase(order)));
+        Long unassigned = unassignedGrantorId(userRepository);
         return Map.of("sponsors", sponsors,
-                "nonAssignedGrantees", Rows.list(userRepository.findGranteesOf(UNASSIGNED_GRANTOR)));
+                "nonAssignedGrantees", unassigned == null ? List.of() : Rows.list(userRepository.findGranteesOf(unassigned)));
     }
 
     /** Sets a sponsor's status; an inactive sponsor's students go back to the unassigned grantor. */
-    public void updateSponsorStatus(String sponsorId, String status) {
+    public void updateSponsorStatus(Long sponsorId, String status) {
+        boolean deactivate = "Inactive".equalsIgnoreCase(status);
+        Long unassigned = deactivate ? unassignedGrantorId(userRepository) : null;
+        if (deactivate && unassigned == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "The default grantor (user " + UNASSIGNED_GRANTOR_CODE + ") does not exist.");
+        }
         userRepository.findById(sponsorId).ifPresent(u -> {
             u.setStatus(status);
             userRepository.save(u);
         });
-        if ("Inactive".equalsIgnoreCase(status)) {
+        if (deactivate) {
             List<GrantorGrantee> mappings = grantorGranteeRepository.findByGrantorId(sponsorId);
-            mappings.forEach(gg -> gg.setGrantorId(UNASSIGNED_GRANTOR));
+            mappings.forEach(gg -> gg.setGrantorId(unassigned));
             grantorGranteeRepository.saveAll(mappings);
         }
     }
 
     /** Moves each student's existing mapping to the sponsor. */
-    public void mapStudents(String sponsorId, List<String> studentIds) {
-        for (String studentId : studentIds) {
+    public void mapStudents(Long sponsorId, List<Long> studentIds) {
+        for (Long studentId : studentIds) {
             grantorGranteeRepository.findFirstByGranteeId(studentId).ifPresent(gg -> {
                 boolean changed = !sponsorId.equals(gg.getGrantorId());
                 gg.setGrantorId(sponsorId);
@@ -168,7 +174,7 @@ public class ConvenorService {
         }
     }
 
-    public List<Map<String, Object>> studentProgress(String convenorId, String granteeName, Double minMarks, Double maxMarks,
+    public List<Map<String, Object>> studentProgress(Long convenorId, String granteeName, Double minMarks, Double maxMarks,
                                                      String startDate, String endDate, String sortBy) {
         String region = convenor(convenorId).getRegion();
         LocalDateTime from = parseDateTime(startDate);
@@ -196,21 +202,21 @@ public class ConvenorService {
         return rows; // already newest first
     }
 
-    public void updateRegion(String convenorId, String region) {
+    public void updateRegion(Long convenorId, String region) {
         User user = convenor(convenorId);
         user.setRegion(region);
         userRepository.save(user);
     }
 
-    public Map<String, Object> payments(String convenorId) {
+    public Map<String, Object> payments(Long convenorId) {
         User convenor = convenor(convenorId);
-        List<String> studentIds = grantorGranteeRepository.findByGrantorId(convenorId).stream()
+        List<Long> studentIds = grantorGranteeRepository.findByGrantorId(convenorId).stream()
                 .map(GrantorGrantee::getGranteeId).toList();
 
         Map<String, Object> studentDataMap = new LinkedHashMap<>();
         List<Map<String, Object>> studentsForDropdown = new ArrayList<>();
         for (User s : userRepository.findAllById(studentIds)) {
-            String sid = s.getUserId();
+            Long sid = s.getId();
             Map<String, Object> card = StudentService.studentCard(s);
             studentsForDropdown.add(card);
             Map<String, Object> entry = new LinkedHashMap<>();
@@ -219,11 +225,11 @@ public class ConvenorService {
             entry.put("courseInfo", Rows.first(studentCourseRepository.findCourseInfo(sid)));
             entry.put("paidRecords", Rows.list(
                     paymentRepository.findByGranteeIdAndStatusInOrderByPaymentDateAsc(sid, List.of("Paid", "pending"))));
-            studentDataMap.put(sid, entry);
+            studentDataMap.put(String.valueOf(sid), entry);
         }
 
         List<Payment> past = paymentRepository.findByGrantorIdOrderByPaymentDateDesc(convenorId);
-        Map<String, String> names = userNames(userRepository, past.stream().map(Payment::getGranteeId).toList());
+        Map<Long, String> names = userNames(userRepository, past.stream().map(Payment::getGranteeId).toList());
         List<Map<String, Object>> pastPayments = new ArrayList<>();
         for (Payment p : past) {
             if (!names.containsKey(p.getGranteeId())) continue;
@@ -241,7 +247,7 @@ public class ConvenorService {
     }
 
     /** Records a payment by the convenor; it stays "pending" until approved. */
-    public void recordPayment(String convenorId, String granteeId, BigDecimal amount, MultipartFile receipt) {
+    public void recordPayment(Long convenorId, Long granteeId, BigDecimal amount, MultipartFile receipt) {
         // Prefixed so two receipts with the same original name don't overwrite each other.
         String filename = "convenor_pay_" + granteeId + "_" + System.currentTimeMillis() + "_"
                 + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());

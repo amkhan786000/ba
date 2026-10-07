@@ -1,4 +1,7 @@
 export interface AuthUser {
+  /** users.id: identifies the user in API calls and links. */
+  id: number;
+  /** The user's code (users.user_id), for display only. */
   userId: string;
   name: string;
   roleId: number;

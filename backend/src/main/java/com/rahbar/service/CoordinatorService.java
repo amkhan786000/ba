@@ -43,7 +43,7 @@ public class CoordinatorService {
         this.reportService = reportService;
     }
 
-    public Map<String, Object> dashboard(String coordinatorId, Integer year) {
+    public Map<String, Object> dashboard(Long coordinatorId, Integer year) {
         List<Integer> years = yearsDesc(
                 granteeDetailsRepository.findCreatedYears(),
                 userRepository.findCreatedYearsByRoleIdIn(SPONSOR_CONVENOR_ROLES),
@@ -61,7 +61,7 @@ public class CoordinatorService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("coordinator", Rows.pick(requireUser(userRepository, coordinatorId, "User not found"),
-                "user_id", "name", "email", "phone"));
+                "id", "user_id", "name", "email", "phone"));
         result.put("applicationsByStatus", byStatus);
         result.put("sponsorsByRegion", byRegion);
         result.put("availableYears", years);
@@ -88,36 +88,42 @@ public class CoordinatorService {
         return rows;
     }
 
-    public void assignSponsor(String granteeId, String grantorId) {
+    public void assignSponsor(Long granteeId, Long grantorId) {
         sponsorMappingService.map(granteeId, grantorId, "Assigned", true);
     }
 
     /** Sets a user's status; an inactive sponsor's students go back to the unassigned grantor. */
-    public void updateUserStatus(String userId, String status) {
+    public void updateUserStatus(Long userId, String status) {
+        boolean deactivate = "Inactive".equalsIgnoreCase(status);
+        Long unassigned = deactivate ? unassignedGrantorId(userRepository) : null;
+        if (deactivate && unassigned == null) {
+            throw new ApiException(HttpStatus.CONFLICT, "The default grantor (user " + UNASSIGNED_GRANTOR_CODE + ") does not exist.");
+        }
         userRepository.findById(userId).ifPresent(u -> {
             u.setStatus(status);
             userRepository.save(u);
         });
-        if ("Inactive".equalsIgnoreCase(status)) {
+        if (deactivate) {
             List<GrantorGrantee> mappings = grantorGranteeRepository.findByGrantorId(userId);
             mappings.forEach(gg -> {
-                gg.setGrantorId(UNASSIGNED_GRANTOR);
+                gg.setGrantorId(unassigned);
                 gg.setStatus("Unassigned");
             });
             grantorGranteeRepository.saveAll(mappings);
         }
     }
 
-    public Map<String, Object> mapStudentsScreen(String sponsorId) {
+    public Map<String, Object> mapStudentsScreen(Long sponsorId) {
         List<Map<String, Object>> mapped = Rows.list(userRepository.findGranteesOf(sponsorId));
-        return Map.of("students", Rows.list(userRepository.findGranteesOf(UNASSIGNED_GRANTOR)),
+        Long unassigned = unassignedGrantorId(userRepository);
+        return Map.of("students", unassigned == null ? List.of() : Rows.list(userRepository.findGranteesOf(unassigned)),
                 "mappedStudents", mapped,
-                "mappedStudentIds", mapped.stream().map(m -> m.get("user_id")).toList());
+                "mappedStudentIds", mapped.stream().map(m -> m.get("id")).toList());
     }
 
     /** Moves each student's existing mapping to the sponsor. */
-    public void mapStudents(String sponsorId, List<String> studentIds) {
-        for (String studentId : studentIds) {
+    public void mapStudents(Long sponsorId, List<Long> studentIds) {
+        for (Long studentId : studentIds) {
             grantorGranteeRepository.findFirstByGranteeId(studentId).ifPresent(gg -> {
                 boolean changed = !sponsorId.equals(gg.getGrantorId());
                 gg.setGrantorId(sponsorId);
@@ -148,21 +154,21 @@ public class CoordinatorService {
                 "grantees", Rows.list(userRepository.findByRoleId(STUDENT_ROLE)));
     }
 
-    public void appointConvenor(String sponsorId, String region) {
+    public void appointConvenor(Long sponsorId, String region) {
         User user = requireUser(userRepository, sponsorId, "User not found");
         user.setRoleId(4);
         user.setRegion(region);
         userRepository.save(user);
     }
 
-    public void changeRegion(String userId, String region) {
+    public void changeRegion(Long userId, String region) {
         User user = requireUser(userRepository, userId, "User not found");
         user.setRegion(region);
         userRepository.save(user);
     }
 
-    public void assignStudentsBulk(String sponsorId, List<String> studentIds) {
-        for (String studentId : studentIds) {
+    public void assignStudentsBulk(Long sponsorId, List<Long> studentIds) {
+        for (Long studentId : studentIds) {
             sponsorMappingService.map(studentId, sponsorId, "Assigned", true);
         }
     }
@@ -183,10 +189,12 @@ public class CoordinatorService {
             }
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("grantee_name", grantee.getName());
-            row.put("grantee_id", grantee.getUserId());
+            row.put("grantee_id", grantee.getId());
+            row.put("grantee_code", grantee.getUserId());
             row.put("grantee_phone", grantee.getPhone());
             row.put("grantor_name", grantor == null ? null : grantor.getName());
             row.put("grantor_id", p.getGrantorId());
+            row.put("grantor_code", grantor == null ? null : grantor.getUserId());
             row.put("grantor_phone", grantor == null ? null : grantor.getPhone());
             row.put("payment_date", p.getPaymentDate());
             row.put("amount", p.getAmount());

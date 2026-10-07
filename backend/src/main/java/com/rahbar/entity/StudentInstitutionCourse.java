@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 @Getter @Setter
 public class StudentInstitutionCourse extends Modifiable {
     @Id
-    @Column(name = "user_id", length = 50)
-    private String userId;
+    @Column(name = "user_id")
+    private Long userId;
 
     @Column(name = "institution_id", nullable = false, length = 50)
     private String institutionId;
@@ -19,8 +19,8 @@ public class StudentInstitutionCourse extends Modifiable {
     @Column(name = "course_id", nullable = false)
     private Long courseId;
 
-    @Column(name = "assigned_by", length = 50)
-    private String assignedBy;
+    @Column(name = "assigned_by")
+    private Long assignedBy;
 
     @Column(name = "assigned_at")
     private LocalDateTime assignedAt;

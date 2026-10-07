@@ -7,7 +7,7 @@ import { ROLE_LABELS } from '../core/models/user.model';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
 
 interface LogRow {
-  log_id: number; user_id: string | null; user_name: string | null; role_id: number | null; action: string;
+  log_id: number; user_id: number | null; user_code: string | null; user_name: string | null; role_id: number | null; action: string;
   method: string | null; path: string | null; status_code: number | null; ip_address: string | null; created_at: string;
 }
 
@@ -55,8 +55,8 @@ interface LogRow {
                 <td class="text-nowrap">{{ r.created_at | date: 'd MMM yyyy, HH:mm' }}</td>
                 <td>
                   <ng-container *ngIf="r.user_id; else anon">
-                    <strong>{{ r.user_name || r.user_id }}</strong>
-                    <div class="small text-muted">{{ r.user_id }} · {{ role(r.role_id) }}</div>
+                    <strong>{{ r.user_name || r.user_code }}</strong>
+                    <div class="small text-muted">{{ r.user_code }} · {{ role(r.role_id) }}</div>
                   </ng-container>
                   <ng-template #anon><span class="text-muted">Public / not signed in</span></ng-template>
                 </td>

@@ -8,7 +8,7 @@ import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.compo
 import { PagerComponent, pageOf } from '../shared/pager/pager.component';
 
 interface Grantee {
-  user: { user_id: string; name: string } | null;
+  user: { id: number; user_id: string; name: string } | null;
   paymentStatus: string;
 }
 
@@ -63,7 +63,7 @@ interface SponsorDashboard {
                     <td><span class="font-weight-bold d-block text-dark">{{ g.user?.name }}</span><small class="text-muted">ID: {{ g.user?.user_id }}</small></td>
                     <td><span class="badge px-2 py-1" [ngClass]="badge(g.paymentStatus)">{{ g.paymentStatus }}</span></td>
                     <td class="text-right">
-                      <a routerLink="/sponsor/payments" [queryParams]="{ granteeId: g.user?.user_id }" class="btn btn-xs btn-outline-success font-weight-bold">Pay Now</a>
+                      <a routerLink="/sponsor/payments" [queryParams]="{ granteeId: g.user?.id }" class="btn btn-xs btn-outline-success font-weight-bold">Pay Now</a>
                     </td>
                   </tr>
                 </tbody>

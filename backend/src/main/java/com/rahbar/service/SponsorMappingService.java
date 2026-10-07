@@ -29,9 +29,9 @@ public class SponsorMappingService {
      * @param status        status of a newly created mapping
      * @param replaceStatus whether an existing mapping's status is replaced too
      */
-    public void map(String granteeId, String grantorId, String status, boolean replaceStatus) {
+    public void map(Long granteeId, Long grantorId, String status, boolean replaceStatus) {
         GrantorGrantee gg = grantorGranteeRepository.findFirstByGranteeId(granteeId).orElse(null);
-        String previous = gg == null ? null : gg.getGrantorId();
+        Long previous = gg == null ? null : gg.getGrantorId();
         if (gg == null) {
             gg = new GrantorGrantee();
             gg.setGranteeId(granteeId);
@@ -44,12 +44,12 @@ public class SponsorMappingService {
         if (!Objects.equals(previous, grantorId)) notifyMapped(granteeId, grantorId);
     }
 
-    /** Tells the sponsor and the student about a new mapping (nothing for the "unassigned" grantor 12). */
-    public void notifyMapped(String granteeId, String grantorId) {
-        if (grantorId == null || ServiceSupport.UNASSIGNED_GRANTOR.equals(grantorId)) return;
+    /** Tells the sponsor and the student about a new mapping (nothing for the "unassigned" grantor, code 12). */
+    public void notifyMapped(Long granteeId, Long grantorId) {
+        if (grantorId == null || granteeId == null) return;
         User student = userRepository.findById(granteeId).orElse(null);
         User sponsor = userRepository.findById(grantorId).orElse(null);
-        if (student == null || sponsor == null) return;
+        if (student == null || sponsor == null || ServiceSupport.UNASSIGNED_GRANTOR_CODE.equals(sponsor.getUserId())) return;
         notificationService.notify(grantorId, "New student mapped to you",
                 student.getName() + " (" + student.getUserId() + ") is now one of your sponsored students.",
                 NotificationService.MAPPING, Integer.valueOf(5).equals(sponsor.getRoleId()) ? "/sponsor/dashboard" : null, true);

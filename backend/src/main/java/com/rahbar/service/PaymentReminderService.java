@@ -49,20 +49,21 @@ public class PaymentReminderService {
     public List<Map<String, Object>> dues() {
         LocalDate today = LocalDate.now();
         List<Map<String, Object>> rows = new ArrayList<>();
-        Map<String, User> users = new HashMap<>();
-        userRepository.findAll().forEach(u -> users.put(u.getUserId(), u));
+        Map<Long, User> users = new HashMap<>();
+        userRepository.findAll().forEach(u -> users.put(u.getId(), u));
+        Long unassigned = ServiceSupport.unassignedGrantorId(userRepository);
 
         for (GrantorGrantee gg : grantorGranteeRepository.findAll()) {
-            if (gg.getGrantorId() == null || ServiceSupport.UNASSIGNED_GRANTOR.equals(gg.getGrantorId())) continue;
+            if (gg.getGrantorId() == null || gg.getGrantorId().equals(unassigned)) continue;
             User student = users.get(gg.getGranteeId());
             if (student == null || "Inactive".equalsIgnoreCase(student.getStatus())) continue;
             User sponsor = users.get(gg.getGrantorId());
 
-            Map<String, Object> course = Rows.first(studentCourseRepository.findCourseInfo(student.getUserId()));
+            Map<String, Object> course = Rows.first(studentCourseRepository.findCourseInfo(student.getId()));
             LocalDate start = course != null && course.get("assigned_at") instanceof LocalDateTime t ? t.toLocalDate() : null;
             int semesters = course != null && course.get("number_of_semesters") instanceof Number n ? n.intValue() : 0;
             int total = (int) Math.floor(semesters / 2.0 * 4);
-            long paid = paymentRepository.countByGranteeIdAndStatus(student.getUserId(), "Paid");
+            long paid = paymentRepository.countByGranteeIdAndStatus(student.getId(), "Paid");
 
             int dueSoFar = 0;
             LocalDate nextDue = null;
@@ -81,10 +82,12 @@ public class PaymentReminderService {
             }
 
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("student_id", student.getUserId());
+            row.put("student_id", student.getId());
+            row.put("student_code", student.getUserId());
             row.put("student_name", student.getName());
             row.put("student_phone", student.getPhone());
             row.put("sponsor_id", gg.getGrantorId());
+            row.put("sponsor_code", sponsor == null ? null : sponsor.getUserId());
             row.put("sponsor_name", sponsor == null ? null : sponsor.getName());
             row.put("course_start", start);
             row.put("installments_total", total);
@@ -122,8 +125,9 @@ public class PaymentReminderService {
         int overdue = 0;
         int upcoming = 0;
         for (Map<String, Object> d : dues()) {
-            String sponsorId = (String) d.get("sponsor_id");
-            String studentId = (String) d.get("student_id");
+            Long sponsorId = (Long) d.get("sponsor_id");
+            // The student's code (not users.id) keeps reminder keys the same as before the numeric-id change.
+            String studentId = (String) d.get("student_code");
             String student = d.get("student_name") + " (" + studentId + ")";
             if ("Overdue".equals(d.get("status"))) {
                 long late = ((Number) d.get("overdue")).longValue();

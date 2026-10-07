@@ -6,7 +6,8 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface Due {
-  student_id: string; student_name: string; student_phone: string | null; sponsor_id: string; sponsor_name: string | null;
+  student_id: number; student_code: string; student_name: string; student_phone: string | null;
+  sponsor_id: number; sponsor_code: string | null; sponsor_name: string | null;
   course_start: string | null; installments_total: number; installments_due: number; installments_paid: number;
   overdue: number; next_due_date: string | null; status: string;
 }
@@ -54,8 +55,8 @@ interface Due {
               <tr *ngIf="loading"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
               <tr *ngIf="!loading && !visible.length"><td colspan="6" class="text-center text-muted">Nothing to show.</td></tr>
               <tr *ngFor="let d of visible | paginate: pg.page : pg.size">
-                <td><strong>{{ d.student_name }}</strong><div class="small text-muted">{{ d.student_id }}</div></td>
-                <td>{{ d.sponsor_name || '--' }}<div class="small text-muted">{{ d.sponsor_id }}</div></td>
+                <td><strong>{{ d.student_name }}</strong><div class="small text-muted">{{ d.student_code }}</div></td>
+                <td>{{ d.sponsor_name || '--' }}<div class="small text-muted">{{ d.sponsor_code }}</div></td>
                 <td>{{ d.course_start ? (d.course_start | date: 'd MMM yyyy') : '--' }}</td>
                 <td>
                   <strong>{{ d.installments_paid }}</strong> / {{ d.installments_due }} / {{ d.installments_total }}
@@ -108,7 +109,7 @@ export class AdminPaymentDuesComponent implements OnInit {
   get visible(): Due[] {
     const q = this.q.trim().toLowerCase();
     return this.rows.filter((r) => (!this.filter || r.status === this.filter)
-      && (!q || [r.student_name, r.student_id, r.sponsor_name, r.sponsor_id].some((v) => (v ?? '').toLowerCase().includes(q))));
+      && (!q || [r.student_name, r.student_code, r.sponsor_name, r.sponsor_code].some((v) => (v ?? '').toLowerCase().includes(q))));
   }
 
   pct(d: Due): number { return d.installments_total ? Math.min(100, (d.installments_paid / d.installments_total) * 100) : 0; }

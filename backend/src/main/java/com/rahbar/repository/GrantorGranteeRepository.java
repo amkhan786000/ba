@@ -12,13 +12,13 @@ import java.util.Optional;
 
 public interface GrantorGranteeRepository extends JpaRepository<GrantorGrantee, Long> {
     /** grantee_id is unique in grantor_grantees: a student has at most one sponsor. */
-    Optional<GrantorGrantee> findFirstByGranteeId(String granteeId);
-    List<GrantorGrantee> findByGrantorId(String grantorId);
-    List<GrantorGrantee> findByGrantorIdIn(List<String> grantorIds);
-    boolean existsByGranteeIdAndGrantorId(String granteeId, String grantorId);
+    Optional<GrantorGrantee> findFirstByGranteeId(Long granteeId);
+    List<GrantorGrantee> findByGrantorId(Long grantorId);
+    List<GrantorGrantee> findByGrantorIdIn(List<Long> grantorIds);
+    boolean existsByGranteeIdAndGrantorId(Long granteeId, Long grantorId);
 
     @Transactional
     @Modifying
     @Query("delete from GrantorGrantee gg where gg.granteeId = :granteeId")
-    int deleteByGranteeId(@Param("granteeId") String granteeId);
+    int deleteByGranteeId(@Param("granteeId") Long granteeId);
 }

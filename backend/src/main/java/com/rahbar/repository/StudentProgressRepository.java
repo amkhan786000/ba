@@ -8,8 +8,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface StudentProgressRepository extends JpaRepository<StudentProgress, Long> {
-    List<StudentProgress> findByGranteeIdOrderByCreatedAtDesc(String granteeId);
-    List<StudentProgress> findByGranteeIdInOrderByCreatedAtDesc(List<String> granteeIds);
+    List<StudentProgress> findByGranteeIdOrderByCreatedAtDesc(Long granteeId);
+    List<StudentProgress> findByGranteeIdInOrderByCreatedAtDesc(List<Long> granteeIds);
 
     /** progress_id is assigned as MAX + 1 (the legacy table isn't auto-increment everywhere). */
     @Query("select coalesce(max(p.progressId), 0) + 1 from StudentProgress p")
@@ -18,7 +18,7 @@ public interface StudentProgressRepository extends JpaRepository<StudentProgress
     /** Progress rows of students living in a region, each with the student's name: [StudentProgress, String]. */
     @Query("""
         select sp, u.name from StudentProgress sp
-        join User u on u.userId = sp.granteeId
+        join User u on u.id = sp.granteeId
         where u.region = :region
         order by sp.createdAt desc
         """)

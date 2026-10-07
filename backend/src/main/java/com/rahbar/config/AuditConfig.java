@@ -10,21 +10,21 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.Optional;
 
-/** Turns on JPA auditing: created_by / updated_by come from the logged-in user's user_id. */
+/** Turns on JPA auditing: created_by / updated_by come from the logged-in user's id (users.id). */
 @Configuration
 @EnableJpaAuditing(auditorAwareRef = "auditorAware")
 public class AuditConfig {
 
     @Bean
-    public AuditorAware<String> auditorAware() {
+    public AuditorAware<Long> auditorAware() {
         return () -> Optional.ofNullable(currentUserId());
     }
 
-    /** The logged-in user's id, or null for unauthenticated requests (login, registration, OTP). */
-    public static String currentUserId() {
+    /** The logged-in user's id (users.id), or null for unauthenticated requests (login, registration, OTP). */
+    public static Long currentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof RahbarUserPrincipal p) {
-            return p.getUser().getUserId();
+            return p.getUser().getId();
         }
         return null;
     }

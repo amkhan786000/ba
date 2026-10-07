@@ -1,5 +1,6 @@
 package com.rahbar.controller;
 
+import com.rahbar.util.Ids;
 import com.rahbar.entity.*;
 import com.rahbar.security.AuthUtil;
 import com.rahbar.service.AdminService;
@@ -81,7 +82,7 @@ public class AdminController {
     }
 
     @GetMapping("/users/{userId}")
-    public Map<String, Object> getUser(@PathVariable String userId) {
+    public Map<String, Object> getUser(@PathVariable Long userId) {
         return adminService.getUser(userId);
     }
 
@@ -92,15 +93,9 @@ public class AdminController {
     }
 
     @PutMapping("/users/{userId}")
-    public Map<String, String> updateUser(@PathVariable String userId, @RequestBody Map<String, Object> body) {
+    public Map<String, String> updateUser(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
         adminService.updateUser(userId, body);
         return Map.of("message", "User updated successfully!");
-    }
-
-    @DeleteMapping("/users/{userId}")
-    public Map<String, String> deleteUser(@PathVariable String userId) {
-        adminService.deleteUser(userId);
-        return Map.of("message", "User deleted successfully!");
     }
 
     // --------------------------------------------------------- system configuration
@@ -206,7 +201,7 @@ public class AdminController {
 
     @PostMapping("/manage-students/assign")
     public Map<String, String> assignStudentCourse(@RequestBody Map<String, Object> body) {
-        adminService.assignStudentCourse(String.valueOf(body.get("userId")), String.valueOf(body.get("institutionId")),
+        adminService.assignStudentCourse(Ids.toLong(body.get("id")), String.valueOf(body.get("institutionId")),
                 Long.valueOf(String.valueOf(body.get("courseId"))));
         return Map.of("message", "Assignment updated successfully!");
     }
@@ -222,15 +217,14 @@ public class AdminController {
 
     @GetMapping("/sponsorships/{userId}/map")
     @PreAuthorize(ADMIN_OR_OFFICE)
-    public Map<String, Object> sponsorMappingScreen(@PathVariable String userId) {
+    public Map<String, Object> sponsorMappingScreen(@PathVariable Long userId) {
         return adminService.sponsorMappingScreen(userId, isOfficeCoordinator());
     }
 
     @PostMapping("/sponsorships/{userId}/map")
     @PreAuthorize(ADMIN_OR_OFFICE)
-    @SuppressWarnings("unchecked")
-    public Map<String, String> mapStudentsToSponsor(@PathVariable String userId, @RequestBody Map<String, Object> body) {
-        List<String> studentIds = (List<String>) body.get("studentIds");
+    public Map<String, String> mapStudentsToSponsor(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
+        List<Long> studentIds = Ids.toLongs(body.get("studentIds"));
         adminService.mapStudentsToSponsor(userId, studentIds);
         return Map.of("message", studentIds.size() + " student(s) mapped to the sponsor successfully!");
     }
@@ -249,20 +243,20 @@ public class AdminController {
 
     @GetMapping("/students/{userId}")
     @PreAuthorize(ADMIN_OR_OFFICE)
-    public Map<String, Object> studentDetails(@PathVariable String userId) {
+    public Map<String, Object> studentDetails(@PathVariable Long userId) {
         return adminService.studentDetails(userId);
     }
 
     @PutMapping("/students/{userId}")
     @PreAuthorize(ADMIN_OR_OFFICE)
-    public Map<String, String> updateStudent(@PathVariable String userId, @RequestBody Map<String, Object> data) {
+    public Map<String, String> updateStudent(@PathVariable Long userId, @RequestBody Map<String, Object> data) {
         adminService.updateStudent(userId, data);
         return Map.of("message", "Successfully updated student record.");
     }
 
     @PostMapping("/students/{userId}/action")
     @PreAuthorize(ADMIN_OR_OFFICE)
-    public Map<String, String> studentAction(@PathVariable String userId, @RequestBody Map<String, String> body) {
+    public Map<String, String> studentAction(@PathVariable Long userId, @RequestBody Map<String, String> body) {
         adminService.studentAction(userId, body.get("action"));
         return Map.of("message", "Done");
     }
@@ -306,12 +300,12 @@ public class AdminController {
     }
 
     @GetMapping("/sponsors/{userId}")
-    public Map<String, Object> sponsorDetails(@PathVariable String userId) {
+    public Map<String, Object> sponsorDetails(@PathVariable Long userId) {
         return adminService.sponsorDetails(userId);
     }
 
     @PutMapping("/sponsors/{userId}")
-    public Map<String, String> updateSponsor(@PathVariable String userId, @RequestBody Map<String, Object> data) {
+    public Map<String, String> updateSponsor(@PathVariable Long userId, @RequestBody Map<String, Object> data) {
         adminService.updateSponsor(userId, data);
         return Map.of("message", "Sponsor profile updated!");
     }
@@ -322,7 +316,7 @@ public class AdminController {
     @PreAuthorize(ADMIN_OR_OFFICE)
     public Map<String, String> recordPayment(@RequestParam String actionType,
                                              @RequestParam(required = false) Long paymentId,
-                                             @RequestParam(required = false) String granteeId,
+                                             @RequestParam(required = false) Long granteeId,
                                              @RequestParam(required = false) BigDecimal amount,
                                              @RequestParam(required = false) String paymentDate,
                                              @RequestParam(defaultValue = "Paid") String status,
