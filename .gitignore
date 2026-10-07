@@ -1,3 +1,4 @@
 # Local settings with secrets (DB / JWT / mail passwords). Copy .env.example to .env.
 .env
 .env.bak*
+.idea/
