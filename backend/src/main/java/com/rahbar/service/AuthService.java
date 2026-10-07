@@ -27,6 +27,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final EmailService emailService;
     private final ActivityLogService activityLogService;
+    private final NotificationService notificationService;
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthService.class);
@@ -37,13 +38,15 @@ public class AuthService {
 
     public AuthService(UserRepository userRepository, OtpRepository otpRepository,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
-                       EmailService emailService, ActivityLogService activityLogService) {
+                       EmailService emailService, ActivityLogService activityLogService,
+                       NotificationService notificationService) {
         this.userRepository = userRepository;
         this.otpRepository = otpRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
         this.activityLogService = activityLogService;
+        this.notificationService = notificationService;
     }
 
     public AuthResponse login(LoginRequest req, String ip) {
@@ -165,6 +168,10 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         user.setMustChangePassword(false);
         userRepository.save(user);
+        // Same notice as a password change from the profile: in-app notification plus email.
+        notificationService.notify(user.getId(), "Password changed",
+                "Your Rahbar password was reset using \"Forgot password\". If this wasn't you, contact the administrator straight away.",
+                NotificationService.ACCOUNT, null, true);
     }
 
     /** The user a bearer token belongs to. */
