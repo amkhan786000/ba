@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription, debounceTime } from 'rxjs';
 import { ApiService } from '../core/services/api.service';
+import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { BulkReport, BulkReportComponent } from '../shared/bulk-report.component';
 import { PagerComponent } from '../shared/pager/pager.component';
@@ -59,8 +60,8 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
         <div class="card">
           <div class="card-body">
             <div class="mb-3">
-              <button type="button" class="btn btn-success btn-responsive mr-md-2" (click)="showUpload = true"><i class="mdi mdi-file-upload"></i> Upload CSV</button>
-              <button type="button" class="btn btn-primary btn-responsive" (click)="openManual()"><i class="mdi mdi-account-plus"></i> Register Student</button>
+              <button *ngIf="canEdit" type="button" class="btn btn-success btn-responsive mr-md-2" (click)="showUpload = true"><i class="mdi mdi-file-upload"></i> Upload CSV</button>
+              <button *ngIf="canEdit" type="button" class="btn btn-primary btn-responsive" (click)="openManual()"><i class="mdi mdi-account-plus"></i> Register Student</button>
             </div>
 
             <div class="row dt-toolbar mb-2">
@@ -194,8 +195,8 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                       <td><a *ngIf="i.receipt; else dash" [href]="i.receipt" target="_blank">View</a></td>
                       <td><a *ngIf="i.proof; else dash" [href]="i.proof" target="_blank">View</a></td>
                       <td>
-                        <button *ngIf="i.payment" class="btn btn-xs btn-warning" (click)="openPayment(i)">Edit</button>
-                        <button *ngIf="!i.payment" class="btn btn-xs btn-success" (click)="openPayment(i)">Pay Now</button>
+                        <button *ngIf="canEdit && i.payment" class="btn btn-xs btn-warning" (click)="openPayment(i)">Edit</button>
+                        <button *ngIf="canEdit && !i.payment" class="btn btn-xs btn-success" (click)="openPayment(i)">Pay Now</button>
                       </td>
                     </tr>
                   </tbody>
@@ -222,12 +223,12 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
           </div>
           <div class="modal-footer justify-content-between flex-column flex-md-row">
             <div class="mb-2 mb-md-0">
-              <button *ngIf="isActive" type="button" class="btn btn-warning" (click)="action('deactivate')">Deactivate</button>
-              <button *ngIf="!isActive" type="button" class="btn btn-success" (click)="action('activate')">Activate</button>
+              <button *ngIf="canEdit && isActive" type="button" class="btn btn-warning" (click)="action('deactivate')">Deactivate</button>
+              <button *ngIf="canEdit && !isActive" type="button" class="btn btn-success" (click)="action('activate')">Activate</button>
             </div>
             <div>
               <button type="button" class="btn btn-secondary" (click)="closeDetails()">Close</button>
-              <button *ngIf="!editing" type="button" class="btn btn-info ml-1" (click)="editing = true">Edit Details</button>
+              <button *ngIf="canEdit && !editing" type="button" class="btn btn-info ml-1" (click)="editing = true">Edit Details</button>
               <button *ngIf="editing" type="button" class="btn btn-success ml-1" (click)="saveProfile()" [disabled]="busy">Save Profile</button>
             </div>
           </div>
@@ -408,7 +409,9 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   showUpload = false;
   csv: File | null = null;
 
-  constructor(private api: ApiService, private chapterList: ChapterService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService) {}
+
+  get canEdit(): boolean { return this.auth.can('STUDENTS', 'EDIT'); }
 
   /** Active chapters, plus the given one when it is inactive. */
   chapterOptions(currentId: number | null | undefined): Chapter[] {

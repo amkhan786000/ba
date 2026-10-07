@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
+import { AuthService } from '../core/services/auth.service';
 import { ChapterService } from '../core/services/chapter.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
@@ -31,7 +32,7 @@ export interface Chapter {
 
     <div class="row mb-3">
       <div class="col-12">
-        <a routerLink="/admin/chapters/new" class="btn btn-primary btn-responsive"><i class="mdi mdi-plus mr-1"></i>Add New Chapter</a>
+        <a *ngIf="canEdit && !scoped" routerLink="/admin/chapters/new" class="btn btn-primary btn-responsive"><i class="mdi mdi-plus mr-1"></i>Add New Chapter</a>
       </div>
     </div>
 
@@ -61,8 +62,8 @@ export interface Chapter {
                     <td><span class="badge" [ngClass]="c.active !== false ? 'badge-success' : 'badge-secondary'">{{ c.active !== false ? 'Active' : 'Inactive' }}</span></td>
                     <td>{{ c.description }}</td>
                     <td>
-                      <a [routerLink]="['/admin/chapters', c.chapterId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
-                      <button type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="remove(c)">Delete</button>
+                      <a *ngIf="canEdit" [routerLink]="['/admin/chapters', c.chapterId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
+                      <button *ngIf="canEdit && !scoped" type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="remove(c)">Delete</button>
                     </td>
                   </tr>
                 </tbody>
@@ -82,13 +83,17 @@ export class AdminChaptersComponent implements OnInit {
   message = '';
   error = '';
 
-  constructor(private api: ApiService, private chapterList: ChapterService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService) {}
+
+  get canEdit(): boolean { return this.auth.can('CHAPTERS', 'EDIT'); }
+  /** Chapter leads look after only their own chapter: no adding or deleting. */
+  get scoped(): boolean { return this.auth.currentUser()?.scope === 'CHAPTER'; }
 
   ngOnInit(): void { this.load(); }
 
   load(): void {
     this.api.get<Chapter[]>('/admin/chapters').subscribe({
-      next: (c) => (this.chapters = c),
+      next: (c) => (this.chapters = this.scoped ? c.filter((x) => x.chapterId === this.auth.currentUser()?.chapterId) : c),
       error: (e) => (this.error = errorText(e, 'Could not load chapters.'))
     });
   }

@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.List;
 
-/** Admin Reports page: the catalog of reports and their CSV / Excel / PDF downloads. */
+/** Admin Reports page: the catalog of reports, viewing a report on screen and its CSV / Excel / PDF downloads. */
 @RestController
 @RequestMapping("/api/admin/reports")
-@PreAuthorize("hasAnyRole('1','2')")
+@PreAuthorize("denyAll()") // every endpoint below names the permission it needs
 public class ReportController {
 
     private final ReportCatalogService reportCatalogService;
@@ -23,12 +23,23 @@ public class ReportController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('REPORTS:VIEW')")
     public List<ReportCatalogService.Definition> catalog() {
         return reportCatalogService.catalog();
     }
 
+    /** The report's rows to view on screen: { key, title, columns, rows }. */
+    @GetMapping("/{type}/data")
+    @PreAuthorize("hasAuthority('REPORTS:VIEW')")
+    public java.util.Map<String, Object> view(@PathVariable String type,
+                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return reportCatalogService.data(type, from, to);
+    }
+
     /** format = csv (default) | excel | pdf; from / to (yyyy-MM-dd) only apply to reports with a date. */
     @GetMapping("/{type}")
+    @PreAuthorize("hasAuthority('REPORTS:VIEW')")
     public ResponseEntity<ByteArrayResource> download(@PathVariable String type,
                                                       @RequestParam(defaultValue = "csv") String format,
                                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,

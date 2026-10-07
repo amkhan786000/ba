@@ -26,7 +26,8 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
     private static final Set<String> CHANGES = Set.of("POST", "PUT", "PATCH", "DELETE");
 
     /** Paths that are logged elsewhere (sign-in); marking notifications read is skipped as noise. */
-    private static final Set<String> SKIP = Set.of("/api/auth/login", "/api/auth/verify-otp");
+    private static final Set<String> SKIP = Set.of("/api/auth/login", "/api/auth/verify-otp",
+            "/api/admin/broadcasts/preview"); // a recipient count, not a change
 
     /** Friendly descriptions, first match wins: "METHOD regex" -> label. */
     private static final Map<Pattern, String> LABELS = new LinkedHashMap<>();
@@ -42,6 +43,9 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/admin/application-period/end", "Ended the application period");
         label("POST /api/admin/users", "Created a user");
         label("PUT /api/admin/users/[^/]+", "Updated a user");
+        label("POST /api/admin/users/[^/]+/reset-password", "Reset a user's password");
+        label("POST /api/admin/broadcasts", "Sent a broadcast message");
+        label("PUT /api/admin/roles/[^/]+/access", "Changed a role's permissions");
         label("POST /api/admin/roles", "Created a role");
         label("PUT /api/admin/roles/[^/]+", "Updated a role");
         label("DELETE /api/admin/roles/[^/]+", "Deleted a role");

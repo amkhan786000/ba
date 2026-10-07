@@ -120,19 +120,16 @@ MySQL is only open on the server itself, at `127.0.0.1:3307`. Connect through SS
 | Backups | `ls -lh backups/` |
 | Restart everything | `docker compose -f docker-compose.prod.yml --env-file .env restart` |
 
-Database upgrade scripts (`backend/src/main/resources/db/migration/V*.sql`) are not run automatically, and
-the app adds new tables and columns itself on start. If a release notes a script, run it once after the deploy:
+Database upgrade scripts (`backend/src/main/resources/db/migration/V*.sql`) **run automatically** when the
+backend starts (Flyway), before the app touches the schema, each one only once. Nothing has to be run by hand:
 
-```bash
-docker exec -i rahbar-mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' < V6__platform_features.sql
-```
+- A new, empty database gets every script in order (V1, V2, ...), i.e. the full schema with all foreign keys.
+- A database that existed before Flyway was added (no `flyway_schema_history` table yet) is marked as being
+  at version 7 and gets V8 onwards. Those scripts are safe to repeat, so it does not matter whether some of
+  them were already run by hand. Override with `FLYWAY_BASELINE_VERSION` only if a database is older than V7.
+- If a script fails, the backend does not start; `docker logs rahbar-backend` shows the script, line and
+  MySQL error. The deploy script takes a database backup before every deploy (`backups/`).
 
-**V8 (numeric user ids) changes the shape of every user reference, so it has an order:**
-
-1. Back up: `docker exec rahbar-mysql sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" "$MYSQL_DATABASE"' > backups/before-v8.sql`
-2. Deploy the release (the new backend will log errors until step 3; that is expected).
-3. Run `V7__chapters.sql` (if not run yet), then `V8__numeric_user_id.sql`, with the command above.
-4. Restart the backend: `docker compose -f docker-compose.prod.yml --env-file .env restart backend`
-
-Everyone has to sign in again afterwards. Rows that pointed at users that don't exist are copied into
-`orphans_<table>_<column>` tables before they are removed (or cleared), so nothing is lost.
+Rows that point at users that don't exist are copied into `orphans_<table>_<column>` tables before they are
+removed (required links) or cleared (optional links), so nothing is lost. Never edit a script that has already
+been released: add a new `V<next>__description.sql` instead (Flyway refuses to start if a released one changes).

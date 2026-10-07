@@ -30,6 +30,11 @@ public class FileStorageService {
         }
     }
 
+    /** Where a stored file (as returned by store) lives on disk. */
+    public Path resolve(String storedFilename) {
+        return Paths.get(uploadDir).resolve(StringUtils.cleanPath(storedFilename));
+    }
+
     public String sanitizeFilename(String original) {
         if (original == null) return "file";
         String cleaned = StringUtils.cleanPath(original);

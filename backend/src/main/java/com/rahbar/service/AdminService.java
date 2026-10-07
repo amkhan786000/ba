@@ -3,6 +3,7 @@ package com.rahbar.service;
 import com.rahbar.entity.*;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.*;
+import com.rahbar.security.Access;
 import com.rahbar.util.Rows;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -55,6 +56,8 @@ public class AdminService {
     private final StudentService studentService;
     private final ApplicationService applicationService;
     private final NotificationService notificationService;
+    private final EmailService emailService;
+    private final com.rahbar.security.SponsorPrivacy sponsorPrivacy;
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
 
@@ -72,7 +75,8 @@ public class AdminService {
                         SponsorMappingService sponsorMappingService, StudentService studentService,
                         ApplicationService applicationService, NotificationService notificationService,
                         PasswordEncoder passwordEncoder,
-                        FileStorageService fileStorageService) {
+                        FileStorageService fileStorageService, EmailService emailService,
+                        com.rahbar.security.SponsorPrivacy sponsorPrivacy) {
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.roleRepository = roleRepository;
@@ -92,6 +96,8 @@ public class AdminService {
         this.studentService = studentService;
         this.applicationService = applicationService;
         this.notificationService = notificationService;
+        this.emailService = emailService;
+        this.sponsorPrivacy = sponsorPrivacy;
         this.passwordEncoder = passwordEncoder;
         this.fileStorageService = fileStorageService;
     }
@@ -187,13 +193,16 @@ public class AdminService {
         if (userRepository.existsByUserId(code)) {
             throw new ApiException(HttpStatus.CONFLICT, "User ID " + code + " is already taken.");
         }
+        Integer roleId = Integer.valueOf(String.valueOf(body.get("roleId")));
+        requireMayAssignRole(roleId);
         user.setUserId(code);
         user.setName(String.valueOf(body.get("name")));
-        user.setEmail(String.valueOf(body.get("email")));
-        user.setPhone(String.valueOf(body.get("contact")));
-        user.setRoleId(Integer.valueOf(String.valueOf(body.get("roleId"))));
+        user.setEmail(trimToNull(str(body.get("email"))));   // optional; blank stays NULL so it doesn't clash as ''
+        user.setPhone(trimToNull(str(body.get("contact"))));
+        user.setRoleId(roleId);
         user.setStatus(String.valueOf(body.getOrDefault("status", "Active")));
         user.setChapterId(requireChapter(chapterRepository, body.get("chapterId"))); // optional
+        user.setRccCenterId(requireRccCenter(body.get("rccCenterId")));              // optional
         user.setSex(String.valueOf(body.getOrDefault("sex", "M")));
         user.setPasswordHash(passwordEncoder.encode(String.valueOf(body.get("password"))));
         user.setMustChangePassword(true); // the admin chose this password; the user picks their own at first sign-in
@@ -209,11 +218,77 @@ public class AdminService {
 
     public void updateUser(Long userId, Map<String, Object> body) {
         User user = requireUser(userRepository, userId, "User not found");
+        requireMayAssignRole(user.getRoleId()); // only a Super Admin may change a Super Admin
+        boolean hidden = hidesDetailsOf(user); // a sponsor's details the editor isn't allowed to see stay as they are
         if (body.get("name") != null) user.setName(String.valueOf(body.get("name")));
-        if (body.get("email") != null) user.setEmail(String.valueOf(body.get("email")));
-        if (body.get("roleId") != null) user.setRoleId(Integer.valueOf(String.valueOf(body.get("roleId"))));
+        if (!hidden && body.containsKey("email")) user.setEmail(trimToNull(str(body.get("email"))));
+        if (body.get("roleId") != null) {
+            Integer roleId = Integer.valueOf(String.valueOf(body.get("roleId")));
+            requireMayAssignRole(roleId);
+            user.setRoleId(roleId);
+        }
         if (body.get("status") != null) user.setStatus(String.valueOf(body.get("status")));
+        if (!hidden && body.containsKey("chapterId")) user.setChapterId(requireChapter(chapterRepository, body.get("chapterId")));
+        if (!hidden && body.containsKey("rccCenterId")) user.setRccCenterId(requireRccCenter(body.get("rccCenterId")));
         userRepository.save(user);
+    }
+
+    /** True for a sponsor whose details the signed-in user may not see (they were blanked on their screen). */
+    private boolean hidesDetailsOf(User user) {
+        return Integer.valueOf(5).equals(user.getRoleId()) && sponsorPrivacy.hidesDetails();
+    }
+
+    /**
+     * Gives the user a new random temporary password (to be changed at their next sign-in) and emails it to them.
+     * When they have no usable email, or sending fails, the password is returned so the admin can pass it on.
+     */
+    public Map<String, Object> resetUserPassword(Long userId) {
+        User user = requireUser(userRepository, userId, "User not found");
+        requireMayAssignRole(user.getRoleId()); // only a Super Admin may reset a Super Admin
+        String password = PasswordPolicy.temporaryPassword();
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setMustChangePassword(true);
+        userRepository.save(user);
+
+        String email = user.getEmail();
+        boolean usableEmail = email != null && email.contains("@") && !email.trim().toLowerCase(Locale.ROOT).endsWith("@rahbar.com");
+        boolean emailed = usableEmail && emailService.send(email, "Rahbar: your password was reset",
+                "Dear " + user.getName() + ",\n\n"
+                        + "An administrator reset your Rahbar password. Sign in with this temporary password:\n\n"
+                        + "    " + password + "\n\n"
+                        + "You will be asked to choose your own password straight after signing in.\n\n"
+                        + "Regards,\nRahbar - Bihar Anjuman");
+        notificationService.notify(user.getId(), "Password reset",
+                "An administrator reset your password. Use the temporary password you were given and choose a new one.",
+                NotificationService.ACCOUNT, null, false);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("emailed", emailed);
+        if (emailed) {
+            result.put("message", "The password was reset and a temporary password was emailed to " + email + ".");
+        } else {
+            result.put("message", usableEmail
+                    ? "The password was reset, but the email could not be sent. Give the user this temporary password."
+                    : "The password was reset. " + user.getName() + " has no email address, so give them this temporary password.");
+            result.put("temporaryPassword", password);
+        }
+        return result;
+    }
+
+    /** Only a Super Admin may create Super Admins, give someone that role, or change a Super Admin's account. */
+    private static void requireMayAssignRole(Integer roleId) {
+        if (Integer.valueOf(Role.SUPER_ADMIN).equals(roleId) && !Access.isSuperAdmin()) {
+            throw Access.forbidden("Only a Super Admin can manage Super Admin accounts.");
+        }
+    }
+
+    /** An RCC center id from a request (null when none was chosen); 400 when it doesn't exist. */
+    private Long requireRccCenter(Object value) {
+        Long id = toLong(value);
+        if (id != null && !rccCenterRepository.existsById(id)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "The selected RCC center does not exist.");
+        }
+        return id;
     }
 
     // --------------------------------------------------------- system configuration
@@ -246,17 +321,30 @@ public class AdminService {
 
     // ---------------------------------------------------------------- RCC centers
 
+    /** All RCC centers; an RCC coordinator (RCC scope) only sees their own. */
     public List<RccCenter> listRccCenters() {
+        if (Access.rccScoped()) {
+            Long own = Access.current().getUser().getRccCenterId();
+            return own == null ? List.of() : rccCenterRepository.findById(own).map(List::of).orElse(List.of());
+        }
         return rccCenterRepository.findAll();
     }
 
+    /** RCC coordinators may only edit their own center and may not add new ones. */
     public RccCenter saveRccCenter(RccCenter center) {
+        if (Access.rccScoped()) {
+            Long own = Access.current().getUser().getRccCenterId();
+            if (center.getRccCenterId() == null || !center.getRccCenterId().equals(own)) {
+                throw Access.forbidden("You can only edit your own RCC center.");
+            }
+        }
         RccCenter saved = rccCenterRepository.save(center);
         // Re-read so the response carries the stored created_at / created_by on edits too.
         return rccCenterRepository.findById(saved.getRccCenterId()).orElse(saved);
     }
 
     public void deleteRccCenter(Long id) {
+        if (Access.rccScoped()) throw Access.forbidden("You can only edit your own RCC center.");
         rccCenterRepository.deleteById(id);
     }
 
@@ -833,10 +921,11 @@ public class AdminService {
 
     public void updateSponsor(Long userId, Map<String, Object> data) {
         User user = requireUser(userRepository, userId, "Sponsor not found");
+        boolean hidden = hidesDetailsOf(user); // the editor saw blanks: keep the real details
         if (data.get("name") != null) user.setName(str(data.get("name")));
-        if (data.get("email") != null) user.setEmail(str(data.get("email")));
-        if (data.get("phone") != null) user.setPhone(str(data.get("phone")));
-        if (data.containsKey("chapterId")) user.setChapterId(requireChapter(chapterRepository, data.get("chapterId")));
+        if (!hidden && data.get("email") != null) user.setEmail(str(data.get("email")));
+        if (!hidden && data.get("phone") != null) user.setPhone(str(data.get("phone")));
+        if (!hidden && data.containsKey("chapterId")) user.setChapterId(requireChapter(chapterRepository, data.get("chapterId")));
         userRepository.save(user);
     }
 

@@ -17,10 +17,21 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByPhone(String phone);
     List<User> findByRoleId(Integer roleId);
     List<User> findByRoleIdIn(List<Integer> roleIds);
+    /** Recipient picker: users whose name, email or user code contains the text (lower-case LIKE pattern). */
+    @Query("""
+        select u from User u
+        where lower(u.name) like :q or lower(u.email) like :q or lower(u.userId) like :q
+        order by u.name asc
+        """)
+    List<User> searchByNameEmailOrCode(@Param("q") String q, org.springframework.data.domain.Pageable pageable);
     List<User> findAllByOrderByUserIdAsc();
     List<User> findByRoleIdAndChapterId(Integer roleId, Long chapterId);
     long countByRoleId(Integer roleId);
     long countByChapterId(Long chapterId);
+
+    /** users.id of every sponsor (role 5): their details are only shown with the SPONSOR_DETAILS permission. */
+    @Query("select u.id from User u where u.roleId = 5")
+    List<Long> findSponsorIds();
 
     @Query("select u.userId from User u")
     List<String> findAllUserIds();

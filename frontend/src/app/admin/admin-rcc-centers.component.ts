@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
+import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
@@ -27,7 +28,7 @@ export interface RccCenter {
 
     <div class="row mb-3">
       <div class="col-12">
-        <a [routerLink]="['/', section, 'rcc-centers', 'new']" class="btn btn-primary btn-responsive"><i class="mdi mdi-plus mr-1"></i>Add New RCC Center</a>
+        <a *ngIf="canEdit && !scoped" [routerLink]="['/', section, 'rcc-centers', 'new']" class="btn btn-primary btn-responsive"><i class="mdi mdi-plus mr-1"></i>Add New RCC Center</a>
       </div>
     </div>
 
@@ -51,8 +52,8 @@ export interface RccCenter {
                     <td>{{ c.contactNumber }}</td>
                     <td>{{ c.location }}</td>
                     <td>
-                      <a [routerLink]="['/', section, 'rcc-centers', c.rccCenterId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
-                      <button type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="remove(c)">Delete</button>
+                      <a *ngIf="canEdit" [routerLink]="['/', section, 'rcc-centers', c.rccCenterId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
+                      <button *ngIf="canEdit && !scoped" type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="remove(c)">Delete</button>
                     </td>
                   </tr>
                 </tbody>
@@ -76,7 +77,11 @@ export class AdminRccCentersComponent implements OnInit {
   message = '';
   error = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private auth: AuthService) {}
+
+  get canEdit(): boolean { return this.auth.can('RCC_CENTERS', 'EDIT'); }
+  /** RCC coordinators look after only their own center: no adding or deleting. */
+  get scoped(): boolean { return this.auth.currentUser()?.scope === 'RCC'; }
 
   ngOnInit(): void { this.load(); }
 

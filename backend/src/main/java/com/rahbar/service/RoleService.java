@@ -4,6 +4,7 @@ import com.rahbar.entity.Role;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.RoleRepository;
 import com.rahbar.repository.UserRepository;
+import com.rahbar.security.Section;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -42,6 +43,28 @@ public class RoleService {
         Map<String, Object> row = toRow(require(roleId));
         row.put("userCount", userRepository.countByRoleId(roleId));
         return row;
+    }
+
+    /** The admin screens permissions can be granted on, for the permission editor. */
+    public List<Map<String, Object>> sections() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Section s : Section.values()) rows.add(Map.of("key", s.name(), "label", s.label()));
+        return rows;
+    }
+
+    /** Sets which screens the role may view / manage and which records it covers. */
+    public Map<String, Object> updateAccess(Integer roleId, Collection<String> permissions, String scope) {
+        Role role = require(roleId);
+        if (Integer.valueOf(Role.SUPER_ADMIN).equals(roleId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "The Super Admin always has every permission.");
+        }
+        String s = scope == null || scope.isBlank() ? Role.SCOPE_ALL : scope.trim().toUpperCase();
+        if (!List.of(Role.SCOPE_ALL, Role.SCOPE_CHAPTER, Role.SCOPE_RCC).contains(s)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Unknown scope: " + scope);
+        }
+        role.setPermissions(String.join(",", Section.normalize(permissions == null ? List.of() : permissions)));
+        role.setScope(s);
+        return toRow(roleRepository.save(role));
     }
 
     public Map<String, Object> createRole(String roleName, String description) {
@@ -106,6 +129,10 @@ public class RoleService {
         row.put("roleName", role.getRoleName());
         row.put("description", role.getDescription());
         row.put("builtIn", BUILT_IN_ROLES.contains(role.getRoleId()));
+        boolean superAdmin = Integer.valueOf(Role.SUPER_ADMIN).equals(role.getRoleId());
+        row.put("permissions", superAdmin ? Section.allKeys() : Section.normalize(role.permissionSet()));
+        row.put("scope", superAdmin ? Role.SCOPE_ALL : role.getScope());
+        row.put("superAdmin", superAdmin);
         row.put("createdAt", role.getCreatedAt());
         row.put("updatedAt", role.getUpdatedAt());
         return row;

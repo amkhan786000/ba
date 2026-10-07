@@ -13,7 +13,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 
 /**
  * Makes a brand-new (empty) database usable on start-up:
@@ -26,7 +25,6 @@ import java.security.SecureRandom;
 public class BootstrapService implements ApplicationRunner {
 
     private static final Logger log = LoggerFactory.getLogger(BootstrapService.class);
-    private static final SecureRandom RANDOM = new SecureRandom();
     private static final int SUPER_ADMIN = 1;
 
     private static final Object[][] BUILT_IN_ROLES = {
@@ -99,7 +97,7 @@ public class BootstrapService implements ApplicationRunner {
             return;
         }
 
-        String password = temporaryPassword();
+        String password = PasswordPolicy.temporaryPassword();
         User admin = new User();
         admin.setUserId(nextUserId());
         admin.setName(isBlank(adminName) ? "Administrator" : adminName.trim());
@@ -130,17 +128,6 @@ public class BootstrapService implements ApplicationRunner {
     }
 
     /** 12 letters and digits, always containing both (meets PasswordPolicy). */
-    private static String temporaryPassword() {
-        String letters = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
-        String digits = "23456789";
-        String all = letters + digits;
-        StringBuilder sb = new StringBuilder();
-        sb.append(letters.charAt(RANDOM.nextInt(letters.length())));
-        sb.append(digits.charAt(RANDOM.nextInt(digits.length())));
-        for (int i = 0; i < 10; i++) sb.append(all.charAt(RANDOM.nextInt(all.length())));
-        return sb.toString();
-    }
-
     private static boolean isBlank(String s) {
         return s == null || s.isBlank();
     }

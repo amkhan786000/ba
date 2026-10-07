@@ -14,13 +14,29 @@ import java.util.Map;
 public class AccountController {
 
     private final AccountService accountService;
+    private final com.rahbar.repository.RoleRepository roleRepository;
 
-    public AccountController(AccountService accountService) {
+    public AccountController(AccountService accountService, com.rahbar.repository.RoleRepository roleRepository) {
         this.accountService = accountService;
+        this.roleRepository = roleRepository;
     }
 
     private static Long me() {
         return AuthUtil.currentUser().getId();
+    }
+
+    /** What the signed-in user may do on the admin screens: permission keys, scope and their chapter / RCC center. */
+    @GetMapping("/access")
+    public Map<String, Object> access() {
+        var p = com.rahbar.security.Access.current();
+        Map<String, Object> body = new java.util.LinkedHashMap<>();
+        body.put("roleId", p.getUser().getRoleId());
+        body.put("roleName", roleRepository.findById(p.getUser().getRoleId()).map(com.rahbar.entity.Role::getRoleName).orElse(null));
+        body.put("permissions", p.getPermissions());
+        body.put("scope", p.getScope());
+        body.put("chapterId", p.getUser().getChapterId());
+        body.put("rccCenterId", p.getUser().getRccCenterId());
+        return body;
     }
 
     @GetMapping("/profile")

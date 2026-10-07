@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
+import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 
 interface Schedule {
@@ -40,10 +41,10 @@ interface Schedule {
                 <label for="amount_input" class="col-sm-3 col-form-label">Fee Amount (₹)</label>
                 <div class="col-sm-9">
                   <input type="number" class="form-control" id="amount_input" name="amount" step="0.01" min="0"
-                         [placeholder]="placeholder" [(ngModel)]="amount" [disabled]="locked" required>
+                         [placeholder]="placeholder" [(ngModel)]="amount" [disabled]="locked || !canEdit" required>
                 </div>
               </div>
-              <div class="form-group row mt-4">
+              <div *ngIf="canEdit" class="form-group row mt-4">
                 <div class="col-sm-9 offset-sm-3">
                   <button type="submit" class="btn btn-primary waves-effect waves-light" [disabled]="locked || saving || amount === null"
                           [title]="locked ? lockReason : ''">
@@ -95,7 +96,9 @@ export class AdminSystemConfigComponent implements OnInit {
   message = '';
   error = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private auth: AuthService) {}
+
+  get canEdit(): boolean { return this.auth.can('PAYMENT_CONFIG', 'EDIT'); }
 
   ngOnInit(): void { this.load(); }
 

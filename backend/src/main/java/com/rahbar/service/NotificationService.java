@@ -29,6 +29,7 @@ public class NotificationService {
     public static final String PROGRESS = "progress";
     public static final String MAPPING = "mapping";
     public static final String ACCOUNT = "account";
+    public static final String ANNOUNCEMENT = "announcement";
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;

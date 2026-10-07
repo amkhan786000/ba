@@ -8,6 +8,56 @@ export interface AuthUser {
   status: string;
   /** True until the user replaces the password an admin / bulk upload gave them. */
   mustChangePassword?: boolean;
+  /** Name of the user's role (custom roles have no built-in label). */
+  roleName?: string;
+  /** Admin-screen permission keys of the user's role, e.g. "USERS:EDIT" (EDIT implies VIEW). */
+  permissions?: string[];
+  /** ALL, CHAPTER (own chapter only) or RCC (own RCC center only). */
+  scope?: string;
+  chapterId?: number | null;
+  rccCenterId?: number | null;
+}
+
+/** Admin screens permissions are granted on (same names as the backend's Section enum). */
+export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG'
+  | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
+  | 'SPONSOR_DETAILS';
+
+/** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
+export const PORTAL_ROLES = [3, 4, 5, 6];
+
+/** Admin menu, in order; each entry needs VIEW on its section. */
+export const ADMIN_LINKS: { path: string; label: string; icon: string; section: Section }[] = [
+  { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard', section: 'DASHBOARD' },
+  { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS' },
+  { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES' },
+  { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings', section: 'PAYMENT_CONFIG' },
+  { path: '/admin/payment-dues', label: 'Payment Dues', icon: 'mdi-alarm', section: 'PAYMENT_DUES' },
+  { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS' },
+  { path: '/admin/application-period', label: 'App Period', icon: 'mdi-calendar', section: 'APPLICATION_PERIOD' },
+  { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS' },
+  { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank', section: 'RCC_CENTERS' },
+  { path: '/admin/chapters', label: 'Chapters', icon: 'mdi-map-marker-multiple', section: 'CHAPTERS' },
+  { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES' },
+  { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS' },
+  { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS' },
+  { path: '/admin/broadcasts', label: 'Broadcast Messages', icon: 'mdi-bullhorn', section: 'MESSAGES' },
+  { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY' }
+];
+
+/** True when the user may use the section: EDIT implies VIEW; the Super Admin may do everything. */
+export function canAccess(user: AuthUser | null, section: Section, level: 'VIEW' | 'EDIT' = 'VIEW'): boolean {
+  if (!user) return false;
+  if (user.roleId === ROLE.SUPER_ADMIN) return true;
+  const p = user.permissions ?? [];
+  return p.includes(section + ':EDIT') || (level === 'VIEW' && p.includes(section + ':VIEW'));
+}
+
+/** Where a user lands after signing in: their portal, or the first admin screen they may open. */
+export function landingPath(user: AuthUser | null): string {
+  if (!user) return '/login';
+  if (PORTAL_ROLES.includes(user.roleId)) return dashboardPathForRole(user.roleId);
+  return ADMIN_LINKS.find((l) => canAccess(user, l.section))?.path ?? '/admin/profile';
 }
 
 export const ROLE = {
@@ -41,7 +91,6 @@ export function dashboardPathForRole(roleId: number): string {
     case ROLE.CONVENOR: return '/convenor/dashboard';
     case ROLE.SPONSOR: return '/sponsor/dashboard';
     case ROLE.STUDENT: return '/student/dashboard';
-    case ROLE.OFFICE_COORDINATOR: return '/office/dashboard';
     default: return '/';
   }
 }

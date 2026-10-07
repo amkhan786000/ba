@@ -13,7 +13,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/admin/chapters")
-@PreAuthorize("hasAnyRole('1','2')")
+@PreAuthorize("denyAll()") // every endpoint below names the permission it needs
 public class ChapterController {
 
     private final ChapterService chapterService;
@@ -29,11 +29,13 @@ public class ChapterController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAuthority('CHAPTERS:EDIT')")
     public Chapter save(@RequestBody Chapter chapter) {
         return chapterService.save(chapter);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('CHAPTERS:EDIT')")
     public void delete(@PathVariable Long id) {
         chapterService.delete(id);
     }

@@ -21,7 +21,8 @@ BEGIN
   DECLARE tbl VARCHAR(64);
   DECLARE cur CURSOR FOR
     SELECT table_name FROM information_schema.tables
-    WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE';
+    WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'
+      AND table_name <> 'flyway_schema_history';  -- Flyway's own bookkeeping table
   DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
 
   OPEN cur;

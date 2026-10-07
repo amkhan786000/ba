@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { dashboardPathForRole } from '../../core/models/user.model';
+import { landingPath } from '../../core/models/user.model';
 import { AuthLayoutComponent } from '../../shared/auth-layout/auth-layout.component';
 
 @Component({
@@ -31,7 +31,7 @@ export class LoginComponent {
           this.router.navigate(['/verify-otp'], { queryParams: { id: res.id } });
         } else {
           this.auth.persistSession(res);
-          this.router.navigate([res.mustChangePassword ? '/change-password' : dashboardPathForRole(res.roleId ?? 0)]);
+          this.router.navigate([res.mustChangePassword ? '/change-password' : landingPath(this.auth.currentUser())]);
         }
       },
       error: (err) => {

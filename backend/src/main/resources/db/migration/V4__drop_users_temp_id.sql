@@ -10,4 +10,16 @@
 --   mysqldump -u <user> -p rahbar users > users-before-v4.sql
 --   mysql -u <user> -p rahbar < V4__drop_users_temp_id.sql
 
-ALTER TABLE users DROP COLUMN temp_id;
+-- Only when the column exists (databases built from V1__baseline.sql never had it).
+DROP PROCEDURE IF EXISTS rahbar_drop_temp_id;
+DELIMITER //
+CREATE PROCEDURE rahbar_drop_temp_id()
+BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns
+             WHERE table_schema = DATABASE() AND table_name = 'users' AND column_name = 'temp_id') THEN
+    ALTER TABLE users DROP COLUMN temp_id;
+  END IF;
+END //
+DELIMITER ;
+CALL rahbar_drop_temp_id();
+DROP PROCEDURE IF EXISTS rahbar_drop_temp_id;
