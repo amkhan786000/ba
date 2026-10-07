@@ -20,10 +20,10 @@ import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.c
             <h4 class="header-title">Sponsors and Convenors List</h4>
             <div class="table-responsive">
               <table class="table table-centered mb-0">
-                <thead><tr><th>User ID</th><th>Name</th><th>Email</th><th>Role</th><th>Region</th><th>Status</th></tr></thead>
+                <thead><tr><th>User ID</th><th>Name</th><th>Email</th><th>Role</th><th>Chapter</th><th>Status</th></tr></thead>
                 <tbody>
                   <tr *ngFor="let u of users | paginate: pg.page : pg.size">
-                    <td>{{ u.user_id }}</td><td>{{ u.name }}</td><td>{{ u.email }}</td><td>{{ u.role_name }}</td><td>{{ u.region }}</td>
+                    <td>{{ u.user_id }}</td><td>{{ u.name }}</td><td>{{ u.email }}</td><td>{{ u.role_name }}</td><td>{{ u.chapter_name }}</td>
                     <td><span class="badge" [ngClass]="u.status === 'Active' ? 'badge-success' : 'badge-danger'">{{ u.status }}</span></td>
                   </tr>
                 </tbody>

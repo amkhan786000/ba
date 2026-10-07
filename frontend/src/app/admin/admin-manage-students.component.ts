@@ -8,7 +8,7 @@ import { Institution } from './admin-course-edit.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface ManagedStudent {
-  id: number; user_id: string; student_name: string; student_email: string | null; student_phone: string | null; region: string | null;
+  id: number; user_id: string; student_name: string; student_email: string | null; student_phone: string | null; chapter_name: string | null;
   sponsor_name: string | null; institution_name: string | null; course_name: string | null;
   institution_id: string | null; course_id: number | null;
 }
@@ -68,13 +68,13 @@ interface ManagedStudent {
           <div class="card-body">
             <div class="table-responsive">
               <table class="table table-centered table-striped mb-0">
-                <thead><tr><th>Student Name</th><th>Email</th><th>Student Phone</th><th>Rcc Center</th><th>Sponsor</th><th>Institution</th><th>Course</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Student Name</th><th>Email</th><th>Student Phone</th><th>Chapter</th><th>Sponsor</th><th>Institution</th><th>Course</th><th>Actions</th></tr></thead>
                 <tbody>
                   <tr *ngFor="let s of shown | paginate: pg.page : pg.size">
                     <td><strong>{{ s.student_name }}</strong></td>
                     <td>{{ s.student_email }}</td>
                     <td>{{ s.student_phone }}</td>
-                    <td>{{ s.region }}</td>
+                    <td>{{ s.chapter_name }}</td>
                     <td>{{ s.sponsor_name || 'Unassigned' }}</td>
                     <td>{{ s.institution_name || 'Unassigned' }}</td>
                     <td>{{ s.course_name || 'Unassigned' }}</td>
@@ -155,7 +155,7 @@ export class AdminManageStudentsComponent implements OnInit {
   applyFilters(): void {
     const term = this.search.trim().toLowerCase();
     this.shown = this.students.filter((s) => {
-      const text = [s.student_name, s.student_email, s.student_phone, s.region, s.sponsor_name ?? 'Unassigned',
+      const text = [s.student_name, s.student_email, s.student_phone, s.chapter_name, s.sponsor_name ?? 'Unassigned',
         s.institution_name ?? 'Unassigned', s.course_name ?? 'Unassigned'].join(' ').toLowerCase();
       return (!this.fInst || String(s.institution_id) === this.fInst)
         && (!this.fCourse || String(s.course_id) === this.fCourse)

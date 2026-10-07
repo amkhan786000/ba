@@ -22,7 +22,7 @@ interface Progress { progress_id: number; review_status?: string | null; review_
           <div class="card-body">
             <h4 class="header-title">Student Progress</h4>
             <div class="mt-3 table-responsive">
-              <h5>Progress for All Student in {{ region }}</h5>
+              <h5>Progress for All Student in {{ chapter }}</h5>
               <table class="table table-striped">
                 <thead><tr><th>Student Name</th><th>Marks</th><th>Session</th><th>Year</th><th>File</th><th>Date</th><th>Review</th></tr></thead>
                 <tbody>
@@ -49,7 +49,7 @@ interface Progress { progress_id: number; review_status?: string | null; review_
 export class ConvenorProgressComponent implements OnInit {
   readonly pg = new PageState();
   rows: Progress[] = [];
-  region = '';
+  chapter = '';
   error = '';
 
   constructor(private api: ApiService) {}
@@ -59,9 +59,9 @@ export class ConvenorProgressComponent implements OnInit {
       next: (r) => (this.rows = r),
       error: (e) => (this.error = errorText(e, 'Could not load student progress.'))
     });
-    this.api.get<{ convenor: { region: string | null } }>('/convenor/dashboard').subscribe({
-      next: (d) => (this.region = d.convenor.region ?? ''),
-      error: () => { /* region missing: shown on the dashboard */ }
+    this.api.get<{ convenor: { chapter_name: string | null } }>('/convenor/dashboard').subscribe({
+      next: (d) => (this.chapter = d.convenor.chapter_name ?? ''),
+      error: () => { /* chapter missing: shown on the dashboard */ }
     });
   }
 

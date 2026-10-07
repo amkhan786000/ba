@@ -17,7 +17,7 @@ import java.util.Set;
 /**
  * Review of the progress reports (marks + marksheet) students upload.
  * Who may review: admins and office coordinators (any student), the student's own sponsor,
- * and the convenor of the student's region.
+ * and the convenor of the student's chapter.
  */
 @Service
 public class ProgressReviewService {
@@ -73,9 +73,9 @@ public class ProgressReviewService {
         if (role == 1 || role == 2 || role == 8) return true;
         if (role == 5) return grantorGranteeRepository.existsByGranteeIdAndGrantorId(granteeId, reviewer.getId());
         if (role == 4) {
-            String region = reviewer.getRegion();
-            return region != null && userRepository.findById(granteeId)
-                    .map(s -> region.equalsIgnoreCase(s.getRegion())).orElse(false);
+            Long chapterId = reviewer.getChapterId();
+            return chapterId != null && userRepository.findById(granteeId)
+                    .map(s -> chapterId.equals(s.getChapterId())).orElse(false);
         }
         return false;
     }

@@ -74,8 +74,8 @@ public class ConvenorController {
     }
 
     @PostMapping("/profile")
-    public Map<String, String> updateProfile(@RequestBody Map<String, String> body) {
-        convenorService.updateRegion(me(), body.get("region"));
+    public Map<String, String> updateProfile(@RequestBody Map<String, Object> body) {
+        convenorService.updateChapter(me(), body.get("chapterId"));
         return Map.of("message", "Profile updated successfully!");
     }
 

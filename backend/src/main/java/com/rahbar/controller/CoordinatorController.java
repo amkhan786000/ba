@@ -62,15 +62,15 @@ public class CoordinatorController {
     }
 
     @PostMapping("/appoint-convenor/{sponsorId}")
-    public Map<String, String> appointConvenor(@PathVariable Long sponsorId, @RequestBody Map<String, String> body) {
-        coordinatorService.appointConvenor(sponsorId, body.get("region"));
+    public Map<String, String> appointConvenor(@PathVariable Long sponsorId, @RequestBody Map<String, Object> body) {
+        coordinatorService.appointConvenor(sponsorId, body.get("chapterId"));
         return Map.of("message", "Sponsor appointed as Convenor successfully!");
     }
 
-    @PostMapping("/users/{userId}/region")
-    public Map<String, String> changeRegion(@PathVariable Long userId, @RequestBody Map<String, String> body) {
-        coordinatorService.changeRegion(userId, body.get("region"));
-        return Map.of("message", "Region updated successfully!");
+    @PostMapping("/users/{userId}/chapter")
+    public Map<String, String> changeChapter(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
+        coordinatorService.changeChapter(userId, body.get("chapterId"));
+        return Map.of("message", "Chapter updated successfully!");
     }
 
     @PostMapping("/assign-students-bulk")

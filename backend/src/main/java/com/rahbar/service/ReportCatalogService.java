@@ -46,8 +46,8 @@ public class ReportCatalogService {
                     "Number of students at each college: active, inactive, with and without a sponsor.", false),
             new Definition("students_by_course", "Student breakdowns", "Students by course",
                     "Number of students in each course (with its college, length and fees), including empty courses.", false),
-            new Definition("students_by_region", "Student breakdowns", "Students by region",
-                    "Number of students in each region / city.", false),
+            new Definition("students_by_chapter", "Student breakdowns", "Students by chapter",
+                    "Number of students in each chapter.", false),
             new Definition("students_by_year", "Student breakdowns", "Students by academic year",
                     "Number of students in each academic year.", false),
             new Definition("applications_by_course", "Student breakdowns", "Applications by course applied",
@@ -57,8 +57,8 @@ public class ReportCatalogService {
 
             new Definition("sponsors_convenors", "Sponsors", "Sponsors & convenors",
                     "Every sponsor and convenor with number of students and total paid.", false),
-            new Definition("sponsors_by_region", "Sponsors", "Sponsors by region",
-                    "Number of sponsors, students and total paid per region.", false),
+            new Definition("sponsors_by_chapter", "Sponsors", "Sponsors by chapter",
+                    "Number of sponsors, students and total paid per chapter.", false),
 
             new Definition("payments", "Payments", "All payments",
                     "Every payment with student, sponsor, amount, status and date.", true),
@@ -150,7 +150,7 @@ public class ReportCatalogService {
             case "students_without_bank" -> students(false, true);
             case "student_progress" -> studentProgress(range);
             case "sponsors_convenors" -> sponsors();
-            case "sponsors_by_region" -> sponsorsByRegion();
+            case "sponsors_by_chapter" -> sponsorsByChapter();
             case "payments" -> payments(range, null);
             case "pending_payments" -> payments(range, "pending");
             case "payments_by_month" -> paymentsByMonth(range);
@@ -160,7 +160,7 @@ public class ReportCatalogService {
             case "institutions_courses" -> institutionsCourses();
             case "students_by_institution" -> studentsByInstitution();
             case "students_by_course" -> studentsByCourse();
-            case "students_by_region" -> studentsBy(u -> ServiceSupport.regionLabel(u.getRegion()), "region");
+            case "students_by_chapter" -> studentsBy(u -> ServiceSupport.chapterLabel(u.getChapterName()), "chapter");
             case "students_by_year" -> studentsBy(u -> u.getYear() == null ? "Not set" : String.valueOf(u.getYear()), "academic_year");
             case "applications_by_course" -> applicationsBy(GranteeDetails::getCourseApplied, "course_applied", range);
             case "applications_by_rcc" -> applicationsBy(GranteeDetails::getRccName, "rcc_center", range);
@@ -270,7 +270,7 @@ public class ReportCatalogService {
                     "name", u.getName(),
                     "email", u.getEmail(),
                     "phone", u.getPhone(),
-                    "region", u.getRegion(),
+                    "chapter", u.getChapterName(),
                     "year", u.getYear(),
                     "status", u.getStatus(),
                     "sponsor_id", hasSponsor ? codes.get(sponsorId) : null,
@@ -407,7 +407,7 @@ public class ReportCatalogService {
         return rows;
     }
 
-    /** Students grouped by any label (region, academic year...), biggest group first. */
+    /** Students grouped by any label (chapter, academic year...), biggest group first. */
     private List<Map<String, Object>> studentsBy(Function<User, String> label, String column) {
         Map<Long, Long> sponsorOf = sponsorIdByStudent();
         Long unassignedGrantor = ServiceSupport.unassignedGrantorId(userRepository);
@@ -467,7 +467,7 @@ public class ReportCatalogService {
                     "role", roleNames.get(u.getRoleId()),
                     "email", u.getEmail(),
                     "phone", u.getPhone(),
-                    "region", u.getRegion(),
+                    "chapter", u.getChapterName(),
                     "status", u.getStatus(),
                     "students", studentCount.getOrDefault(u.getId(), 0L),
                     "total_paid", paid.getOrDefault(u.getId(), BigDecimal.ZERO),
@@ -476,22 +476,22 @@ public class ReportCatalogService {
         return rows;
     }
 
-    private List<Map<String, Object>> sponsorsByRegion() {
+    private List<Map<String, Object>> sponsorsByChapter() {
         Map<Long, Long> studentCount = grantorGranteeRepository.findAll().stream()
                 .collect(Collectors.groupingBy(GrantorGrantee::getGrantorId, Collectors.counting()));
         Map<Long, BigDecimal> paid = paidTotalsByGrantor(DateRange.ALL);
         Map<String, long[]> counts = new TreeMap<>();
         Map<String, BigDecimal> totals = new TreeMap<>();
         for (User u : userRepository.findByRoleId(5)) {
-            String region = ServiceSupport.regionLabel(u.getRegion());
-            long[] c = counts.computeIfAbsent(region, r -> new long[2]);
+            String chapter = ServiceSupport.chapterLabel(u.getChapterName());
+            long[] c = counts.computeIfAbsent(chapter, r -> new long[2]);
             c[0]++;
             c[1] += studentCount.getOrDefault(u.getId(), 0L);
-            totals.merge(region, paid.getOrDefault(u.getId(), BigDecimal.ZERO), BigDecimal::add);
+            totals.merge(chapter, paid.getOrDefault(u.getId(), BigDecimal.ZERO), BigDecimal::add);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
-        counts.forEach((region, c) -> rows.add(row("region", region, "sponsors", c[0], "students", c[1],
-                "total_paid", totals.getOrDefault(region, BigDecimal.ZERO))));
+        counts.forEach((chapter, c) -> rows.add(row("chapter", chapter, "sponsors", c[0], "students", c[1],
+                "total_paid", totals.getOrDefault(chapter, BigDecimal.ZERO))));
         return rows;
     }
 

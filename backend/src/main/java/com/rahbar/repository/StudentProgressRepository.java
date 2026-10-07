@@ -15,12 +15,12 @@ public interface StudentProgressRepository extends JpaRepository<StudentProgress
     @Query("select coalesce(max(p.progressId), 0) + 1 from StudentProgress p")
     Long nextId();
 
-    /** Progress rows of students living in a region, each with the student's name: [StudentProgress, String]. */
+    /** Progress rows of the students of a chapter, each with the student's name: [StudentProgress, String]. */
     @Query("""
         select sp, u.name from StudentProgress sp
         join User u on u.id = sp.granteeId
-        where u.region = :region
+        where u.chapterId = :chapterId
         order by sp.createdAt desc
         """)
-    List<Object[]> findWithGranteeNameByRegion(@Param("region") String region);
+    List<Object[]> findWithGranteeNameByChapter(@Param("chapterId") Long chapterId);
 }

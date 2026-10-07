@@ -4,6 +4,7 @@ import com.rahbar.config.AuditConfig;
 import com.rahbar.entity.ApplicationStatus;
 import com.rahbar.entity.User;
 import com.rahbar.exception.ApiException;
+import com.rahbar.repository.ChapterRepository;
 import com.rahbar.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 
@@ -125,9 +126,18 @@ final class ServiceSupport {
         return rows;
     }
 
-    /** Region label for charts: blank regions are grouped as "Not set". */
-    static String regionLabel(String region) {
-        return region == null || region.trim().isEmpty() ? "Not set" : region.trim();
+    /** Chapter label for charts and reports: users without a chapter are grouped as "Not set". */
+    static String chapterLabel(String chapterName) {
+        return chapterName == null || chapterName.trim().isEmpty() ? "Not set" : chapterName.trim();
+    }
+
+    /** A chapter id from a request (null when none was chosen); 400 when no such chapter exists. */
+    static Long requireChapter(ChapterRepository chapters, Object value) {
+        Long chapterId = toLong(value);
+        if (chapterId != null && !chapters.existsById(chapterId)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "The selected chapter does not exist.");
+        }
+        return chapterId;
     }
 
     /** Distinct non-null years, newest first. */

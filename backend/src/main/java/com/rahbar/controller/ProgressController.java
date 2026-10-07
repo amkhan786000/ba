@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/** Reviewing students' progress reports (admin, office coordinator, convenor of the region, the student's sponsor). */
+/** Reviewing students' progress reports (admin, office coordinator, convenor of the chapter, the student's sponsor). */
 @RestController
 @RequestMapping("/api/progress")
 @PreAuthorize("hasAnyRole('1','2','4','5','8')")

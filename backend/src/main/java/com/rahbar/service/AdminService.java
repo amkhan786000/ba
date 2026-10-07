@@ -37,6 +37,7 @@ public class AdminService {
     private static final String DEFAULT_PASSWORD = PasswordPolicy.DEFAULT_PASSWORD;
 
     private final UserRepository userRepository;
+    private final ChapterRepository chapterRepository;
     private final RoleRepository roleRepository;
     private final ApplicationPeriodRepository applicationPeriodRepository;
     private final PaymentScheduleRepository paymentScheduleRepository;
@@ -57,7 +58,7 @@ public class AdminService {
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
 
-    public AdminService(UserRepository userRepository, RoleRepository roleRepository,
+    public AdminService(UserRepository userRepository, ChapterRepository chapterRepository, RoleRepository roleRepository,
                         ApplicationPeriodRepository applicationPeriodRepository,
                         PaymentScheduleRepository paymentScheduleRepository,
                         RccCenterRepository rccCenterRepository, CourseRepository courseRepository,
@@ -73,6 +74,7 @@ public class AdminService {
                         PasswordEncoder passwordEncoder,
                         FileStorageService fileStorageService) {
         this.userRepository = userRepository;
+        this.chapterRepository = chapterRepository;
         this.roleRepository = roleRepository;
         this.applicationPeriodRepository = applicationPeriodRepository;
         this.paymentScheduleRepository = paymentScheduleRepository;
@@ -191,7 +193,7 @@ public class AdminService {
         user.setPhone(String.valueOf(body.get("contact")));
         user.setRoleId(Integer.valueOf(String.valueOf(body.get("roleId"))));
         user.setStatus(String.valueOf(body.getOrDefault("status", "Active")));
-        user.setRegion(isBlank(body.get("region")) ? null : String.valueOf(body.get("region")).trim()); // chapter is optional
+        user.setChapterId(requireChapter(chapterRepository, body.get("chapterId"))); // optional
         user.setSex(String.valueOf(body.getOrDefault("sex", "M")));
         user.setPasswordHash(passwordEncoder.encode(String.valueOf(body.get("password"))));
         user.setMustChangePassword(true); // the admin chose this password; the user picks their own at first sign-in
@@ -385,7 +387,7 @@ public class AdminService {
 
     public Map<String, Object> sponsorMappingScreen(Long sponsorId, boolean hideContactInfo) {
         Map<String, Object> sponsor = Rows.pick(requireUser(userRepository, sponsorId, "Sponsor not found"),
-                "id", "user_id", "name", "email", "region");
+                "id", "user_id", "name", "email", "chapter_id", "chapter_name");
         if (hideContactInfo) sponsor.remove("email");
 
         List<User> mapped = new ArrayList<>(userRepository.findGranteesOf(sponsorId).stream()
@@ -394,7 +396,7 @@ public class AdminService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sponsor", sponsor);
-        result.put("mappedStudents", Rows.pickAll(mapped, "id", "user_id", "name", "email", "phone", "region"));
+        result.put("mappedStudents", Rows.pickAll(mapped, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name"));
         result.put("availableStudents", userRepository.findStudentsAvailableFor(sponsorId));
         return result;
     }
@@ -431,7 +433,8 @@ public class AdminService {
         profile.put("email", user.getEmail());
         profile.put("phone", user.getPhone());
         profile.put("status", user.getStatus());
-        profile.put("region", user.getRegion());
+        profile.put("chapter_id", user.getChapterId());
+        profile.put("chapter_name", user.getChapterName());
         profile.put("year", user.getYear());
         profile.putAll(gd != null ? Rows.of(gd) : Rows.empty(GranteeDetails.class));
         profile.put("id", user.getId());
@@ -468,12 +471,13 @@ public class AdminService {
             if (data.get("name") != null) { user.setName(str(data.get("name"))); changed = true; }
             if (data.get("email") != null) { user.setEmail(str(data.get("email"))); changed = true; }
             if (data.get("phone") != null) { user.setPhone(str(data.get("phone"))); changed = true; }
-            if (data.get("region") != null) { user.setRegion(str(data.get("region"))); changed = true; }
+            if (data.containsKey("chapterId")) { user.setChapterId(requireChapter(chapterRepository, data.get("chapterId"))); changed = true; }
             if (data.get("status") != null) { user.setStatus(str(data.get("status"))); changed = true; }
             if (changed) userRepository.save(user);
         });
 
         updateFamilyDetails(userId, data);
+        if (data.containsKey("sponsorId")) updateSponsor(userId, requireSponsor(data.get("sponsorId")));
 
         if (data.get("accountNumber") != null) {
             saveBankDetails(userId, str(data.get("bankName")), str(data.get("accountNumber")),
@@ -485,8 +489,9 @@ public class AdminService {
         }
     }
 
+    /** Fields kept on the student's application row (grantee_details): family details and the RCC center. */
     private static final List<String> FAMILY_FIELDS = List.of("fatherName", "motherName", "fatherProfession",
-            "motherProfession", "fatherMobile", "motherMobile", "averageAnnualSalary", "address");
+            "motherProfession", "fatherMobile", "motherMobile", "averageAnnualSalary", "address", "rccName");
 
     /**
      * Family details live on the student's application row (grantee_details). Students added without an
@@ -494,15 +499,7 @@ public class AdminService {
      */
     private void updateFamilyDetails(Long userId, Map<String, Object> data) {
         if (FAMILY_FIELDS.stream().noneMatch(data::containsKey)) return;
-        BigDecimal income = null;
-        if (!isBlank(data.get("averageAnnualSalary"))) {
-            try {
-                income = new BigDecimal(String.valueOf(data.get("averageAnnualSalary")).trim());
-            } catch (NumberFormatException e) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Average annual family income must be a number.");
-            }
-            if (income.signum() < 0) throw new ApiException(HttpStatus.BAD_REQUEST, "Average annual family income cannot be negative.");
-        }
+        BigDecimal income = parseIncome(data.get("averageAnnualSalary"));
 
         List<GranteeDetails> rows = new ArrayList<>(granteeDetailsRepository.findByUserId(userId));
         if (rows.isEmpty()) {
@@ -523,7 +520,40 @@ public class AdminService {
             if (data.containsKey("motherMobile")) gd.setMotherMobile(trimToNull(str(data.get("motherMobile"))));
             if (data.containsKey("averageAnnualSalary")) gd.setAverageAnnualSalary(income);
             if (data.containsKey("address")) gd.setAddress(trimToNull(str(data.get("address"))));
+            if (data.containsKey("rccName")) gd.setRccName(trimToNull(str(data.get("rccName"))));
             granteeDetailsRepository.save(gd);
+        }
+    }
+
+    /** Average annual family income: null when blank, 400 when not a non-negative number. */
+    private static BigDecimal parseIncome(Object value) {
+        if (isBlank(value)) return null;
+        BigDecimal income;
+        try {
+            income = new BigDecimal(String.valueOf(value).trim());
+        } catch (NumberFormatException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Average annual family income must be a number.");
+        }
+        if (income.signum() < 0) throw new ApiException(HttpStatus.BAD_REQUEST, "Average annual family income cannot be negative.");
+        return income;
+    }
+
+    /** The sponsor's users.id from a dropdown (null when none was chosen); 400 when it isn't a sponsor. */
+    private Long requireSponsor(Object value) {
+        Long sponsorId = toLong(value);
+        if (sponsorId == null) return null;
+        return userRepository.findById(sponsorId)
+                .filter(s -> SPONSOR_ROLES.contains(s.getRoleId()))
+                .map(User::getId)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "The selected sponsor does not exist."));
+    }
+
+    /** Maps the student to the sponsor, or removes the mapping when sponsorId is null. */
+    private void updateSponsor(Long studentId, Long sponsorId) {
+        if (sponsorId == null) {
+            grantorGranteeRepository.deleteByGranteeId(studentId);
+        } else {
+            sponsorMappingService.map(studentId, sponsorId, "Accepted", false);
         }
     }
 
@@ -660,7 +690,10 @@ public class AdminService {
                     String name = Objects.requireNonNullElse(r.get("sponsorname"), "");
                     String email = r.get("sponsoremail");
                     String mobile1 = r.get("sponsormobile1");
-                    String chapter = Objects.requireNonNullElse(r.get("sponsorchapter"), "General");
+                    // "Sponsor Chapter" is matched to a chapter by name; an unknown name leaves the sponsor without one.
+                    String chapterName = r.get("sponsorchapter");
+                    Long chapterId = chapterName == null ? null
+                            : chapterRepository.findByChapterNameIgnoreCase(chapterName.trim()).map(Chapter::getChapterId).orElse(null);
                     reference = !name.isEmpty() ? name : email != null ? email : mobile1;
                     if (name.isEmpty() && email == null && mobile1 == null) {
                         report.skipped(rowNumber, null, "Empty row (no name, email or mobile).");
@@ -670,7 +703,7 @@ public class AdminService {
                     Optional<User> existing = Optional.empty();
                     if (email != null) existing = userRepository.findFirstByEmailAndRoleIdIn(email, SPONSOR_ROLES);
                     if (existing.isEmpty() && mobile1 != null) existing = userRepository.findFirstByPhoneAndRoleIdIn(mobile1, SPONSOR_ROLES);
-                    if (existing.isEmpty() && !name.isEmpty()) existing = userRepository.findFirstByNameAndRegionAndRoleIdIn(name, chapter, SPONSOR_ROLES);
+                    if (existing.isEmpty() && !name.isEmpty()) existing = userRepository.findFirstByNameAndChapterIdAndRoleIdIn(name, chapterId, SPONSOR_ROLES);
 
                     Long sponsorId;
                     if (existing.isPresent()) {
@@ -688,7 +721,10 @@ public class AdminService {
                         sponsor.setSex("M");
                         sponsor.setRoleId(5);
                         sponsor.setStatus("active");
-                        sponsor.setRegion(chapter);
+                        sponsor.setChapterId(chapterId);
+                        if (chapterName != null && chapterId == null) {
+                            report.warning(rowNumber, reference, "Chapter '" + chapterName + "' does not exist, so the sponsor has no chapter.");
+                        }
                         sponsor.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
                         sponsor.setMustChangePassword(true);
                         sponsorId = userRepository.save(sponsor).getId();
@@ -735,16 +771,9 @@ public class AdminService {
         String name = String.valueOf(body.get("name"));
         String email = body.get("email") != null ? String.valueOf(body.get("email")) : uId + "@rahbar.com";
 
-        // Check the optional sponsor (typed as its user code) first so a bad code doesn't leave a half-saved student.
-        String sponsorCode = isBlank(body.get("sponsorId")) ? null : String.valueOf(body.get("sponsorId")).trim();
-        Long sponsorId = null;
-        if (sponsorCode != null) {
-            sponsorId = userRepository.findByUserId(sponsorCode)
-                    .filter(s -> SPONSOR_ROLES.contains(s.getRoleId()))
-                    .map(User::getId)
-                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST,
-                            "No sponsor with user ID '" + sponsorCode + "' exists. Student " + uId + " was not saved."));
-        }
+        // Check the optional sponsor (users.id from the dropdown) and income first so bad input doesn't leave a half-saved student.
+        Long sponsorId = requireSponsor(body.get("sponsorId"));
+        BigDecimal income = parseIncome(body.get("salary"));
 
         User user = userRepository.findByUserId(uId).orElseGet(() -> {
             User n = newStudent(uId);
@@ -755,6 +784,7 @@ public class AdminService {
         user.setEmail(email);
         user.setPhone(str(body.get("phone")));
         user.setYear(toInteger(body.get("year")));
+        user.setChapterId(requireChapter(chapterRepository, body.get("chapterId"))); // optional
         Long id = userRepository.save(user).getId();
 
         GranteeDetails gd = granteeDetailsRepository.findFirstByUserIdOrderByGranteeDetailIdAsc(id).orElse(null);
@@ -768,9 +798,13 @@ public class AdminService {
         }
         gd.setFatherName(str(body.get("fatherName")));
         gd.setMotherName(str(body.get("motherName")));
+        gd.setFatherProfession(trimToNull(str(body.get("fatherProfession"))));
+        gd.setMotherProfession(trimToNull(str(body.get("motherProfession"))));
+        gd.setAverageAnnualSalary(income);
+        if (!isBlank(body.get("alumnus"))) gd.setRahbarAlumnus(str(body.get("alumnus")));
         gd.setAddress(str(body.get("address")));
         gd.setCourseApplied(str(body.get("courseName")));
-        gd.setRccName(str(body.get("rccName")));
+        gd.setRccName(trimToNull(str(body.get("rccName")))); // RCC center (optional)
         granteeDetailsRepository.save(gd);
 
         // Bank details (Flask: only when a bank name is given; account name = student name)
@@ -790,7 +824,7 @@ public class AdminService {
 
     public Map<String, Object> sponsorDetails(Long userId) {
         Map<String, Object> profile = Rows.pick(requireUser(userRepository, userId, "Sponsor not found"),
-                "id", "user_id", "name", "email", "phone", "region", "status");
+                "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name", "status");
         List<User> students = new ArrayList<>(userRepository.findGranteesOf(userId));
         students.sort(Comparator.comparing(User::getName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
         return Map.of("profile", profile,
@@ -802,7 +836,7 @@ public class AdminService {
         if (data.get("name") != null) user.setName(str(data.get("name")));
         if (data.get("email") != null) user.setEmail(str(data.get("email")));
         if (data.get("phone") != null) user.setPhone(str(data.get("phone")));
-        if (data.get("region") != null) user.setRegion(str(data.get("region")));
+        if (data.containsKey("chapterId")) user.setChapterId(requireChapter(chapterRepository, data.get("chapterId")));
         userRepository.save(user);
     }
 

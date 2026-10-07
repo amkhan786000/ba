@@ -41,8 +41,13 @@ public class User extends Modifiable {
     @Column(name = "status")
     private String status = "Active";
 
-    @Column(name = "region")
-    private String region = "Jeddah";
+    /** The user's chapter (chapters.chapter_id); optional. */
+    @Column(name = "chapter_id")
+    private Long chapterId;
+
+    /** Name of the chapter, read with the user (not stored on users). */
+    @org.hibernate.annotations.Formula("(select c.chapter_name from chapters c where c.chapter_id = chapter_id)")
+    private String chapterName;
 
     @Column(name = "year")
     private Integer year;

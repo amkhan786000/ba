@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
+import { ChapterService } from '../core/services/chapter.service';
+import { Chapter } from './admin-chapters.component';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { BulkReport, BulkReportComponent } from '../shared/bulk-report.component';
 import { PagerComponent, pageOf } from '../shared/pager/pager.component';
@@ -13,7 +15,8 @@ interface SponsorRow {
   name: string;
   email: string | null;
   phone: string | null;
-  region: string | null;
+  chapter_id: number | null;
+  chapter_name: string | null;
   role_name: string;
   student_count: number;
 }
@@ -73,7 +76,7 @@ interface SponsorStudent {
                       <span><i class="mdi mdi-email-outline"></i> {{ s.email || '-' }}</span><br>
                       <span><i class="mdi mdi-phone"></i> {{ s.phone || '-' }}</span>
                     </td>
-                    <td>{{ s.region }}</td>
+                    <td>{{ s.chapter_name }}</td>
                     <td>
                       <div class="btn-group">
                         <button *ngIf="!limited" class="btn btn-sm btn-info" (click)="openEdit(s.id)"><i class="mdi mdi-pencil"></i> Edit Profile</button>
@@ -138,7 +141,12 @@ interface SponsorStudent {
               <div class="col-md-6 form-group"><label>Full Name</label><input type="text" class="form-control" [(ngModel)]="edit.name"></div>
               <div class="col-md-6 form-group"><label>Email Address</label><input type="email" class="form-control" [(ngModel)]="edit.email"></div>
               <div class="col-md-6 form-group"><label>Phone (Mobile 1)</label><input type="text" class="form-control" [(ngModel)]="edit.phone"></div>
-              <div class="col-md-6 form-group"><label>Chapter</label><input type="text" class="form-control" [(ngModel)]="edit.region"></div>
+              <div class="col-md-6 form-group"><label>Chapter</label>
+                <select class="form-control" [(ngModel)]="edit.chapterId">
+                  <option [ngValue]="null">No chapter</option>
+                  <option *ngFor="let c of chapterOptions(edit.chapterId)" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
+                </select>
+              </div>
             </div>
             <h5 class="text-primary border-bottom pb-2 mt-4"><i class="mdi mdi-account-multiple"></i> Assigned Students</h5>
             <div class="table-responsive">
@@ -195,14 +203,23 @@ export class AdminSponsorshipsComponent implements OnInit {
   file: File | null = null;
   uploading = false;
 
-  edit: { id: number; name: string; email: string; phone: string; region: string } | null = null;
+  edit: { id: number; name: string; email: string; phone: string; chapterId: number | null } | null = null;
+  chapters: Chapter[] = [];
   editName = '';
   students: SponsorStudent[] = [];
   saving = false;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService) {}
 
-  ngOnInit(): void { this.load(); }
+  /** Active chapters, plus the given one when it is inactive. */
+  chapterOptions(currentId: number | null | undefined): Chapter[] {
+    return ChapterService.options(this.chapters, currentId);
+  }
+
+  ngOnInit(): void {
+    this.load();
+    if (!this.limited) this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
+  }
 
   load(): void {
     this.api.get<SponsorRow[]>('/admin/sponsorships').subscribe({
@@ -216,7 +233,7 @@ export class AdminSponsorshipsComponent implements OnInit {
     const f = this.search.trim().toLowerCase();
     if (!f) return this.sponsors;
     return this.sponsors.filter((s) =>
-      [s.name, s.user_id, s.email, s.phone, s.region].some((v) => (v ?? '').toLowerCase().includes(f)));
+      [s.name, s.user_id, s.email, s.phone, s.chapter_name].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
   get rows(): SponsorRow[] { return pageOf(this.filtered, this.page, this.pageSize); }
 
@@ -251,7 +268,7 @@ export class AdminSponsorshipsComponent implements OnInit {
       next: (res) => {
         const p = res.profile;
         this.editName = p['name'] ?? '';
-        this.edit = { id, name: p['name'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', region: p['region'] ?? '' };
+        this.edit = { id, name: p['name'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', chapterId: p['chapter_id'] === null || p['chapter_id'] === undefined ? null : Number(p['chapter_id']) };
         this.students = res.students ?? [];
       },
       error: (e) => (this.error = errorText(e, 'Could not load sponsor details.'))

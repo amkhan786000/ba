@@ -14,13 +14,14 @@ import java.util.*;
 
 import static com.rahbar.service.ServiceSupport.*;
 
-/** Convenor (role 4) screens. A convenor works on the students and sponsors of their own region. */
+/** Convenor (role 4) screens. A convenor works on the students and sponsors of their own chapter. */
 @Service
 public class ConvenorService {
 
-    private static final String REGION_NOT_SET = "Your region is not set. Please update your profile.";
+    private static final String CHAPTER_NOT_SET = "Your chapter is not set. Please update your profile.";
 
     private final UserRepository userRepository;
+    private final ChapterRepository chapterRepository;
     private final GranteeDetailsRepository granteeDetailsRepository;
     private final GrantorGranteeRepository grantorGranteeRepository;
     private final ApplicationStatusRepository applicationStatusRepository;
@@ -33,7 +34,8 @@ public class ConvenorService {
     private final NotificationService notificationService;
     private final ApplicationService applicationService;
 
-    public ConvenorService(UserRepository userRepository, GranteeDetailsRepository granteeDetailsRepository,
+    public ConvenorService(UserRepository userRepository, ChapterRepository chapterRepository,
+                           GranteeDetailsRepository granteeDetailsRepository,
                            GrantorGranteeRepository grantorGranteeRepository,
                            ApplicationStatusRepository applicationStatusRepository,
                            PaymentRepository paymentRepository, BankDetailsRepository bankDetailsRepository,
@@ -42,6 +44,7 @@ public class ConvenorService {
                            FileStorageService fileStorageService, SponsorMappingService sponsorMappingService,
                            NotificationService notificationService, ApplicationService applicationService) {
         this.userRepository = userRepository;
+        this.chapterRepository = chapterRepository;
         this.granteeDetailsRepository = granteeDetailsRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
         this.applicationStatusRepository = applicationStatusRepository;
@@ -59,18 +62,17 @@ public class ConvenorService {
         return requireUser(userRepository, convenorId, "User not found");
     }
 
-    /** The convenor's region; 400 when it isn't set. */
-    private String requireRegion(User convenor) {
-        String region = convenor.getRegion();
-        if (region == null || region.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, REGION_NOT_SET);
-        return region;
+    /** The convenor's chapter id; 400 when it isn't set. */
+    private Long requireChapter(User convenor) {
+        if (convenor.getChapterId() == null) throw new ApiException(HttpStatus.BAD_REQUEST, CHAPTER_NOT_SET);
+        return convenor.getChapterId();
     }
 
     public Map<String, Object> dashboard(Long convenorId) {
         User convenor = convenor(convenorId);
-        String region = requireRegion(convenor);
+        Long chapterId = requireChapter(convenor);
 
-        List<Object[]> applicationRows = granteeDetailsRepository.findWithApplicantNameByRegion(region);
+        List<Object[]> applicationRows = granteeDetailsRepository.findWithApplicantNameByChapter(chapterId);
         List<GrantorGrantee> grantorGrantee = grantorGranteeRepository.findByGrantorId(convenorId);
 
         // Each student is "paid" if they have a payment within the last year.
@@ -85,14 +87,14 @@ public class ConvenorService {
             });
         }
 
-        // Chart data: latest application status of the region's applications, and sponsors per region.
+        // Chart data: latest application status of the chapter's applications, and sponsors per chapter.
         Map<Long, ApplicationStatus> latest = latestByApplication(applicationStatusRepository.findLatestPerApplication());
         List<GranteeDetails> applications = applicationRows.stream().map(r -> (GranteeDetails) r[0]).toList();
         List<Map<String, Object>> byStatus = countBy(applications, gd -> {
             ApplicationStatus s = latest.get(gd.getGranteeDetailId());
             return s == null || s.getStatus() == null ? "no status" : s.getStatus();
         });
-        List<Map<String, Object>> byRegion = countBy(userRepository.findByRoleId(5), u -> regionLabel(u.getRegion()));
+        List<Map<String, Object>> byRegion = countBy(userRepository.findByRoleId(5), u -> chapterLabel(u.getChapterName()));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("convenor", Rows.of(convenor));
@@ -100,7 +102,7 @@ public class ConvenorService {
         result.put("grantees", grantees);
         result.put("applicationsByStatus", byStatus);
         result.put("sponsorsByRegion", byRegion);
-        result.put("sponsors", Rows.list(userRepository.findSponsorsWithApplicantsInRegion(region)));
+        result.put("sponsors", Rows.list(userRepository.findSponsorsWithApplicantsInChapter(chapterId)));
         result.put("grantorGrantee", Rows.list(grantorGrantee));
         return result;
     }
@@ -115,16 +117,16 @@ public class ConvenorService {
         return result;
     }
 
-    /** Applications of the convenor's region, sorted by application_id, applicant_name, status or date_submitted. */
+    /** Applications of the convenor's chapter, sorted by application_id, applicant_name, status or date_submitted. */
     public List<Map<String, Object>> applications(Long convenorId, String sortBy, String order) {
-        String region = requireRegion(convenor(convenorId));
+        Long chapterId = requireChapter(convenor(convenorId));
         String column = switch (sortBy == null ? "" : sortBy) {
             case "applicant_name" -> "applicant_name";
             case "status" -> "status";
             case "date_submitted" -> "created_at";
             default -> "grantee_detail_id";
         };
-        List<Map<String, Object>> rows = new ArrayList<>(withApplicantName(granteeDetailsRepository.findWithApplicantNameByRegion(region)));
+        List<Map<String, Object>> rows = new ArrayList<>(withApplicantName(granteeDetailsRepository.findWithApplicantNameByChapter(chapterId)));
         rows.sort(byColumn(column, "desc".equalsIgnoreCase(order)));
         return rows;
     }
@@ -135,9 +137,9 @@ public class ConvenorService {
     }
 
     public Map<String, Object> manageSponsors(Long convenorId, String sortBy, String order) {
-        String region = requireRegion(convenor(convenorId));
+        Long chapterId = requireChapter(convenor(convenorId));
         String column = List.of("user_id", "name", "email", "status").contains(sortBy) ? sortBy : "user_id";
-        List<Map<String, Object>> sponsors = new ArrayList<>(Rows.list(userRepository.findByRoleIdAndRegion(5, region)));
+        List<Map<String, Object>> sponsors = new ArrayList<>(Rows.list(userRepository.findByRoleIdAndChapterId(5, chapterId)));
         sponsors.sort(byColumn(column, "desc".equalsIgnoreCase(order)));
         Long unassigned = unassignedGrantorId(userRepository);
         return Map.of("sponsors", sponsors,
@@ -176,12 +178,12 @@ public class ConvenorService {
 
     public List<Map<String, Object>> studentProgress(Long convenorId, String granteeName, Double minMarks, Double maxMarks,
                                                      String startDate, String endDate, String sortBy) {
-        String region = convenor(convenorId).getRegion();
+        Long chapterId = convenor(convenorId).getChapterId();
         LocalDateTime from = parseDateTime(startDate);
         LocalDateTime to = parseDateTime(endDate);
 
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (Object[] r : studentProgressRepository.findWithGranteeNameByRegion(region)) {
+        for (Object[] r : studentProgressRepository.findWithGranteeNameByChapter(chapterId)) {
             StudentProgress sp = (StudentProgress) r[0];
             String name = (String) r[1];
             Double marks = marks(sp.getMarks());
@@ -202,9 +204,9 @@ public class ConvenorService {
         return rows; // already newest first
     }
 
-    public void updateRegion(Long convenorId, String region) {
+    public void updateChapter(Long convenorId, Object chapterId) {
         User user = convenor(convenorId);
-        user.setRegion(region);
+        user.setChapterId(ServiceSupport.requireChapter(chapterRepository, chapterId));
         userRepository.save(user);
     }
 
