@@ -473,15 +473,7 @@ public class AdminService {
             if (changed) userRepository.save(user);
         });
 
-        for (GranteeDetails gd : granteeDetailsRepository.findByUserId(userId)) {
-            boolean changed = false;
-            if (data.get("fatherName") != null) { gd.setFatherName(str(data.get("fatherName"))); changed = true; }
-            if (data.get("motherName") != null) { gd.setMotherName(str(data.get("motherName"))); changed = true; }
-            if (data.get("address") != null) { gd.setAddress(str(data.get("address"))); changed = true; }
-            if (data.get("fatherMobile") != null) { gd.setFatherMobile(str(data.get("fatherMobile"))); changed = true; }
-            if (data.get("motherMobile") != null) { gd.setMotherMobile(str(data.get("motherMobile"))); changed = true; }
-            if (changed) granteeDetailsRepository.save(gd);
-        }
+        updateFamilyDetails(userId, data);
 
         if (data.get("accountNumber") != null) {
             saveBankDetails(userId, str(data.get("bankName")), str(data.get("accountNumber")),
@@ -490,6 +482,48 @@ public class AdminService {
 
         if (data.get("institutionId") != null && data.get("courseId") != null) {
             saveStudentCourse(userId, str(data.get("institutionId")), toLong(data.get("courseId")));
+        }
+    }
+
+    private static final List<String> FAMILY_FIELDS = List.of("fatherName", "motherName", "fatherProfession",
+            "motherProfession", "fatherMobile", "motherMobile", "averageAnnualSalary", "address");
+
+    /**
+     * Family details live on the student's application row (grantee_details). Students added without an
+     * application (e.g. Add User) get one created the first time family details are entered.
+     */
+    private void updateFamilyDetails(Long userId, Map<String, Object> data) {
+        if (FAMILY_FIELDS.stream().noneMatch(data::containsKey)) return;
+        BigDecimal income = null;
+        if (!isBlank(data.get("averageAnnualSalary"))) {
+            try {
+                income = new BigDecimal(String.valueOf(data.get("averageAnnualSalary")).trim());
+            } catch (NumberFormatException e) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Average annual family income must be a number.");
+            }
+            if (income.signum() < 0) throw new ApiException(HttpStatus.BAD_REQUEST, "Average annual family income cannot be negative.");
+        }
+
+        List<GranteeDetails> rows = new ArrayList<>(granteeDetailsRepository.findByUserId(userId));
+        if (rows.isEmpty()) {
+            if (FAMILY_FIELDS.stream().allMatch(f -> isBlank(data.get(f)))) return; // nothing to store yet
+            User user = requireUser(userRepository, userId, "Student not found");
+            GranteeDetails gd = new GranteeDetails();
+            gd.setUserId(userId);
+            gd.setName(user.getName());
+            gd.setStudentMobile(user.getPhone());
+            rows.add(gd);
+        }
+        for (GranteeDetails gd : rows) {
+            if (data.containsKey("fatherName")) gd.setFatherName(trimToNull(str(data.get("fatherName"))));
+            if (data.containsKey("motherName")) gd.setMotherName(trimToNull(str(data.get("motherName"))));
+            if (data.containsKey("fatherProfession")) gd.setFatherProfession(trimToNull(str(data.get("fatherProfession"))));
+            if (data.containsKey("motherProfession")) gd.setMotherProfession(trimToNull(str(data.get("motherProfession"))));
+            if (data.containsKey("fatherMobile")) gd.setFatherMobile(trimToNull(str(data.get("fatherMobile"))));
+            if (data.containsKey("motherMobile")) gd.setMotherMobile(trimToNull(str(data.get("motherMobile"))));
+            if (data.containsKey("averageAnnualSalary")) gd.setAverageAnnualSalary(income);
+            if (data.containsKey("address")) gd.setAddress(trimToNull(str(data.get("address"))));
+            granteeDetailsRepository.save(gd);
         }
     }
 
@@ -814,6 +848,11 @@ public class AdminService {
     }
 
     // ------------------------------------------------------------------- helpers
+
+    /** Trimmed text, or null when blank (unlike blankToNull, keeps values such as "None"). */
+    private static String trimToNull(String v) {
+        return v == null || v.isBlank() ? null : v.trim();
+    }
 
     private static String blankToNull(String v) {
         if (v == null) return null;

@@ -116,10 +116,19 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
                     <option *ngFor="let r of regionOptions(edit.region)" [value]="r">{{ r }}</option>
                   </select>
                 </div>
-                <div class="col-md-6 form-group"><label>Father Name</label><input type="text" class="form-control" [(ngModel)]="edit.fatherName" [disabled]="!editing"></div>
-                <div class="col-md-6 form-group"><label>Mother Name</label><input type="text" class="form-control" [(ngModel)]="edit.motherName" [disabled]="!editing"></div>
-                <div class="col-12 form-group"><label>Address</label><textarea class="form-control" rows="2" [(ngModel)]="edit.address" [disabled]="!editing"></textarea></div>
               </div>
+            </div>
+
+            <!-- Family -->
+            <div *ngIf="tab === 'family'" class="row">
+              <div class="col-md-6 form-group"><label>Father Name</label><input type="text" class="form-control" [(ngModel)]="edit.fatherName" [disabled]="!editing"></div>
+              <div class="col-md-6 form-group"><label>Mother Name</label><input type="text" class="form-control" [(ngModel)]="edit.motherName" [disabled]="!editing"></div>
+              <div class="col-md-6 form-group"><label>Father Profession</label><input type="text" class="form-control" [(ngModel)]="edit.fatherProfession" [disabled]="!editing"></div>
+              <div class="col-md-6 form-group"><label>Mother Profession</label><input type="text" class="form-control" [(ngModel)]="edit.motherProfession" [disabled]="!editing"></div>
+              <div class="col-md-6 form-group"><label>Father Mobile</label><input type="text" class="form-control" [(ngModel)]="edit.fatherMobile" [disabled]="!editing"></div>
+              <div class="col-md-6 form-group"><label>Mother Mobile</label><input type="text" class="form-control" [(ngModel)]="edit.motherMobile" [disabled]="!editing"></div>
+              <div class="col-md-6 form-group"><label>Average Annual Family Income</label><input type="number" min="0" class="form-control" [(ngModel)]="edit.averageAnnualSalary" [disabled]="!editing"></div>
+              <div class="col-12 form-group"><label>Address</label><textarea class="form-control" rows="2" [(ngModel)]="edit.address" [disabled]="!editing"></textarea></div>
             </div>
 
             <!-- Academic -->
@@ -332,7 +341,7 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
 export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   readonly regions = REGIONS;
   readonly tabs = [
-    { id: 'profile', label: 'Personal' }, { id: 'course', label: 'Academic' }, { id: 'bank', label: 'Bank Details' },
+    { id: 'profile', label: 'Personal' }, { id: 'family', label: 'Family' }, { id: 'course', label: 'Academic' }, { id: 'bank', label: 'Bank Details' },
     { id: 'payment', label: 'Payment Schedule' }, { id: 'docs', label: 'Docs' }
   ];
 
@@ -423,6 +432,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
         this.edit = {
           name: s(p['name']), email: s(p['email']), phone: s(p['phone']), region: s(p['region']),
           fatherName: s(p['father_name']), motherName: s(p['mother_name']), address: s(p['address']),
+          fatherProfession: s(p['father_profession']), motherProfession: s(p['mother_profession']),
+          fatherMobile: s(p['father_mobile']), motherMobile: s(p['mother_mobile']), averageAnnualSalary: s(p['average_annual_salary']),
           institutionId: s(c['institution_id']), courseId: s(c['course_id']),
           accountName: s(b['account_name']), bankName: s(b['bank_name']), accountNumber: s(b['account_number']), ifscCode: s(b['ifsc_code'])
         };
@@ -460,6 +471,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     const body: Record<string, unknown> = {
       name: e['name'], email: e['email'], phone: e['phone'], region: e['region'],
       fatherName: e['fatherName'], motherName: e['motherName'], address: e['address'],
+      fatherProfession: e['fatherProfession'], motherProfession: e['motherProfession'],
+      fatherMobile: e['fatherMobile'], motherMobile: e['motherMobile'], averageAnnualSalary: e['averageAnnualSalary'],
       accountNumber: e['accountNumber'], bankName: e['bankName'], ifscCode: e['ifscCode'], accountName: e['accountName']
     };
     if (e['institutionId'] && e['courseId']) { body['institutionId'] = e['institutionId']; body['courseId'] = e['courseId']; }
