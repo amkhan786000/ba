@@ -27,6 +27,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final EmailService emailService;
     private final ActivityLogService activityLogService;
+    private final NotificationService notificationService;
     private final com.rahbar.security.RahbarUserDetailsService userDetailsService;
 
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -39,6 +40,7 @@ public class AuthService {
     public AuthService(UserRepository userRepository, OtpRepository otpRepository,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
                        EmailService emailService, ActivityLogService activityLogService,
+                       NotificationService notificationService,
                        com.rahbar.security.RahbarUserDetailsService userDetailsService) {
         this.userRepository = userRepository;
         this.otpRepository = otpRepository;
@@ -46,6 +48,7 @@ public class AuthService {
         this.jwtService = jwtService;
         this.emailService = emailService;
         this.activityLogService = activityLogService;
+        this.notificationService = notificationService;
         this.userDetailsService = userDetailsService;
     }
 
@@ -171,6 +174,10 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         user.setMustChangePassword(false);
         userRepository.save(user);
+        // Same notice as a password change from the profile: in-app notification plus email.
+        notificationService.notify(user.getId(), "Password changed",
+                "Your Rahbar password was reset using \"Forgot password\". If this wasn't you, contact the administrator straight away.",
+                NotificationService.ACCOUNT, null, true);
     }
 
     /** The user a bearer token belongs to. */
