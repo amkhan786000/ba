@@ -23,10 +23,10 @@ public class Chapter extends Modifiable {
     @Column(name = "lead_name", length = 100)
     private String leadName;
 
-    @Column(name = "lead_phone", length = 30)
+    @Column(name = "lead_phone", length = 100)
     private String leadPhone;
 
-    @Column(name = "lead_email", length = 150)
+    @Column(name = "lead_email", length = 255)
     private String leadEmail;
 
     /** Inactive chapters stay on existing users but are no longer offered in the chapter dropdowns. */

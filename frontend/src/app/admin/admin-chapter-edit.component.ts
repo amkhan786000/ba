@@ -35,11 +35,11 @@ import { Chapter } from './admin-chapters.component';
               <div class="row">
                 <div class="col-md-6 form-group">
                   <label for="lead_phone">Lead Phone</label>
-                  <input type="tel" class="form-control" id="lead_phone" name="leadPhone" maxlength="30" [(ngModel)]="chapter.leadPhone" />
+                  <input type="tel" class="form-control" id="lead_phone" name="leadPhone" maxlength="100" [(ngModel)]="chapter.leadPhone" />
                 </div>
                 <div class="col-md-6 form-group">
                   <label for="lead_email">Lead Email</label>
-                  <input type="email" class="form-control" id="lead_email" name="leadEmail" maxlength="150" email [(ngModel)]="chapter.leadEmail" />
+                  <input type="email" class="form-control" id="lead_email" name="leadEmail" maxlength="255" email [(ngModel)]="chapter.leadEmail" />
                 </div>
               </div>
               <div class="form-group">

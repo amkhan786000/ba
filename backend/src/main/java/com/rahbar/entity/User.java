@@ -22,7 +22,7 @@ public class User extends Modifiable {
     @Column(name = "name", nullable = false)
     private String name;
 
-    @Column(name = "email", nullable = false, unique = true)
+    @Column(name = "email", unique = true)
     private String email;
 
     @Column(name = "sex", nullable = false)
@@ -32,7 +32,7 @@ public class User extends Modifiable {
     @Column(name = "password_hash", nullable = false)
     private String passwordHash;
 
-    @Column(name = "phone", nullable = false, unique = true)
+    @Column(name = "phone",  unique = true)
     private String phone;
 
     @Column(name = "role_id", nullable = false)

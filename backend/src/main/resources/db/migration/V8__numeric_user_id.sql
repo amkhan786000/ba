@@ -73,14 +73,36 @@ BEGIN
   END IF;
 END //
 
--- Adds a FOREIGN KEY to users(id) on a BIGINT column that does not have one yet.
-CREATE PROCEDURE rahbar_v8_fk(IN tbl VARCHAR(64), IN col VARCHAR(64))
+-- Adds a FOREIGN KEY to users(id) on a BIGINT column that does not have one yet. Values that point at no user
+-- (e.g. rows imported without their user) are first copied into orphans_<table>_<column>, then removed or cleared
+-- like in rahbar_v8_ref, so the key can always be added.
+CREATE PROCEDURE rahbar_v8_fk(IN tbl VARCHAR(64), IN col VARCHAR(64), IN orphan_action VARCHAR(10))
 BEGIN
-  IF EXISTS (SELECT 1 FROM information_schema.columns
-             WHERE table_schema = DATABASE() AND table_name = tbl AND column_name = col AND data_type = 'bigint')
+  DECLARE nullable VARCHAR(3);
+  DECLARE orphan_where TEXT;
+  SELECT is_nullable INTO nullable FROM information_schema.columns
+   WHERE table_schema = DATABASE() AND table_name = tbl AND column_name = col AND data_type = 'bigint' LIMIT 1;
+
+  IF nullable IS NOT NULL
      AND NOT EXISTS (SELECT 1 FROM information_schema.key_column_usage
                      WHERE table_schema = DATABASE() AND table_name = tbl AND column_name = col
                        AND referenced_table_name = 'users') THEN
+    SET orphan_where = CONCAT('t.`', col, '` IS NOT NULL AND NOT EXISTS (SELECT 1 FROM users u WHERE u.id = t.`', col, '`)');
+    SET @n = 0;
+    SET @ddl = CONCAT('SELECT COUNT(*) INTO @n FROM `', tbl, '` t WHERE ', orphan_where);
+    PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+    IF @n > 0 THEN
+      SET @ddl = CONCAT('CREATE TABLE IF NOT EXISTS `', LEFT(CONCAT('orphans_', tbl, '_', col), 64),
+                        '` AS SELECT t.* FROM `', tbl, '` t WHERE ', orphan_where);
+      PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+      IF orphan_action = 'delete' OR nullable = 'NO' THEN
+        SET @ddl = CONCAT('DELETE t FROM `', tbl, '` t WHERE ', orphan_where);
+      ELSE
+        SET @ddl = CONCAT('UPDATE `', tbl, '` t SET t.`', col, '` = NULL WHERE ', orphan_where);
+      END IF;
+      PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+    END IF;
+
     SET @ddl = CONCAT('ALTER TABLE `', tbl, '` ADD CONSTRAINT `', LEFT(CONCAT('fk_', tbl, '_', col), 64),
                       '` FOREIGN KEY (`', col, '`) REFERENCES users(id)');
     PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
@@ -92,8 +114,9 @@ BEGIN
   DECLARE done INT DEFAULT 0;
   DECLARE t_name VARCHAR(64);
   DECLARE c_name VARCHAR(64);
+  DECLARE a_name VARCHAR(10);
   DECLARE audit_cols CURSOR FOR SELECT tbl, col FROM rahbar_v8_audit_cols;
-  DECLARE fk_cols CURSOR FOR SELECT tbl, col FROM rahbar_v8_fk_cols;
+  DECLARE fk_cols CURSOR FOR SELECT tbl, col, action FROM rahbar_v8_fk_cols;
   DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
 
   -- Only while users.user_id is still the primary key: makes re-running harmless.
@@ -155,7 +178,7 @@ BEGIN
     CREATE TEMPORARY TABLE rahbar_v8_audit_cols AS
       SELECT table_name AS tbl, column_name AS col FROM information_schema.columns
        WHERE table_schema = DATABASE() AND column_name IN ('created_by', 'updated_by')
-         AND data_type IN ('varchar', 'char') AND table_name NOT LIKE 'orphans\_%';
+         AND data_type IN ('varchar', 'char') AND table_name NOT LIKE 'orphans\_%' AND table_name <> 'flyway_schema_history';
     OPEN audit_cols;
     audit_loop: LOOP
       FETCH audit_cols INTO t_name, c_name;
@@ -169,25 +192,25 @@ BEGIN
   -- 4. Foreign keys to users(id). Also runs on a database the new backend created itself (fresh install),
   --    where the columns are already BIGINT; columns that already have one are skipped.
   DROP TEMPORARY TABLE IF EXISTS rahbar_v8_fk_cols;
-  CREATE TEMPORARY TABLE rahbar_v8_fk_cols (tbl VARCHAR(64), col VARCHAR(64));
+  CREATE TEMPORARY TABLE rahbar_v8_fk_cols (tbl VARCHAR(64), col VARCHAR(64), action VARCHAR(10));
   INSERT INTO rahbar_v8_fk_cols VALUES
-    ('grantee_details', 'user_id'), ('bank_details', 'user_id'),
-    ('grantor_grantees', 'grantor_id'), ('grantor_grantees', 'grantee_id'),
-    ('payments', 'grantor_id'), ('payments', 'grantee_id'), ('approvals', 'approver_id'),
-    ('notifications', 'user_id'), ('chats', 'sender_id'), ('chats', 'receiver_id'),
-    ('student_institution_courses', 'user_id'), ('student_institution_courses', 'assigned_by'),
-    ('student_progress', 'grantee_id'), ('student_progress', 'reviewed_by'),
-    ('otp', 'user_id'), ('activity_log', 'user_id');
+    ('grantee_details', 'user_id', 'null'), ('bank_details', 'user_id', 'delete'),
+    ('grantor_grantees', 'grantor_id', 'delete'), ('grantor_grantees', 'grantee_id', 'delete'),
+    ('payments', 'grantor_id', 'delete'), ('payments', 'grantee_id', 'delete'), ('approvals', 'approver_id', 'delete'),
+    ('notifications', 'user_id', 'delete'), ('chats', 'sender_id', 'delete'), ('chats', 'receiver_id', 'delete'),
+    ('student_institution_courses', 'user_id', 'delete'), ('student_institution_courses', 'assigned_by', 'null'),
+    ('student_progress', 'grantee_id', 'delete'), ('student_progress', 'reviewed_by', 'null'),
+    ('otp', 'user_id', 'delete'), ('activity_log', 'user_id', 'null');
   INSERT INTO rahbar_v8_fk_cols
-    SELECT table_name, column_name FROM information_schema.columns
+    SELECT table_name, column_name, 'null' FROM information_schema.columns
      WHERE table_schema = DATABASE() AND column_name IN ('created_by', 'updated_by')
-       AND table_name NOT LIKE 'orphans\_%';
+       AND table_name NOT LIKE 'orphans\_%' AND table_name <> 'flyway_schema_history';
   SET done = 0;
   OPEN fk_cols;
   fk_loop: LOOP
-    FETCH fk_cols INTO t_name, c_name;
+    FETCH fk_cols INTO t_name, c_name, a_name;
     IF done THEN LEAVE fk_loop; END IF;
-    CALL rahbar_v8_fk(t_name, c_name);
+    CALL rahbar_v8_fk(t_name, c_name, a_name);
   END LOOP;
   CLOSE fk_cols;
   DROP TEMPORARY TABLE IF EXISTS rahbar_v8_fk_cols;

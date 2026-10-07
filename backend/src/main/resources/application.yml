@@ -16,9 +16,14 @@ spring:
     properties:
       hibernate:
         format_sql: false
+  # SQL migrations in db/migration run on every start (before Hibernate), each only once; Flyway records them
+  # in flyway_schema_history. An empty database gets V1, V2, ... in order.
+  # A database that existed before Flyway was added has no history yet: it is marked as already being at
+  # FLYWAY_BASELINE_VERSION (default 7, i.e. V1-V7 were run by hand) and only the later scripts run.
   flyway:
     enabled: true
     baseline-on-migrate: true
+    baseline-version: ${FLYWAY_BASELINE_VERSION:7}
     locations: classpath:db/migration
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
