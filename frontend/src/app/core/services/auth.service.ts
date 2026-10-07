@@ -7,7 +7,10 @@ import { AuthUser } from '../models/user.model';
 interface LoginResponse {
   otpRequired: boolean;
   token?: string;
-  userId: string;
+  /** users.id */
+  id: number;
+  /** The user's code, for display (absent on the OTP step). */
+  userId?: string;
   name?: string;
   roleId?: number;
   status?: string;
@@ -28,8 +31,8 @@ export class AuthService {
     return this.http.post<LoginResponse>(`${environment.apiBaseUrl}/auth/login`, { loginMethod, identifier, password });
   }
 
-  verifyOtp(userId: string, otp: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${environment.apiBaseUrl}/auth/verify-otp`, { userId, otp })
+  verifyOtp(id: number, otp: string): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${environment.apiBaseUrl}/auth/verify-otp`, { id, otp })
       .pipe(tap((res) => this.persistSession(res)));
   }
 
@@ -45,7 +48,7 @@ export class AuthService {
     if (!res.token) return;
     localStorage.setItem(TOKEN_KEY, res.token);
     const user: AuthUser = {
-      userId: res.userId, name: res.name ?? '', roleId: res.roleId ?? 0, status: res.status ?? '',
+      id: res.id, userId: res.userId ?? '', name: res.name ?? '', roleId: res.roleId ?? 0, status: res.status ?? '',
       mustChangePassword: !!res.mustChangePassword
     };
     localStorage.setItem(USER_KEY, JSON.stringify(user));
@@ -73,6 +76,13 @@ export class AuthService {
 
   private loadUser(): AuthUser | null {
     const raw = localStorage.getItem(USER_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const user: AuthUser | null = raw ? JSON.parse(raw) : null;
+    // Sessions saved before user ids became numeric have no id: treat them as signed out.
+    if (user && typeof user.id !== 'number') {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(USER_KEY);
+      return null;
+    }
+    return user;
   }
 }

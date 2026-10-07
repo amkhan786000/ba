@@ -12,9 +12,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface NotificationRepository extends JpaRepository<Notification, Long> {
-    List<Notification> findTop30ByUserIdOrderByNotificationIdDesc(String userId);
-    long countByUserIdAndStatus(String userId, String status);
-    Optional<Notification> findByNotificationIdAndUserId(Long notificationId, String userId);
+    List<Notification> findTop30ByUserIdOrderByNotificationIdDesc(Long userId);
+    long countByUserIdAndStatus(Long userId, String status);
+    Optional<Notification> findByNotificationIdAndUserId(Long notificationId, Long userId);
     boolean existsByRefKey(String refKey);
 
     @Transactional
@@ -23,5 +23,5 @@ public interface NotificationRepository extends JpaRepository<Notification, Long
         update Notification n set n.status = 'Read', n.updatedBy = :userId, n.updatedAt = :now
         where n.userId = :userId and n.status = 'Unread'
         """)
-    int markAllRead(@Param("userId") String userId, @Param("now") LocalDateTime now);
+    int markAllRead(@Param("userId") Long userId, @Param("now") LocalDateTime now);
 }

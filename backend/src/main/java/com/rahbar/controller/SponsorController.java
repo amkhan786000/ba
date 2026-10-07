@@ -23,8 +23,8 @@ public class SponsorController {
         this.sponsorService = sponsorService;
     }
 
-    private static String me() {
-        return AuthUtil.currentUser().getUserId();
+    private static Long me() {
+        return AuthUtil.currentUser().getId();
     }
 
     @GetMapping("/dashboard")
@@ -33,12 +33,12 @@ public class SponsorController {
     }
 
     @GetMapping("/payments")
-    public Map<String, Object> payments(@RequestParam(required = false) String granteeId) {
+    public Map<String, Object> payments(@RequestParam(required = false) Long granteeId) {
         return sponsorService.payments(me(), granteeId);
     }
 
     @PostMapping(value = "/payments", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public Map<String, String> recordPayment(@RequestParam String granteeId,
+    public Map<String, String> recordPayment(@RequestParam Long granteeId,
                                              @RequestParam BigDecimal amount,
                                              @RequestParam String paymentDate,
                                              @RequestParam MultipartFile receipt) {

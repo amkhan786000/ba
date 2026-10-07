@@ -14,7 +14,7 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.time.LocalDateTime;
 
 /**
- * Audit columns shared by every table: who created / last changed a row and when.
+ * Audit columns shared by every table: who created / last changed a row (users.id) and when.
  * Filled automatically on JPA save (see config/AuditConfig). created_* are never updated after insert.
  * Every write goes through JPA (repositories / services), so these are always filled automatically.
  */
@@ -23,15 +23,15 @@ import java.time.LocalDateTime;
 @Getter @Setter
 public abstract class Modifiable {
 
-    /** user_id of the user who created the row (null for public actions such as self-registration). */
+    /** users.id of the user who created the row (null for public actions such as self-registration). */
     @CreatedBy
-    @Column(name = "created_by", length = 50, updatable = false)
-    private String createdBy;
+    @Column(name = "created_by", updatable = false)
+    private Long createdBy;
 
-    /** user_id of the user who last changed the row. */
+    /** users.id of the user who last changed the row. */
     @LastModifiedBy
-    @Column(name = "updated_by", length = 50)
-    private String updatedBy;
+    @Column(name = "updated_by")
+    private Long updatedBy;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)

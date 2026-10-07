@@ -13,19 +13,20 @@ import { AuthLayoutComponent } from '../../shared/auth-layout/auth-layout.compon
   templateUrl: './verify-otp.component.html'
 })
 export class VerifyOtpComponent {
-  userId = '';
+  /** users.id from the login step. */
+  id = 0;
   otp = '';
   error = '';
   loading = false;
 
   constructor(private auth: AuthService, private router: Router, route: ActivatedRoute) {
-    this.userId = route.snapshot.queryParamMap.get('userId') ?? '';
+    this.id = Number(route.snapshot.queryParamMap.get('id')) || 0;
   }
 
   submit(): void {
     this.error = '';
     this.loading = true;
-    this.auth.verifyOtp(this.userId, this.otp).subscribe({
+    this.auth.verifyOtp(this.id, this.otp).subscribe({
       next: (res) => {
         this.loading = false;
         this.router.navigate([res.mustChangePassword ? '/change-password' : dashboardPathForRole(res.roleId ?? 0)]);

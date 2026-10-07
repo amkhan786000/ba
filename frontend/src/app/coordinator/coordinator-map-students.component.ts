@@ -5,7 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
-interface StudentUser { user_id: string; name: string; email: string | null; phone: string | null }
+interface StudentUser { id: number; user_id: string; name: string; email: string | null; phone: string | null }
 
 /** Port of templates/coordinator/map_students.html */
 @Component({
@@ -51,7 +51,7 @@ interface StudentUser { user_id: string; name: string; email: string | null; pho
               <tbody>
                 <tr *ngIf="!students.length"><td colspan="4" class="text-center text-muted">No unassigned students.</td></tr>
                 <tr *ngFor="let s of students | paginate: pg.page : pg.size">
-                  <td><input type="checkbox" [checked]="selected.has(s.user_id)" (change)="toggle(s.user_id)" /></td>
+                  <td><input type="checkbox" [checked]="selected.has(s.id)" (change)="toggle(s.id)" /></td>
                   <td>{{ s.name }}</td><td>{{ s.email }}</td><td>{{ s.phone }}</td>
                 </tr>
               </tbody>
@@ -69,24 +69,25 @@ interface StudentUser { user_id: string; name: string; email: string | null; pho
 export class CoordinatorMapStudentsComponent implements OnInit {
   readonly pg = new PageState();
   readonly pgMapped = new PageState();
+  /** The sponsor's users.id (route parameter). */
   @Input() sponsorId = '';
   students: StudentUser[] = [];
   mapped: StudentUser[] = [];
-  selected = new Set<string>();
+  selected = new Set<number>();
   saving = false;
   error = '';
 
   constructor(private api: ApiService, private router: Router) {}
 
   ngOnInit(): void {
-    this.api.get<{ students: StudentUser[]; mappedStudents: StudentUser[]; mappedStudentIds: string[] }>(
+    this.api.get<{ students: StudentUser[]; mappedStudents: StudentUser[]; mappedStudentIds: number[] }>(
       `/coordinator/map-students/${encodeURIComponent(this.sponsorId)}`).subscribe({
-      next: (r) => { this.students = r.students; this.mapped = r.mappedStudents; this.selected = new Set(r.mappedStudentIds.filter((id) => r.students.some((s) => s.user_id === id))); },
+      next: (r) => { this.students = r.students; this.mapped = r.mappedStudents; this.selected = new Set(r.mappedStudentIds.filter((id) => r.students.some((s) => s.id === id))); },
       error: (e) => (this.error = errorText(e, 'Could not load students.'))
     });
   }
 
-  toggle(id: string): void { if (this.selected.has(id)) this.selected.delete(id); else this.selected.add(id); }
+  toggle(id: number): void { if (this.selected.has(id)) this.selected.delete(id); else this.selected.add(id); }
 
   save(): void {
     this.saving = true;

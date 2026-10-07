@@ -8,7 +8,8 @@ import { uploadUrl } from '../shared/format';
 import { APPLICATION_STATUSES, ApplicationRow } from './admin-applications.component';
 
 interface ApplicationDetail extends ApplicationRow {
-  user_id: string | null;
+  user_id: number | null;
+  user_code: string | null;
   address: string | null;
   father_profession: string | null;
   mother_profession: string | null;
@@ -61,7 +62,7 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
               <div><span>Mother</span><strong>{{ app.mother_name || '--' }}</strong><small>{{ app.mother_profession }} {{ app.mother_mobile }}</small></div>
               <div><span>Annual income</span><strong>{{ app.average_annual_salary != null ? '₹' + (app.average_annual_salary | number: '1.0-2') : 'N/A' }}</strong></div>
               <div><span>Address</span><strong>{{ app.address || '--' }}</strong></div>
-              <div><span>Student account</span><strong>{{ app.user_id || 'Not linked yet' }}</strong></div>
+              <div><span>Student account</span><strong>{{ app.user_code || 'Not linked yet' }}</strong></div>
             </div>
           </div>
         </div>

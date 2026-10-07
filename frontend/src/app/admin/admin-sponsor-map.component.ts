@@ -7,9 +7,12 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe, pageOf } from '../shared/pager/pager.component';
 
 interface MapScreen {
-  sponsor: { user_id: string; name: string; email: string | null; region: string | null };
-  mappedStudents: { user_id: string; name: string; email: string | null }[];
-  availableStudents: { user_id: string; name: string; email: string | null; current_sponsor_name: string | null; current_sponsor_id: string | null }[];
+  sponsor: { id: number; user_id: string; name: string; email: string | null; region: string | null };
+  mappedStudents: { id: number; user_id: string; name: string; email: string | null }[];
+  availableStudents: {
+    id: number; user_id: string; name: string; email: string | null;
+    current_sponsor_name: string | null; current_sponsor_id: number | null; current_sponsor_code: string | null;
+  }[];
 }
 
 /** Port of templates/admin/map_students_to_sponsor.html */
@@ -59,14 +62,14 @@ interface MapScreen {
                     <tr *ngFor="let s of visible | paginate: pg.page : pg.size">
                       <td>
                         <div class="custom-control custom-checkbox">
-                          <input type="checkbox" class="custom-control-input" [id]="'check' + s.user_id" [checked]="selected.has(s.user_id)" (change)="toggle(s.user_id)">
-                          <label class="custom-control-label" [for]="'check' + s.user_id">&nbsp;</label>
+                          <input type="checkbox" class="custom-control-input" [id]="'check' + s.id" [checked]="selected.has(s.id)" (change)="toggle(s.id)">
+                          <label class="custom-control-label" [for]="'check' + s.id">&nbsp;</label>
                         </div>
                       </td>
                       <td><strong>{{ s.name }}</strong><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
                       <td>
-                        <span *ngIf="s.current_sponsor_id; else unassigned" class="badge badge-warning" [title]="'Assigned to sponsor ' + s.current_sponsor_id">
-                          <i class="mdi mdi-account-check"></i> {{ s.current_sponsor_name || s.current_sponsor_id }}
+                        <span *ngIf="s.current_sponsor_id; else unassigned" class="badge badge-warning" [title]="'Assigned to sponsor ' + s.current_sponsor_code">
+                          <i class="mdi mdi-account-check"></i> {{ s.current_sponsor_name || s.current_sponsor_code }}
                         </span>
                         <ng-template #unassigned><span class="badge badge-success">Unassigned</span></ng-template>
                       </td>
@@ -117,12 +120,13 @@ export class AdminSponsorMapComponent implements OnInit {
   @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
   get section(): string { return this._section; }
   private _section = 'admin';
-  /** Route parameter :userId */
-  @Input() userId = '';
+  /** The sponsor's users.id (route parameter :id). */
+  @Input() id = '';
 
   data: MapScreen | null = null;
   search = '';
-  selected = new Set<string>();
+  /** users.id of the ticked students. */
+  selected = new Set<number>();
   saving = false;
   message = '';
   error = '';
@@ -132,7 +136,7 @@ export class AdminSponsorMapComponent implements OnInit {
   ngOnInit(): void { this.load(); }
 
   load(): void {
-    this.api.get<MapScreen>(`/admin/sponsorships/${encodeURIComponent(this.userId)}/map`).subscribe({
+    this.api.get<MapScreen>(`/admin/sponsorships/${encodeURIComponent(this.id)}/map`).subscribe({
       next: (d) => { this.data = d; this.selected.clear(); },
       error: (e) => (this.error = errorText(e, 'Could not load sponsor.'))
     });
@@ -141,7 +145,7 @@ export class AdminSponsorMapComponent implements OnInit {
   get visible() {
     const f = this.search.toLowerCase();
     return (this.data?.availableStudents ?? []).filter((s) =>
-      [s.name, s.user_id, s.current_sponsor_name, s.current_sponsor_id].some((v) => (v ?? '').toLowerCase().includes(f)));
+      [s.name, s.user_id, s.current_sponsor_name, s.current_sponsor_code].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 
   /** Students on the page being shown (select-all only ticks these). */
@@ -151,23 +155,23 @@ export class AdminSponsorMapComponent implements OnInit {
 
   get allChecked(): boolean {
     const v = this.pageRows;
-    return v.length > 0 && v.every((s) => this.selected.has(s.user_id));
+    return v.length > 0 && v.every((s) => this.selected.has(s.id));
   }
 
-  toggle(id: string): void {
+  toggle(id: number): void {
     if (this.selected.has(id)) this.selected.delete(id); else this.selected.add(id);
   }
 
   toggleAll(event: Event): void {
     const on = (event.target as HTMLInputElement).checked;
-    for (const s of this.pageRows) { if (on) this.selected.add(s.user_id); else this.selected.delete(s.user_id); }
+    for (const s of this.pageRows) { if (on) this.selected.add(s.id); else this.selected.delete(s.id); }
   }
 
   submit(): void {
     this.error = '';
     if (!this.selected.size) { this.error = 'Please select at least one student.'; return; }
     this.saving = true;
-    this.api.post<{ message: string }>(`/admin/sponsorships/${encodeURIComponent(this.userId)}/map`, {
+    this.api.post<{ message: string }>(`/admin/sponsorships/${encodeURIComponent(this.id)}/map`, {
       studentIds: [...this.selected]
     }).subscribe({
       next: (r) => { this.saving = false; this.message = r.message; this.load(); },

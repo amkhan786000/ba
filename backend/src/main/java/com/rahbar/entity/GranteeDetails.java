@@ -14,8 +14,8 @@ public class GranteeDetails extends Modifiable {
     @Column(name = "grantee_detail_id")
     private Long granteeDetailId;
 
-    @Column(name = "user_id", length = 50)
-    private String userId;
+    @Column(name = "user_id")
+    private Long userId;
 
     @Column(name = "name", nullable = false)
     private String name;

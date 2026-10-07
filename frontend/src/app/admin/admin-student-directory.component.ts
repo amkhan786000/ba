@@ -11,8 +11,8 @@ import { CourseRow } from './admin-courses.component';
 import { Institution } from './admin-course-edit.component';
 
 interface StudentRow {
-  user_id: string; name: string; email: string | null; phone: string | null;
-  sponsor_id: string | null; sponsor_name: string | null; status: string | null;
+  id: number; user_id: string; name: string; email: string | null; phone: string | null;
+  sponsor_id: number | null; sponsor_code: string | null; sponsor_name: string | null; status: string | null;
 }
 
 type Row = Record<string, any>;
@@ -78,9 +78,9 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
                   <tr *ngIf="!loading && !rows.length"><td colspan="8" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let r of rows">
                     <td>{{ r.user_id }}</td><td>{{ r.name }}</td><td>{{ r.email }}</td><td>{{ r.phone }}</td>
-                    <td>{{ r.sponsor_id || '-' }}</td><td>{{ r.sponsor_name || 'Unassigned' }}</td>
+                    <td>{{ r.sponsor_code || '-' }}</td><td>{{ r.sponsor_name || 'Unassigned' }}</td>
                     <td><span class="badge" [ngClass]="(r.status || '').toLowerCase() === 'active' ? 'badge-success' : 'badge-danger'">{{ r.status }}</span></td>
-                    <td><button class="btn btn-xs btn-primary" (click)="openDetails(r.user_id)">View Details</button></td>
+                    <td><button class="btn btn-xs btn-primary" (click)="openDetails(r.id)">View Details</button></td>
                   </tr>
                 </tbody>
               </table>
@@ -204,7 +204,6 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
             <div class="mb-2 mb-md-0">
               <button *ngIf="isActive" type="button" class="btn btn-warning" (click)="action('deactivate')">Deactivate</button>
               <button *ngIf="!isActive" type="button" class="btn btn-success" (click)="action('activate')">Activate</button>
-              <button type="button" class="btn btn-danger ml-md-2" (click)="deleteStudent()"><i class="mdi mdi-delete"></i> Delete Student</button>
             </div>
             <div>
               <button type="button" class="btn btn-secondary" (click)="closeDetails()">Close</button>
@@ -405,8 +404,9 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   // ---------------- profile modal
 
-  openDetails(userId: string): void {
-    this.currentId = userId;
+  /** id: the student's users.id. */
+  openDetails(id: number): void {
+    this.currentId = String(id);
     this.tab = 'profile';
     this.refreshDetails();
   }
@@ -475,15 +475,6 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     this.api.post(`/admin/students/${encodeURIComponent(this.currentId)}/action`, { action: kind }).subscribe({
       next: () => { this.refreshDetails(); this.load(); },
       error: (err) => (this.error = errorText(err, 'Action failed.'))
-    });
-  }
-
-  deleteStudent(): void {
-    if (!confirm('Delete student?')) return;
-    this.busyOverlay = true;
-    this.api.post(`/admin/students/${encodeURIComponent(this.currentId)}/action`, { action: 'delete' }).subscribe({
-      next: () => { this.busyOverlay = false; this.closeDetails(); this.message = 'Student deleted.'; this.load(); },
-      error: (err) => { this.busyOverlay = false; this.closeDetails(); this.error = errorText(err, 'Could not delete the student.'); }
     });
   }
 

@@ -16,8 +16,8 @@ public class ActivityLog {
     @Column(name = "log_id")
     private Long logId;
 
-    @Column(name = "user_id", length = 50)
-    private String userId;
+    @Column(name = "user_id")
+    private Long userId;
 
     @Column(name = "user_name")
     private String userName;

@@ -67,8 +67,8 @@ import { RoleOption, UserRow } from './admin-users.component';
   `
 })
 export class AdminUserEditComponent implements OnInit {
-  /** Bound from the route parameter :userId (withComponentInputBinding). */
-  @Input() userId = '';
+  /** users.id, bound from the route parameter :id (withComponentInputBinding). */
+  @Input() id = '';
 
   roles: RoleOption[] = [];
   form: { name: string; email: string; roleId: number; status: string } | null = null;
@@ -79,7 +79,7 @@ export class AdminUserEditComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.get<RoleOption[]>('/admin/roles').subscribe({ next: (r) => (this.roles = r) });
-    this.api.get<UserRow>(`/admin/users/${encodeURIComponent(this.userId)}`).subscribe({
+    this.api.get<UserRow>(`/admin/users/${encodeURIComponent(this.id)}`).subscribe({
       next: (u) => {
         this.form = { name: u.name, email: u.email ?? '', roleId: u.role_id, status: u.status };
       },
@@ -90,7 +90,7 @@ export class AdminUserEditComponent implements OnInit {
   save(): void {
     if (!this.form) return;
     this.saving = true;
-    this.api.put<{ message: string }>(`/admin/users/${encodeURIComponent(this.userId)}`, this.form).subscribe({
+    this.api.put<{ message: string }>(`/admin/users/${encodeURIComponent(this.id)}`, this.form).subscribe({
       next: () => this.router.navigate(['/admin/users']),
       error: (err) => {
         this.saving = false;

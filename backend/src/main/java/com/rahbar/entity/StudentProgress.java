@@ -13,8 +13,8 @@ public class StudentProgress extends Modifiable {
     @Column(name = "progress_id")
     private Long progressId;
 
-    @Column(name = "grantee_id", nullable = false, length = 50)
-    private String granteeId;
+    @Column(name = "grantee_id", nullable = false)
+    private Long granteeId;
 
     @Column(name = "marks")
     private String marks;
@@ -35,8 +35,8 @@ public class StudentProgress extends Modifiable {
     @Column(name = "review_comment")
     private String reviewComment;
 
-    @Column(name = "reviewed_by", length = 50)
-    private String reviewedBy;
+    @Column(name = "reviewed_by")
+    private Long reviewedBy;
 
     @Column(name = "reviewed_at")
     private java.time.LocalDateTime reviewedAt;

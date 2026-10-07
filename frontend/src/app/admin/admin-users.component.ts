@@ -8,6 +8,9 @@ import { Chapter } from './admin-chapters.component';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, merge, switchMap } from 'rxjs';
 
 export interface UserRow {
+  /** users.id: used in links and API calls. */
+  id: number;
+  /** The user's code (shown as "User Id"). */
   user_id: string;
   name: string;
   email: string | null;
@@ -92,7 +95,7 @@ export interface RoleOption {
                     <td>{{ u.email ?? 'None' }}</td>
                     <td><span class="badge badge-light-secondary">{{ u.role_name }}</span></td>
                     <td><span class="badge" [ngClass]="u.status === 'Active' ? 'badge-success' : 'badge-danger'">{{ u.status }}</span></td>
-                    <td><a [routerLink]="['/admin/users', u.user_id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a></td>
+                    <td><a [routerLink]="['/admin/users', u.id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a></td>
                   </tr>
                 </tbody>
               </table>

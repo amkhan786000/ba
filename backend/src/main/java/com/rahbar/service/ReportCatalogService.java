@@ -178,17 +178,18 @@ public class ReportCatalogService {
 
     private List<Map<String, Object>> applications(DateRange range) {
         Map<Long, ApplicationStatus> latest = ServiceSupport.latestByApplication(applicationStatusRepository.findLatestPerApplication());
-        Map<String, String> sponsorOf = sponsorIdByStudent();
-        Map<String, String> names = userNames();
+        Map<Long, Long> sponsorOf = sponsorIdByStudent();
+        Map<Long, String> names = userNames();
+        Map<Long, String> codes = userCodes();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (GranteeDetails g : sorted(granteeDetailsRepository.findAll(), GranteeDetails::getGranteeDetailId)) {
             if (!range.contains(g.getCreatedAt())) continue;
             ApplicationStatus s = latest.get(g.getGranteeDetailId());
-            String sponsorId = g.getUserId() == null ? null : sponsorOf.get(g.getUserId());
+            Long sponsorId = g.getUserId() == null ? null : sponsorOf.get(g.getUserId());
             rows.add(row(
                     "application_id", g.getGranteeDetailId(),
                     "student_name", g.getName(),
-                    "student_user_id", g.getUserId(),
+                    "student_user_id", codes.get(g.getUserId()),
                     "father_name", g.getFatherName(),
                     "mother_name", g.getMotherName(),
                     "student_mobile", g.getStudentMobile(),
@@ -203,7 +204,7 @@ public class ReportCatalogService {
                     "status_date", s == null ? null : s.getCreatedAt(),
                     "interview_at", g.getInterviewAt(),
                     "interview_venue", g.getInterviewVenue(),
-                    "assigned_sponsor_id", sponsorId,
+                    "assigned_sponsor_id", codes.get(sponsorId),
                     "assigned_sponsor_name", sponsorId == null ? null : names.get(sponsorId)));
         }
         return rows;
@@ -243,25 +244,26 @@ public class ReportCatalogService {
     // ---------------------------------------------------------------- students
 
     private List<Map<String, Object>> students(boolean withoutSponsorOnly, boolean withoutBankOnly) {
-        Map<String, String> sponsorOf = sponsorIdByStudent();
-        Map<String, String> names = userNames();
-        Set<String> withBank = bankDetailsRepository.findAll().stream().map(BankDetails::getUserId).collect(Collectors.toSet());
+        Map<Long, Long> sponsorOf = sponsorIdByStudent();
+        Long unassigned = ServiceSupport.unassignedGrantorId(userRepository);
+        Map<Long, String> names = userNames();
+        Map<Long, String> codes = userCodes();
+        Set<Long> withBank = bankDetailsRepository.findAll().stream().map(BankDetails::getUserId).collect(Collectors.toSet());
         Map<String, String> institutionNames = new HashMap<>();
         institutionRepository.findAll().forEach(i -> institutionNames.put(i.getInstitutionId(), i.getInstitutionName()));
         Map<Long, Course> courses = new HashMap<>();
         courseRepository.findAll().forEach(c -> courses.put(c.getCourseId(), c));
-        Map<String, StudentInstitutionCourse> enrolment = new HashMap<>();
-        studentCourseRepository.findAll().forEach(s -> enrolment.put(s.getUserId(), s));
+        Map<Long, StudentInstitutionCourse> enrolment = enrolments();
 
         List<Map<String, Object>> rows = new ArrayList<>();
         for (User u : sorted(userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE), User::getUserId)) {
             boolean active = !"Inactive".equalsIgnoreCase(u.getStatus());
-            String sponsorId = sponsorOf.get(u.getUserId());
-            boolean hasSponsor = sponsorId != null && !ServiceSupport.UNASSIGNED_GRANTOR.equals(sponsorId);
-            boolean hasBank = withBank.contains(u.getUserId());
+            Long sponsorId = sponsorOf.get(u.getId());
+            boolean hasSponsor = sponsorId != null && !sponsorId.equals(unassigned);
+            boolean hasBank = withBank.contains(u.getId());
             if (withoutSponsorOnly && (!active || hasSponsor)) continue;
             if (withoutBankOnly && (!active || hasBank)) continue;
-            StudentInstitutionCourse sic = enrolment.get(u.getUserId());
+            StudentInstitutionCourse sic = enrolment.get(u.getId());
             Course course = sic == null ? null : courses.get(sic.getCourseId());
             rows.add(row(
                     "student_id", u.getUserId(),
@@ -271,7 +273,7 @@ public class ReportCatalogService {
                     "region", u.getRegion(),
                     "year", u.getYear(),
                     "status", u.getStatus(),
-                    "sponsor_id", hasSponsor ? sponsorId : null,
+                    "sponsor_id", hasSponsor ? codes.get(sponsorId) : null,
                     "sponsor_name", hasSponsor ? names.get(sponsorId) : null,
                     "institution", sic == null ? null : institutionNames.get(sic.getInstitutionId()),
                     "course", course == null ? null : course.getCourseName(),
@@ -283,16 +285,17 @@ public class ReportCatalogService {
     }
 
     private List<Map<String, Object>> studentProgress(DateRange range) {
-        Map<String, String> names = userNames();
-        Map<String, String> sponsorOf = sponsorIdByStudent();
+        Map<Long, String> names = userNames();
+        Map<Long, String> codes = userCodes();
+        Map<Long, Long> sponsorOf = sponsorIdByStudent();
         List<Map<String, Object>> rows = new ArrayList<>();
         studentProgressRepository.findAll().stream()
                 .filter(p -> range.contains(p.getCreatedAt()))
                 .sorted(Comparator.comparing(StudentProgress::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .forEach(p -> {
-                    String sponsorId = sponsorOf.get(p.getGranteeId());
+                    Long sponsorId = sponsorOf.get(p.getGranteeId());
                     rows.add(row(
-                            "student_id", p.getGranteeId(),
+                            "student_id", codes.get(p.getGranteeId()),
                             "student_name", names.get(p.getGranteeId()),
                             "sponsor_name", sponsorId == null ? null : names.get(sponsorId),
                             "year", p.getYear(),
@@ -301,7 +304,7 @@ public class ReportCatalogService {
                             "uploaded_at", p.getCreatedAt(),
                             "review_status", p.getReviewStatus() == null ? "Pending" : p.getReviewStatus(),
                             "review_comment", p.getReviewComment(),
-                            "reviewed_by", p.getReviewedBy() == null ? null : names.getOrDefault(p.getReviewedBy(), p.getReviewedBy()),
+                            "reviewed_by", p.getReviewedBy() == null ? null : names.get(p.getReviewedBy()),
                             "reviewed_at", p.getReviewedAt(),
                             "file", p.getFilePath()));
                 });
@@ -329,28 +332,29 @@ public class ReportCatalogService {
         }
     }
 
-    private boolean hasSponsor(Map<String, String> sponsorOf, String studentId) {
-        String sponsorId = sponsorOf.get(studentId);
-        return sponsorId != null && !ServiceSupport.UNASSIGNED_GRANTOR.equals(sponsorId);
+    private static boolean hasSponsor(Map<Long, Long> sponsorOf, Long studentId, Long unassigned) {
+        Long sponsorId = sponsorOf.get(studentId);
+        return sponsorId != null && !sponsorId.equals(unassigned);
     }
 
-    private Map<String, StudentInstitutionCourse> enrolments() {
-        Map<String, StudentInstitutionCourse> map = new HashMap<>();
+    private Map<Long, StudentInstitutionCourse> enrolments() {
+        Map<Long, StudentInstitutionCourse> map = new HashMap<>();
         studentCourseRepository.findAll().forEach(s -> map.put(s.getUserId(), s));
         return map;
     }
 
     private List<Map<String, Object>> studentsByInstitution() {
-        Map<String, String> sponsorOf = sponsorIdByStudent();
-        Map<String, StudentInstitutionCourse> enrolment = enrolments();
+        Map<Long, Long> sponsorOf = sponsorIdByStudent();
+        Long unassignedGrantor = ServiceSupport.unassignedGrantorId(userRepository);
+        Map<Long, StudentInstitutionCourse> enrolment = enrolments();
         Map<String, Long> coursesOffered = courseRepository.findAll().stream()
                 .collect(Collectors.groupingBy(Course::getInstitutionId, Collectors.counting()));
         Map<String, Tally> tallies = new HashMap<>();
         Tally unassigned = new Tally();
         for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) {
-            StudentInstitutionCourse sic = enrolment.get(u.getUserId());
+            StudentInstitutionCourse sic = enrolment.get(u.getId());
             Tally t = sic == null ? unassigned : tallies.computeIfAbsent(sic.getInstitutionId(), k -> new Tally());
-            t.add(u, hasSponsor(sponsorOf, u.getUserId()));
+            t.add(u, hasSponsor(sponsorOf, u.getId(), unassignedGrantor));
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Institution i : institutionRepository.findAll()) {
@@ -371,16 +375,17 @@ public class ReportCatalogService {
     }
 
     private List<Map<String, Object>> studentsByCourse() {
-        Map<String, String> sponsorOf = sponsorIdByStudent();
-        Map<String, StudentInstitutionCourse> enrolment = enrolments();
+        Map<Long, Long> sponsorOf = sponsorIdByStudent();
+        Long unassignedGrantor = ServiceSupport.unassignedGrantorId(userRepository);
+        Map<Long, StudentInstitutionCourse> enrolment = enrolments();
         Map<String, String> institutionNames = new HashMap<>();
         institutionRepository.findAll().forEach(i -> institutionNames.put(i.getInstitutionId(), i.getInstitutionName()));
         Map<Long, Tally> tallies = new HashMap<>();
         Tally unassigned = new Tally();
         for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) {
-            StudentInstitutionCourse sic = enrolment.get(u.getUserId());
+            StudentInstitutionCourse sic = enrolment.get(u.getId());
             Tally t = sic == null ? unassigned : tallies.computeIfAbsent(sic.getCourseId(), k -> new Tally());
-            t.add(u, hasSponsor(sponsorOf, u.getUserId()));
+            t.add(u, hasSponsor(sponsorOf, u.getId(), unassignedGrantor));
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Course c : courseRepository.findAll()) {
@@ -404,10 +409,11 @@ public class ReportCatalogService {
 
     /** Students grouped by any label (region, academic year...), biggest group first. */
     private List<Map<String, Object>> studentsBy(Function<User, String> label, String column) {
-        Map<String, String> sponsorOf = sponsorIdByStudent();
+        Map<Long, Long> sponsorOf = sponsorIdByStudent();
+        Long unassignedGrantor = ServiceSupport.unassignedGrantorId(userRepository);
         Map<String, Tally> tallies = new HashMap<>();
         for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) {
-            tallies.computeIfAbsent(label.apply(u), k -> new Tally()).add(u, hasSponsor(sponsorOf, u.getUserId()));
+            tallies.computeIfAbsent(label.apply(u), k -> new Tally()).add(u, hasSponsor(sponsorOf, u.getId(), unassignedGrantor));
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         tallies.forEach((key, t) -> {
@@ -449,9 +455,9 @@ public class ReportCatalogService {
     // ---------------------------------------------------------------- sponsors
 
     private List<Map<String, Object>> sponsors() {
-        Map<String, Long> studentCount = grantorGranteeRepository.findAll().stream()
+        Map<Long, Long> studentCount = grantorGranteeRepository.findAll().stream()
                 .collect(Collectors.groupingBy(GrantorGrantee::getGrantorId, Collectors.counting()));
-        Map<String, BigDecimal> paid = paidTotalsByGrantor(DateRange.ALL);
+        Map<Long, BigDecimal> paid = paidTotalsByGrantor(DateRange.ALL);
         Map<Integer, String> roleNames = roleNames();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (User u : sorted(userRepository.findByRoleIdIn(ServiceSupport.SPONSOR_CONVENOR_ROLES), User::getName)) {
@@ -463,25 +469,25 @@ public class ReportCatalogService {
                     "phone", u.getPhone(),
                     "region", u.getRegion(),
                     "status", u.getStatus(),
-                    "students", studentCount.getOrDefault(u.getUserId(), 0L),
-                    "total_paid", paid.getOrDefault(u.getUserId(), BigDecimal.ZERO),
+                    "students", studentCount.getOrDefault(u.getId(), 0L),
+                    "total_paid", paid.getOrDefault(u.getId(), BigDecimal.ZERO),
                     "joined", u.getCreatedAt()));
         }
         return rows;
     }
 
     private List<Map<String, Object>> sponsorsByRegion() {
-        Map<String, Long> studentCount = grantorGranteeRepository.findAll().stream()
+        Map<Long, Long> studentCount = grantorGranteeRepository.findAll().stream()
                 .collect(Collectors.groupingBy(GrantorGrantee::getGrantorId, Collectors.counting()));
-        Map<String, BigDecimal> paid = paidTotalsByGrantor(DateRange.ALL);
+        Map<Long, BigDecimal> paid = paidTotalsByGrantor(DateRange.ALL);
         Map<String, long[]> counts = new TreeMap<>();
         Map<String, BigDecimal> totals = new TreeMap<>();
         for (User u : userRepository.findByRoleId(5)) {
             String region = ServiceSupport.regionLabel(u.getRegion());
             long[] c = counts.computeIfAbsent(region, r -> new long[2]);
             c[0]++;
-            c[1] += studentCount.getOrDefault(u.getUserId(), 0L);
-            totals.merge(region, paid.getOrDefault(u.getUserId(), BigDecimal.ZERO), BigDecimal::add);
+            c[1] += studentCount.getOrDefault(u.getId(), 0L);
+            totals.merge(region, paid.getOrDefault(u.getId(), BigDecimal.ZERO), BigDecimal::add);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         counts.forEach((region, c) -> rows.add(row("region", region, "sponsors", c[0], "students", c[1],
@@ -492,7 +498,8 @@ public class ReportCatalogService {
     // ---------------------------------------------------------------- payments
 
     private List<Map<String, Object>> payments(DateRange range, String onlyStatus) {
-        Map<String, String> names = userNames();
+        Map<Long, String> names = userNames();
+        Map<Long, String> codes = userCodes();
         List<Map<String, Object>> rows = new ArrayList<>();
         paymentRepository.findAll().stream()
                 .filter(p -> range.contains(p.getPaymentDate()))
@@ -501,15 +508,15 @@ public class ReportCatalogService {
                 .forEach(p -> rows.add(row(
                         "payment_id", p.getPaymentId(),
                         "payment_date", p.getPaymentDate(),
-                        "student_id", p.getGranteeId(),
+                        "student_id", codes.get(p.getGranteeId()),
                         "student_name", names.get(p.getGranteeId()),
-                        "sponsor_id", p.getGrantorId(),
+                        "sponsor_id", codes.get(p.getGrantorId()),
                         "sponsor_name", names.get(p.getGrantorId()),
                         "amount", p.getAmount(),
                         "status", p.getStatus(),
                         "receipt", p.getReceiptUrl(),
                         "student_proof", p.getStudentProofUrl(),
-                        "recorded_by", p.getCreatedBy() == null ? null : names.getOrDefault(p.getCreatedBy(), p.getCreatedBy()))));
+                        "recorded_by", p.getCreatedBy() == null ? null : names.get(p.getCreatedBy()))));
         return rows;
     }
 
@@ -528,22 +535,23 @@ public class ReportCatalogService {
     }
 
     private List<Map<String, Object>> paymentsBySponsor(DateRange range) {
-        Map<String, String> names = userNames();
-        Map<String, long[]> counts = new HashMap<>();
-        Map<String, BigDecimal> totals = paidTotalsByGrantor(range);
+        Map<Long, String> names = userNames();
+        Map<Long, String> codes = userCodes();
+        Map<Long, long[]> counts = new HashMap<>();
+        Map<Long, BigDecimal> totals = paidTotalsByGrantor(range);
         for (Payment p : paymentRepository.findAll()) {
             if (!"Paid".equalsIgnoreCase(p.getStatus()) || !range.contains(p.getPaymentDate())) continue;
             counts.computeIfAbsent(p.getGrantorId(), g -> new long[1])[0]++;
         }
         List<Map<String, Object>> rows = new ArrayList<>();
-        counts.forEach((sponsorId, c) -> rows.add(row("sponsor_id", sponsorId, "sponsor_name", names.get(sponsorId),
+        counts.forEach((sponsorId, c) -> rows.add(row("sponsor_id", codes.get(sponsorId), "sponsor_name", names.get(sponsorId),
                 "payments", c[0], "total_amount", totals.getOrDefault(sponsorId, BigDecimal.ZERO))));
         rows.sort(Comparator.comparing((Map<String, Object> r) -> (BigDecimal) r.get("total_amount")).reversed());
         return rows;
     }
 
-    private Map<String, BigDecimal> paidTotalsByGrantor(DateRange range) {
-        Map<String, BigDecimal> totals = new HashMap<>();
+    private Map<Long, BigDecimal> paidTotalsByGrantor(DateRange range) {
+        Map<Long, BigDecimal> totals = new HashMap<>();
         for (Payment p : paymentRepository.findAll()) {
             if (!"Paid".equalsIgnoreCase(p.getStatus()) || !range.contains(p.getPaymentDate()) || p.getGrantorId() == null) continue;
             totals.merge(p.getGrantorId(), p.getAmount() == null ? BigDecimal.ZERO : p.getAmount(), BigDecimal::add);
@@ -552,12 +560,12 @@ public class ReportCatalogService {
     }
 
     private List<Map<String, Object>> paymentSchedules() {
-        Map<String, String> names = userNames();
+        Map<Long, String> names = userNames();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (PaymentSchedule s : paymentScheduleRepository.findAllByOrderByYearDesc()) {
             rows.add(row("year", s.getYear(), "amount", s.getAmount(), "active", Integer.valueOf(1).equals(s.getStatus()) ? "Yes" : "No",
                     "updated_at", s.getUpdatedAt(),
-                    "updated_by", s.getUpdatedBy() == null ? null : names.getOrDefault(s.getUpdatedBy(), s.getUpdatedBy())));
+                    "updated_by", s.getUpdatedBy() == null ? null : names.get(s.getUpdatedBy())));
         }
         return rows;
     }
@@ -607,9 +615,10 @@ public class ReportCatalogService {
     }
 
     private List<Map<String, Object>> activityLog(LocalDate from, LocalDate to) {
+        Map<Long, String> codes = userCodes();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (ActivityLog a : activityLogService.between(from, to)) {
-            rows.add(row("when", a.getCreatedAt(), "user_id", a.getUserId(), "user_name", a.getUserName(),
+            rows.add(row("when", a.getCreatedAt(), "user_id", codes.get(a.getUserId()), "user_name", a.getUserName(),
                     "action", a.getAction(), "method", a.getMethod(), "path", a.getPath(),
                     "result", a.getStatusCode(), "ip_address", a.getIpAddress()));
         }
@@ -643,14 +652,23 @@ public class ReportCatalogService {
         return list;
     }
 
-    private Map<String, String> userNames() {
-        Map<String, String> names = new HashMap<>();
-        userRepository.findAll().forEach(u -> names.put(u.getUserId(), u.getName()));
+    /** users.id -> name. */
+    private Map<Long, String> userNames() {
+        Map<Long, String> names = new HashMap<>();
+        userRepository.findAll().forEach(u -> names.put(u.getId(), u.getName()));
         return names;
     }
 
-    private Map<String, String> sponsorIdByStudent() {
-        Map<String, String> map = new HashMap<>();
+    /** users.id -> user code (users.user_id): reports show codes, not internal ids. */
+    private Map<Long, String> userCodes() {
+        Map<Long, String> codes = new HashMap<>();
+        userRepository.findAll().forEach(u -> codes.put(u.getId(), u.getUserId()));
+        return codes;
+    }
+
+    /** Student users.id -> sponsor users.id. */
+    private Map<Long, Long> sponsorIdByStudent() {
+        Map<Long, Long> map = new HashMap<>();
         grantorGranteeRepository.findAll().forEach(gg -> map.put(gg.getGranteeId(), gg.getGrantorId()));
         return map;
     }

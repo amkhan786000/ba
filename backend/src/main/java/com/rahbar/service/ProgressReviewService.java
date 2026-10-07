@@ -53,7 +53,7 @@ public class ProgressReviewService {
 
         progress.setReviewStatus(status);
         progress.setReviewComment(comment == null || comment.isBlank() ? null : comment.trim());
-        progress.setReviewedBy(reviewer.getUserId());
+        progress.setReviewedBy(reviewer.getId());
         progress.setReviewedAt(LocalDateTime.now());
         studentProgressRepository.save(progress);
 
@@ -68,10 +68,10 @@ public class ProgressReviewService {
         return Rows.of(progress);
     }
 
-    private boolean canReview(User reviewer, String granteeId) {
+    private boolean canReview(User reviewer, Long granteeId) {
         int role = reviewer.getRoleId() == null ? 0 : reviewer.getRoleId();
         if (role == 1 || role == 2 || role == 8) return true;
-        if (role == 5) return grantorGranteeRepository.existsByGranteeIdAndGrantorId(granteeId, reviewer.getUserId());
+        if (role == 5) return grantorGranteeRepository.existsByGranteeIdAndGrantorId(granteeId, reviewer.getId());
         if (role == 4) {
             String region = reviewer.getRegion();
             return region != null && userRepository.findById(granteeId)

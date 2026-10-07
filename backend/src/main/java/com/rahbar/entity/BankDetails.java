@@ -13,8 +13,8 @@ public class BankDetails extends Modifiable {
     @Column(name = "bank_detail_id")
     private Long bankDetailId;
 
-    @Column(name = "user_id", nullable = false, length = 50)
-    private String userId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(name = "bank_name", nullable = false)
     private String bankName;

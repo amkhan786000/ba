@@ -36,7 +36,7 @@ interface Installment { n: number; due: string; amount: string; status: string; 
               <label for="studentSelect">Select Student</label>
               <select class="form-control" id="studentSelect" [(ngModel)]="selectedId" (ngModelChange)="select()">
                 <option value="">-- Select a Student --</option>
-                <option *ngFor="let s of students" [value]="s['user_id']">{{ s['name'] }}</option>
+                <option *ngFor="let s of students" [value]="s['id']">{{ s['name'] }}</option>
               </select>
             </div>
 
@@ -141,6 +141,7 @@ export class ConvenorPaymentsComponent implements OnInit {
   students: Row[] = [];
   dataMap: Record<string, StudentData> = {};
   history: Row[] = [];
+  /** users.id of the selected student (as text: the key of studentDataMap). */
   selectedId = '';
   current: StudentData | null = null;
   schedule: Installment[] = [];

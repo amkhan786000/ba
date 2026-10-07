@@ -89,7 +89,7 @@ export const routes: Routes = [
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: AdminDashboardComponent },
       { path: 'users', component: AdminUsersComponent },
-      { path: 'users/:userId/edit', component: AdminUserEditComponent },
+      { path: 'users/:id/edit', component: AdminUserEditComponent },
       { path: 'roles', component: AdminRolesComponent },
       { path: 'roles/new', component: AdminRoleEditComponent },
       { path: 'roles/:id/edit', component: AdminRoleEditComponent },
@@ -109,7 +109,7 @@ export const routes: Routes = [
       { path: 'courses/:id/edit', component: AdminCourseEditComponent },
       { path: 'institutions/new', component: AdminInstitutionAddComponent },
       { path: 'sponsorships', component: AdminSponsorshipsComponent },
-      { path: 'sponsorships/:userId/map', component: AdminSponsorMapComponent },
+      { path: 'sponsorships/:id/map', component: AdminSponsorMapComponent },
       { path: 'students', component: AdminStudentDirectoryComponent },
       // Not in the Flask sidebar either: reached by URL (manage students) or from coordinator/convenor menus (applications)
       { path: 'manage-students', component: AdminManageStudentsComponent },
@@ -243,7 +243,7 @@ export const routes: Routes = [
       { path: 'courses/:id/edit', component: AdminCourseEditComponent, data: { section: 'office' } },
       { path: 'institutions/new', component: AdminInstitutionAddComponent, data: { section: 'office' } },
       { path: 'sponsorships', component: AdminSponsorshipsComponent, data: { section: 'office', limited: true } },
-      { path: 'sponsorships/:userId/map', component: AdminSponsorMapComponent, data: { section: 'office' } },
+      { path: 'sponsorships/:id/map', component: AdminSponsorMapComponent, data: { section: 'office' } },
       { path: 'students', component: AdminStudentDirectoryComponent }
     ]
   },

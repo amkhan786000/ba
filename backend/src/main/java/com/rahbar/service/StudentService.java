@@ -21,7 +21,7 @@ import static com.rahbar.service.ServiceSupport.requireUser;
 @Service
 public class StudentService {
 
-    static final String[] STUDENT_COLUMNS = {"user_id", "name", "email", "phone", "region", "status", "year"};
+    static final String[] STUDENT_COLUMNS = {"id", "user_id", "name", "email", "phone", "region", "status", "year"};
 
     private final UserRepository userRepository;
     private final GrantorGranteeRepository grantorGranteeRepository;
@@ -47,16 +47,16 @@ public class StudentService {
         this.notificationService = notificationService;
     }
 
-    public Map<String, Object> dashboard(String userId) {
+    public Map<String, Object> dashboard(Long userId) {
         Map<String, Object> student = Rows.pick(requireUser(userRepository, userId, "Student not found"), STUDENT_COLUMNS);
         Map<String, Object> sponsor = grantorGranteeRepository.findFirstByGranteeId(userId)
                 .flatMap(gg -> userRepository.findById(gg.getGrantorId()))
-                .map(u -> Rows.pick(u, "user_id", "name", "email", "phone", "region"))
+                .map(u -> Rows.pick(u, "id", "user_id", "name", "email", "phone", "region"))
                 .orElse(Map.of());
         return Map.of("student", student, "sponsor", sponsor);
     }
 
-    public Map<String, Object> payments(String userId) {
+    public Map<String, Object> payments(Long userId) {
         List<Map<String, Object>> payments = new ArrayList<>();
         for (Payment p : paymentRepository.findByGranteeIdOrderByPaymentDateAsc(userId)) {
             Map<String, Object> row = Rows.of(p);
@@ -72,11 +72,11 @@ public class StudentService {
     }
 
     /** The student's bank details row, or null. */
-    public Map<String, Object> bankDetails(String userId) {
+    public Map<String, Object> bankDetails(Long userId) {
         return bankDetailsRepository.findFirstByUserId(userId).map(Rows::of).orElse(null);
     }
 
-    public void saveBankDetails(String userId, Map<String, String> body) {
+    public void saveBankDetails(Long userId, Map<String, String> body) {
         BankDetails bank = bankDetailsRepository.findFirstByUserId(userId).orElseGet(() -> newBankDetails(userId));
         bank.setBankName(body.get("bankName"));
         bank.setAccountNumber(body.get("accountNumber"));
@@ -86,14 +86,14 @@ public class StudentService {
     }
 
     /** A new bank_details row with the next free id (bank_detail_id is assigned as MAX + 1). */
-    BankDetails newBankDetails(String userId) {
+    BankDetails newBankDetails(Long userId) {
         BankDetails bank = new BankDetails();
         bank.setBankDetailId(bankDetailsRepository.nextId());
         bank.setUserId(userId);
         return bank;
     }
 
-    public void submitProgress(String userId, String marks, String year, String session, MultipartFile file) {
+    public void submitProgress(Long userId, String marks, String year, String session, MultipartFile file) {
         Integer academicYear;
         try {
             academicYear = Integer.valueOf(year.trim());
@@ -118,18 +118,18 @@ public class StudentService {
         progress.setReviewStatus("Pending");
         studentProgressRepository.save(progress);
 
-        String studentName = userRepository.findById(userId).map(User::getName).orElse(userId);
+        String studentName = userRepository.findById(userId).map(User::getName).orElse("A student");
         String summary = studentName + " uploaded marks (" + marks + ") for " + session + " " + academicYear + ".";
         grantorGranteeRepository.findFirstByGranteeId(userId).ifPresent(gg -> notificationService.notify(gg.getGrantorId(),
                 "New progress report to review", summary,
                 NotificationService.PROGRESS, "/sponsor/progress", false));
     }
 
-    public List<Map<String, Object>> progressHistory(String userId) {
+    public List<Map<String, Object>> progressHistory(Long userId) {
         return Rows.list(studentProgressRepository.findByGranteeIdOrderByCreatedAtDesc(userId));
     }
 
-    public void uploadPaymentProof(String userId, Long paymentId, MultipartFile proofFile) {
+    public void uploadPaymentProof(Long userId, Long paymentId, MultipartFile proofFile) {
         Payment payment = paymentRepository.findByPaymentIdAndGranteeId(paymentId, userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Payment not found for this student."));
         String filename = fileStorageService.sanitizeFilename(
@@ -137,7 +137,7 @@ public class StudentService {
         fileStorageService.store(proofFile, filename);
         payment.setStudentProofUrl(filename);
         paymentRepository.save(payment);
-        String studentName = userRepository.findById(userId).map(User::getName).orElse(userId);
+        String studentName = userRepository.findById(userId).map(User::getName).orElse("A student");
         notificationService.notify(payment.getGrantorId(), "Payment proof uploaded",
                 studentName + " uploaded proof of receipt for a payment of " + payment.getAmount() + ".",
                 NotificationService.PAYMENT, "/sponsor/payments", false);

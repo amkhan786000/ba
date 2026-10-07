@@ -9,7 +9,7 @@ import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.c
 
 interface Progress {
   progress_id: number; review_status?: string | null; review_comment?: string | null; reviewed_at?: string | null;
-  grantee_name: string; grantee_id: string | null; marks: string | number | null;
+  grantee_name: string; grantee_id: number | null; grantee_code: string | null; marks: string | number | null;
   session: string | null; year: string | number | null; file_path: string | null; created_at: string | null;
 }
 
@@ -47,7 +47,7 @@ interface Progress {
                   <tr *ngIf="!shown.length"><td colspan="8" class="text-center text-muted">{{ rows.length ? 'No matching records found.' : 'No progress data found.' }}</td></tr>
                   <tr *ngFor="let p of shown | paginate: pg.page : pg.size">
                     <td><strong>{{ p.grantee_name }}</strong></td>
-                    <td><span class="badge badge-light border">{{ p.grantee_id }}</span></td>
+                    <td><span class="badge badge-light border">{{ p.grantee_code }}</span></td>
                     <td>{{ p.marks }}%</td>
                     <td>{{ p.session }}</td>
                     <td>{{ p.year }}</td>
@@ -83,7 +83,7 @@ export class SponsorProgressComponent implements OnInit {
 
   apply(): void {
     const has = (v: unknown, q: string) => !q.trim() || String(v ?? '').toLowerCase().includes(q.trim().toLowerCase());
-    this.shown = this.rows.filter((p) => has(p.grantee_name, this.f.name) && has(p.grantee_id, this.f.ref) && has(p.session, this.f.session) && has(p.year, this.f.year));
+    this.shown = this.rows.filter((p) => has(p.grantee_name, this.f.name) && has(p.grantee_code, this.f.ref) && has(p.session, this.f.session) && has(p.year, this.f.year));
   }
 
   get pending(): number { return this.rows.filter((p) => !p.review_status || p.review_status === 'Pending').length; }

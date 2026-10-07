@@ -41,14 +41,19 @@ final class ServiceSupport {
         return text == null || text.isBlank() ? null : "%" + text.trim().toLowerCase(Locale.ROOT) + "%";
     }
 
-    /** Default "unassigned" grantor: students of a deactivated sponsor are parked on user 12. */
-    static final String UNASSIGNED_GRANTOR = "12";
+    /** Default "unassigned" grantor: students of a deactivated sponsor are parked on the user with code 12. */
+    static final String UNASSIGNED_GRANTOR_CODE = "12";
+
+    /** users.id of the "unassigned" grantor (null when that user does not exist). */
+    static Long unassignedGrantorId(UserRepository users) {
+        return users.findByUserId(UNASSIGNED_GRANTOR_CODE).map(User::getId).orElse(null);
+    }
     static final List<Integer> SPONSOR_ROLES = List.of(3, 4, 5);
     static final List<Integer> SPONSOR_CONVENOR_ROLES = List.of(4, 5);
     static final int STUDENT_ROLE = 6;
 
-    /** user_id of the logged-in user (null for public requests). */
-    static String me() {
+    /** users.id of the logged-in user (null for public requests). */
+    static Long me() {
         return AuditConfig.currentUserId();
     }
 
@@ -80,16 +85,17 @@ final class ServiceSupport {
         }
     }
 
-    static User requireUser(UserRepository users, String userId, String notFoundMessage) {
-        return users.findById(userId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, notFoundMessage));
+    static User requireUser(UserRepository users, Long id, String notFoundMessage) {
+        return (id == null ? Optional.<User>empty() : users.findById(id))
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, notFoundMessage));
     }
 
-    /** user_id -> name for the given ids (unknown ids are simply absent). */
-    static Map<String, String> userNames(UserRepository users, Collection<String> ids) {
-        Set<String> wanted = ids.stream().filter(Objects::nonNull).collect(Collectors.toSet());
+    /** users.id -> name for the given ids (unknown ids are simply absent). */
+    static Map<Long, String> userNames(UserRepository users, Collection<Long> ids) {
+        Set<Long> wanted = ids.stream().filter(Objects::nonNull).collect(Collectors.toSet());
         if (wanted.isEmpty()) return Map.of();
-        Map<String, String> names = new HashMap<>();
-        for (User u : users.findAllById(wanted)) names.put(u.getUserId(), u.getName());
+        Map<Long, String> names = new HashMap<>();
+        for (User u : users.findAllById(wanted)) names.put(u.getId(), u.getName());
         return names;
     }
 

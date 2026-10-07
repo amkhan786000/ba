@@ -11,7 +11,12 @@ import lombok.Setter;
 @Setter
 public class User extends Modifiable {
     @Id
-    @Column(name = "user_id", length = 50)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "id")
+    private Long id;
+
+    /** Human-facing user code (e.g. STU-1001, REG-..., 1005): unique, but not the key other tables link to. */
+    @Column(name = "user_id", length = 50, nullable = false, unique = true)
     private String userId;
 
     @Column(name = "name", nullable = false)

@@ -8,6 +8,7 @@ import { BulkReport, BulkReportComponent } from '../shared/bulk-report.component
 import { PagerComponent, pageOf } from '../shared/pager/pager.component';
 
 interface SponsorRow {
+  id: number;
   user_id: string;
   name: string;
   email: string | null;
@@ -18,6 +19,7 @@ interface SponsorRow {
 }
 
 interface SponsorStudent {
+  id: number;
   user_id: string;
   name: string;
   email: string | null;
@@ -74,8 +76,8 @@ interface SponsorStudent {
                     <td>{{ s.region }}</td>
                     <td>
                       <div class="btn-group">
-                        <button *ngIf="!limited" class="btn btn-sm btn-info" (click)="openEdit(s.user_id)"><i class="mdi mdi-pencil"></i> Edit Profile</button>
-                        <a [routerLink]="['/', section, 'sponsorships', s.user_id, 'map']" class="btn btn-sm btn-primary waves-effect waves-light">
+                        <button *ngIf="!limited" class="btn btn-sm btn-info" (click)="openEdit(s.id)"><i class="mdi mdi-pencil"></i> Edit Profile</button>
+                        <a [routerLink]="['/', section, 'sponsorships', s.id, 'map']" class="btn btn-sm btn-primary waves-effect waves-light">
                           <i class="mdi mdi-account-arrow-right"></i> Map Students
                         </a>
                       </div>
@@ -193,7 +195,7 @@ export class AdminSponsorshipsComponent implements OnInit {
   file: File | null = null;
   uploading = false;
 
-  edit: { userId: string; name: string; email: string; phone: string; region: string } | null = null;
+  edit: { id: number; name: string; email: string; phone: string; region: string } | null = null;
   editName = '';
   students: SponsorStudent[] = [];
   saving = false;
@@ -243,13 +245,13 @@ export class AdminSponsorshipsComponent implements OnInit {
     });
   }
 
-  openEdit(userId: string): void {
+  openEdit(id: number): void {
     if (this.limited) return;
-    this.api.get<{ profile: Record<string, string | null>; students: SponsorStudent[] }>(`/admin/sponsors/${encodeURIComponent(userId)}`).subscribe({
+    this.api.get<{ profile: Record<string, string | null>; students: SponsorStudent[] }>(`/admin/sponsors/${id}`).subscribe({
       next: (res) => {
         const p = res.profile;
         this.editName = p['name'] ?? '';
-        this.edit = { userId, name: p['name'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', region: p['region'] ?? '' };
+        this.edit = { id, name: p['name'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', region: p['region'] ?? '' };
         this.students = res.students ?? [];
       },
       error: (e) => (this.error = errorText(e, 'Could not load sponsor details.'))
@@ -259,8 +261,8 @@ export class AdminSponsorshipsComponent implements OnInit {
   saveEdit(): void {
     if (!this.edit) return;
     this.saving = true;
-    const { userId, ...body } = this.edit;
-    this.api.put<{ message: string }>(`/admin/sponsors/${encodeURIComponent(userId)}`, body).subscribe({
+    const { id, ...body } = this.edit;
+    this.api.put<{ message: string }>(`/admin/sponsors/${id}`, body).subscribe({
       next: () => { this.saving = false; this.edit = null; this.message = 'Profile Updated Successfully!'; this.load(); },
       error: (e) => { this.saving = false; this.error = errorText(e, 'Update failed'); }
     });

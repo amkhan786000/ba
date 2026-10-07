@@ -9,8 +9,8 @@ import { uploadUrl } from '../shared/format';
 
 interface PaymentRow {
   payment_id: number;
-  grantee_id: string; grantee_name: string | null; grantee_phone: string | null;
-  grantor_id: string | null; grantor_name: string | null; grantor_phone: string | null;
+  grantee_id: number; grantee_code: string | null; grantee_name: string | null; grantee_phone: string | null;
+  grantor_id: number | null; grantor_code: string | null; grantor_name: string | null; grantor_phone: string | null;
   amount: number | null; status: string | null; receipt_url: string | null;
 }
 
@@ -64,9 +64,9 @@ type SortCol = 'grantee_name' | 'grantor_name' | 'amount' | 'status';
                   <tr *ngIf="loading"><td colspan="5" class="text-center text-muted">Processing...</td></tr>
                   <tr *ngIf="!loading && !rows.length"><td colspan="5" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let r of rows">
-                    <td><strong>ID:</strong> {{ r.grantee_id || 'N/A' }}<br><strong>Name:</strong> {{ r.grantee_name || 'N/A' }}<br><strong>Phone:</strong> {{ r.grantee_phone || 'N/A' }}</td>
+                    <td><strong>ID:</strong> {{ r.grantee_code || 'N/A' }}<br><strong>Name:</strong> {{ r.grantee_name || 'N/A' }}<br><strong>Phone:</strong> {{ r.grantee_phone || 'N/A' }}</td>
                     <td>
-                      <strong>ID:</strong> {{ r.grantor_id || 'N/A' }}<br><strong>Name:</strong> {{ r.grantor_name || 'N/A' }}<br><strong>Phone:</strong> {{ r.grantor_phone || 'N/A' }}
+                      <strong>ID:</strong> {{ r.grantor_code || 'N/A' }}<br><strong>Name:</strong> {{ r.grantor_name || 'N/A' }}<br><strong>Phone:</strong> {{ r.grantor_phone || 'N/A' }}
                     </td>
                     <td>{{ r.amount ?? 'N/A' }}</td>
                     <td><span class="badge" [ngClass]="'badge-' + badge(r.status)">{{ r.status || 'N/A' }}</span></td>
@@ -156,8 +156,8 @@ export class CoordinatorPaymentsComponent implements OnInit, OnDestroy {
         const lines = ['Student Detail,Sponsor Detail,Amount,Status'];
         for (const p of r.data) {
           lines.push([
-            `ID: ${p.grantee_id ?? 'N/A'} Name: ${p.grantee_name ?? 'N/A'} Phone: ${p.grantee_phone ?? 'N/A'}`,
-            `ID: ${p.grantor_id ?? 'N/A'} Name: ${p.grantor_name ?? 'N/A'} Phone: ${p.grantor_phone ?? 'N/A'}`,
+            `ID: ${p.grantee_code ?? 'N/A'} Name: ${p.grantee_name ?? 'N/A'} Phone: ${p.grantee_phone ?? 'N/A'}`,
+            `ID: ${p.grantor_code ?? 'N/A'} Name: ${p.grantor_name ?? 'N/A'} Phone: ${p.grantor_phone ?? 'N/A'}`,
             p.amount, p.status
           ].map(q).join(','));
         }

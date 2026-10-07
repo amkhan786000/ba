@@ -3,6 +3,7 @@ package com.rahbar.service;
 import com.rahbar.entity.ActivityLog;
 import com.rahbar.entity.User;
 import com.rahbar.repository.ActivityLogRepository;
+import com.rahbar.repository.UserRepository;
 import com.rahbar.util.Rows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,9 +22,11 @@ public class ActivityLogService {
     private static final Logger log = LoggerFactory.getLogger(ActivityLogService.class);
 
     private final ActivityLogRepository activityLogRepository;
+    private final UserRepository userRepository;
 
-    public ActivityLogService(ActivityLogRepository activityLogRepository) {
+    public ActivityLogService(ActivityLogRepository activityLogRepository, UserRepository userRepository) {
         this.activityLogRepository = activityLogRepository;
+        this.userRepository = userRepository;
     }
 
     /** Saves one entry; never throws (logging must not break the request). */
@@ -31,7 +34,7 @@ public class ActivityLogService {
         try {
             ActivityLog entry = new ActivityLog();
             if (user != null) {
-                entry.setUserId(user.getUserId());
+                entry.setUserId(user.getId());
                 entry.setUserName(user.getName());
                 entry.setRoleId(user.getRoleId());
             }
@@ -47,11 +50,18 @@ public class ActivityLogService {
         }
     }
 
-    /** One page of the log, newest first (DataTables-like shape: total, data). Dates are inclusive days. */
-    public Map<String, Object> search(String userId, String search, LocalDate from, LocalDate to, int page, int size) {
+    /**
+     * One page of the log, newest first (DataTables-like shape: total, data). Dates are inclusive days.
+     * userCode filters by the user's code (users.user_id); each row carries user_code next to user_id (users.id).
+     */
+    public Map<String, Object> search(String userCode, String search, LocalDate from, LocalDate to, int page, int size) {
         int pageSize = Math.min(Math.max(size, 1), 200);
+        Long userId = null;
+        if (blankToNull(userCode) != null) {
+            userId = userRepository.findByUserId(userCode.trim()).map(User::getId).orElse(-1L); // unknown code: no rows
+        }
         Page<ActivityLog> result = activityLogRepository.search(
-                blankToNull(userId),
+                userId,
                 blankToNull(search) == null ? null : "%" + search.trim().toLowerCase(Locale.ROOT) + "%",
                 from == null ? null : from.atStartOfDay(),
                 to == null ? null : to.plusDays(1).atStartOfDay(),
@@ -60,7 +70,17 @@ public class ActivityLogService {
         body.put("total", result.getTotalElements());
         body.put("page", result.getNumber());
         body.put("size", pageSize);
-        body.put("data", Rows.list(result.getContent()));
+        Set<Long> ids = new HashSet<>();
+        result.getContent().forEach(a -> { if (a.getUserId() != null) ids.add(a.getUserId()); });
+        Map<Long, String> codes = new HashMap<>();
+        userRepository.findAllById(ids).forEach(u -> codes.put(u.getId(), u.getUserId()));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (ActivityLog a : result.getContent()) {
+            Map<String, Object> row = Rows.of(a);
+            row.put("user_code", codes.get(a.getUserId()));
+            rows.add(row);
+        }
+        body.put("data", rows);
         return body;
     }
 

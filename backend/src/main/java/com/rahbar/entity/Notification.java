@@ -15,8 +15,8 @@ public class Notification extends Modifiable {
     @Column(name = "notification_id")
     private Long notificationId;
 
-    @Column(name = "user_id", nullable = false, length = 50)
-    private String userId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(name = "message", nullable = false)
     private String message;

@@ -149,7 +149,7 @@ public class AdminService {
 
     // ---------------------------------------------------------------- manage users
 
-    /** One page of users (with role_name) ordered by user_id; every filter is optional. */
+    /** One page of users (with role_name) ordered by user_id (the code); every filter is optional. */
     public Map<String, Object> listUsers(int page, int size, String name, String email, Integer roleId, String status) {
         Map<Integer, String> roleNames = roleNames();
         org.springframework.data.domain.Page<User> result = userRepository.searchUsers(likePattern(name), likePattern(email), roleId,
@@ -165,7 +165,7 @@ public class AdminService {
     }
 
     /** One user (with role_name) for the edit page. */
-    public Map<String, Object> getUser(String userId) {
+    public Map<String, Object> getUser(Long userId) {
         User u = requireUser(userRepository, userId, "User not found");
         Map<String, Object> row = Rows.of(u);
         row.put("role_name", roleRepository.findById(u.getRoleId()).map(Role::getRoleName).orElse(null));
@@ -180,8 +180,12 @@ public class AdminService {
 
     public void createUser(Map<String, Object> body) {
         User user = new User();
-        // Blank id: next number after the highest numeric user id (what the Add User form used to work out itself).
-        user.setUserId(isBlank(body.get("userId")) ? nextNumericUserId() : String.valueOf(body.get("userId")).trim());
+        // Blank code: next number after the highest numeric user code (what the Add User form used to work out itself).
+        String code = isBlank(body.get("userId")) ? nextNumericUserId() : String.valueOf(body.get("userId")).trim();
+        if (userRepository.existsByUserId(code)) {
+            throw new ApiException(HttpStatus.CONFLICT, "User ID " + code + " is already taken.");
+        }
+        user.setUserId(code);
         user.setName(String.valueOf(body.get("name")));
         user.setEmail(String.valueOf(body.get("email")));
         user.setPhone(String.valueOf(body.get("contact")));
@@ -201,7 +205,7 @@ public class AdminService {
         return String.valueOf(max + 1);
     }
 
-    public void updateUser(String userId, Map<String, Object> body) {
+    public void updateUser(Long userId, Map<String, Object> body) {
         User user = requireUser(userRepository, userId, "User not found");
         if (body.get("name") != null) user.setName(String.valueOf(body.get("name")));
         if (body.get("email") != null) user.setEmail(String.valueOf(body.get("email")));
@@ -210,16 +214,12 @@ public class AdminService {
         userRepository.save(user);
     }
 
-    public void deleteUser(String userId) {
-        userRepository.deleteById(userId);
-    }
-
     // --------------------------------------------------------- system configuration
 
     /** Payment amount per year, newest first, with the name of who last changed it. */
     public Map<String, Object> systemConfiguration() {
         List<PaymentSchedule> schedules = paymentScheduleRepository.findAllByOrderByYearDesc();
-        Map<String, String> names = userNames(userRepository, schedules.stream().map(PaymentSchedule::getUpdatedBy).toList());
+        Map<Long, String> names = userNames(userRepository, schedules.stream().map(PaymentSchedule::getUpdatedBy).toList());
         List<Map<String, Object>> rows = new ArrayList<>();
         for (PaymentSchedule s : schedules) {
             Map<String, Object> row = Rows.pick(s, "schedule_id", "amount", "year", "updated_at");
@@ -337,7 +337,7 @@ public class AdminService {
         return userRepository.findStudentOverview();
     }
 
-    public void assignStudentCourse(String userId, String institutionId, Long courseId) {
+    public void assignStudentCourse(Long userId, String institutionId, Long courseId) {
         if (!courseRepository.existsByCourseIdAndInstitutionId(courseId, institutionId)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid course-institution combination");
         }
@@ -354,7 +354,7 @@ public class AdminService {
     }
 
     /** Sets the student's institution and course; assigned_by / assigned_at are only set on first assignment. */
-    private void saveStudentCourse(String userId, String institutionId, Long courseId) {
+    private void saveStudentCourse(Long userId, String institutionId, Long courseId) {
         StudentInstitutionCourse sic = studentCourseRepository.findById(userId).orElseGet(() -> {
             StudentInstitutionCourse n = new StudentInstitutionCourse();
             n.setUserId(userId);
@@ -383,9 +383,9 @@ public class AdminService {
         return rows;
     }
 
-    public Map<String, Object> sponsorMappingScreen(String sponsorId, boolean hideContactInfo) {
+    public Map<String, Object> sponsorMappingScreen(Long sponsorId, boolean hideContactInfo) {
         Map<String, Object> sponsor = Rows.pick(requireUser(userRepository, sponsorId, "Sponsor not found"),
-                "user_id", "name", "email", "region");
+                "id", "user_id", "name", "email", "region");
         if (hideContactInfo) sponsor.remove("email");
 
         List<User> mapped = new ArrayList<>(userRepository.findGranteesOf(sponsorId).stream()
@@ -394,16 +394,16 @@ public class AdminService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sponsor", sponsor);
-        result.put("mappedStudents", Rows.pickAll(mapped, "user_id", "name", "email", "phone", "region"));
+        result.put("mappedStudents", Rows.pickAll(mapped, "id", "user_id", "name", "email", "phone", "region"));
         result.put("availableStudents", userRepository.findStudentsAvailableFor(sponsorId));
         return result;
     }
 
-    public void mapStudentsToSponsor(String sponsorId, List<String> studentIds) {
+    public void mapStudentsToSponsor(Long sponsorId, List<Long> studentIds) {
         if (studentIds == null || studentIds.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please select at least one student.");
         }
-        for (String studentId : studentIds) {
+        for (Long studentId : studentIds) {
             sponsorMappingService.map(studentId, sponsorId, "Accepted", false);
         }
     }
@@ -422,12 +422,11 @@ public class AdminService {
                 "data", new ArrayList<>(filtered.subList(from, to)));
     }
 
-    public Map<String, Object> studentDetails(String userId) {
+    public Map<String, Object> studentDetails(Long userId) {
         User user = requireUser(userRepository, userId, "Student not found");
         GranteeDetails gd = granteeDetailsRepository.findFirstByUserIdOrderByGranteeDetailIdAsc(userId).orElse(null);
 
         Map<String, Object> profile = new LinkedHashMap<>();
-        profile.put("user_id", user.getUserId());
         profile.put("user_real_name", user.getName());
         profile.put("email", user.getEmail());
         profile.put("phone", user.getPhone());
@@ -435,13 +434,14 @@ public class AdminService {
         profile.put("region", user.getRegion());
         profile.put("year", user.getYear());
         profile.putAll(gd != null ? Rows.of(gd) : Rows.empty(GranteeDetails.class));
-        profile.put("user_id", userId);
+        profile.put("id", user.getId());
+        profile.put("user_id", user.getUserId());
         profile.put("name", user.getName());
         profile.put("annual_schedule_amount", user.getYear() == null ? 0 : paymentScheduleRepository
                 .findFirstByYearAndStatus(user.getYear(), 1).map(s -> (Object) s.getAmount()).orElse(0));
 
         List<Payment> payments = paymentRepository.findByGranteeIdOrderByPaymentDateDesc(userId);
-        Map<String, String> grantorNames = userNames(userRepository, payments.stream().map(Payment::getGrantorId).toList());
+        Map<Long, String> grantorNames = userNames(userRepository, payments.stream().map(Payment::getGrantorId).toList());
         List<Map<String, Object>> paymentRows = new ArrayList<>();
         for (Payment p : payments) {
             Map<String, Object> row = Rows.of(p);
@@ -455,14 +455,14 @@ public class AdminService {
         result.put("course", Rows.first(studentCourseRepository.findCourseDetails(userId)));
         result.put("sponsor", grantorGranteeRepository.findFirstByGranteeId(userId)
                 .flatMap(gg -> userRepository.findById(gg.getGrantorId()))
-                .map(u -> Rows.pick(u, "user_id", "name", "email")).orElse(null));
+                .map(u -> Rows.pick(u, "id", "user_id", "name", "email")).orElse(null));
         result.put("payments", paymentRows);
         result.put("documents", Rows.list(studentProgressRepository.findByGranteeIdOrderByCreatedAtDesc(userId)));
         return result;
     }
 
     /** Partial update of a student's account, family details, bank details and course (only the fields sent). */
-    public void updateStudent(String userId, Map<String, Object> data) {
+    public void updateStudent(Long userId, Map<String, Object> data) {
         userRepository.findById(userId).ifPresent(user -> {
             boolean changed = false;
             if (data.get("name") != null) { user.setName(str(data.get("name"))); changed = true; }
@@ -493,7 +493,7 @@ public class AdminService {
         }
     }
 
-    private void saveBankDetails(String userId, String bankName, String accountNumber, String ifscCode, String accountName) {
+    private void saveBankDetails(Long userId, String bankName, String accountNumber, String ifscCode, String accountName) {
         BankDetails bank = bankDetailsRepository.findFirstByUserId(userId).orElseGet(() -> studentService.newBankDetails(userId));
         bank.setBankName(bankName);
         bank.setAccountNumber(accountNumber);
@@ -502,30 +502,18 @@ public class AdminService {
         bankDetailsRepository.save(bank);
     }
 
-    /** deactivate / activate / unmap (from sponsor) / delete (only when the student has no payments). */
+    /** deactivate / activate / unmap (from sponsor). Users are never deleted: deactivate them instead. */
     @Transactional
-    public void studentAction(String userId, String action) {
+    public void studentAction(Long userId, String action) {
         switch (action == null ? "" : action) {
             case "deactivate" -> setStatus(userId, "Inactive");
             case "activate" -> setStatus(userId, "Active");
             case "unmap" -> grantorGranteeRepository.deleteByGranteeId(userId);
-            case "delete" -> {
-                long payCount = paymentRepository.countByGranteeId(userId);
-                if (payCount > 0) {
-                    throw new ApiException(HttpStatus.BAD_REQUEST,
-                            "Cannot delete student. " + payCount + " payment records exist. Deactivate instead.");
-                }
-                grantorGranteeRepository.deleteByGranteeId(userId);
-                studentCourseRepository.deleteByUserId(userId);
-                bankDetailsRepository.deleteByUserId(userId);
-                granteeDetailsRepository.deleteByUserId(userId);
-                userRepository.findById(userId).ifPresent(userRepository::delete);
-            }
             default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid action");
         }
     }
 
-    private void setStatus(String userId, String status) {
+    private void setStatus(Long userId, String status) {
         userRepository.findById(userId).ifPresent(u -> {
             u.setStatus(status);
             userRepository.save(u);
@@ -553,7 +541,7 @@ public class AdminService {
                     String email = blankToNull(r.get("email"));
                     String phone = r.getOrDefault("mobilestudent", "").trim();
 
-                    User existing = userRepository.findById(uId).orElse(null);
+                    User existing = userRepository.findByUserId(uId).orElse(null);
                     User user = existing != null ? existing : newStudent(uId);
                     if (user.getSex() == null) user.setSex("M");
                     user.setName(name);
@@ -562,10 +550,10 @@ public class AdminService {
                     userRepository.save(user);
                     if (existing == null) report.created(); else report.updated();
 
-                    GranteeDetails gd = granteeDetailsRepository.findFirstByUserIdOrderByGranteeDetailIdAsc(uId).orElse(null);
+                    GranteeDetails gd = granteeDetailsRepository.findFirstByUserIdOrderByGranteeDetailIdAsc(user.getId()).orElse(null);
                     if (gd == null) {
                         gd = new GranteeDetails();
-                        gd.setUserId(uId);
+                        gd.setUserId(user.getId());
                         gd.setRccName(r.get("rccnon-rcc"));
                         gd.setFatherMobile(r.get("mobile-1"));
                         gd.setMotherMobile(r.get("mobile-2"));
@@ -597,9 +585,10 @@ public class AdminService {
         }
     }
 
-    private User newStudent(String userId) {
+    /** A new student account with the given user code (users.id is generated on save). */
+    private User newStudent(String code) {
         User user = new User();
-        user.setUserId(userId);
+        user.setUserId(code);
         user.setRoleId(STUDENT_ROLE);
         user.setStatus("Active");
         user.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
@@ -649,18 +638,18 @@ public class AdminService {
                     if (existing.isEmpty() && mobile1 != null) existing = userRepository.findFirstByPhoneAndRoleIdIn(mobile1, SPONSOR_ROLES);
                     if (existing.isEmpty() && !name.isEmpty()) existing = userRepository.findFirstByNameAndRegionAndRoleIdIn(name, chapter, SPONSOR_ROLES);
 
-                    String userId;
+                    Long sponsorId;
                     if (existing.isPresent()) {
-                        userId = existing.get().getUserId();
+                        sponsorId = existing.get().getId();
                         report.updated();
                     } else {
-                        // New sponsor: use the sheet's Sponsor ID if given, otherwise generate one.
+                        // New sponsor: use the sheet's Sponsor ID (user code) if given, otherwise generate one.
                         String given = r.get("sponsorid");
-                        userId = given != null ? given : "USR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+                        String code = given != null ? given : "USR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
                         User sponsor = new User();
-                        sponsor.setUserId(userId);
+                        sponsor.setUserId(code);
                         sponsor.setName(name);
-                        sponsor.setEmail(email != null ? email : userId + "@rahbar.com");
+                        sponsor.setEmail(email != null ? email : code + "@rahbar.com");
                         sponsor.setPhone(mobile1 != null ? mobile1 : "");
                         sponsor.setSex("M");
                         sponsor.setRoleId(5);
@@ -668,7 +657,7 @@ public class AdminService {
                         sponsor.setRegion(chapter);
                         sponsor.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
                         sponsor.setMustChangePassword(true);
-                        userRepository.save(sponsor);
+                        sponsorId = userRepository.save(sponsor).getId();
                         report.created();
                     }
 
@@ -677,11 +666,12 @@ public class AdminService {
                         for (String stuId : assigned.split(",")) {
                             String sid = stuId.trim();
                             if (sid.isEmpty()) continue;
-                            if (!userRepository.existsById(sid)) {
+                            Optional<User> student = userRepository.findByUserId(sid);
+                            if (student.isEmpty()) {
                                 report.warning(rowNumber, reference, "Student '" + sid + "' does not exist, so it was not mapped.");
                                 continue;
                             }
-                            sponsorMappingService.map(sid, userId, "Accepted", false);
+                            sponsorMappingService.map(student.get().getId(), sponsorId, "Accepted", false);
                             report.mapped();
                         }
                     }
@@ -705,20 +695,24 @@ public class AdminService {
         };
     }
 
-    /** Adds (or updates) one student with application, bank, course and sponsor details. Returns the user id. */
+    /** Adds (or updates) one student with application, bank, course and sponsor details. Returns the user code. */
     public String manualAddStudent(Map<String, Object> body) {
-        String uId = String.valueOf(body.get("userId"));
+        String uId = String.valueOf(body.get("userId")).trim();
         String name = String.valueOf(body.get("name"));
         String email = body.get("email") != null ? String.valueOf(body.get("email")) : uId + "@rahbar.com";
 
-        // Check the optional sponsor first so a bad sponsor id doesn't leave a half-saved student.
-        String sponsorId = isBlank(body.get("sponsorId")) ? null : String.valueOf(body.get("sponsorId")).trim();
-        if (sponsorId != null && !userRepository.existsByUserIdAndRoleIdIn(sponsorId, SPONSOR_ROLES)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "No sponsor with user ID '" + sponsorId + "' exists. Student " + uId + " was not saved.");
+        // Check the optional sponsor (typed as its user code) first so a bad code doesn't leave a half-saved student.
+        String sponsorCode = isBlank(body.get("sponsorId")) ? null : String.valueOf(body.get("sponsorId")).trim();
+        Long sponsorId = null;
+        if (sponsorCode != null) {
+            sponsorId = userRepository.findByUserId(sponsorCode)
+                    .filter(s -> SPONSOR_ROLES.contains(s.getRoleId()))
+                    .map(User::getId)
+                    .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST,
+                            "No sponsor with user ID '" + sponsorCode + "' exists. Student " + uId + " was not saved."));
         }
 
-        User user = userRepository.findById(uId).orElseGet(() -> {
+        User user = userRepository.findByUserId(uId).orElseGet(() -> {
             User n = newStudent(uId);
             n.setSex(isBlank(body.get("sex")) ? "M" : str(body.get("sex")));
             return n;
@@ -727,12 +721,12 @@ public class AdminService {
         user.setEmail(email);
         user.setPhone(str(body.get("phone")));
         user.setYear(toInteger(body.get("year")));
-        userRepository.save(user);
+        Long id = userRepository.save(user).getId();
 
-        GranteeDetails gd = granteeDetailsRepository.findFirstByUserIdOrderByGranteeDetailIdAsc(uId).orElse(null);
+        GranteeDetails gd = granteeDetailsRepository.findFirstByUserIdOrderByGranteeDetailIdAsc(id).orElse(null);
         if (gd == null) {
             gd = new GranteeDetails();
-            gd.setUserId(uId);
+            gd.setUserId(id);
             gd.setName(name);
             gd.setFatherMobile(str(body.get("fatherMobile")));
             gd.setMotherMobile(str(body.get("motherMobile")));
@@ -747,29 +741,29 @@ public class AdminService {
 
         // Bank details (Flask: only when a bank name is given; account name = student name)
         if (!isBlank(body.get("bankName"))) {
-            saveBankDetails(uId, str(body.get("bankName")), str(body.get("accountNumber")), str(body.get("ifscCode")), name);
+            saveBankDetails(id, str(body.get("bankName")), str(body.get("accountNumber")), str(body.get("ifscCode")), name);
         }
 
         if (!isBlank(body.get("institutionId")) && !isBlank(body.get("courseId"))) {
-            saveStudentCourse(uId, str(body.get("institutionId")), toLong(body.get("courseId")));
+            saveStudentCourse(id, str(body.get("institutionId")), toLong(body.get("courseId")));
         }
 
         if (sponsorId != null) {
-            sponsorMappingService.map(uId, sponsorId, "Accepted", false);
+            sponsorMappingService.map(id, sponsorId, "Accepted", false);
         }
         return uId;
     }
 
-    public Map<String, Object> sponsorDetails(String userId) {
+    public Map<String, Object> sponsorDetails(Long userId) {
         Map<String, Object> profile = Rows.pick(requireUser(userRepository, userId, "Sponsor not found"),
-                "user_id", "name", "email", "phone", "region", "status");
+                "id", "user_id", "name", "email", "phone", "region", "status");
         List<User> students = new ArrayList<>(userRepository.findGranteesOf(userId));
         students.sort(Comparator.comparing(User::getName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
         return Map.of("profile", profile,
-                "students", Rows.pickAll(students, "user_id", "name", "email", "phone", "status"));
+                "students", Rows.pickAll(students, "id", "user_id", "name", "email", "phone", "status"));
     }
 
-    public void updateSponsor(String userId, Map<String, Object> data) {
+    public void updateSponsor(Long userId, Map<String, Object> data) {
         User user = requireUser(userRepository, userId, "Sponsor not found");
         if (data.get("name") != null) user.setName(str(data.get("name")));
         if (data.get("email") != null) user.setEmail(str(data.get("email")));
@@ -781,12 +775,12 @@ public class AdminService {
     // ------------------------------------------------------------------ payments
 
     /** Records a new payment (credited to the student's sponsor) or edits an existing one. Returns the message. */
-    public String recordPayment(String actionType, Long paymentId, String granteeId, BigDecimal amount,
+    public String recordPayment(String actionType, Long paymentId, Long granteeId, BigDecimal amount,
                                 String paymentDate, String status, MultipartFile receipt) {
         boolean create = "create".equals(actionType);
         Payment payment;
         if (create) {
-            String sponsorId = grantorGranteeRepository.findFirstByGranteeId(granteeId)
+            Long sponsorId = grantorGranteeRepository.findFirstByGranteeId(granteeId)
                     .map(GrantorGrantee::getGrantorId)
                     .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST,
                             "This student is not assigned to any sponsor. Map the student to a sponsor first."));
@@ -811,8 +805,9 @@ public class AdminService {
         if (create) {
             String text = "A payment of " + amount + " was recorded for you (status: " + status + ").";
             notificationService.notify(granteeId, "Payment recorded", text, NotificationService.PAYMENT, "/student/payments", false);
+            String student = userRepository.findById(granteeId).map(User::getName).orElse("your student");
             notificationService.notify(payment.getGrantorId(), "Payment recorded",
-                    "The office recorded a payment of " + amount + " for your student " + granteeId + ".",
+                    "The office recorded a payment of " + amount + " for " + student + ".",
                     NotificationService.PAYMENT, "/sponsor/payments", false);
         }
         return create ? "Payment recorded and linked to the student's sponsor successfully." : "Payment updated successfully.";

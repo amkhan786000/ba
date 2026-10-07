@@ -5,7 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { SponsorUser } from './coordinator-sponsors.component';
 
-interface Grantee { user_id: string; name: string; email: string | null }
+interface Grantee { id: number; user_id: string; name: string; email: string | null }
 
 /** Port of templates/coordinator/assign_students.html (in Flask the menu link pointed at a POST-only route and errored). */
 @Component({
@@ -24,13 +24,13 @@ interface Grantee { user_id: string; name: string; email: string | null }
               <div class="form-group">
                 <label for="sponsor_id">Select Sponsor</label>
                 <select class="form-control" id="sponsor_id" name="sponsorId" [(ngModel)]="sponsorId" required>
-                  <option *ngFor="let s of sponsors" [value]="s.user_id">{{ s.name }} ({{ s.region }})</option>
+                  <option *ngFor="let s of sponsors" [ngValue]="s.id">{{ s.name }} ({{ s.region }})</option>
                 </select>
               </div>
               <div class="form-group">
                 <label for="student_ids">Select Students</label>
                 <select multiple class="form-control" id="student_ids" name="studentIds" size="12" [(ngModel)]="studentIds" required>
-                  <option *ngFor="let g of grantees" [value]="g.user_id">{{ g.name }} ({{ g.email }})</option>
+                  <option *ngFor="let g of grantees" [ngValue]="g.id">{{ g.name }} ({{ g.email }})</option>
                 </select>
                 <small class="form-text text-muted">Hold Ctrl (Windows) or Cmd (Mac) to select several students. {{ studentIds.length }} selected.</small>
               </div>
@@ -45,8 +45,9 @@ interface Grantee { user_id: string; name: string; email: string | null }
 export class CoordinatorAssignStudentsComponent implements OnInit {
   sponsors: SponsorUser[] = [];
   grantees: Grantee[] = [];
-  sponsorId = '';
-  studentIds: string[] = [];
+  /** users.id of the chosen sponsor and students. */
+  sponsorId: number | null = null;
+  studentIds: number[] = [];
   saving = false;
   message = '';
   error = '';
@@ -55,7 +56,7 @@ export class CoordinatorAssignStudentsComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.get<{ sponsorsConvenors: SponsorUser[]; grantees: Grantee[] }>('/coordinator/manage-sponsors').subscribe({
-      next: (r) => { this.sponsors = r.sponsorsConvenors; this.grantees = r.grantees; if (r.sponsorsConvenors.length) this.sponsorId = r.sponsorsConvenors[0].user_id; },
+      next: (r) => { this.sponsors = r.sponsorsConvenors; this.grantees = r.grantees; if (r.sponsorsConvenors.length) this.sponsorId = r.sponsorsConvenors[0].id; },
       error: (e) => (this.error = errorText(e, 'Could not load sponsors and students.'))
     });
   }

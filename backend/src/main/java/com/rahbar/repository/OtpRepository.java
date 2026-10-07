@@ -5,5 +5,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 
 public interface OtpRepository extends JpaRepository<Otp, Otp.OtpId> {
-    Optional<Otp> findByUserIdAndOtpAndStatus(String userId, String otp, Integer status);
+    Optional<Otp> findByUserIdAndOtpAndStatus(Long userId, String otp, Integer status);
 }

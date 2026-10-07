@@ -16,8 +16,8 @@ public class Approval extends Modifiable {
     @Column(name = "payment_id", nullable = false)
     private Long paymentId;
 
-    @Column(name = "approver_id", nullable = false, length = 50)
-    private String approverId;
+    @Column(name = "approver_id", nullable = false)
+    private Long approverId;
 
     @Column(name = "status")
     private String status = "Pending";

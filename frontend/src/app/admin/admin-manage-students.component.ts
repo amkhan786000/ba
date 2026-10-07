@@ -8,7 +8,7 @@ import { Institution } from './admin-course-edit.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 interface ManagedStudent {
-  user_id: string; student_name: string; student_email: string | null; student_phone: string | null; region: string | null;
+  id: number; user_id: string; student_name: string; student_email: string | null; student_phone: string | null; region: string | null;
   sponsor_name: string | null; institution_name: string | null; course_name: string | null;
   institution_id: string | null; course_id: number | null;
 }
@@ -130,7 +130,8 @@ export class AdminManageStudentsComponent implements OnInit {
   search = '';
   fInst = '';
   fCourse = '';
-  assign: { userId: string; institutionId: string; courseId: string } | null = null;
+  /** id: the student's users.id. */
+  assign: { id: number; institutionId: string; courseId: string } | null = null;
   saving = false;
   message = '';
   error = '';
@@ -169,7 +170,7 @@ export class AdminManageStudentsComponent implements OnInit {
   }
 
   openAssign(s: ManagedStudent): void {
-    this.assign = { userId: s.user_id, institutionId: s.institution_id ?? '', courseId: s.course_id !== null ? String(s.course_id) : '' };
+    this.assign = { id: s.id, institutionId: s.institution_id ?? '', courseId: s.course_id !== null ? String(s.course_id) : '' };
   }
 
   saveAssign(): void {

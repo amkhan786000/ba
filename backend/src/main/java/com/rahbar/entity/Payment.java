@@ -16,11 +16,11 @@ public class Payment extends Modifiable {
     @Column(name = "payment_id")
     private Long paymentId;
 
-    @Column(name = "grantor_id", nullable = false, length = 50)
-    private String grantorId;
+    @Column(name = "grantor_id", nullable = false)
+    private Long grantorId;
 
-    @Column(name = "grantee_id", nullable = false, length = 50)
-    private String granteeId;
+    @Column(name = "grantee_id", nullable = false)
+    private Long granteeId;
 
     @Column(name = "amount", nullable = false)
     private BigDecimal amount;

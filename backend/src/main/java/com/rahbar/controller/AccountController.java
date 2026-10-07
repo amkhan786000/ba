@@ -19,8 +19,8 @@ public class AccountController {
         this.accountService = accountService;
     }
 
-    private static String me() {
-        return AuthUtil.currentUser().getUserId();
+    private static Long me() {
+        return AuthUtil.currentUser().getId();
     }
 
     @GetMapping("/profile")

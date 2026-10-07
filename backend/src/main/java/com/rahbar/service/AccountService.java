@@ -30,9 +30,10 @@ public class AccountService {
         this.notificationService = notificationService;
     }
 
-    public Map<String, Object> profile(String userId) {
+    public Map<String, Object> profile(Long userId) {
         User u = requireUser(userRepository, userId, "User not found");
         Map<String, Object> p = new LinkedHashMap<>();
+        p.put("id", u.getId());
         p.put("userId", u.getUserId());
         p.put("name", u.getName());
         p.put("email", u.getEmail());
@@ -49,7 +50,7 @@ public class AccountService {
     }
 
     /** Name, email, phone, gender and region; email and phone must stay unique. */
-    public Map<String, Object> updateProfile(String userId, Map<String, String> body) {
+    public Map<String, Object> updateProfile(Long userId, Map<String, String> body) {
         User u = requireUser(userRepository, userId, "User not found");
         String name = trim(body.get("name"));
         String email = trim(body.get("email"));
@@ -61,10 +62,10 @@ public class AccountService {
         if (phone == null || !phone.matches("^[+0-9 ()-]{7,15}$")) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid phone number.");
         }
-        if (userRepository.existsByEmailAndUserIdNot(email, userId)) {
+        if (userRepository.existsByEmailAndIdNot(email, userId)) {
             throw new ApiException(HttpStatus.CONFLICT, "That email address is already used by another account.");
         }
-        if (userRepository.existsByPhoneAndUserIdNot(phone, userId)) {
+        if (userRepository.existsByPhoneAndIdNot(phone, userId)) {
             throw new ApiException(HttpStatus.CONFLICT, "That phone number is already used by another account.");
         }
         u.setName(name);
@@ -78,7 +79,7 @@ public class AccountService {
         return profile(userId);
     }
 
-    public void changePassword(String userId, String currentPassword, String newPassword, String confirmPassword) {
+    public void changePassword(Long userId, String currentPassword, String newPassword, String confirmPassword) {
         User u = requireUser(userRepository, userId, "User not found");
         if (currentPassword == null || !passwordEncoder.matches(currentPassword, u.getPasswordHash())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Your current password is not correct.");

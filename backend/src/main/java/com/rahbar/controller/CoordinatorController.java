@@ -1,5 +1,6 @@
 package com.rahbar.controller;
 
+import com.rahbar.util.Ids;
 import com.rahbar.security.AuthUtil;
 import com.rahbar.service.CoordinatorService;
 import org.springframework.core.io.ByteArrayResource;
@@ -24,7 +25,7 @@ public class CoordinatorController {
 
     @GetMapping("/dashboard")
     public Map<String, Object> dashboard(@RequestParam(required = false) Integer year) {
-        return coordinatorService.dashboard(AuthUtil.currentUser().getUserId(), year);
+        return coordinatorService.dashboard(AuthUtil.currentUser().getId(), year);
     }
 
     @GetMapping("/applications")
@@ -33,26 +34,25 @@ public class CoordinatorController {
     }
 
     @PostMapping("/assign-sponsor")
-    public Map<String, String> assignSponsor(@RequestBody Map<String, String> body) {
-        coordinatorService.assignSponsor(body.get("granteeId"), body.get("grantorId"));
+    public Map<String, String> assignSponsor(@RequestBody Map<String, Object> body) {
+        coordinatorService.assignSponsor(Ids.toLong(body.get("granteeId")), Ids.toLong(body.get("grantorId")));
         return Map.of("message", "Sponsor assigned successfully!");
     }
 
     @PostMapping("/users/{userId}/status/{status}")
-    public Map<String, String> updateUserStatus(@PathVariable String userId, @PathVariable String status) {
+    public Map<String, String> updateUserStatus(@PathVariable Long userId, @PathVariable String status) {
         coordinatorService.updateUserStatus(userId, status);
-        return Map.of("message", "User status updated to " + status + ", and grantees reassigned to default grantor (ID: 12).");
+        return Map.of("message", "User status updated to " + status + ", and grantees reassigned to the default grantor (user 12).");
     }
 
     @GetMapping("/map-students/{sponsorId}")
-    public Map<String, Object> mapStudentsScreen(@PathVariable String sponsorId) {
+    public Map<String, Object> mapStudentsScreen(@PathVariable Long sponsorId) {
         return coordinatorService.mapStudentsScreen(sponsorId);
     }
 
     @PostMapping("/map-students/{sponsorId}")
-    @SuppressWarnings("unchecked")
-    public Map<String, String> mapStudents(@PathVariable String sponsorId, @RequestBody Map<String, Object> body) {
-        coordinatorService.mapStudents(sponsorId, (List<String>) body.get("studentIds"));
+    public Map<String, String> mapStudents(@PathVariable Long sponsorId, @RequestBody Map<String, Object> body) {
+        coordinatorService.mapStudents(sponsorId, Ids.toLongs(body.get("studentIds")));
         return Map.of("message", "Students mapped successfully!");
     }
 
@@ -62,21 +62,20 @@ public class CoordinatorController {
     }
 
     @PostMapping("/appoint-convenor/{sponsorId}")
-    public Map<String, String> appointConvenor(@PathVariable String sponsorId, @RequestBody Map<String, String> body) {
+    public Map<String, String> appointConvenor(@PathVariable Long sponsorId, @RequestBody Map<String, String> body) {
         coordinatorService.appointConvenor(sponsorId, body.get("region"));
         return Map.of("message", "Sponsor appointed as Convenor successfully!");
     }
 
     @PostMapping("/users/{userId}/region")
-    public Map<String, String> changeRegion(@PathVariable String userId, @RequestBody Map<String, String> body) {
+    public Map<String, String> changeRegion(@PathVariable Long userId, @RequestBody Map<String, String> body) {
         coordinatorService.changeRegion(userId, body.get("region"));
         return Map.of("message", "Region updated successfully!");
     }
 
     @PostMapping("/assign-students-bulk")
-    @SuppressWarnings("unchecked")
     public Map<String, String> assignStudentsBulk(@RequestBody Map<String, Object> body) {
-        coordinatorService.assignStudentsBulk(String.valueOf(body.get("sponsorId")), (List<String>) body.get("studentIds"));
+        coordinatorService.assignStudentsBulk(Ids.toLong(body.get("sponsorId")), Ids.toLongs(body.get("studentIds")));
         return Map.of("message", "Students assigned to sponsor successfully!");
     }
 
