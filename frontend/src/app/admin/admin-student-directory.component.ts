@@ -9,6 +9,9 @@ import { PagerComponent } from '../shared/pager/pager.component';
 import { asDate, isoDate, localDate, uploadUrl } from '../shared/format';
 import { CourseRow } from './admin-courses.component';
 import { Institution } from './admin-course-edit.component';
+import { Chapter } from './admin-chapters.component';
+import { RccCenter } from './admin-rcc-centers.component';
+import { ChapterService } from '../core/services/chapter.service';
 
 interface StudentRow {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
@@ -31,7 +34,11 @@ interface Installment {
   payment: Row | null; actualDate: string; amount: string; receipt: string | null; proof: string | null;
 }
 
-const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
+/** A sponsor, convenor or coordinator a student can be mapped to (from /admin/sponsorships). */
+interface SponsorOption { id: number; user_id: string; name: string }
+
+/** BA (Rahbar) details of a student: RCC center, sponsor and chapter - all optional. */
+interface BaDetails { rccName: string; sponsorId: number | null; chapterId: number | null }
 
 /** Port of templates/admin/student_directory.html (server-side table, profile modal with 5 tabs, payments, CSV upload, manual registration). */
 @Component({
@@ -110,12 +117,6 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
                 <div class="col-md-6 form-group"><label>Full Name</label><input type="text" class="form-control" [(ngModel)]="edit.name" [disabled]="!editing"></div>
                 <div class="col-md-6 form-group"><label>Email</label><input type="email" class="form-control" [(ngModel)]="edit.email" [disabled]="!editing"></div>
                 <div class="col-md-6 form-group"><label>Phone</label><input type="text" class="form-control" [(ngModel)]="edit.phone" [disabled]="!editing"></div>
-                <div class="col-md-6 form-group">
-                  <label>Region</label>
-                  <select class="form-control" [(ngModel)]="edit.region" [disabled]="!editing">
-                    <option *ngFor="let r of regionOptions(edit.region)" [value]="r">{{ r }}</option>
-                  </select>
-                </div>
               </div>
             </div>
 
@@ -133,31 +134,41 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
 
             <!-- Academic -->
             <div *ngIf="tab === 'course'" class="row">
-              <div class="col-md-6">
-                <div class="card bg-light card-body">
-                  <h5 class="card-title text-success">Academic Status</h5>
-                  <div class="form-group"><label>Institution</label>
-                    <select class="form-control" [(ngModel)]="edit.institutionId" (ngModelChange)="edit.courseId = ''" [disabled]="!editing">
-                      <option value="">Not Assigned</option>
-                      <option *ngFor="let i of institutions" [value]="i.institutionId">{{ i.institutionName }}</option>
-                    </select>
-                  </div>
-                  <div class="form-group"><label>Course</label>
-                    <select class="form-control" [(ngModel)]="edit.courseId" [disabled]="!editing">
-                      <option value="">{{ edit.institutionId ? 'Select Course' : 'Select College First' }}</option>
-                      <option *ngFor="let c of coursesFor(edit.institutionId)" [value]="'' + c.course_id">{{ c.course_name }}</option>
-                    </select>
-                  </div>
-                  <p><strong>Assigned Date:</strong> {{ fmt(details.course?.['assigned_at'], 'N/A') }}</p>
-                </div>
+              <div class="col-md-6 form-group"><label>College</label>
+                <select class="form-control" [(ngModel)]="edit.institutionId" (ngModelChange)="edit.courseId = ''" [disabled]="!editing">
+                  <option value="">Not Assigned</option>
+                  <option *ngFor="let i of institutions" [value]="i.institutionId">{{ i.institutionName }}</option>
+                </select>
               </div>
-              <div class="col-md-6">
-                <div class="card bg-light card-body">
-                  <h5 class="card-title text-info">Sponsorship Status</h5>
-                  <p><strong>Sponsor:</strong> {{ details.sponsor?.['name'] || 'Unassigned' }}</p>
-                  <p><strong>Email:</strong> {{ details.sponsor?.['email'] || '--' }}</p>
-                  <div><button class="btn btn-sm btn-outline-danger mt-2" (click)="action('unmap')" [disabled]="!details.sponsor">Unassign Sponsor</button></div>
-                </div>
+              <div class="col-md-6 form-group"><label>Course</label>
+                <select class="form-control" [(ngModel)]="edit.courseId" [disabled]="!editing">
+                  <option value="">{{ edit.institutionId ? 'Select Course' : 'Select College First' }}</option>
+                  <option *ngFor="let c of coursesFor(edit.institutionId)" [value]="'' + c.course_id">{{ c.course_name }}</option>
+                </select>
+              </div>
+              <div class="col-12 text-muted small">Assigned on: {{ fmt(details.course?.['assigned_at'], 'N/A') }}</div>
+            </div>
+
+            <!-- BA Details -->
+            <div *ngIf="tab === 'ba'" class="row">
+              <div class="col-md-4 form-group"><label>RCC Center</label>
+                <select class="form-control" [(ngModel)]="ba.rccName" [disabled]="!editing">
+                  <option value="">No RCC center</option>
+                  <option *ngFor="let r of rccOptions(ba.rccName)" [value]="r">{{ r }}</option>
+                </select>
+              </div>
+              <div class="col-md-4 form-group"><label>Sponsor</label>
+                <select class="form-control" [(ngModel)]="ba.sponsorId" [disabled]="!editing">
+                  <option [ngValue]="null">No sponsor</option>
+                  <option *ngFor="let sp of sponsorOptions()" [ngValue]="sp.id">{{ sp.name }} ({{ sp.user_id }})</option>
+                </select>
+                <small *ngIf="details.sponsor?.['email']" class="text-muted">Current sponsor's email: {{ details.sponsor?.['email'] }}</small>
+              </div>
+              <div class="col-md-4 form-group"><label>Chapter</label>
+                <select class="form-control" [(ngModel)]="ba.chapterId" [disabled]="!editing">
+                  <option [ngValue]="null">No chapter</option>
+                  <option *ngFor="let c of chapterOptions(details.profile['chapter_id'])" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
+                </select>
               </div>
             </div>
 
@@ -256,10 +267,9 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
                 <div class="col-md-2 form-group"><label>Sex</label><select name="sex" class="form-control" [(ngModel)]="manual.sex"><option value="M">Male</option><option value="F">Female</option></select></div>
               </div>
               <div class="row">
-                <div class="col-md-3 form-group"><label>Region</label><select name="region" class="form-control" [(ngModel)]="manual.region"><option *ngFor="let r of regions" [value]="r">{{ r }}</option></select></div>
-                <div class="col-md-3 form-group"><label>Admission Year</label><input type="number" name="year" class="form-control" [(ngModel)]="manual.year"></div>
-                <div class="col-md-3 form-group"><label>Student Mobile</label><input type="text" name="phone" class="form-control" [(ngModel)]="manual.phone" required></div>
-                <div class="col-md-3 form-group"><label>Rahbar Alumnus?</label><select name="alumnus" class="form-control" [(ngModel)]="manual.alumnus"><option value="N">No</option><option value="Y">Yes</option></select></div>
+                <div class="col-md-4 form-group"><label>Admission Year</label><input type="number" name="year" class="form-control" [(ngModel)]="manual.year"></div>
+                <div class="col-md-4 form-group"><label>Student Mobile</label><input type="text" name="phone" class="form-control" [(ngModel)]="manual.phone" required></div>
+                <div class="col-md-4 form-group"><label>Rahbar Alumnus?</label><select name="alumnus" class="form-control" [(ngModel)]="manual.alumnus"><option value="N">No</option><option value="Y">Yes</option></select></div>
               </div>
               <h5 class="text-primary border-bottom pb-2 mt-3">Step 2: Family</h5>
               <div class="row">
@@ -274,22 +284,41 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
               </div>
               <h5 class="text-primary border-bottom pb-2 mt-3">Step 3: Academic</h5>
               <div class="row">
-                <div class="col-md-4 form-group"><label>College</label>
+                <div class="col-md-6 form-group"><label>College</label>
                   <select name="institutionId" class="form-control" [(ngModel)]="manual.institutionId" (ngModelChange)="manual.courseId = ''">
                     <option value="">Select College</option>
                     <option *ngFor="let i of institutions" [value]="i.institutionId">{{ i.institutionName }}</option>
                   </select>
                 </div>
-                <div class="col-md-4 form-group"><label>Course</label>
+                <div class="col-md-6 form-group"><label>Course</label>
                   <select name="courseId" class="form-control" [(ngModel)]="manual.courseId">
                     <option value="">{{ manual.institutionId ? 'Select Course' : 'Select College First' }}</option>
                     <option *ngFor="let c of coursesFor(manual.institutionId)" [value]="'' + c.course_id">{{ c.course_name }}</option>
                   </select>
                 </div>
-                <div class="col-md-4 form-group"><label>RCC Name/Center</label><input type="text" name="rccName" class="form-control" [(ngModel)]="manual.rccName"></div>
-                <div class="col-md-12 form-group"><label>Sponsor (User ID)</label><input type="text" name="sponsorId" class="form-control" placeholder="Optional: sponsor's user ID, e.g. USR-2024-001" [(ngModel)]="manual.sponsorId"></div>
               </div>
-              <h5 class="text-primary border-bottom pb-2 mt-3">Step 4: Bank</h5>
+              <h5 class="text-primary border-bottom pb-2 mt-3">Step 4: BA Details</h5>
+              <div class="row">
+                <div class="col-md-4 form-group"><label>RCC Center</label>
+                  <select name="rccName" class="form-control" [(ngModel)]="manual.rccName">
+                    <option value="">No RCC center</option>
+                    <option *ngFor="let r of rccOptions('')" [value]="r">{{ r }}</option>
+                  </select>
+                </div>
+                <div class="col-md-4 form-group"><label>Sponsor</label>
+                  <select name="sponsorId" class="form-control" [(ngModel)]="manual.sponsorId">
+                    <option [ngValue]="null">No sponsor</option>
+                    <option *ngFor="let sp of sponsors" [ngValue]="sp.id">{{ sp.name }} ({{ sp.user_id }})</option>
+                  </select>
+                </div>
+                <div class="col-md-4 form-group"><label>Chapter</label>
+                  <select name="chapterId" class="form-control" [(ngModel)]="manual.chapterId">
+                    <option [ngValue]="null">No chapter</option>
+                    <option *ngFor="let c of chapterOptions(null)" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
+                  </select>
+                </div>
+              </div>
+              <h5 class="text-primary border-bottom pb-2 mt-3">Step 5: Bank</h5>
               <div class="row">
                 <div class="col-md-4 form-group"><label>Bank Name</label><input type="text" name="bankName" class="form-control" [(ngModel)]="manual.bankName"></div>
                 <div class="col-md-4 form-group"><label>Account No</label><input type="text" name="accountNumber" class="form-control" [(ngModel)]="manual.accountNumber"></div>
@@ -339,9 +368,9 @@ const REGIONS = ['North', 'South', 'East', 'West', 'Jeddah', 'Riyadh'];
   `
 })
 export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
-  readonly regions = REGIONS;
   readonly tabs = [
-    { id: 'profile', label: 'Personal' }, { id: 'family', label: 'Family' }, { id: 'course', label: 'Academic' }, { id: 'bank', label: 'Bank Details' },
+    { id: 'profile', label: 'Personal' }, { id: 'family', label: 'Family' }, { id: 'course', label: 'Academic' },
+    { id: 'ba', label: 'BA Details' }, { id: 'bank', label: 'Bank Details' },
     { id: 'payment', label: 'Payment Schedule' }, { id: 'docs', label: 'Docs' }
   ];
 
@@ -356,6 +385,9 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   institutions: Institution[] = [];
   courses: CourseRow[] = [];
+  rccCenters: RccCenter[] = [];
+  sponsors: SponsorOption[] = [];
+  chapters: Chapter[] = [];
 
   message = '';
   error = '';
@@ -368,6 +400,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   tab = 'profile';
   editing = false;
   edit: Record<string, string> = {};
+  ba: BaDetails = { rccName: '', sponsorId: null, chapterId: null };
   schedule: Installment[] = [];
 
   pay: { actionType: 'create' | 'edit'; paymentId?: unknown; amount: number | null; paymentDate: string; receipt: File | null } | null = null;
@@ -375,12 +408,20 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   showUpload = false;
   csv: File | null = null;
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService) {}
+
+  /** Active chapters, plus the given one when it is inactive. */
+  chapterOptions(currentId: number | null | undefined): Chapter[] {
+    return ChapterService.options(this.chapters, currentId);
+  }
 
   ngOnInit(): void {
     this.sub = this.search$.pipe(debounceTime(300)).subscribe(() => { this.page = 1; this.load(); });
     this.api.get<Institution[]>('/admin/institutions').subscribe({ next: (i) => (this.institutions = i) });
     this.api.get<CourseRow[]>('/admin/courses').subscribe({ next: (c) => (this.courses = c) });
+    this.api.get<RccCenter[]>('/admin/rcc-centers').subscribe({ next: (r) => (this.rccCenters = r) });
+    this.api.get<SponsorOption[]>('/admin/sponsorships').subscribe({ next: (s) => (this.sponsors = s) });
+    this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
     this.load();
   }
 
@@ -400,9 +441,17 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     return institutionId ? this.courses.filter((c) => String(c.institution_id) === String(institutionId)) : [];
   }
 
-  /** Keeps an unexpected stored region selectable instead of silently blanking it. */
-  regionOptions(current: string | undefined): string[] {
-    return current && !REGIONS.includes(current) ? [current, ...REGIONS] : REGIONS;
+  /** RCC center names; a stored name that is no longer in the list stays selectable instead of being blanked. */
+  rccOptions(current: string): string[] {
+    const names = this.rccCenters.map((r) => r.centerName).filter((n) => !!n);
+    return current && !names.includes(current) ? [current, ...names] : names;
+  }
+
+  /** Sponsors to choose from; the student's current sponsor stays listed even when inactive. */
+  sponsorOptions(): SponsorOption[] {
+    const current = this.details?.sponsor;
+    if (!current || this.sponsors.some((s) => s.id === current['id'])) return this.sponsors;
+    return [{ id: current['id'], user_id: current['user_id'], name: current['name'] }, ...this.sponsors];
   }
 
   fmt(v: unknown, fallback = '--'): string { return localDate(v, fallback); }
@@ -429,8 +478,9 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
         this.editing = false;
         const p = res.profile, b = res.bank ?? {}, c = res.course ?? {};
         const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
+        this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null };
         this.edit = {
-          name: s(p['name']), email: s(p['email']), phone: s(p['phone']), region: s(p['region']),
+          name: s(p['name']), email: s(p['email']), phone: s(p['phone']),
           fatherName: s(p['father_name']), motherName: s(p['mother_name']), address: s(p['address']),
           fatherProfession: s(p['father_profession']), motherProfession: s(p['mother_profession']),
           fatherMobile: s(p['father_mobile']), motherMobile: s(p['mother_mobile']), averageAnnualSalary: s(p['average_annual_salary']),
@@ -469,7 +519,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   saveProfile(): void {
     const e = this.edit;
     const body: Record<string, unknown> = {
-      name: e['name'], email: e['email'], phone: e['phone'], region: e['region'],
+      name: e['name'], email: e['email'], phone: e['phone'],
+      rccName: this.ba.rccName, sponsorId: this.ba.sponsorId, chapterId: this.ba.chapterId,
       fatherName: e['fatherName'], motherName: e['motherName'], address: e['address'],
       fatherProfession: e['fatherProfession'], motherProfession: e['motherProfession'],
       fatherMobile: e['fatherMobile'], motherMobile: e['motherMobile'], averageAnnualSalary: e['averageAnnualSalary'],
@@ -483,8 +534,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     });
   }
 
-  action(kind: 'activate' | 'deactivate' | 'unmap'): void {
-    if (kind === 'unmap' && !confirm('Unassign this student from their sponsor?')) return;
+  action(kind: 'activate' | 'deactivate'): void {
     this.api.post(`/admin/students/${encodeURIComponent(this.currentId)}/action`, { action: kind }).subscribe({
       next: () => { this.refreshDetails(); this.load(); },
       error: (err) => (this.error = errorText(err, 'Action failed.'))
@@ -519,9 +569,9 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   openManual(): void {
     this.manual = {
-      userId: '', name: '', email: '', sex: 'M', region: 'North', year: 2024, phone: '', alumnus: 'N',
+      userId: '', name: '', email: '', sex: 'M', chapterId: null, year: 2024, phone: '', alumnus: 'N',
       fatherName: '', fatherProfession: '', motherName: '', motherProfession: '', salary: 0, fatherMobile: '', motherMobile: '', address: '',
-      institutionId: '', courseId: '', rccName: '', sponsorId: '', bankName: '', accountNumber: '', ifscCode: ''
+      institutionId: '', courseId: '', rccName: '', sponsorId: null, bankName: '', accountNumber: '', ifscCode: ''
     };
   }
 

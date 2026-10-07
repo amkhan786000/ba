@@ -13,7 +13,7 @@ interface Grantee {
 }
 
 interface SponsorDashboard {
-  sponsor: { name: string | null; email: string | null; phone: string | null; region: string | null };
+  sponsor: { name: string | null; email: string | null; phone: string | null; chapter_name: string | null };
   grantees: Grantee[];
   performanceByYear: BarDatum[];
 }
@@ -39,7 +39,7 @@ interface SponsorDashboard {
             </div>
             <hr>
             <p class="mb-1"><strong>Phone:</strong> {{ data.sponsor.phone || 'N/A' }}</p>
-            <p class="mb-1"><strong>Location:</strong> {{ data.sponsor.region || 'N/A' }}</p>
+            <p class="mb-1"><strong>Chapter:</strong> {{ data.sponsor.chapter_name || 'N/A' }}</p>
             <div class="alert alert-light border mt-3 mb-0 small">All students sponsored by this account are listed in the beneficiaries table.</div>
           </div>
         </div>

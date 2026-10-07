@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
+import { ChapterService } from '../core/services/chapter.service';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
 import { Chapter } from './admin-chapters.component';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, merge, switchMap } from 'rxjs';
@@ -18,7 +19,8 @@ export interface UserRow {
   role_id: number;
   role_name: string;
   status: string;
-  region?: string | null;
+  chapter_id?: number | null;
+  chapter_name?: string | null;
 }
 
 export interface RoleOption {
@@ -127,9 +129,9 @@ export interface RoleOption {
                 <div class="form-group"><label>Email</label><input type="email" class="form-control" name="email" [(ngModel)]="newUser.email" /></div>
                 <div class="form-group">
                   <label>Chapter <small class="text-muted">(optional)</small></label>
-                  <select class="form-control" name="region" [(ngModel)]="newUser.region">
-                    <option value="">No chapter</option>
-                    <option *ngFor="let c of chapters" [value]="c.chapterName">{{ c.chapterName }}</option>
+                  <select class="form-control" name="chapterId" [(ngModel)]="newUser.chapterId">
+                    <option [ngValue]="null">No chapter</option>
+                    <option *ngFor="let c of chapterOptions(null)" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -184,11 +186,16 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   addError = '';
   newUser = this.blankUser();
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService) {}
+
+  /** Active chapters, plus the given one when it is inactive. */
+  chapterOptions(currentId: number | null | undefined): Chapter[] {
+    return ChapterService.options(this.chapters, currentId);
+  }
 
   ngOnInit(): void {
     this.api.get<RoleOption[]>('/admin/roles').subscribe({ next: (r) => (this.roles = r) });
-    this.api.get<Chapter[]>('/admin/chapters').subscribe({ next: (c) => (this.chapters = c) });
+    this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
     // One request stream: a newer request cancels an older one, so a slow reply can't overwrite a newer page.
     this.sub = merge(this.typing.pipe(debounceTime(300)), this.reload).pipe(
       switchMap(() => {
@@ -242,6 +249,6 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   }
 
   private blankUser() {
-    return { userId: '', name: '', contact: '', email: '', region: '', roleId: null as number | null, status: 'Active', password: '' };
+    return { userId: '', name: '', contact: '', email: '', chapterId: null as number | null, roleId: null as number | null, status: 'Active', password: '' };
   }
 }

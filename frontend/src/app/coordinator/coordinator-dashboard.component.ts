@@ -68,9 +68,9 @@ interface CoordinatorDashboard {
       </div>
       <div class="col-xl-6">
         <div class="card-box">
-          <h4 class="header-title mb-4">Sponsors by Region</h4>
+          <h4 class="header-title mb-4">Sponsors by Chapter</h4>
           <app-bar-chart [data]="data?.sponsorsByRegion ?? []"></app-bar-chart>
-          <p class="text-muted mb-0 mt-3 text-truncate">Sponsors registered in {{ data?.selectedYear }}, by region</p>
+          <p class="text-muted mb-0 mt-3 text-truncate">Sponsors registered in {{ data?.selectedYear }}, by chapter</p>
         </div>
       </div>
     </div>

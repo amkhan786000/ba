@@ -52,7 +52,7 @@ public class SponsorService {
 
     public Map<String, Object> dashboard(Long sponsorId) {
         Map<String, Object> sponsor = Rows.pick(requireUser(userRepository, sponsorId, "Sponsor not found"),
-                "id", "user_id", "name", "email", "phone", "region", "status");
+                "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name", "status");
 
         List<Map<String, Object>> grantees = new ArrayList<>();
         for (GrantorGrantee gg : grantorGranteeRepository.findByGrantorId(sponsorId)) {

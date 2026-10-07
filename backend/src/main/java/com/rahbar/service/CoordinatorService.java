@@ -19,6 +19,7 @@ public class CoordinatorService {
     private static final List<String> PAYMENT_SORT_COLUMNS = List.of("grantee_name", "grantor_name", "amount", "status", "receipt_url");
 
     private final UserRepository userRepository;
+    private final ChapterRepository chapterRepository;
     private final RoleRepository roleRepository;
     private final GranteeDetailsRepository granteeDetailsRepository;
     private final GrantorGranteeRepository grantorGranteeRepository;
@@ -27,13 +28,14 @@ public class CoordinatorService {
     private final SponsorMappingService sponsorMappingService;
     private final ReportService reportService;
 
-    public CoordinatorService(UserRepository userRepository, RoleRepository roleRepository,
+    public CoordinatorService(UserRepository userRepository, ChapterRepository chapterRepository, RoleRepository roleRepository,
                               GranteeDetailsRepository granteeDetailsRepository,
                               GrantorGranteeRepository grantorGranteeRepository,
                               ApplicationStatusRepository applicationStatusRepository,
                               PaymentRepository paymentRepository, SponsorMappingService sponsorMappingService,
                               ReportService reportService) {
         this.userRepository = userRepository;
+        this.chapterRepository = chapterRepository;
         this.roleRepository = roleRepository;
         this.granteeDetailsRepository = granteeDetailsRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
@@ -50,14 +52,14 @@ public class CoordinatorService {
                 userRepository.findCreatedYearsByRoleIdIn(List.of(STUDENT_ROLE)));
         int selectedYear = year != null ? year : (years.isEmpty() ? Year.now().getValue() : years.get(0));
 
-        // Chart data: latest status of the year's applications, and that year's sponsors per region.
+        // Chart data: latest status of the year's applications, and that year's sponsors per chapter.
         Map<Long, ApplicationStatus> latest = latestByApplication(applicationStatusRepository.findLatestPerApplication());
         List<Map<String, Object>> byStatus = countBy(granteeDetailsRepository.findCreatedInYear(selectedYear), gd -> {
             ApplicationStatus s = latest.get(gd.getGranteeDetailId());
             return s == null || s.getStatus() == null ? "no status" : s.getStatus();
         });
         List<Map<String, Object>> byRegion = countBy(userRepository.findByRoleIdCreatedInYear(5, selectedYear),
-                u -> regionLabel(u.getRegion()));
+                u -> chapterLabel(u.getChapterName()));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("coordinator", Rows.pick(requireUser(userRepository, coordinatorId, "User not found"),
@@ -154,16 +156,16 @@ public class CoordinatorService {
                 "grantees", Rows.list(userRepository.findByRoleId(STUDENT_ROLE)));
     }
 
-    public void appointConvenor(Long sponsorId, String region) {
+    public void appointConvenor(Long sponsorId, Object chapterId) {
         User user = requireUser(userRepository, sponsorId, "User not found");
         user.setRoleId(4);
-        user.setRegion(region);
+        user.setChapterId(requireChapter(chapterRepository, chapterId));
         userRepository.save(user);
     }
 
-    public void changeRegion(Long userId, String region) {
+    public void changeChapter(Long userId, Object chapterId) {
         User user = requireUser(userRepository, userId, "User not found");
-        user.setRegion(region);
+        user.setChapterId(requireChapter(chapterRepository, chapterId));
         userRepository.save(user);
     }
 

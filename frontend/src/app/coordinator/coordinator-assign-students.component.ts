@@ -24,7 +24,7 @@ interface Grantee { id: number; user_id: string; name: string; email: string | n
               <div class="form-group">
                 <label for="sponsor_id">Select Sponsor</label>
                 <select class="form-control" id="sponsor_id" name="sponsorId" [(ngModel)]="sponsorId" required>
-                  <option *ngFor="let s of sponsors" [ngValue]="s.id">{{ s.name }} ({{ s.region }})</option>
+                  <option *ngFor="let s of sponsors" [ngValue]="s.id">{{ s.name }}{{ s.chapter_name ? ' (' + s.chapter_name + ')' : '' }}</option>
                 </select>
               </div>
               <div class="form-group">

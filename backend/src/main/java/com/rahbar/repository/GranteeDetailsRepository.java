@@ -51,9 +51,9 @@ public interface GranteeDetailsRepository extends JpaRepository<GranteeDetails, 
     @Query("select g, u.name from GranteeDetails g left join User u on u.id = g.userId")
     List<Object[]> findAllWithApplicantName();
 
-    /** Applications of students living in a region: [GranteeDetails, String applicantName]. */
-    @Query("select g, u.name from GranteeDetails g join User u on u.id = g.userId where u.region = :region")
-    List<Object[]> findWithApplicantNameByRegion(@Param("region") String region);
+    /** Applications of the students of a chapter: [GranteeDetails, String applicantName]. */
+    @Query("select g, u.name from GranteeDetails g join User u on u.id = g.userId where u.chapterId = :chapterId")
+    List<Object[]> findWithApplicantNameByChapter(@Param("chapterId") Long chapterId);
 
     /** Every application joined with every status row it has had: [GranteeDetails, ApplicationStatus]. */
     @Query("select g, a from GranteeDetails g join ApplicationStatus a on a.granteeDetailId = g.granteeDetailId")

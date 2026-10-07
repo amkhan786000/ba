@@ -3,6 +3,7 @@ package com.rahbar.service;
 import com.rahbar.entity.User;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.RoleRepository;
+import com.rahbar.repository.ChapterRepository;
 import com.rahbar.repository.UserRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,13 +19,15 @@ import static com.rahbar.service.ServiceSupport.requireUser;
 public class AccountService {
 
     private final UserRepository userRepository;
+    private final ChapterRepository chapterRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
 
-    public AccountService(UserRepository userRepository, RoleRepository roleRepository,
+    public AccountService(UserRepository userRepository, ChapterRepository chapterRepository, RoleRepository roleRepository,
                           PasswordEncoder passwordEncoder, NotificationService notificationService) {
         this.userRepository = userRepository;
+        this.chapterRepository = chapterRepository;
         this.roleRepository = roleRepository;
         this.passwordEncoder = passwordEncoder;
         this.notificationService = notificationService;
@@ -39,7 +42,8 @@ public class AccountService {
         p.put("email", u.getEmail());
         p.put("phone", u.getPhone());
         p.put("sex", u.getSex());
-        p.put("region", u.getRegion());
+        p.put("chapterId", u.getChapterId());
+        p.put("chapterName", u.getChapterName());
         p.put("year", u.getYear());
         p.put("status", u.getStatus());
         p.put("roleId", u.getRoleId());
@@ -49,7 +53,7 @@ public class AccountService {
         return p;
     }
 
-    /** Name, email, phone, gender and region; email and phone must stay unique. */
+    /** Name, email, phone, gender and chapter; email and phone must stay unique. */
     public Map<String, Object> updateProfile(Long userId, Map<String, String> body) {
         User u = requireUser(userRepository, userId, "User not found");
         String name = trim(body.get("name"));
@@ -73,8 +77,7 @@ public class AccountService {
         u.setPhone(phone);
         String sex = trim(body.get("sex"));
         if ("M".equals(sex) || "F".equals(sex)) u.setSex(sex);
-        String region = trim(body.get("region"));
-        if (region != null) u.setRegion(region);
+        if (body.containsKey("chapterId")) u.setChapterId(ServiceSupport.requireChapter(chapterRepository, body.get("chapterId")));
         userRepository.save(u);
         return profile(userId);
     }

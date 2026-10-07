@@ -2,13 +2,15 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
+import { ChapterService } from '../../core/services/chapter.service';
+import { Chapter } from '../../admin/admin-chapters.component';
 import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../alerts/alerts.component';
 import { PasswordFormComponent } from '../password-form.component';
 import { localDate } from '../format';
 
 interface Profile {
-  userId: string; name: string; email: string; phone: string; sex: string | null; region: string | null;
+  userId: string; name: string; email: string; phone: string; sex: string | null; chapterId: number | null; chapterName: string | null;
   year: number | null; status: string | null; roleId: number; roleName: string | null; memberSince: string | null;
 }
 
@@ -63,8 +65,11 @@ interface Profile {
                   <input class="form-control" id="phone" type="tel" name="phone" [(ngModel)]="form.phone" required>
                 </div>
                 <div class="col-md-6 form-group">
-                  <label for="region">Region / city</label>
-                  <input class="form-control" id="region" name="region" [(ngModel)]="form.region">
+                  <label for="chapter">Chapter</label>
+                  <select class="form-control" id="chapter" name="chapterId" [(ngModel)]="form.chapterId">
+                    <option [ngValue]="null">No chapter</option>
+                    <option *ngFor="let c of chapterOptions(p?.chapterId)" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
+                  </select>
                 </div>
               </div>
               <button class="btn btn-primary" type="submit" [disabled]="f.invalid || saving">
@@ -86,13 +91,19 @@ interface Profile {
 })
 export class ProfileComponent implements OnInit {
   p: Profile | null = null;
-  form = { name: '', email: '', phone: '', sex: 'M', region: '' };
+  form = { name: '', email: '', phone: '', sex: 'M', chapterId: null as number | null };
+  chapters: Chapter[] = [];
   saving = false;
   message = '';
   error = '';
   readonly date = localDate;
 
-  constructor(private api: ApiService, private auth: AuthService) {}
+  constructor(private api: ApiService, private auth: AuthService, private chapterList: ChapterService) {}
+
+  /** Active chapters, plus the given one when it is inactive. */
+  chapterOptions(currentId: number | null | undefined): Chapter[] {
+    return ChapterService.options(this.chapters, currentId);
+  }
 
   get initials(): string {
     const parts = (this.p?.name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -100,6 +111,7 @@ export class ProfileComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
     this.api.get<Profile>('/account/profile').subscribe({
       next: (p) => this.fill(p),
       error: (e) => (this.error = errorText(e, 'Could not load your profile.'))
@@ -108,7 +120,7 @@ export class ProfileComponent implements OnInit {
 
   private fill(p: Profile): void {
     this.p = p;
-    this.form = { name: p.name, email: p.email, phone: p.phone, sex: p.sex || 'M', region: p.region || '' };
+    this.form = { name: p.name, email: p.email, phone: p.phone, sex: p.sex || 'M', chapterId: p.chapterId ?? null };
   }
 
   save(): void {

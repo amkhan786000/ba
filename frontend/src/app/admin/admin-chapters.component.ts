@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
+import { ChapterService } from '../core/services/chapter.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
@@ -10,6 +11,11 @@ export interface Chapter {
   chapterId?: number;
   chapterName: string;
   description: string | null;
+  leadName?: string | null;
+  leadPhone?: string | null;
+  leadEmail?: string | null;
+  /** Inactive chapters are not offered in chapter dropdowns. */
+  active?: boolean;
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -36,16 +42,23 @@ export interface Chapter {
             <h4 class="header-title mb-3">Chapter List</h4>
             <div class="row mb-3">
               <div class="col-12 col-md-4">
-                <input type="text" class="form-control" placeholder="Search Chapter or Description..." [(ngModel)]="search" />
+                <input type="text" class="form-control" placeholder="Search Chapter, Lead or Description..." [(ngModel)]="search" />
               </div>
             </div>
             <div class="table-responsive">
               <table class="table table-striped table-centered mb-0">
-                <thead><tr><th>Chapter Name</th><th>Description</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Chapter Name</th><th>Chapter Lead</th><th>Lead Contact</th><th>Status</th><th>Description</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="!visible.length"><td colspan="3" class="text-center text-muted">No chapters found.</td></tr>
+                  <tr *ngIf="!visible.length"><td colspan="6" class="text-center text-muted">No chapters found.</td></tr>
                   <tr *ngFor="let c of visible | paginate: pg.page : pg.size">
                     <td>{{ c.chapterName }}</td>
+                    <td>{{ c.leadName || '-' }}</td>
+                    <td>
+                      <div *ngIf="c.leadPhone">{{ c.leadPhone }}</div>
+                      <div *ngIf="c.leadEmail" class="small text-muted">{{ c.leadEmail }}</div>
+                      <span *ngIf="!c.leadPhone && !c.leadEmail">-</span>
+                    </td>
+                    <td><span class="badge" [ngClass]="c.active !== false ? 'badge-success' : 'badge-secondary'">{{ c.active !== false ? 'Active' : 'Inactive' }}</span></td>
                     <td>{{ c.description }}</td>
                     <td>
                       <a [routerLink]="['/admin/chapters', c.chapterId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
@@ -69,7 +82,7 @@ export class AdminChaptersComponent implements OnInit {
   message = '';
   error = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService) {}
 
   ngOnInit(): void { this.load(); }
 
@@ -83,13 +96,13 @@ export class AdminChaptersComponent implements OnInit {
   get visible(): Chapter[] {
     const f = this.search.toLowerCase();
     return this.chapters.filter((c) =>
-      [c.chapterName, c.description].some((v) => (v ?? '').toLowerCase().includes(f)));
+      [c.chapterName, c.description, c.leadName, c.leadPhone, c.leadEmail].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 
   remove(c: Chapter): void {
     if (!confirm('Are you sure you want to delete this chapter?')) return;
     this.api.delete(`/admin/chapters/${c.chapterId}`).subscribe({
-      next: () => { this.message = 'Chapter deleted successfully!'; this.load(); },
+      next: () => { this.chapterList.refresh(); this.message = 'Chapter deleted successfully!'; this.load(); },
       error: (e) => (this.error = errorText(e, 'Could not delete the chapter.'))
     });
   }

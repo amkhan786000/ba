@@ -7,7 +7,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe, pageOf } from '../shared/pager/pager.component';
 
 interface MapScreen {
-  sponsor: { id: number; user_id: string; name: string; email: string | null; region: string | null };
+  sponsor: { id: number; user_id: string; name: string; email: string | null; chapter_name: string | null };
   mappedStudents: { id: number; user_id: string; name: string; email: string | null }[];
   availableStudents: {
     id: number; user_id: string; name: string; email: string | null;

@@ -21,7 +21,7 @@ import static com.rahbar.service.ServiceSupport.requireUser;
 @Service
 public class StudentService {
 
-    static final String[] STUDENT_COLUMNS = {"id", "user_id", "name", "email", "phone", "region", "status", "year"};
+    static final String[] STUDENT_COLUMNS = {"id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name", "status", "year"};
 
     private final UserRepository userRepository;
     private final GrantorGranteeRepository grantorGranteeRepository;
@@ -51,7 +51,7 @@ public class StudentService {
         Map<String, Object> student = Rows.pick(requireUser(userRepository, userId, "Student not found"), STUDENT_COLUMNS);
         Map<String, Object> sponsor = grantorGranteeRepository.findFirstByGranteeId(userId)
                 .flatMap(gg -> userRepository.findById(gg.getGrantorId()))
-                .map(u -> Rows.pick(u, "id", "user_id", "name", "email", "phone", "region"))
+                .map(u -> Rows.pick(u, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name"))
                 .orElse(Map.of());
         return Map.of("student", student, "sponsor", sponsor);
     }

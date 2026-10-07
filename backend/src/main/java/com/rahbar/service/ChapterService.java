@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-/** Chapters: the list behind the Chapter dropdown on users. A user's chapter is stored by name in users.region. */
+/** Chapters: the list behind the Chapter dropdown on users. Users point at a chapter through users.chapter_id. */
 @Service
 public class ChapterService {
 
@@ -26,7 +26,7 @@ public class ChapterService {
         return chapterRepository.findAllByOrderByChapterNameAsc();
     }
 
-    /** Adds a chapter, or edits one (chapterId set). Renaming also moves the chapter's users to the new name. */
+    /** Adds a chapter, or edits one (chapterId set). Users point at the chapter by id, so a rename needs nothing else. */
     @Transactional
     public Chapter save(Chapter chapter) {
         String name = chapter.getChapterName() == null ? "" : chapter.getChapterName().trim();
@@ -38,20 +38,28 @@ public class ChapterService {
         Chapter target = chapter.getChapterId() == null ? new Chapter()
                 : chapterRepository.findById(chapter.getChapterId())
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chapter not found."));
-        String oldName = target.getChapterName();
+        String email = trimToNull(chapter.getLeadEmail());
+        if (email != null && !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid email address for the chapter lead.");
+        }
         target.setChapterName(name);
-        String description = chapter.getDescription();
-        target.setDescription(description == null || description.isBlank() ? null : description.trim());
-        Chapter saved = chapterRepository.save(target);
-        if (oldName != null && !oldName.equals(name)) userRepository.renameRegion(oldName, name);
-        return saved;
+        target.setDescription(trimToNull(chapter.getDescription()));
+        target.setLeadName(trimToNull(chapter.getLeadName()));
+        target.setLeadPhone(trimToNull(chapter.getLeadPhone()));
+        target.setLeadEmail(email);
+        target.setActive(!Boolean.FALSE.equals(chapter.getActive())); // active unless explicitly switched off
+        return chapterRepository.save(target);
+    }
+
+    private static String trimToNull(String v) {
+        return v == null || v.isBlank() ? null : v.trim();
     }
 
     /** Refuses while users are still in the chapter, so no user is left pointing at a deleted chapter. */
     public void delete(Long id) {
         Chapter chapter = chapterRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chapter not found."));
-        long users = userRepository.countByRegion(chapter.getChapterName());
+        long users = userRepository.countByChapterId(chapter.getChapterId());
         if (users > 0) {
             throw new ApiException(HttpStatus.CONFLICT, "This chapter has " + users
                     + " user(s). Move them to another chapter before deleting it.");

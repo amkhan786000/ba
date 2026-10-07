@@ -7,7 +7,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-/** Chapters (Super Admin / Application Administrator). Feeds the Chapter dropdown on the Add User form. */
+/**
+ * Chapters: managed by the Super Admin / Application Administrator. Every signed-in user may read the list,
+ * since users pick their chapter (Add User, student forms, profile, convenor's own chapter).
+ */
 @RestController
 @RequestMapping("/api/admin/chapters")
 @PreAuthorize("hasAnyRole('1','2')")
@@ -20,6 +23,7 @@ public class ChapterController {
     }
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public List<Chapter> list() {
         return chapterService.list();
     }

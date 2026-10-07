@@ -7,7 +7,7 @@ import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.c
 
 export interface SponsorUser {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
-  region: string | null; status: string | null; role_name: string;
+  chapter_name: string | null; status: string | null; role_name: string;
 }
 
 /** Port of templates/coordinator/manage_sponsors.html */

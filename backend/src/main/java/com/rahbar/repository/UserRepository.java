@@ -2,7 +2,6 @@ package com.rahbar.repository;
 
 import com.rahbar.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -19,15 +18,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<User> findByRoleId(Integer roleId);
     List<User> findByRoleIdIn(List<Integer> roleIds);
     List<User> findAllByOrderByUserIdAsc();
-    @Query("select u from User u where u.roleId = :roleId and u.region = :region")
-    List<User> findByRoleIdAndRegion(@Param("roleId") Integer roleId, @Param("region") String region);
+    List<User> findByRoleIdAndChapterId(Integer roleId, Long chapterId);
     long countByRoleId(Integer roleId);
-    long countByRegion(String region);
-
-    /** Chapter renamed: move its users (users.region holds the chapter name) to the new name. */
-    @Modifying
-    @Query("update User u set u.region = :newName where u.region = :oldName")
-    int renameRegion(@Param("oldName") String oldName, @Param("newName") String newName);
+    long countByChapterId(Long chapterId);
 
     @Query("select u.userId from User u")
     List<String> findAllUserIds();
@@ -62,20 +55,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Sponsor bulk-upload merge lookups
     Optional<User> findFirstByEmailAndRoleIdIn(String email, List<Integer> roleIds);
     Optional<User> findFirstByPhoneAndRoleIdIn(String phone, List<Integer> roleIds);
-    Optional<User> findFirstByNameAndRegionAndRoleIdIn(String name, String region, List<Integer> roleIds);
+    Optional<User> findFirstByNameAndChapterIdAndRoleIdIn(String name, Long chapterId, List<Integer> roleIds);
 
     /** Students (grantees) mapped to the given sponsor / convenor in grantor_grantees. */
     @Query("select u from User u where u.id in (select gg.granteeId from GrantorGrantee gg where gg.grantorId = :grantorId)")
     List<User> findGranteesOf(@Param("grantorId") Long grantorId);
 
-    /** Users who are a grantor in grantor_grantees for a grantee that has an application, in a region. */
+    /** Users of a chapter who are a grantor in grantor_grantees for a grantee that has an application. */
     @Query("""
         select u from User u
         join GrantorGrantee gg on gg.grantorId = u.id
         join GranteeDetails gd on gd.userId = gg.granteeId
-        where u.region = :region
+        where u.chapterId = :chapterId
         """)
-    List<User> findSponsorsWithApplicantsInRegion(@Param("region") String region);
+    List<User> findSponsorsWithApplicantsInChapter(@Param("chapterId") Long chapterId);
 
     // ---------------------------------------------------------------- dashboard year filters
 
@@ -103,9 +96,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** Admin "Manage Students": every student with their sponsor, institution and course. */
     @Query("""
         select new map(u.id as id, u.userId as user_id, u.name as student_name, u.email as student_email, u.phone as student_phone,
-                       u.region as region, s.name as sponsor_name, i.institutionName as institution_name,
+                       u.chapterId as chapter_id, ch.chapterName as chapter_name, s.name as sponsor_name, i.institutionName as institution_name,
                        c.courseName as course_name, sic.institutionId as institution_id, sic.courseId as course_id)
         from User u
+        left join Chapter ch on ch.chapterId = u.chapterId
         left join GrantorGrantee gg on gg.granteeId = u.id
         left join User s on s.id = gg.grantorId
         left join StudentInstitutionCourse sic on sic.userId = u.id
@@ -118,22 +112,25 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** Admin "Sponsors": active coordinators / convenors / sponsors with the number of students mapped to them. */
     @Query("""
         select new map(u.id as id, u.userId as user_id, u.name as name, u.email as email, u.phone as phone, u.status as status,
-                       u.region as region, r.roleName as role_name, count(distinct gg.granteeId) as student_count)
+                       u.chapterId as chapter_id, ch.chapterName as chapter_name, r.roleName as role_name,
+                       count(distinct gg.granteeId) as student_count)
         from User u
+        left join Chapter ch on ch.chapterId = u.chapterId
         join Role r on r.roleId = u.roleId
         left join GrantorGrantee gg on gg.grantorId = u.id
         where u.roleId in (3, 4, 5) and u.status = 'active'
-        group by u.id, u.userId, u.name, u.email, u.phone, u.status, u.region, r.roleName
+        group by u.id, u.userId, u.name, u.email, u.phone, u.status, u.chapterId, ch.chapterName, r.roleName
         order by u.name asc
         """)
     List<Map<String, Object>> findActiveSponsorships();
 
     /** Active students not mapped to the given sponsor, with their current sponsor (if any). */
     @Query("""
-        select new map(u.id as id, u.userId as user_id, u.name as name, u.email as email, u.phone as phone, u.region as region,
-                       cs.name as current_sponsor_name, gg.grantorId as current_sponsor_id,
+        select new map(u.id as id, u.userId as user_id, u.name as name, u.email as email, u.phone as phone,
+                       u.chapterId as chapter_id, ch.chapterName as chapter_name, cs.name as current_sponsor_name, gg.grantorId as current_sponsor_id,
                        cs.userId as current_sponsor_code)
         from User u
+        left join Chapter ch on ch.chapterId = u.chapterId
         left join GrantorGrantee gg on gg.granteeId = u.id
         left join User cs on cs.id = gg.grantorId
         where u.roleId = 6 and u.status = 'active' and (gg.grantorId is null or gg.grantorId <> :sponsorId)
@@ -143,10 +140,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     /** Admin student directory: filters are optional (null = no filter); search is a LIKE pattern. */
     @Query("""
-        select new map(u.id as id, u.userId as user_id, u.name as name, u.email as email, u.phone as phone, u.region as region,
-                       u.status as status, max(s.id) as sponsor_id, max(s.userId) as sponsor_code, max(s.name) as sponsor_name,
+        select new map(u.id as id, u.userId as user_id, u.name as name, u.email as email, u.phone as phone,
+                       u.chapterId as chapter_id, ch.chapterName as chapter_name, u.status as status, max(s.id) as sponsor_id, max(s.userId) as sponsor_code, max(s.name) as sponsor_name,
                        max(i.institutionName) as institution_name, max(c.courseName) as course_name)
         from User u
+        left join Chapter ch on ch.chapterId = u.chapterId
         left join GrantorGrantee gg on gg.granteeId = u.id
         left join User s on s.id = gg.grantorId
         left join StudentInstitutionCourse sic on sic.userId = u.id
@@ -157,7 +155,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
           and (:courseId is null or sic.courseId = :courseId)
           and (:search is null or u.name like :search or u.email like :search or u.userId like :search
                or s.name like :search or s.userId like :search)
-        group by u.id, u.userId, u.name, u.email, u.phone, u.region, u.status
+        group by u.id, u.userId, u.name, u.email, u.phone, u.chapterId, ch.chapterName, u.status
         order by u.id desc
         """)
     List<Map<String, Object>> searchStudentDirectory(@Param("institutionId") String institutionId,

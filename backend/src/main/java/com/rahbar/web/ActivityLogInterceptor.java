@@ -70,12 +70,12 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/coordinator/users/[^/]+/status/.*", "Changed a user's status");
         label("POST /api/coordinator/map-students/[^/]+", "Mapped students to a sponsor");
         label("POST /api/coordinator/appoint-convenor/[^/]+", "Appointed a convenor");
-        label("POST /api/coordinator/users/[^/]+/region", "Changed a user's region");
+        label("POST /api/coordinator/users/[^/]+/chapter", "Changed a user's chapter");
         label("POST /api/coordinator/assign-students-bulk", "Assigned students to a sponsor");
         label("POST /api/convenor/applications/[^/]+/status", "Changed an application status");
         label("POST /api/convenor/sponsors/[^/]+/status/.*", "Changed a sponsor's status");
         label("POST /api/convenor/map-students/[^/]+", "Mapped students to a sponsor");
-        label("POST /api/convenor/profile", "Updated own region");
+        label("POST /api/convenor/profile", "Updated own chapter");
         label("POST /api/convenor/payments", "Recorded a payment (pending approval)");
         label("POST /api/convenor/upload-file", "Uploaded a file");
         label("POST /api/sponsor/payments", "Recorded a payment");
