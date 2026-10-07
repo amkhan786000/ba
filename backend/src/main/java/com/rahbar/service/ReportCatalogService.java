@@ -97,10 +97,11 @@ public class ReportCatalogService {
     private final StudentProgressRepository studentProgressRepository;
     private final RccCenterRepository rccCenterRepository;
     private final PaymentReminderService paymentReminderService;
+    private final com.rahbar.security.SponsorPrivacy sponsorPrivacy;
     private final ActivityLogService activityLogService;
     private final ReportService reportService;
 
-    public ReportCatalogService(UserRepository userRepository, RoleRepository roleRepository,
+    public ReportCatalogService(com.rahbar.security.SponsorPrivacy sponsorPrivacy, UserRepository userRepository, RoleRepository roleRepository,
                                 GranteeDetailsRepository granteeDetailsRepository,
                                 ApplicationStatusRepository applicationStatusRepository,
                                 GrantorGranteeRepository grantorGranteeRepository,
@@ -125,6 +126,7 @@ public class ReportCatalogService {
         this.studentProgressRepository = studentProgressRepository;
         this.rccCenterRepository = rccCenterRepository;
         this.paymentReminderService = paymentReminderService;
+        this.sponsorPrivacy = sponsorPrivacy;
         this.activityLogService = activityLogService;
         this.reportService = reportService;
     }
@@ -135,13 +137,46 @@ public class ReportCatalogService {
 
     /** Builds a report download. from / to are optional inclusive days (ignored by reports without a date). */
     public ReportService.Report build(String key, String format, LocalDate from, LocalDate to) {
-        Definition def = CATALOG.stream().filter(d -> d.key().equals(key)).findFirst()
+        Definition def = definition(key);
+        String name = key + "_report" + (def.dateRange() && (from != null || to != null)
+                ? "_" + (from == null ? "start" : from) + "_to_" + (to == null ? "today" : to) : "");
+        return reportService.build(privateRows(key, from, to), name, format, def.title());
+    }
+
+    /** The report's rows for viewing on screen: { title, columns, rows } (an empty report has no columns). */
+    public Map<String, Object> data(String key, LocalDate from, LocalDate to) {
+        Definition def = definition(key);
+        List<Map<String, Object>> rows = privateRows(key, from, to);
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("key", key);
+        body.put("title", def.title());
+        body.put("columns", rows.isEmpty() ? List.of() : new ArrayList<>(rows.get(0).keySet()));
+        body.put("rows", rows);
+        return body;
+    }
+
+    private Definition definition(String key) {
+        return CATALOG.stream().filter(d -> d.key().equals(key)).findFirst()
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid report type selected."));
+    }
+
+    /** Report rows with sponsors' details blanked unless the user may see them (see SponsorPrivacy). */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> privateRows(String key, LocalDate from, LocalDate to) {
+        List<Map<String, Object>> rows = rows(key, from, to);
+        if (!sponsorPrivacy.hidesDetails()) return rows;
+        List<Map<String, Object>> masked = (List<Map<String, Object>>) sponsorPrivacy.mask(rows);
+        masked.forEach(r -> r.remove("masked")); // marker for screens, not a report column
+        return masked;
+    }
+
+    /** Rows of the report; from / to are optional inclusive days (ignored by reports without a date). */
+    private List<Map<String, Object>> rows(String key, LocalDate from, LocalDate to) {
         if (from != null && to != null && to.isBefore(from)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "The 'to' date cannot be before the 'from' date.");
         }
         DateRange range = new DateRange(from, to);
-        List<Map<String, Object>> rows = switch (key) {
+        return switch (key) {
             case "applications" -> applications(range);
             case "applications_by_status" -> applicationsByStatus(range);
             case "interviews" -> interviews(range);
@@ -169,9 +204,6 @@ public class ReportCatalogService {
             case "activity_log" -> activityLog(from, to);
             default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid report type selected.");
         };
-        String name = key + "_report" + (def.dateRange() && (from != null || to != null)
-                ? "_" + (from == null ? "start" : from) + "_to_" + (to == null ? "today" : to) : "");
-        return reportService.build(rows, name, format, def.title());
     }
 
     // ---------------------------------------------------------------- applications

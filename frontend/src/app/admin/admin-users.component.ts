@@ -6,6 +6,9 @@ import { ApiService } from '../core/services/api.service';
 import { ChapterService } from '../core/services/chapter.service';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
 import { Chapter } from './admin-chapters.component';
+import { RccCenter } from './admin-rcc-centers.component';
+import { AuthService } from '../core/services/auth.service';
+import { ROLE } from '../core/models/user.model';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, merge, switchMap } from 'rxjs';
 
 export interface UserRow {
@@ -20,6 +23,9 @@ export interface UserRow {
   role_name: string;
   status: string;
   chapter_id?: number | null;
+  rcc_center_id?: number | null;
+  /** A sponsor whose contact / personal details the viewer may not see (they come back blank). */
+  masked?: boolean;
   chapter_name?: string | null;
 }
 
@@ -49,7 +55,7 @@ export interface RoleOption {
 
     <div class="row mb-3">
       <div class="col-12">
-        <button type="button" class="btn btn-primary waves-effect waves-light" (click)="openAdd()">
+        <button *ngIf="canEdit" type="button" class="btn btn-primary waves-effect waves-light" (click)="openAdd()">
           <i class="mdi mdi-plus mr-1"></i> Add New User
         </button>
       </div>
@@ -97,7 +103,14 @@ export interface RoleOption {
                     <td>{{ u.email ?? 'None' }}</td>
                     <td><span class="badge badge-light-secondary">{{ u.role_name }}</span></td>
                     <td><span class="badge" [ngClass]="u.status === 'Active' ? 'badge-success' : 'badge-danger'">{{ u.status }}</span></td>
-                    <td><a [routerLink]="['/admin/users', u.id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a></td>
+                    <td class="text-nowrap">
+                      <a *ngIf="canEdit" [routerLink]="['/admin/users', u.id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
+                      <button *ngIf="canEdit && mayReset(u)" type="button" class="btn btn-sm btn-outline-warning waves-effect ml-1"
+                              (click)="resetPassword(u)" [disabled]="resetting === u.id" title="Set a temporary password and email it to the user">
+                        <span *ngIf="resetting === u.id" class="spinner-border spinner-border-sm"></span>
+                        <i *ngIf="resetting !== u.id" class="mdi mdi-lock-reset"></i> Reset password
+                      </button>
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -107,6 +120,29 @@ export interface RoleOption {
         </div>
       </div>
     </div>
+
+    <!-- Temporary password that could not be emailed: shown once -->
+    <ng-container *ngIf="tempPassword">
+      <div class="modal fade show d-block" tabindex="-1" role="dialog">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+          <div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Temporary password</h5></div>
+            <div class="modal-body">
+              <p>{{ tempPassword.message }}</p>
+              <div class="d-flex align-items-center">
+                <code class="h5 mb-0 mr-2 p-2 bg-light border rounded">{{ tempPassword.password }}</code>
+                <button type="button" class="btn btn-sm btn-outline-secondary" (click)="copy(tempPassword.password)">
+                  <i class="mdi mdi-content-copy"></i> {{ copied ? 'Copied' : 'Copy' }}
+                </button>
+              </div>
+              <small class="text-muted d-block mt-2">It won't be shown again. {{ tempPassword.name }} must choose a new password after signing in.</small>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-primary" (click)="tempPassword = null">Done</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-backdrop fade show"></div>
+    </ng-container>
 
     <!-- Add User modal -->
     <ng-container *ngIf="showAdd">
@@ -135,9 +171,16 @@ export interface RoleOption {
                   </select>
                 </div>
                 <div class="form-group">
+                  <label>RCC Center <small class="text-muted">(optional; needed for RCC coordinators)</small></label>
+                  <select class="form-control" name="rccCenterId" [(ngModel)]="newUser.rccCenterId">
+                    <option [ngValue]="null">No RCC center</option>
+                    <option *ngFor="let r of rccCenters" [ngValue]="r.rccCenterId">{{ r.centerName }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
                   <label>Role</label>
                   <select class="form-control" name="roleId" [(ngModel)]="newUser.roleId" required>
-                    <option *ngFor="let r of roles" [ngValue]="r.roleId">{{ r.roleName }}</option>
+                    <option *ngFor="let r of assignableRoles" [ngValue]="r.roleId">{{ r.roleName }}</option>
                   </select>
                 </div>
                 <div class="form-group">
@@ -186,9 +229,49 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   addError = '';
   newUser = this.blankUser();
 
-  constructor(private api: ApiService, private chapterList: ChapterService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService) {}
 
   /** Active chapters, plus the given one when it is inactive. */
+  rccCenters: RccCenter[] = [];
+
+  get canEdit(): boolean { return this.auth.can('USERS', 'EDIT'); }
+
+  resetting: number | null = null;
+  tempPassword: { name: string; message: string; password: string } | null = null;
+  copied = false;
+
+  /** Only a Super Admin may reset a Super Admin's password. */
+  mayReset(u: UserRow): boolean {
+    return u.role_id !== ROLE.SUPER_ADMIN || this.auth.currentUser()?.roleId === ROLE.SUPER_ADMIN;
+  }
+
+  resetPassword(u: UserRow): void {
+    if (!confirm(`Reset the password of ${u.name}? They get a temporary password and must choose a new one when they sign in.`)) return;
+    this.resetting = u.id;
+    this.error = '';
+    this.api.post<{ message: string; emailed: boolean; temporaryPassword?: string }>(`/admin/users/${u.id}/reset-password`, {}).subscribe({
+      next: (r) => {
+        this.resetting = null;
+        if (r.temporaryPassword) {
+          this.copied = false;
+          this.tempPassword = { name: u.name, message: r.message, password: r.temporaryPassword };
+        } else {
+          this.message = r.message;
+        }
+      },
+      error: (err) => { this.resetting = null; this.error = err?.error?.error ?? 'Could not reset the password.'; }
+    });
+  }
+
+  copy(text: string): void {
+    navigator.clipboard?.writeText(text).then(() => (this.copied = true), () => {});
+  }
+
+  /** Only a Super Admin may give someone the Super Admin role. */
+  get assignableRoles(): RoleOption[] {
+    return this.auth.currentUser()?.roleId === ROLE.SUPER_ADMIN ? this.roles : this.roles.filter((r) => r.roleId !== ROLE.SUPER_ADMIN);
+  }
+
   chapterOptions(currentId: number | null | undefined): Chapter[] {
     return ChapterService.options(this.chapters, currentId);
   }
@@ -196,6 +279,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.api.get<RoleOption[]>('/admin/roles').subscribe({ next: (r) => (this.roles = r) });
     this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
+    this.api.get<RccCenter[]>('/admin/rcc-centers').subscribe({ next: (r) => (this.rccCenters = r) });
     // One request stream: a newer request cancels an older one, so a slow reply can't overwrite a newer page.
     this.sub = merge(this.typing.pipe(debounceTime(300)), this.reload).pipe(
       switchMap(() => {
@@ -249,6 +333,6 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   }
 
   private blankUser() {
-    return { userId: '', name: '', contact: '', email: '', chapterId: null as number | null, roleId: null as number | null, status: 'Active', password: '' };
+    return { userId: '', name: '', contact: '', email: '', chapterId: null as number | null, rccCenterId: null as number | null, roleId: null as number | null, status: 'Active', password: '' };
   }
 }

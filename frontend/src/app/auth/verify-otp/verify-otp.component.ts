@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { dashboardPathForRole } from '../../core/models/user.model';
+import { landingPath } from '../../core/models/user.model';
 import { AuthLayoutComponent } from '../../shared/auth-layout/auth-layout.component';
 
 @Component({
@@ -29,7 +29,7 @@ export class VerifyOtpComponent {
     this.auth.verifyOtp(this.id, this.otp).subscribe({
       next: (res) => {
         this.loading = false;
-        this.router.navigate([res.mustChangePassword ? '/change-password' : dashboardPathForRole(res.roleId ?? 0)]);
+        this.router.navigate([res.mustChangePassword ? '/change-password' : landingPath(this.auth.currentUser())]);
       },
       error: (err) => {
         this.loading = false;

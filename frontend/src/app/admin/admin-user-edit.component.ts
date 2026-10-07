@@ -4,6 +4,11 @@ import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { RoleOption, UserRow } from './admin-users.component';
+import { AuthService } from '../core/services/auth.service';
+import { ChapterService } from '../core/services/chapter.service';
+import { ROLE } from '../core/models/user.model';
+import { Chapter } from './admin-chapters.component';
+import { RccCenter } from './admin-rcc-centers.component';
 
 /** Port of templates/admin/edit_user.html */
 @Component({
@@ -30,14 +35,35 @@ import { RoleOption, UserRow } from './admin-users.component';
               </div>
               <div class="form-group">
                 <label for="email">Email</label>
-                <input type="email" class="form-control" id="email" name="email" [(ngModel)]="form.email" required>
+                <input type="email" class="form-control" id="email" name="email" [(ngModel)]="form.email" [placeholder]="masked ? 'Hidden' : 'Optional'" [disabled]="masked">
+              </div>
+              <div *ngIf="masked" class="alert alert-light border small py-2">
+                <i class="mdi mdi-lock-outline"></i> This is a sponsor. Their contact and personal details are hidden from you, so they can't be changed here.
+              </div>
+              <div class="row">
+                <div class="col-md-6 form-group">
+                  <label for="chapter">Chapter</label>
+                  <select class="form-control" id="chapter" name="chapterId" [(ngModel)]="form.chapterId" [disabled]="masked">
+                    <option [ngValue]="null">No chapter</option>
+                    <option *ngFor="let c of chapterOptions()" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
+                  </select>
+                  <small class="text-muted">A Chapter Lead edits this chapter.</small>
+                </div>
+                <div class="col-md-6 form-group">
+                  <label for="rcc">RCC Center</label>
+                  <select class="form-control" id="rcc" name="rccCenterId" [(ngModel)]="form.rccCenterId" [disabled]="masked">
+                    <option [ngValue]="null">No RCC center</option>
+                    <option *ngFor="let r of rccCenters" [ngValue]="r.rccCenterId">{{ r.centerName }}</option>
+                  </select>
+                  <small class="text-muted">An RCC Coordinator edits this center.</small>
+                </div>
               </div>
               <div class="row">
                 <div class="col-md-6">
                   <div class="form-group">
                     <label for="role_id">Role</label>
                     <select class="form-control" id="role_id" name="roleId" [(ngModel)]="form.roleId" required>
-                      <option *ngFor="let r of roles" [ngValue]="r.roleId">{{ r.roleName }}</option>
+                      <option *ngFor="let r of assignableRoles" [ngValue]="r.roleId">{{ r.roleName }}</option>
                     </select>
                   </div>
                 </div>
@@ -71,17 +97,38 @@ export class AdminUserEditComponent implements OnInit {
   @Input() id = '';
 
   roles: RoleOption[] = [];
-  form: { name: string; email: string; roleId: number; status: string } | null = null;
+  form: { name: string; email: string; roleId: number; status: string; chapterId: number | null; rccCenterId: number | null } | null = null;
+  chapters: Chapter[] = [];
+  rccCenters: RccCenter[] = [];
+  private originalChapterId: number | null = null;
+  /** Sponsor whose details are hidden from this user: those fields can't be edited. */
+  masked = false;
   error = '';
   saving = false;
 
-  constructor(private api: ApiService, private router: Router) {}
+  constructor(private api: ApiService, private router: Router, private auth: AuthService, private chapterList: ChapterService) {}
+
+  /** Only a Super Admin may give someone the Super Admin role. */
+  get assignableRoles(): RoleOption[] {
+    const own = this.form?.roleId;
+    return this.auth.currentUser()?.roleId === ROLE.SUPER_ADMIN
+      ? this.roles : this.roles.filter((r) => r.roleId !== ROLE.SUPER_ADMIN || r.roleId === own);
+  }
+
+  chapterOptions(): Chapter[] {
+    return ChapterService.options(this.chapters, this.originalChapterId);
+  }
 
   ngOnInit(): void {
     this.api.get<RoleOption[]>('/admin/roles').subscribe({ next: (r) => (this.roles = r) });
+    this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
+    this.api.get<RccCenter[]>('/admin/rcc-centers').subscribe({ next: (r) => (this.rccCenters = r) });
     this.api.get<UserRow>(`/admin/users/${encodeURIComponent(this.id)}`).subscribe({
       next: (u) => {
-        this.form = { name: u.name, email: u.email ?? '', roleId: u.role_id, status: u.status };
+        this.originalChapterId = u.chapter_id ?? null;
+        this.masked = !!u.masked;
+        this.form = { name: u.name, email: u.email ?? '', roleId: u.role_id, status: u.status,
+                      chapterId: u.chapter_id ?? null, rccCenterId: u.rcc_center_id ?? null };
       },
       error: (err) => (this.error = err?.error?.error ?? 'Could not load user.')
     });

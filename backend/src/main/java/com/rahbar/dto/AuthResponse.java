@@ -13,6 +13,10 @@ public class AuthResponse {
     private String message;
     /** True when the user must choose a new password before using the app. */
     private boolean mustChangePassword;
+    /** Admin-screen permission keys of the user's role (e.g. "USERS:EDIT"). */
+    private java.util.Set<String> permissions = java.util.Set.of();
+    /** ALL, CHAPTER or RCC: which records the permissions cover. */
+    private String scope;
 
     public static AuthResponse otpRequired(Long id, String message) {
         AuthResponse r = new AuthResponse();
@@ -50,5 +54,9 @@ public class AuthResponse {
     public boolean isMustChangePassword() { return mustChangePassword; }
     public void setMustChangePassword(boolean mustChangePassword) { this.mustChangePassword = mustChangePassword; }
     public String getMessage() { return message; }
+    public java.util.Set<String> getPermissions() { return permissions; }
+    public void setPermissions(java.util.Set<String> permissions) { this.permissions = permissions; }
+    public String getScope() { return scope; }
+    public void setScope(String scope) { this.scope = scope; }
     public void setMessage(String message) { this.message = message; }
 }

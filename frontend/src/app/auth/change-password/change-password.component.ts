@@ -2,7 +2,7 @@ import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
-import { dashboardPathForRole } from '../../core/models/user.model';
+import { landingPath } from '../../core/models/user.model';
 import { AuthLayoutComponent } from '../../shared/auth-layout/auth-layout.component';
 import { PasswordFormComponent } from '../../shared/password-form.component';
 
@@ -25,7 +25,7 @@ export class ChangePasswordComponent {
 
   done(): void {
     this.auth.updateUser({ mustChangePassword: false });
-    this.router.navigate([dashboardPathForRole(this.auth.currentUser()?.roleId ?? 0)]);
+    this.router.navigate([landingPath(this.auth.currentUser())]);
   }
 
   signOut(event: Event): void {

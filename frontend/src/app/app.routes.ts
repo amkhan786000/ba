@@ -7,6 +7,7 @@ import { PublicApplyComponent } from './public/apply.component';
 import { ShellComponent } from './shared/layout/shell.component';
 import { AdminDashboardComponent } from './admin/admin-dashboard.component';
 import { AdminUsersComponent } from './admin/admin-users.component';
+import { AdminBroadcastsComponent } from './admin/admin-broadcasts.component';
 import { AdminUserEditComponent } from './admin/admin-user-edit.component';
 import { AdminRolesComponent } from './admin/admin-roles.component';
 import { AdminRoleEditComponent } from './admin/admin-role-edit.component';
@@ -43,7 +44,6 @@ import { SponsorPaymentsComponent } from './sponsor/sponsor-payments.component';
 import { SponsorProgressComponent } from './sponsor/sponsor-progress.component';
 import { StudentPaymentsComponent } from './student/student-payments.component';
 import { StudentProgressComponent } from './student/student-progress.component';
-import { OfficeDashboardComponent } from './office/office-dashboard.component';
 import { AdminActivityLogComponent } from './admin/admin-activity-log.component';
 import { AdminPaymentDuesComponent } from './admin/admin-payment-dues.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
@@ -51,7 +51,8 @@ import { TrackApplicationComponent } from './public/track.component';
 import { ProfileComponent } from './shared/profile/profile.component';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
-import { ROLE } from './core/models/user.model';
+import { ADMIN_LINKS, ROLE } from './core/models/user.model';
+import { adminAreaGuard, adminHomeGuard, permissionGuard } from './core/guards/permission.guard';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -65,56 +66,44 @@ export const routes: Routes = [
   {
     path: 'admin',
     component: ShellComponent,
-    canActivate: [roleGuard([ROLE.SUPER_ADMIN, ROLE.APP_ADMIN])],
+    canActivate: [adminAreaGuard],
     data: {
       title: 'Admin Panel',
-      links: [
-        { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
-        { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple' },
-        { path: '/admin/roles', label: 'Roles', icon: 'mdi-shield-account' },
-        { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings' },
-        { path: '/admin/payment-dues', label: 'Payment Dues', icon: 'mdi-alarm' },
-        { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar' },
-        { path: '/admin/application-period', label: 'App Period', icon: 'mdi-calendar' },
-        { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank' },
-        { path: '/admin/chapters', label: 'Chapters', icon: 'mdi-map-marker-multiple' },
-        { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open' },
-        { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch' },
-        { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details' },
-        { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history' }
-      ]
+      // Filtered by the user's permissions in the shell (see ADMIN_LINKS).
+      links: ADMIN_LINKS
     },
     children: [
-      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+      { path: '', pathMatch: 'full', canActivate: [adminHomeGuard], children: [] },
       { path: 'profile', component: ProfileComponent },
-      { path: 'dashboard', component: AdminDashboardComponent },
-      { path: 'users', component: AdminUsersComponent },
-      { path: 'users/:id/edit', component: AdminUserEditComponent },
-      { path: 'roles', component: AdminRolesComponent },
-      { path: 'roles/new', component: AdminRoleEditComponent },
-      { path: 'roles/:id/edit', component: AdminRoleEditComponent },
-      { path: 'system-configuration', component: AdminSystemConfigComponent },
-      { path: 'payment-dues', component: AdminPaymentDuesComponent },
-      { path: 'activity', component: AdminActivityLogComponent },
-      { path: 'reports', component: AdminReportsComponent },
-      { path: 'application-period', component: AdminApplicationPeriodComponent },
-      { path: 'rcc-centers', component: AdminRccCentersComponent },
-      { path: 'rcc-centers/new', component: AdminRccCenterEditComponent },
-      { path: 'rcc-centers/:id/edit', component: AdminRccCenterEditComponent },
-      { path: 'chapters', component: AdminChaptersComponent },
-      { path: 'chapters/new', component: AdminChapterEditComponent },
-      { path: 'chapters/:id/edit', component: AdminChapterEditComponent },
-      { path: 'courses', component: AdminCoursesComponent },
-      { path: 'courses/new', component: AdminCourseEditComponent },
-      { path: 'courses/:id/edit', component: AdminCourseEditComponent },
-      { path: 'institutions/new', component: AdminInstitutionAddComponent },
-      { path: 'sponsorships', component: AdminSponsorshipsComponent },
-      { path: 'sponsorships/:id/map', component: AdminSponsorMapComponent },
-      { path: 'students', component: AdminStudentDirectoryComponent },
+      { path: 'dashboard', component: AdminDashboardComponent, canActivate: [permissionGuard], data: { permission: 'DASHBOARD' } },
+      { path: 'users', component: AdminUsersComponent, canActivate: [permissionGuard], data: { permission: 'USERS' } },
+      { path: 'users/:id/edit', component: AdminUserEditComponent, canActivate: [permissionGuard], data: { permission: 'USERS' } },
+      { path: 'roles', component: AdminRolesComponent, canActivate: [permissionGuard], data: { permission: 'ROLES' } },
+      { path: 'roles/new', component: AdminRoleEditComponent, canActivate: [permissionGuard], data: { permission: 'ROLES' } },
+      { path: 'roles/:id/edit', component: AdminRoleEditComponent, canActivate: [permissionGuard], data: { permission: 'ROLES' } },
+      { path: 'system-configuration', component: AdminSystemConfigComponent, canActivate: [permissionGuard], data: { permission: 'PAYMENT_CONFIG' } },
+      { path: 'payment-dues', component: AdminPaymentDuesComponent, canActivate: [permissionGuard], data: { permission: 'PAYMENT_DUES' } },
+      { path: 'activity', component: AdminActivityLogComponent, canActivate: [permissionGuard], data: { permission: 'ACTIVITY' } },
+      { path: 'broadcasts', component: AdminBroadcastsComponent, canActivate: [permissionGuard], data: { permission: 'MESSAGES' } },
+      { path: 'reports', component: AdminReportsComponent, canActivate: [permissionGuard], data: { permission: 'REPORTS' } },
+      { path: 'application-period', component: AdminApplicationPeriodComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATION_PERIOD' } },
+      { path: 'rcc-centers', component: AdminRccCentersComponent, canActivate: [permissionGuard], data: { permission: 'RCC_CENTERS' } },
+      { path: 'rcc-centers/new', component: AdminRccCenterEditComponent, canActivate: [permissionGuard], data: { permission: 'RCC_CENTERS' } },
+      { path: 'rcc-centers/:id/edit', component: AdminRccCenterEditComponent, canActivate: [permissionGuard], data: { permission: 'RCC_CENTERS' } },
+      { path: 'chapters', component: AdminChaptersComponent, canActivate: [permissionGuard], data: { permission: 'CHAPTERS' } },
+      { path: 'chapters/new', component: AdminChapterEditComponent, canActivate: [permissionGuard], data: { permission: 'CHAPTERS' } },
+      { path: 'chapters/:id/edit', component: AdminChapterEditComponent, canActivate: [permissionGuard], data: { permission: 'CHAPTERS' } },
+      { path: 'courses', component: AdminCoursesComponent, canActivate: [permissionGuard], data: { permission: 'COURSES' } },
+      { path: 'courses/new', component: AdminCourseEditComponent, canActivate: [permissionGuard], data: { permission: 'COURSES' } },
+      { path: 'courses/:id/edit', component: AdminCourseEditComponent, canActivate: [permissionGuard], data: { permission: 'COURSES' } },
+      { path: 'institutions/new', component: AdminInstitutionAddComponent, canActivate: [permissionGuard], data: { permission: 'COURSES' } },
+      { path: 'sponsorships', component: AdminSponsorshipsComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
+      { path: 'sponsorships/:id/map', component: AdminSponsorMapComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
+      { path: 'students', component: AdminStudentDirectoryComponent, canActivate: [permissionGuard], data: { permission: 'STUDENTS' } },
       // Not in the Flask sidebar either: reached by URL (manage students) or from coordinator/convenor menus (applications)
-      { path: 'manage-students', component: AdminManageStudentsComponent },
-      { path: 'applications', component: AdminApplicationsComponent },
-      { path: 'applications/:id', component: AdminApplicationDetailsComponent }
+      { path: 'manage-students', component: AdminManageStudentsComponent, canActivate: [permissionGuard], data: { permission: 'STUDENTS' } },
+      { path: 'applications', component: AdminApplicationsComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
+      { path: 'applications/:id', component: AdminApplicationDetailsComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } }
     ]
   },
   {
@@ -213,40 +202,9 @@ export const routes: Routes = [
     ]
   },
 
-  {
-    path: 'office',
-    component: ShellComponent,
-    canActivate: [roleGuard([ROLE.OFFICE_COORDINATOR])],
-    data: {
-      title: 'Office Coordinator Panel',
-      links: [
-        { path: '/office/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
-        { path: '/office/system-configuration', label: 'Payment Config', icon: 'mdi-settings' },
-        { path: '/office/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank' },
-        { path: '/office/courses', label: 'Courses', icon: 'mdi-book-open' },
-        { path: '/office/sponsorships', label: 'Sponsors', icon: 'mdi-account-switch' },
-        { path: '/office/students', label: 'Student Directory', icon: 'mdi-account-details' }
-      ]
-    },
-    // Reuses the admin pages; section: 'office' keeps their links inside /office,
-    // limited: true hides sponsor contact info, profile editing and bulk upload.
-    children: [
-      { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
-      { path: 'profile', component: ProfileComponent },
-      { path: 'dashboard', component: OfficeDashboardComponent },
-      { path: 'system-configuration', component: AdminSystemConfigComponent },
-      { path: 'rcc-centers', component: AdminRccCentersComponent, data: { section: 'office' } },
-      { path: 'rcc-centers/new', component: AdminRccCenterEditComponent, data: { section: 'office' } },
-      { path: 'rcc-centers/:id/edit', component: AdminRccCenterEditComponent, data: { section: 'office' } },
-      { path: 'courses', component: AdminCoursesComponent, data: { section: 'office' } },
-      { path: 'courses/new', component: AdminCourseEditComponent, data: { section: 'office' } },
-      { path: 'courses/:id/edit', component: AdminCourseEditComponent, data: { section: 'office' } },
-      { path: 'institutions/new', component: AdminInstitutionAddComponent, data: { section: 'office' } },
-      { path: 'sponsorships', component: AdminSponsorshipsComponent, data: { section: 'office', limited: true } },
-      { path: 'sponsorships/:id/map', component: AdminSponsorMapComponent, data: { section: 'office' } },
-      { path: 'students', component: AdminStudentDirectoryComponent }
-    ]
-  },
+  // The Office Coordinator now uses the admin area (menu filtered by permissions); old links still work.
+  { path: 'office', redirectTo: 'admin', pathMatch: 'full' },
+  { path: 'office/:page', redirectTo: 'admin/:page' },
 
   { path: '', redirectTo: 'login', pathMatch: 'full' },
   { path: '**', redirectTo: 'login' }

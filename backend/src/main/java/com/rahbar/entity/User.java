@@ -45,6 +45,10 @@ public class User extends Modifiable {
     @Column(name = "chapter_id")
     private Long chapterId;
 
+    /** The user's RCC center (rcc_centers.rcc_center_id); used to scope RCC coordinators. Optional. */
+    @Column(name = "rcc_center_id")
+    private Long rccCenterId;
+
     /** Name of the chapter, read with the user (not stored on users). */
     @org.hibernate.annotations.Formula("(select c.chapter_name from chapters c where c.chapter_id = chapter_id)")
     private String chapterName;

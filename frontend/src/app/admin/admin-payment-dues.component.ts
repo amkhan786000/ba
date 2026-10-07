@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
+import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
@@ -22,7 +23,7 @@ interface Due {
       <div class="col-12">
         <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-md-center">
           <h4 class="page-title mb-2 mb-md-0">Payment Dues</h4>
-          <button class="btn btn-primary" (click)="send()" [disabled]="sending">
+          <button *ngIf="canEdit" class="btn btn-primary" (click)="send()" [disabled]="sending">
             <i class="mdi mdi-send mr-1"></i>{{ sending ? 'Sending…' : 'Send reminders now' }}
           </button>
         </div>
@@ -88,7 +89,9 @@ export class AdminPaymentDuesComponent implements OnInit {
   message = '';
   error = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private auth: AuthService) {}
+
+  get canEdit(): boolean { return this.auth.can('PAYMENT_DUES', 'EDIT'); }
 
   ngOnInit(): void { this.load(); }
 

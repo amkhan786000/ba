@@ -14,7 +14,8 @@ const ICONS: Record<string, string> = {
   reminder: 'mdi-alarm',
   progress: 'mdi-chart-line',
   mapping: 'mdi-account-switch',
-  account: 'mdi-shield-account'
+  account: 'mdi-shield-account',
+  announcement: 'mdi-bullhorn'
 };
 
 /** Bell in the top bar: unread badge (checked every minute) and a dropdown of the latest notifications. */

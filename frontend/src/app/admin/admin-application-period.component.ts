@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
+import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 
 interface Period { id: number; startDate: string | null; endDate: string | null; isActive: boolean }
@@ -50,6 +51,7 @@ interface Period { id: number; startDate: string | null; endDate: string | null;
                 <input type="date" class="form-control" id="end_date" name="end_date" [(ngModel)]="endDate" [disabled]="!!period?.isActive" />
                 <small class="form-text text-muted">Required to start a new period.</small>
               </div>
+              <ng-container *ngIf="canEdit">
               <button *ngIf="period?.isActive; else startBtn" type="submit" class="btn btn-danger btn-block waves-effect waves-light" [disabled]="busy">
                 <i class="mdi mdi-stop-circle-outline mr-1"></i> End Current Active Period
               </button>
@@ -58,6 +60,7 @@ interface Period { id: number; startDate: string | null; endDate: string | null;
                   <i class="mdi mdi-play-circle-outline mr-1"></i> Start New Application Period
                 </button>
               </ng-template>
+              </ng-container>
             </form>
           </div>
         </div>
@@ -73,7 +76,9 @@ export class AdminApplicationPeriodComponent implements OnInit {
   message = '';
   error = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private auth: AuthService) {}
+
+  get canEdit(): boolean { return this.auth.can('APPLICATION_PERIOD', 'EDIT'); }
 
   ngOnInit(): void { this.load(); }
 

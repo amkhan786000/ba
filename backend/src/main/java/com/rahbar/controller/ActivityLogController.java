@@ -11,7 +11,7 @@ import java.util.Map;
 /** Admin "Activity Log": searchable history of who changed what, and sign-ins. */
 @RestController
 @RequestMapping("/api/admin/activity")
-@PreAuthorize("hasAnyRole('1','2')")
+@PreAuthorize("denyAll()") // every endpoint below names the permission it needs
 public class ActivityLogController {
 
     private final ActivityLogService activityLogService;
@@ -21,6 +21,7 @@ public class ActivityLogController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAuthority('ACTIVITY:VIEW')")
     public Map<String, Object> search(@RequestParam(required = false) String userId,
                                       @RequestParam(required = false) String search,
                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,

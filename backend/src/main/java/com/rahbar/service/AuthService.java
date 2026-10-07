@@ -27,6 +27,7 @@ public class AuthService {
     private final JwtService jwtService;
     private final EmailService emailService;
     private final ActivityLogService activityLogService;
+    private final com.rahbar.security.RahbarUserDetailsService userDetailsService;
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AuthService.class);
@@ -37,13 +38,15 @@ public class AuthService {
 
     public AuthService(UserRepository userRepository, OtpRepository otpRepository,
                        PasswordEncoder passwordEncoder, JwtService jwtService,
-                       EmailService emailService, ActivityLogService activityLogService) {
+                       EmailService emailService, ActivityLogService activityLogService,
+                       com.rahbar.security.RahbarUserDetailsService userDetailsService) {
         this.userRepository = userRepository;
         this.otpRepository = otpRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.emailService = emailService;
         this.activityLogService = activityLogService;
+        this.userDetailsService = userDetailsService;
     }
 
     public AuthResponse login(LoginRequest req, String ip) {
@@ -132,6 +135,9 @@ public class AuthService {
         ));
         AuthResponse response = AuthResponse.success(token, user.getId(), user.getUserId(), user.getName(), user.getRoleId(), user.getStatus());
         response.setMustChangePassword(Boolean.TRUE.equals(user.getMustChangePassword()));
+        var principal = userDetailsService.principalFor(user);
+        response.setPermissions(principal.getPermissions());
+        response.setScope(principal.getScope());
         return response;
     }
 

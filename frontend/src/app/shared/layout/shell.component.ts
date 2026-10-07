@@ -3,13 +3,15 @@ import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
-import { ROLE_LABELS } from '../../core/models/user.model';
+import { ROLE_LABELS, Section } from '../../core/models/user.model';
 import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 export interface NavLink {
   path: string;
   label: string;
   icon?: string;
+  /** Admin screens: shown only when the user may view this section. */
+  section?: Section;
 }
 
 /**
@@ -86,7 +88,8 @@ export interface NavLink {
 export class ShellComponent implements OnDestroy {
   @Input() title = '';
   @Input() set links(v: NavLink[] | undefined) { this._links = v ?? []; this.updateLabel(); }
-  get links(): NavLink[] { return this._links; }
+  /** Menu entries the user may open (admin entries carry the section they need VIEW on). */
+  get links(): NavLink[] { return this._links.filter((l) => !l.section || this.auth.can(l.section)); }
   private _links: NavLink[] = [];
 
   @ViewChild(NotificationBellComponent) private bell?: NotificationBellComponent;
@@ -99,6 +102,8 @@ export class ShellComponent implements OnDestroy {
   private sub: Subscription;
 
   constructor(public auth: AuthService, private router: Router) {
+    // Permissions may have changed in Admin > Roles since sign-in: refresh them (the menu follows).
+    if (this.auth.currentUser()) this.auth.refreshAccess().subscribe({ next: () => this.updateLabel(), error: () => {} });
     this.sub = this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
       this.updateLabel();
       this.menuOpen = false;
@@ -111,8 +116,8 @@ export class ShellComponent implements OnDestroy {
   get sectionRoot(): string { return '/' + (this.homeLink.split('/')[1] ?? ''); }
 
   get roleLabel(): string {
-    const roleId = this.auth.currentUser()?.roleId ?? 0;
-    return ROLE_LABELS[roleId] ?? 'User';
+    const user = this.auth.currentUser();
+    return user?.roleName || ROLE_LABELS[user?.roleId ?? 0] || 'User';
   }
 
   get initials(): string {

@@ -2,7 +2,8 @@ package com.rahbar.controller;
 
 import com.rahbar.util.Ids;
 import com.rahbar.entity.*;
-import com.rahbar.security.AuthUtil;
+import com.rahbar.security.Access;
+import com.rahbar.security.Section;
 import com.rahbar.service.AdminService;
 import com.rahbar.service.BulkUploadReport;
 import org.springframework.http.MediaType;
@@ -18,19 +19,14 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Mirrors routes/admin.py (role_id 1 = Super Admin, 2 = Application Administrator).
- * The Office Coordinator (role 8) shares a subset of these screens (see {@link #ADMIN_OR_OFFICE}).
- * All data access and business rules live in {@link AdminService}.
+ * Admin screens. Each endpoint requires a permission of the user's role (e.g. "USERS:EDIT", see
+ * {@link com.rahbar.security.Section}), managed in Admin > Roles. All data access and business rules live in
+ * {@link AdminService}.
  */
 @RestController
 @RequestMapping("/api/admin")
-@PreAuthorize("hasAnyRole('1','2')")
+@PreAuthorize("denyAll()") // every endpoint below names the permission it needs
 public class AdminController {
-
-    /** Office Coordinator (role 8) shares a subset of the admin screens: payment config, RCC centers,
-     *  courses/institutions, sponsors (map students only, no contact info) and the student directory. */
-    static final int OFFICE_COORDINATOR = 8;
-    static final String ADMIN_OR_OFFICE = "hasAnyRole('1','2','8')";
 
     private final AdminService adminService;
 
@@ -38,13 +34,15 @@ public class AdminController {
         this.adminService = adminService;
     }
 
-    private static boolean isOfficeCoordinator() {
-        return Integer.valueOf(OFFICE_COORDINATOR).equals(AuthUtil.currentUser().getRoleId());
+    /** Sponsor contact details are only shown with the Sponsor details permission (see SponsorPrivacy). */
+    private static boolean hideSponsorContacts() {
+        return !Access.can(Section.SPONSOR_DETAILS, Section.Level.VIEW);
     }
 
     // ---------------------------------------------------------------- dashboard
 
     @GetMapping("/dashboard")
+    @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
     public Map<String, Object> dashboard(@RequestParam(required = false) Integer year) {
         return adminService.dashboard(year);
     }
@@ -52,17 +50,20 @@ public class AdminController {
     // ---------------------------------------------------------- application period
 
     @GetMapping("/application-period")
+    @PreAuthorize("hasAuthority('APPLICATION_PERIOD:VIEW')")
     public Optional<ApplicationPeriod> currentApplicationPeriod() {
         return adminService.currentApplicationPeriod();
     }
 
     @PostMapping("/application-period/start")
+    @PreAuthorize("hasAuthority('APPLICATION_PERIOD:EDIT')")
     public Map<String, String> startApplicationPeriod(@RequestBody Map<String, String> body) {
         adminService.startApplicationPeriod(body.get("startDate"), body.get("endDate"));
         return Map.of("message", "New application period started successfully!");
     }
 
     @PostMapping("/application-period/end")
+    @PreAuthorize("hasAuthority('APPLICATION_PERIOD:EDIT')")
     public Map<String, String> endApplicationPeriod() {
         int ended = adminService.endApplicationPeriods();
         return Map.of("message", ended > 0 ? ended + " application period(s) ended successfully!" : "No active application period found to end.");
@@ -72,6 +73,7 @@ public class AdminController {
 
     /** Paged: { data, total, page, size }. page is 1-based. */
     @GetMapping("/users")
+    @PreAuthorize("hasAuthority('USERS:VIEW')")
     public Map<String, Object> listUsers(@RequestParam(defaultValue = "1") int page,
                                          @RequestParam(defaultValue = "10") int size,
                                          @RequestParam(required = false) String name,
@@ -82,17 +84,27 @@ public class AdminController {
     }
 
     @GetMapping("/users/{userId}")
+    @PreAuthorize("hasAuthority('USERS:VIEW')")
     public Map<String, Object> getUser(@PathVariable Long userId) {
         return adminService.getUser(userId);
     }
 
     @PostMapping("/users")
+    @PreAuthorize("hasAuthority('USERS:EDIT')")
     public Map<String, String> createUser(@RequestBody Map<String, Object> body) {
         adminService.createUser(body);
         return Map.of("message", "User saved successfully!");
     }
 
+    /** New temporary password, emailed to the user (returned instead when it can't be emailed). */
+    @PostMapping("/users/{userId}/reset-password")
+    @PreAuthorize("hasAuthority('USERS:EDIT')")
+    public Map<String, Object> resetUserPassword(@PathVariable Long userId) {
+        return adminService.resetUserPassword(userId);
+    }
+
     @PutMapping("/users/{userId}")
+    @PreAuthorize("hasAuthority('USERS:EDIT')")
     public Map<String, String> updateUser(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
         adminService.updateUser(userId, body);
         return Map.of("message", "User updated successfully!");
@@ -101,13 +113,13 @@ public class AdminController {
     // --------------------------------------------------------- system configuration
 
     @GetMapping("/system-configuration")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('PAYMENT_CONFIG:VIEW')")
     public Map<String, Object> systemConfiguration() {
         return adminService.systemConfiguration();
     }
 
     @PostMapping("/system-configuration")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('PAYMENT_CONFIG:EDIT')")
     public Map<String, String> saveSchedule(@RequestBody Map<String, Object> body) {
         int year = Integer.parseInt(String.valueOf(body.get("year")));
         adminService.saveSchedule(year, new BigDecimal(String.valueOf(body.get("amount"))));
@@ -117,19 +129,19 @@ public class AdminController {
     // ---------------------------------------------------------------- RCC centers
 
     @GetMapping("/rcc-centers")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('RCC_CENTERS:VIEW') or hasAuthority('STUDENTS:VIEW') or hasAuthority('USERS:VIEW')")
     public List<RccCenter> listRccCenters() {
         return adminService.listRccCenters();
     }
 
     @PostMapping("/rcc-centers")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('RCC_CENTERS:EDIT')")
     public RccCenter saveRccCenter(@RequestBody RccCenter center) {
         return adminService.saveRccCenter(center);
     }
 
     @DeleteMapping("/rcc-centers/{id}")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('RCC_CENTERS:EDIT')")
     public void deleteRccCenter(@PathVariable Long id) {
         adminService.deleteRccCenter(id);
     }
@@ -137,37 +149,37 @@ public class AdminController {
     // --------------------------------------------------------------------- courses
 
     @GetMapping("/courses")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('COURSES:VIEW') or hasAuthority('STUDENTS:VIEW')")
     public List<Map<String, Object>> listCourses() {
         return adminService.listCourses();
     }
 
     @GetMapping("/courses/by-institution/{institutionId}")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('COURSES:VIEW') or hasAuthority('STUDENTS:VIEW')")
     public List<Course> coursesByInstitution(@PathVariable String institutionId) {
         return adminService.coursesByInstitution(institutionId);
     }
 
     @PostMapping("/courses")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('COURSES:EDIT')")
     public Course saveCourse(@RequestBody Course course) {
         return adminService.saveCourse(course);
     }
 
     @DeleteMapping("/courses/{id}")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('COURSES:EDIT')")
     public void deleteCourse(@PathVariable Long id) {
         adminService.deleteCourse(id);
     }
 
     @GetMapping("/institutions")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('COURSES:VIEW') or hasAuthority('STUDENTS:VIEW')")
     public List<Institution> listInstitutions() {
         return adminService.listInstitutions();
     }
 
     @PostMapping("/institutions")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('COURSES:EDIT')")
     public Map<String, String> addInstitution(@RequestBody Map<String, Object> body) {
         String institutionId = adminService.addInstitution(body);
         return Map.of("message", "Institution added successfully with ID: " + institutionId);
@@ -176,7 +188,7 @@ public class AdminController {
     // ------------------------------------------------------------------ applications
 
     @GetMapping("/applications")
-    @PreAuthorize("hasAnyRole('1','2','3','4')")
+    @PreAuthorize("hasAuthority('APPLICATIONS:VIEW') or hasAnyRole('3','4')")
     public Map<String, Object> manageApplications(@RequestParam(defaultValue = "1") int page,
                                                   @RequestParam(defaultValue = "10") int size,
                                                   @RequestParam(required = false) String name,
@@ -186,7 +198,7 @@ public class AdminController {
     }
 
     @PostMapping("/applications/{granteeDetailId}/status")
-    @PreAuthorize("hasAnyRole('1','2','3','4')")
+    @PreAuthorize("hasAuthority('APPLICATIONS:EDIT') or hasAnyRole('3','4')")
     public Map<String, String> updateApplicationStatus(@PathVariable Long granteeDetailId, @RequestBody Map<String, String> body) {
         adminService.updateApplicationStatus(granteeDetailId, body.get("status"), body.get("comments"));
         return Map.of("message", "Status updated successfully");
@@ -195,11 +207,13 @@ public class AdminController {
     // ------------------------------------------------------------------ manage students
 
     @GetMapping("/manage-students")
+    @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
     public List<Map<String, Object>> manageStudents() {
         return adminService.manageStudents();
     }
 
     @PostMapping("/manage-students/assign")
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
     public Map<String, String> assignStudentCourse(@RequestBody Map<String, Object> body) {
         adminService.assignStudentCourse(Ids.toLong(body.get("id")), String.valueOf(body.get("institutionId")),
                 Long.valueOf(String.valueOf(body.get("courseId"))));
@@ -209,20 +223,20 @@ public class AdminController {
     // --------------------------------------------------------------- sponsorships
 
     @GetMapping("/sponsorships")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('SPONSORSHIPS:VIEW') or hasAuthority('STUDENTS:VIEW')")
     public List<Map<String, Object>> manageSponsorships() {
         // Office coordinators may not see sponsor contact details.
-        return adminService.sponsorships(isOfficeCoordinator());
+        return adminService.sponsorships(hideSponsorContacts());
     }
 
     @GetMapping("/sponsorships/{userId}/map")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('SPONSORSHIPS:VIEW')")
     public Map<String, Object> sponsorMappingScreen(@PathVariable Long userId) {
-        return adminService.sponsorMappingScreen(userId, isOfficeCoordinator());
+        return adminService.sponsorMappingScreen(userId, hideSponsorContacts());
     }
 
     @PostMapping("/sponsorships/{userId}/map")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('SPONSORSHIPS:EDIT')")
     public Map<String, String> mapStudentsToSponsor(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
         List<Long> studentIds = Ids.toLongs(body.get("studentIds"));
         adminService.mapStudentsToSponsor(userId, studentIds);
@@ -232,7 +246,7 @@ public class AdminController {
     // ------------------------------------------------------------- student directory
 
     @GetMapping("/students")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
     public Map<String, Object> listStudents(@RequestParam(defaultValue = "0") int start,
                                             @RequestParam(defaultValue = "10") int length,
                                             @RequestParam(required = false) String search,
@@ -242,20 +256,20 @@ public class AdminController {
     }
 
     @GetMapping("/students/{userId}")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
     public Map<String, Object> studentDetails(@PathVariable Long userId) {
         return adminService.studentDetails(userId);
     }
 
     @PutMapping("/students/{userId}")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
     public Map<String, String> updateStudent(@PathVariable Long userId, @RequestBody Map<String, Object> data) {
         adminService.updateStudent(userId, data);
         return Map.of("message", "Successfully updated student record.");
     }
 
     @PostMapping("/students/{userId}/action")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
     public Map<String, String> studentAction(@PathVariable Long userId, @RequestBody Map<String, String> body) {
         adminService.studentAction(userId, body.get("action"));
         return Map.of("message", "Done");
@@ -264,7 +278,7 @@ public class AdminController {
     // --------------------------------------------------------------- bulk uploads
 
     @PostMapping(value = "/students/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
     public Map<String, Object> bulkUploadStudents(@RequestParam MultipartFile file) throws IOException {
         BulkUploadReport report = adminService.bulkUploadStudents(file);
         return Map.of("message", "Processed " + report.processed() + " student(s): " + report.toMap().get("created") + " added, "
@@ -273,6 +287,7 @@ public class AdminController {
     }
 
     @PostMapping(value = "/sponsors/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('SPONSORSHIPS:EDIT')")
     public Map<String, Object> bulkUploadSponsors(@RequestParam MultipartFile file) throws IOException {
         BulkUploadReport report = adminService.bulkUploadSponsors(file);
         return Map.of("message", "Processed " + report.processed() + " sponsor row(s): " + report.toMap().get("created") + " new, "
@@ -283,7 +298,7 @@ public class AdminController {
 
     /** Empty CSV template (with one example row) for the student or sponsor bulk upload. */
     @GetMapping("/templates/{kind}")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT') or hasAuthority('SPONSORSHIPS:EDIT')")
     public ResponseEntity<byte[]> csvTemplate(@PathVariable String kind) {
         byte[] bytes = adminService.csvTemplate(kind).getBytes(java.nio.charset.StandardCharsets.UTF_8);
         return ResponseEntity.ok()
@@ -293,18 +308,20 @@ public class AdminController {
     }
 
     @PostMapping("/students/manual-add")
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
     public Map<String, String> manualAddStudent(@RequestBody Map<String, Object> body) {
         String userId = adminService.manualAddStudent(body);
         return Map.of("message", "Student " + userId + " registered successfully!");
     }
 
     @GetMapping("/sponsors/{userId}")
+    @PreAuthorize("hasAuthority('SPONSORSHIPS:VIEW')")
     public Map<String, Object> sponsorDetails(@PathVariable Long userId) {
         return adminService.sponsorDetails(userId);
     }
 
     @PutMapping("/sponsors/{userId}")
+    @PreAuthorize("hasAuthority('SPONSOR_DETAILS:EDIT')")
     public Map<String, String> updateSponsor(@PathVariable Long userId, @RequestBody Map<String, Object> data) {
         adminService.updateSponsor(userId, data);
         return Map.of("message", "Sponsor profile updated!");
@@ -313,7 +330,7 @@ public class AdminController {
     // ------------------------------------------------------------------ payments
 
     @PostMapping(value = "/payments/record", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize(ADMIN_OR_OFFICE)
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
     public Map<String, String> recordPayment(@RequestParam String actionType,
                                              @RequestParam(required = false) Long paymentId,
                                              @RequestParam(required = false) Long granteeId,

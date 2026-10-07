@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
+import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
@@ -27,8 +28,8 @@ export interface CourseRow {
 
     <div class="row mb-3">
       <div class="col-12">
-        <a [routerLink]="['/', section, 'courses', 'new']" class="btn btn-primary btn-responsive mr-1"><i class="mdi mdi-plus mr-1"></i>Add New Course</a>
-        <a [routerLink]="['/', section, 'institutions', 'new']" class="btn btn-success btn-responsive"><i class="mdi mdi-bank mr-1"></i>Add New Institution</a>
+        <a *ngIf="canEdit" [routerLink]="['/', section, 'courses', 'new']" class="btn btn-primary btn-responsive mr-1"><i class="mdi mdi-plus mr-1"></i>Add New Course</a>
+        <a *ngIf="canEdit" [routerLink]="['/', section, 'institutions', 'new']" class="btn btn-success btn-responsive"><i class="mdi mdi-bank mr-1"></i>Add New Institution</a>
       </div>
     </div>
 
@@ -52,7 +53,7 @@ export interface CourseRow {
                     <td>{{ c.course_description }}</td>
                     <td>{{ c.fees_per_semester }}</td>
                     <td>{{ c.number_of_semesters }}</td>
-                    <td><a [routerLink]="['/', section, 'courses', c.course_id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a></td>
+                    <td><a *ngIf="canEdit" [routerLink]="['/', section, 'courses', c.course_id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a></td>
                   </tr>
                 </tbody>
               </table>
@@ -74,7 +75,9 @@ export class AdminCoursesComponent implements OnInit {
   search = '';
   error = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private auth: AuthService) {}
+
+  get canEdit(): boolean { return this.auth.can('COURSES', 'EDIT'); }
 
   ngOnInit(): void {
     this.api.get<CourseRow[]>('/admin/courses').subscribe({

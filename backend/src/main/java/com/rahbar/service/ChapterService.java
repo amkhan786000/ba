@@ -4,6 +4,7 @@ import com.rahbar.entity.Chapter;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.ChapterRepository;
 import com.rahbar.repository.UserRepository;
+import com.rahbar.security.Access;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,6 +30,12 @@ public class ChapterService {
     /** Adds a chapter, or edits one (chapterId set). Users point at the chapter by id, so a rename needs nothing else. */
     @Transactional
     public Chapter save(Chapter chapter) {
+        if (Access.chapterScoped()) {
+            Long own = Access.current().getUser().getChapterId();
+            if (chapter.getChapterId() == null || !chapter.getChapterId().equals(own)) {
+                throw Access.forbidden("You can only edit your own chapter.");
+            }
+        }
         String name = chapter.getChapterName() == null ? "" : chapter.getChapterName().trim();
         if (name.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Chapter name is required.");
         chapterRepository.findByChapterNameIgnoreCase(name)
@@ -57,6 +64,7 @@ public class ChapterService {
 
     /** Refuses while users are still in the chapter, so no user is left pointing at a deleted chapter. */
     public void delete(Long id) {
+        if (Access.chapterScoped()) throw Access.forbidden("You can only edit your own chapter.");
         Chapter chapter = chapterRepository.findById(id)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chapter not found."));
         long users = userRepository.countByChapterId(chapter.getChapterId());

@@ -2,7 +2,11 @@ import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AuthUser } from '../models/user.model';
+import { AuthUser, Section, canAccess } from '../models/user.model';
+
+export interface AccessInfo {
+  roleId: number; roleName: string | null; permissions: string[]; scope: string; chapterId: number | null; rccCenterId: number | null;
+}
 
 interface LoginResponse {
   otpRequired: boolean;
@@ -16,6 +20,8 @@ interface LoginResponse {
   status?: string;
   message?: string;
   mustChangePassword?: boolean;
+  permissions?: string[];
+  scope?: string;
 }
 
 const TOKEN_KEY = 'rahbar_token';
@@ -49,10 +55,22 @@ export class AuthService {
     localStorage.setItem(TOKEN_KEY, res.token);
     const user: AuthUser = {
       id: res.id, userId: res.userId ?? '', name: res.name ?? '', roleId: res.roleId ?? 0, status: res.status ?? '',
-      mustChangePassword: !!res.mustChangePassword
+      mustChangePassword: !!res.mustChangePassword, permissions: res.permissions ?? [], scope: res.scope ?? 'ALL'
     };
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     this.currentUser.set(user);
+  }
+
+  /** May the signed-in user view (or manage) the admin section? */
+  can(section: Section, level: 'VIEW' | 'EDIT' = 'VIEW'): boolean {
+    return canAccess(this.currentUser(), section, level);
+  }
+
+  /** Re-reads permissions from the server, so changes made in Roles apply without signing in again. */
+  refreshAccess(): Observable<AccessInfo> {
+    return this.http.get<AccessInfo>(`${environment.apiBaseUrl}/account/access`).pipe(tap((a) =>
+      this.updateUser({ roleName: a.roleName ?? undefined, permissions: a.permissions, scope: a.scope,
+        chapterId: a.chapterId, rccCenterId: a.rccCenterId })));
   }
 
   /** Updates the stored user (e.g. after a profile edit or a password change). */
