@@ -56,6 +56,27 @@ public class User extends Modifiable {
     @Column(name = "year")
     private Integer year;
 
+    /** Students: STUDYING, ON_HOLD, GRADUATED or DROPPED_OUT (see service.StudyStatus); NULL counts as studying. */
+    @Column(name = "study_status", length = 20)
+    private String studyStatus;
+
+    /** When the study status took effect. */
+    @Column(name = "study_status_date")
+    private java.time.LocalDate studyStatusDate;
+
+    @Column(name = "study_status_note", length = 500)
+    private String studyStatusNote;
+
+    /** Wrong passwords / OTPs in a row; at AuthService.MAX_ATTEMPTS the account is locked for a while. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "failed_attempts", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("0")
+    private Integer failedAttempts = 0;
+
+    /** Sign-in is refused until this time (too many wrong passwords / OTPs). */
+    @Column(name = "locked_until")
+    private java.time.LocalDateTime lockedUntil;
+
     /** Set when an admin or a bulk upload creates the account: the user must choose a new password at first sign-in. */
     @Column(name = "must_change_password")
     private Boolean mustChangePassword = false;

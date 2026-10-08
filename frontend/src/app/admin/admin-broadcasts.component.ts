@@ -15,9 +15,12 @@ interface Person { id: number; user_id: string; name: string; email: string | nu
 interface Preview { recipients: number; withEmail: number; withoutEmail: number; audience: string }
 interface Broadcast {
   broadcast_id: number; subject: string; body: string; audience: string; recipients: number;
-  sent: number; skipped: number; failed: number; status: 'SENDING' | 'SENT'; created_at: string | null; sent_by_name: string | null;
+  sent: number; skipped: number; failed: number; status: 'SCHEDULED' | 'SENDING' | 'SENT' | 'CANCELLED';
+  created_at: string | null; sent_by_name: string | null; scheduled_for: string | null;
   attachments: { attachment_id: number; file_name: string; file_path: string; size_bytes: number }[];
 }
+
+interface Template { template_id: number; name: string; subject: string; body: string }
 
 /** Same limits as the server: mail servers reject larger emails. */
 const MAX_FILES = 5;
@@ -26,8 +29,8 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,
 
 /**
  * Admin > Broadcast Messages: email one or more people, every user of some roles, or every chapter lead.
- * Users also get the message in their notifications. Sending happens in the background; the history shows
- * how many emails went out.
+ * Users also get the message in their notifications. Sending happens in the background (now, or at a scheduled
+ * time); the history shows how many emails went out. Saved templates fill in the subject and message.
  */
 @Component({
   selector: 'app-admin-broadcasts',
@@ -107,6 +110,21 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,
           </div>
 
           <div class="form-group">
+            <label class="d-block">Template <small class="text-muted">(optional)</small></label>
+            <div class="d-flex flex-wrap align-items-center">
+              <select class="form-control mr-2 mb-1" style="max-width: 300px" name="template" [(ngModel)]="templateId" (ngModelChange)="useTemplate($event)">
+                <option [ngValue]="null">{{ templates.length ? 'Start from a template…' : 'No saved templates yet' }}</option>
+                <option *ngFor="let t of templates" [ngValue]="t.template_id">{{ t.name }}</option>
+              </select>
+              <button type="button" class="btn btn-sm btn-outline-secondary mr-2 mb-1" (click)="saveTemplate()" [disabled]="!subject.trim() || !body.trim()">
+                <i class="mdi mdi-content-save-outline"></i> Save as template
+              </button>
+              <button *ngIf="templateId" type="button" class="btn btn-sm btn-outline-danger mb-1" (click)="deleteTemplate()">
+                <i class="mdi mdi-delete-outline"></i> Delete template
+              </button>
+            </div>
+          </div>
+          <div class="form-group">
             <label for="subject">Subject</label>
             <input id="subject" name="subject" class="form-control" maxlength="200" [(ngModel)]="subject" required>
           </div>
@@ -130,9 +148,21 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,
             <small class="text-muted ml-2" *ngIf="files.length">{{ size(totalSize) }} of 15 MB</small>
           </div>
 
-          <button type="submit" class="btn btn-primary" [disabled]="f.invalid || sending || !preview?.recipients">
+          <div class="form-group">
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="later" name="later" [(ngModel)]="later">
+              <label class="custom-control-label" for="later">Send later</label>
+            </div>
+            <div *ngIf="later" class="mt-2">
+              <input type="datetime-local" class="form-control" style="max-width: 260px" name="scheduledAt" [(ngModel)]="scheduledAt" [min]="minSchedule">
+              <small class="text-muted">Your local time. Recipients are worked out when it goes out; it can be cancelled until then.</small>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" [disabled]="f.invalid || sending || !preview?.recipients || (later && !scheduledAt)">
             <span *ngIf="sending" class="spinner-border spinner-border-sm mr-1"></span>
-            <i *ngIf="!sending" class="mdi mdi-send"></i> Send{{ preview?.recipients ? ' to ' + preview?.recipients + ' recipient(s)' : '' }}
+            <i *ngIf="!sending" class="mdi" [ngClass]="later ? 'mdi-clock-outline' : 'mdi-send'"></i>
+            {{ later ? 'Schedule' : 'Send' }}{{ preview?.recipients ? ' to ' + preview?.recipients + ' recipient(s)' : '' }}
           </button>
         </form>
       </div>
@@ -140,14 +170,17 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,
 
     <div class="card">
       <div class="card-body">
-        <h4 class="header-title mb-3">Sent messages</h4>
+        <h4 class="header-title mb-3">Messages</h4>
         <div class="table-responsive">
           <table class="table table-sm table-striped mb-0">
-            <thead><tr><th>Sent</th><th>Subject</th><th>To</th><th>Delivery</th><th>By</th></tr></thead>
+            <thead><tr><th>Date</th><th>Subject</th><th>To</th><th>Delivery</th><th>By</th></tr></thead>
             <tbody>
-              <tr *ngIf="!history.length"><td colspan="5" class="text-center text-muted">No messages sent yet.</td></tr>
+              <tr *ngIf="!history.length"><td colspan="5" class="text-center text-muted">No messages yet.</td></tr>
               <tr *ngFor="let b of history | paginate: pg.page : pg.size">
-                <td class="text-nowrap">{{ when(b.created_at) }}</td>
+                <td class="text-nowrap">
+                  {{ when(b.scheduled_for || b.created_at) }}
+                  <div *ngIf="b.scheduled_for" class="small text-muted">scheduled</div>
+                </td>
                 <td class="body-cell" [title]="b.body">
                   <strong>{{ b.subject }}</strong>
                   <div class="small text-muted body-cell">{{ b.body }}</div>
@@ -159,6 +192,11 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,
                 </td>
                 <td><small>{{ b.audience }}</small></td>
                 <td class="text-nowrap">
+                  <ng-container *ngIf="b.status === 'SCHEDULED'">
+                    <span class="badge badge-warning"><i class="mdi mdi-clock-outline"></i> Scheduled</span>
+                    <button *ngIf="canSend" class="btn btn-xs btn-outline-danger ml-1" (click)="cancel(b)">Cancel</button>
+                  </ng-container>
+                  <span *ngIf="b.status === 'CANCELLED'" class="badge badge-secondary">Cancelled</span>
                   <span *ngIf="b.status === 'SENDING'" class="badge badge-info"><span class="spinner-border spinner-border-sm"></span> Sending to {{ b.recipients }}…</span>
                   <ng-container *ngIf="b.status === 'SENT'">
                     <span class="badge badge-success">{{ b.sent }} sent</span>
@@ -193,6 +231,10 @@ export class AdminBroadcastsComponent implements OnInit, OnDestroy {
   readonly maxFiles = MAX_FILES;
   readonly accept = ACCEPT;
   sending = false;
+  later = false;
+  scheduledAt = '';
+  templates: Template[] = [];
+  templateId: number | null = null;
   history: Broadcast[] = [];
   message = '';
   error = '';
@@ -207,6 +249,7 @@ export class AdminBroadcastsComponent implements OnInit, OnDestroy {
     this.loadHistory();
     if (!this.canSend) return;
     this.api.get<RoleOption[]>('/admin/roles').subscribe({ next: (r) => (this.roles = r) });
+    this.loadTemplates();
     this.subs.push(this.search$.pipe(
       debounceTime(250),
       switchMap((q) => q.trim().length < 2 ? of([] as Person[]) : this.api.get<Person[]>('/admin/broadcasts/recipients', { q }))
@@ -277,19 +320,31 @@ export class AdminBroadcastsComponent implements OnInit, OnDestroy {
 
   send(): void {
     if (!this.preview?.recipients) return;
+    const scheduled = this.later ? new Date(this.scheduledAt) : null;
+    if (scheduled && (isNaN(scheduled.getTime()) || scheduled.getTime() < Date.now() + 60000)) {
+      this.error = 'Choose a time at least a minute from now to schedule the message.';
+      return;
+    }
     const extra = this.files.length ? ` with ${this.files.length} attachment(s)` : '';
-    if (!confirm(`Send "${this.subject}"${extra} to ${this.preview.recipients} recipient(s)?`)) return;
+    const at = scheduled ? ` on ${this.when(scheduled.toISOString())}` : '';
+    if (!confirm(`${scheduled ? 'Schedule' : 'Send'} "${this.subject}"${extra} to ${this.preview.recipients} recipient(s)${at}?`)) return;
     this.sending = true;
     this.error = '';
     const form = new FormData();
     form.append('subject', this.subject);
     form.append('body', this.body);
     form.append('audience', JSON.stringify(this.audience));
+    if (scheduled) form.append('scheduledAt', scheduled.toISOString());
     this.files.forEach((f) => form.append('files', f, f.name));
     this.api.post<Broadcast>('/admin/broadcasts', form).subscribe({
       next: () => {
         this.sending = false;
-        this.message = 'Your message is being sent. The list below shows when it has gone out.';
+        this.message = scheduled
+          ? `Your message is scheduled for ${this.when(scheduled.toISOString())}. You can cancel it in the list below until then.`
+          : 'Your message is being sent. The list below shows when it has gone out.';
+        this.later = false;
+        this.scheduledAt = '';
+        this.templateId = null;
         this.subject = '';
         this.body = '';
         this.files = [];
@@ -299,6 +354,56 @@ export class AdminBroadcastsComponent implements OnInit, OnDestroy {
         this.loadHistory();
       },
       error: (e) => { this.sending = false; this.error = errorText(e, 'Could not send the message.'); }
+    });
+  }
+
+  cancel(b: Broadcast): void {
+    if (!confirm(`Cancel the scheduled message "${b.subject}"? It will not be sent.`)) return;
+    this.api.post<{ message: string }>(`/admin/broadcasts/${b.broadcast_id}/cancel`, {}).subscribe({
+      next: (r) => { this.message = r.message; this.loadHistory(); },
+      error: (e) => { this.error = errorText(e, 'Could not cancel the message.'); this.loadHistory(); }
+    });
+  }
+
+  /** Earliest time the datetime picker offers: a couple of minutes from now, in local time. */
+  get minSchedule(): string {
+    const d = new Date(Date.now() + 2 * 60000);
+    const p = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+  }
+
+  private loadTemplates(): void {
+    this.api.get<Template[]>('/admin/broadcasts/templates').subscribe({ next: (t) => (this.templates = t) });
+  }
+
+  useTemplate(id: number | null): void {
+    const t = this.templates.find((x) => x.template_id === id);
+    if (!t) return;
+    if ((this.subject.trim() || this.body.trim()) && (this.subject !== t.subject || this.body !== t.body)
+        && !confirm(`Replace the subject and message with the template "${t.name}"?`)) {
+      this.templateId = null;
+      return;
+    }
+    this.subject = t.subject;
+    this.body = t.body;
+  }
+
+  saveTemplate(): void {
+    const current = this.templates.find((x) => x.template_id === this.templateId);
+    const name = prompt('Template name (a template with the same name is replaced):', current?.name ?? this.subject.trim().slice(0, 100));
+    if (!name?.trim()) return;
+    this.api.post<Template>('/admin/broadcasts/templates', { name: name.trim(), subject: this.subject, body: this.body }).subscribe({
+      next: (t) => { this.message = `Template "${t.name}" saved.`; this.templateId = t.template_id; this.loadTemplates(); },
+      error: (e) => (this.error = errorText(e, 'Could not save the template.'))
+    });
+  }
+
+  deleteTemplate(): void {
+    const t = this.templates.find((x) => x.template_id === this.templateId);
+    if (!t || !confirm(`Delete the template "${t.name}"?`)) return;
+    this.api.delete(`/admin/broadcasts/templates/${t.template_id}`).subscribe({
+      next: () => { this.message = `Template "${t.name}" deleted.`; this.templateId = null; this.loadTemplates(); },
+      error: (e) => (this.error = errorText(e, 'Could not delete the template.'))
     });
   }
 

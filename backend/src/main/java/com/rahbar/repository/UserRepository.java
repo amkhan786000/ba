@@ -152,7 +152,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** Admin student directory: filters are optional (null = no filter); search is a LIKE pattern. */
     @Query("""
         select new map(u.id as id, u.userId as user_id, u.name as name, u.email as email, u.phone as phone,
-                       u.chapterId as chapter_id, ch.chapterName as chapter_name, u.status as status, max(s.id) as sponsor_id, max(s.userId) as sponsor_code, max(s.name) as sponsor_name,
+                       u.chapterId as chapter_id, ch.chapterName as chapter_name, u.status as status, u.studyStatus as study_status, max(s.id) as sponsor_id, max(s.userId) as sponsor_code, max(s.name) as sponsor_name,
                        max(i.institutionName) as institution_name, max(c.courseName) as course_name)
         from User u
         left join Chapter ch on ch.chapterId = u.chapterId
@@ -166,7 +166,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
           and (:courseId is null or sic.courseId = :courseId)
           and (:search is null or u.name like :search or u.email like :search or u.userId like :search
                or s.name like :search or s.userId like :search)
-        group by u.id, u.userId, u.name, u.email, u.phone, u.chapterId, ch.chapterName, u.status
+        group by u.id, u.userId, u.name, u.email, u.phone, u.chapterId, ch.chapterName, u.status, u.studyStatus
         order by u.id desc
         """)
     List<Map<String, Object>> searchStudentDirectory(@Param("institutionId") String institutionId,

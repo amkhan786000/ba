@@ -9,8 +9,10 @@ import lombok.Setter;
 @Table(name = "broadcast_messages")
 @Getter @Setter
 public class BroadcastMessage extends Modifiable {
+    public static final String SCHEDULED = "SCHEDULED";
     public static final String SENDING = "SENDING";
     public static final String SENT = "SENT";
+    public static final String CANCELLED = "CANCELLED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,4 +44,13 @@ public class BroadcastMessage extends Modifiable {
 
     @Column(name = "status", nullable = false, length = 20)
     private String status = SENDING;
+
+    /** When a scheduled message goes out (NULL: sent straight away). */
+    @Column(name = "scheduled_at")
+    private java.time.LocalDateTime scheduledAt;
+
+    /** The chosen audience (as sent by the screen), so a scheduled message finds its recipients when it goes out. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    @Column(name = "audience_json", columnDefinition = "TEXT")
+    private String audienceJson;
 }

@@ -268,6 +268,14 @@ public class AdminController {
         return Map.of("message", "Successfully updated student record.");
     }
 
+    /** Body: { "status": "STUDYING" | "ON_HOLD" | "GRADUATED" | "DROPPED_OUT", "date": "yyyy-MM-dd", "note": "..." }. */
+    @PostMapping("/students/{userId}/study-status")
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
+    public Map<String, String> setStudyStatus(@PathVariable Long userId, @RequestBody Map<String, String> body) {
+        adminService.setStudyStatus(userId, body.get("status"), body.get("date"), body.get("note"));
+        return Map.of("message", "Study status updated.");
+    }
+
     @PostMapping("/students/{userId}/action")
     @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
     public Map<String, String> studentAction(@PathVariable Long userId, @RequestBody Map<String, String> body) {

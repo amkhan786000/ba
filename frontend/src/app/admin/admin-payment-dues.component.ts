@@ -104,9 +104,10 @@ export class AdminPaymentDuesComponent implements OnInit {
   }
 
   get summary(): { status: string; count: number }[] {
-    return ['Overdue', 'Due soon', 'On schedule', 'Completed'].map((status) => ({
+    // "On hold" (students whose studies are paused) only shows when there are any.
+    return ['Overdue', 'Due soon', 'On schedule', 'Completed', 'On hold'].map((status) => ({
       status, count: this.rows.filter((r) => r.status === status).length
-    }));
+    })).filter((s) => s.status !== 'On hold' || s.count);
   }
 
   get visible(): Due[] {
@@ -123,6 +124,7 @@ export class AdminPaymentDuesComponent implements OnInit {
       case 'Due soon': return 'badge-warning';
       case 'On schedule': return 'badge-info';
       case 'Completed': return 'badge-success';
+      case 'On hold': return 'badge-secondary';
       default: return 'badge-light';
     }
   }

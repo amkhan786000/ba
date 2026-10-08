@@ -2,6 +2,7 @@ package com.rahbar.service;
 
 import com.rahbar.entity.BroadcastAttachment;
 import com.rahbar.entity.BroadcastMessage;
+import com.rahbar.entity.BroadcastTemplate;
 import com.rahbar.entity.Chapter;
 import com.rahbar.entity.Role;
 import com.rahbar.entity.User;
@@ -18,10 +19,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -50,6 +53,8 @@ public class BroadcastService {
 
     private final BroadcastMessageRepository broadcastRepository;
     private final BroadcastAttachmentRepository attachmentRepository;
+    private final com.rahbar.repository.BroadcastTemplateRepository templateRepository;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
     private final FileStorageService fileStorageService;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -64,11 +69,15 @@ public class BroadcastService {
     });
 
     public BroadcastService(BroadcastMessageRepository broadcastRepository, BroadcastAttachmentRepository attachmentRepository,
+                            com.rahbar.repository.BroadcastTemplateRepository templateRepository,
+                            com.fasterxml.jackson.databind.ObjectMapper objectMapper,
                             FileStorageService fileStorageService, UserRepository userRepository,
                             RoleRepository roleRepository, ChapterRepository chapterRepository,
                             EmailService emailService, NotificationService notificationService) {
         this.broadcastRepository = broadcastRepository;
         this.attachmentRepository = attachmentRepository;
+        this.templateRepository = templateRepository;
+        this.objectMapper = objectMapper;
         this.fileStorageService = fileStorageService;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
@@ -97,6 +106,9 @@ public class BroadcastService {
         for (BroadcastMessage b : list) {
             Map<String, Object> row = Rows.of(b);
             row.put("sent_by_name", names.get(b.getCreatedBy()));
+            // The scheduled time as an instant (with zone), so browsers in any time zone show it correctly.
+            row.put("scheduled_for", b.getScheduledAt() == null ? null
+                    : b.getScheduledAt().atZone(java.time.ZoneId.systemDefault()).toInstant().toString());
             row.put("attachments", files.getOrDefault(b.getBroadcastId(), List.of()));
             rows.add(row);
         }
@@ -133,6 +145,22 @@ public class BroadcastService {
 
     /** Stores the message (and its attachments) and starts emailing it in the background; returns the stored message. */
     public Map<String, Object> send(String subject, String body, Map<String, Object> audience, List<MultipartFile> files) {
+        return send(subject, body, audience, files, null);
+    }
+
+    /**
+     * Stores the message and its attachments; sends it now in the background, or at scheduledAt (a time at least a
+     * minute from now). Recipients of a scheduled message are worked out when it goes out.
+     */
+    public Map<String, Object> send(String subject, String body, Map<String, Object> audience, List<MultipartFile> files,
+                                    LocalDateTime scheduledAt) {
+        boolean later = scheduledAt != null;
+        if (later && scheduledAt.isBefore(LocalDateTime.now().plusMinutes(1))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Choose a time in the future to schedule the message.");
+        }
+        if (later && scheduledAt.isAfter(LocalDateTime.now().plusYears(1))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A message can be scheduled at most a year ahead.");
+        }
         List<MultipartFile> attachments = files == null ? List.of() : files.stream().filter(f -> f != null && !f.isEmpty()).toList();
         checkAttachments(attachments);
         String s = subject == null ? "" : subject.trim();
@@ -148,7 +176,9 @@ public class BroadcastService {
         message.setBody(b);
         message.setAudience(describe(audience));
         message.setRecipients(recipients.size());
-        message.setStatus(BroadcastMessage.SENDING);
+        message.setStatus(later ? BroadcastMessage.SCHEDULED : BroadcastMessage.SENDING);
+        message.setScheduledAt(scheduledAt);
+        message.setAudienceJson(toJson(audience));
         BroadcastMessage saved = broadcastRepository.save(message); // created_by = the signed-in sender
 
         // Store the files now: the upload is gone once this request ends, but sending happens later.
@@ -165,8 +195,81 @@ public class BroadcastService {
             attachmentRepository.save(a);
             mailFiles.add(new EmailService.Attachment(original, fileStorageService.resolve(stored)));
         }
-        sender.submit(() -> deliver(saved.getBroadcastId(), s, b, recipients, mailFiles));
+        if (!later) sender.submit(() -> deliver(saved.getBroadcastId(), s, b, recipients, mailFiles));
         return Rows.of(saved);
+    }
+
+    /** Cancels a message that is scheduled and hasn't gone out yet. */
+    public void cancel(Long broadcastId) {
+        BroadcastMessage m = broadcastRepository.findById(broadcastId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Message not found."));
+        if (!BroadcastMessage.SCHEDULED.equals(m.getStatus())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Only a scheduled message that hasn't gone out can be cancelled.");
+        }
+        m.setStatus(BroadcastMessage.CANCELLED);
+        broadcastRepository.save(m);
+    }
+
+    /** Every minute: sends the scheduled messages whose time has come. */
+    @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
+    public void sendScheduled() {
+        for (BroadcastMessage m : broadcastRepository.findByStatusAndScheduledAtLessThanEqual(BroadcastMessage.SCHEDULED, LocalDateTime.now())) {
+            List<Recipient> recipients;
+            try {
+                recipients = recipients(fromJson(m.getAudienceJson()));
+            } catch (Exception e) {
+                recipients = List.of(); // e.g. the chosen people or roles no longer exist
+            }
+            List<EmailService.Attachment> files = new ArrayList<>();
+            for (BroadcastAttachment a : attachmentRepository.findByBroadcastIdOrderByAttachmentIdAsc(m.getBroadcastId())) {
+                files.add(new EmailService.Attachment(a.getFileName(), fileStorageService.resolve(a.getFilePath())));
+            }
+            m.setRecipients(recipients.size());
+            m.setStatus(BroadcastMessage.SENDING);
+            broadcastRepository.save(m);
+            List<Recipient> to = recipients;
+            sender.submit(() -> deliver(m.getBroadcastId(), m.getSubject(), m.getBody(), to, files));
+            log.info("Scheduled broadcast {} is going out to {} recipient(s)", m.getBroadcastId(), recipients.size());
+        }
+    }
+
+    // ------------------------------------------------------------------ templates
+
+    public List<Map<String, Object>> templates() {
+        return Rows.list(templateRepository.findAllByOrderByNameAsc());
+    }
+
+    /** Saves a template; a template with the same name is replaced. */
+    public Map<String, Object> saveTemplate(String name, String subject, String body) {
+        String n = name == null ? "" : name.trim();
+        String s = subject == null ? "" : subject.trim();
+        String b = body == null ? "" : body.trim();
+        if (n.isEmpty() || s.isEmpty() || b.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "A template needs a name, a subject and a message.");
+        }
+        if (n.length() > 100) throw new ApiException(HttpStatus.BAD_REQUEST, "The template name can be at most 100 characters.");
+        if (s.length() > 200) throw new ApiException(HttpStatus.BAD_REQUEST, "The subject can be at most 200 characters.");
+        BroadcastTemplate t = templateRepository.findByNameIgnoreCase(n).orElseGet(BroadcastTemplate::new);
+        t.setName(n);
+        t.setSubject(s);
+        t.setBody(b);
+        return Rows.of(templateRepository.save(t));
+    }
+
+    public void deleteTemplate(Long id) {
+        templateRepository.deleteById(id);
+    }
+
+    private String toJson(Map<String, Object> audience) {
+        try {
+            return objectMapper.writeValueAsString(audience);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private Map<String, Object> fromJson(String json) throws Exception {
+        return objectMapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
     }
 
     private static void checkAttachments(List<MultipartFile> files) {

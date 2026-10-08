@@ -57,6 +57,7 @@ public class PaymentReminderService {
             if (gg.getGrantorId() == null || gg.getGrantorId().equals(unassigned)) continue;
             User student = users.get(gg.getGranteeId());
             if (student == null || "Inactive".equalsIgnoreCase(student.getStatus())) continue;
+            if (!StudyStatus.inProgramme(student.getStudyStatus())) continue; // graduated / dropped out: no dues
             User sponsor = users.get(gg.getGrantorId());
 
             Map<String, Object> course = Rows.first(studentCourseRepository.findCourseInfo(student.getId()));
@@ -95,6 +96,8 @@ public class PaymentReminderService {
             row.put("installments_paid", paid);
             row.put("overdue", Math.max(0, dueSoFar - paid));
             row.put("next_due_date", nextDue);
+            // On hold: dues are still listed, but with this status no reminder goes out.
+            if (StudyStatus.ON_HOLD.equals(student.getStudyStatus())) status = "On hold";
             row.put("status", status);
             rows.add(row);
         }
@@ -108,8 +111,9 @@ public class PaymentReminderService {
             case "Overdue" -> 0;
             case "Due soon" -> 1;
             case "On schedule" -> 2;
-            case "No course assigned" -> 3;
-            default -> 4;
+            case "On hold" -> 3;
+            case "No course assigned" -> 4;
+            default -> 5;
         };
     }
 

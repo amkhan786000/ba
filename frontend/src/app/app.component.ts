@@ -1,5 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, HostListener } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AuthService } from './core/services/auth.service';
+import { FILE_PREFIX } from './shared/format';
 
 @Component({
   selector: 'app-root',
@@ -7,4 +9,35 @@ import { RouterOutlet } from '@angular/router';
   imports: [RouterOutlet],
   template: `<router-outlet></router-outlet>`
 })
-export class AppComponent {}
+export class AppComponent {
+  constructor(private auth: AuthService) {}
+
+  /**
+   * Uploaded files need sign-in, but a plain <a href> sends no token. Any click on a link to /api/files/...
+   * fetches the file with the user's token and opens it in a new tab instead.
+   */
+  @HostListener('document:click', ['$event'])
+  openFile(event: MouseEvent): void {
+    const link = (event.target as HTMLElement | null)?.closest?.('a[href]') as HTMLAnchorElement | null;
+    if (!link || event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey) return;
+    const url = new URL(link.href, window.location.origin);
+    if (url.origin !== window.location.origin || !url.pathname.startsWith(FILE_PREFIX)) return;
+    event.preventDefault();
+
+    const tab = window.open('', '_blank'); // opened now, while the click still counts as the user's
+    fetch(url.pathname, { headers: this.auth.token ? { Authorization: 'Bearer ' + this.auth.token } : {} })
+      .then((res) => {
+        if (!res.ok) throw new Error(res.status === 404 ? 'This file was not found, or you may not open it.' : 'Could not open the file.');
+        return res.blob();
+      })
+      .then((blob) => {
+        const objectUrl = URL.createObjectURL(blob);
+        if (tab) tab.location.href = objectUrl; else window.location.href = objectUrl;
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 60_000);
+      })
+      .catch((err: Error) => {
+        tab?.close();
+        alert(err.message);
+      });
+  }
+}

@@ -46,6 +46,11 @@ export class AuthService {
     return this.http.post<{ message: string }>(`${environment.apiBaseUrl}/auth/register`, payload);
   }
 
+  /** Emails a reset code (the reply is the same whether or not the email has an account). */
+  forgotPassword(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${environment.apiBaseUrl}/auth/forgot-password`, { email });
+  }
+
   resetPassword(payload: unknown): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${environment.apiBaseUrl}/auth/reset-password`, payload);
   }
