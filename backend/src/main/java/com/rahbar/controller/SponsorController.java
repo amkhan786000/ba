@@ -41,8 +41,9 @@ public class SponsorController {
     public Map<String, String> recordPayment(@RequestParam Long granteeId,
                                              @RequestParam BigDecimal amount,
                                              @RequestParam String paymentDate,
-                                             @RequestParam MultipartFile receipt) {
-        sponsorService.recordPayment(me(), granteeId, amount, paymentDate, receipt);
+                                             @RequestParam MultipartFile receipt,
+                                             @RequestParam(required = false) Long installmentId) {
+        sponsorService.recordPayment(me(), granteeId, amount, paymentDate, receipt, installmentId);
         return Map.of("message", "Payment recorded successfully!");
     }
 

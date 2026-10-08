@@ -6,7 +6,10 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CourseRow } from './admin-courses.component';
 
-export interface Institution { institutionId: string; institutionName: string }
+export interface Institution {
+  institutionId: string; institutionName: string;
+  address?: string | null; contactNumber?: string | null; email?: string | null;
+}
 
 interface Course {
   courseId?: number;

@@ -3,13 +3,13 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
-import { asDate, uploadUrl } from '../shared/format';
+import { uploadUrl } from '../shared/format';
+import { InstallmentRow, installmentBadge } from '../shared/installments';
 
 type Row = Record<string, any>;
 
-interface Installment { n: number; due: string; status: string; badge: string; payment: Row | null; receipt: string | null; proof: string | null }
 
-/** Port of templates/student/payment.html (schedule, bank-details popup, spent-proof upload). */
+/** Student > Payments: installments from the sponsor (Paid / Due / Not Due), bank details and spent-proof upload. */
 @Component({
   selector: 'app-student-payments',
   standalone: true,
@@ -23,26 +23,29 @@ interface Installment { n: number; due: string; status: string; badge: string; p
         <div class="card">
           <div class="card-body">
             <h4 class="header-title">Payment Schedule</h4>
-            <p class="text-muted">Full schedule for your course. Please upload utilization proof for each installment received.</p>
+            <p class="text-muted">Your installments from your sponsor. Please upload utilization proof for each installment received.</p>
             <div class="text-right mb-3">
               <button type="button" class="btn btn-primary waves-effect waves-light" (click)="openBank()"><i class="mdi mdi-bank mr-1"></i> My Bank Details</button>
             </div>
             <div class="table-responsive">
               <table class="table table-centered table-hover mb-0">
-                <thead class="thead-light"><tr><th>#</th><th>Due Date</th><th>Status</th><th>Amount</th><th>Bank Receipt</th><th>Your Spent Proof</th></tr></thead>
+                <thead class="thead-light"><tr><th>#</th><th>Due Date</th><th>Amount</th><th>Status</th><th>Received</th><th>Bank Receipt</th><th>Your Spent Proof</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="loading"><td colspan="6" class="text-center">Generating schedule...</td></tr>
-                  <tr *ngIf="!loading && !hasCourse"><td colspan="6" class="text-center text-warning">Course not assigned yet.</td></tr>
-                  <tr *ngFor="let i of schedule">
-                    <td>{{ i.n }}</td>
-                    <td>{{ i.due }}</td>
-                    <td><span class="badge" [ngClass]="i.badge">{{ i.status }}</span></td>
-                    <td>{{ i.payment ? '₹' + (i.payment['amount'] | number: '1.2-2') : '—' }}</td>
-                    <td><a *ngIf="i.receipt; else dash" [href]="i.receipt" target="_blank">View</a></td>
+                  <tr *ngIf="loading"><td colspan="7" class="text-center">Loading...</td></tr>
+                  <tr *ngIf="!loading && !installments.length"><td colspan="7" class="text-center text-warning">
+                    Your payment schedule is not ready yet{{ problem ? ': ' + problem : '.' }}
+                  </td></tr>
+                  <tr *ngFor="let i of installments">
+                    <td>{{ i.installment_no }}</td>
+                    <td>{{ i.due_date | date: 'd MMM yyyy' }}</td>
+                    <td>₹{{ i.amount | number: '1.2-2' }}</td>
+                    <td><span class="badge" [ngClass]="badge(i.status)">{{ i.status }}</span></td>
+                    <td>{{ i.paid_amount !== null ? '₹' + (i.paid_amount | number: '1.2-2') : '—' }}</td>
+                    <td><a *ngIf="link(i.receipt_url) as r; else dash" [href]="r" target="_blank">View</a></td>
                     <td>
-                      <ng-container *ngIf="i.payment; else dash">
-                        <a *ngIf="i.proof" [href]="i.proof" target="_blank" class="text-success font-weight-bold">View Proof</a>
-                        <button *ngIf="!i.proof" class="btn btn-xs btn-outline-primary" (click)="openProof(i.payment['payment_id'])">Upload Proof</button>
+                      <ng-container *ngIf="i.payment_id; else dash">
+                        <a *ngIf="link(i.student_proof_url) as p" [href]="p" target="_blank" class="text-success font-weight-bold">View Proof</a>
+                        <button *ngIf="!i.student_proof_url" class="btn btn-xs btn-outline-primary" (click)="openProof(i.payment_id)">Upload Proof</button>
                       </ng-container>
                     </td>
                   </tr>
@@ -94,8 +97,8 @@ interface Installment { n: number; due: string; status: string; badge: string; p
   `
 })
 export class StudentPaymentsComponent implements OnInit {
-  schedule: Installment[] = [];
-  hasCourse = false;
+  installments: InstallmentRow[] = [];
+  problem: string | null = null;
   loading = true;
   bankData: Row = {};
   bank: { bankName: string; accountNumber: string; accountName: string; ifscCode: string } | null = null;
@@ -110,34 +113,14 @@ export class StudentPaymentsComponent implements OnInit {
   ngOnInit(): void { this.load(); }
 
   load(): void {
-    this.api.get<{ payments: Row[]; bankDetails: Row | null; courseInfo: Row | null }>('/student/payments').subscribe({
-      next: (r) => { this.loading = false; this.bankData = r.bankDetails ?? {}; this.build(r.courseInfo, r.payments); },
+    this.api.get<{ bankDetails: Row | null; installments: InstallmentRow[]; installmentProblem: string | null }>('/student/payments').subscribe({
+      next: (r) => { this.loading = false; this.bankData = r.bankDetails ?? {}; this.installments = r.installments; this.problem = r.installmentProblem; },
       error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load your payments.'); }
     });
   }
 
-  /** Same rules as the Flask page script. */
-  private build(course: Row | null, payments: Row[]): void {
-    this.schedule = [];
-    const base = asDate(course?.['assigned_at']);
-    this.hasCourse = !!base;
-    if (!course || !base) return;
-    const total = Math.floor((Number(course['number_of_semesters']) / 2) * 4);
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    for (let i = 1; i <= total; i++) {
-      const due = new Date(base);
-      due.setMonth(due.getMonth() + 3 * i);
-      const p = payments[i - 1] ?? null;
-      const overdue = !p && due < today;
-      this.schedule.push({
-        n: i, due: due.toLocaleDateString(), payment: p,
-        status: p ? 'Paid' : overdue ? 'Overdue' : 'Due',
-        badge: p ? 'badge-success' : overdue ? 'badge-danger' : 'badge-warning',
-        receipt: p ? uploadUrl(p['receipt_url']) : null,
-        proof: p ? uploadUrl(p['student_proof_url']) : null
-      });
-    }
-  }
+  badge(status: string): string { return installmentBadge(status); }
+  link(path: string | null): string | null { return uploadUrl(path); }
 
   fileOf(e: Event): File | null { return (e.target as HTMLInputElement).files?.[0] ?? null; }
 

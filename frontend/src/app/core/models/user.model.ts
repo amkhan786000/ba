@@ -21,7 +21,7 @@ export interface AuthUser {
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
 export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG'
   | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
-  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY';
+  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
 export const PORTAL_ROLES = [3, 4, 5, 6];
@@ -34,6 +34,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
   { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES' },
   { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings', section: 'PAYMENT_CONFIG' },
   { path: '/admin/payment-dues', label: 'Payment Dues', icon: 'mdi-alarm', section: 'PAYMENT_DUES' },
+  { path: '/admin/payment-records', label: 'Payment Records', icon: 'mdi-cash-check', section: 'PAYMENT_RECORDS' },
   { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS' },
   { path: '/admin/application-period', label: 'App Period', icon: 'mdi-calendar', section: 'APPLICATION_PERIOD' },
   { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS' },
@@ -45,6 +46,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
   { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES' },
   { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY' },
   { path: '/admin/broadcasts', label: 'Broadcast Messages', icon: 'mdi-bullhorn', section: 'MESSAGES' },
+  { path: '/admin/email-log', label: 'Email Log', icon: 'mdi-email-search-outline', section: 'EMAIL_LOG' },
   { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY' }
 ];
 

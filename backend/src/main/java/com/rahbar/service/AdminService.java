@@ -58,6 +58,7 @@ public class AdminService {
     private final NotificationService notificationService;
     private final EmailService emailService;
     private final StudentStatusHistoryRepository statusHistoryRepository;
+    private final PaymentInstallmentService installmentService;
     private final com.rahbar.security.SponsorPrivacy sponsorPrivacy;
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
@@ -78,7 +79,9 @@ public class AdminService {
                         PasswordEncoder passwordEncoder,
                         FileStorageService fileStorageService, EmailService emailService,
                         com.rahbar.security.SponsorPrivacy sponsorPrivacy,
-                        StudentStatusHistoryRepository statusHistoryRepository) {
+                        StudentStatusHistoryRepository statusHistoryRepository,
+                        PaymentInstallmentService installmentService) {
+        this.installmentService = installmentService;
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.roleRepository = roleRepository;
@@ -209,7 +212,35 @@ public class AdminService {
         user.setSex(String.valueOf(body.getOrDefault("sex", "M")));
         user.setPasswordHash(passwordEncoder.encode(String.valueOf(body.get("password"))));
         user.setMustChangePassword(true); // the admin chose this password; the user picks their own at first sign-in
+        if (Integer.valueOf(STUDENT_ROLE).equals(roleId)) {
+            user.setYear(sessionYear(body.get("year")));
+            user.setPaymentStartDate(parseDate(body.get("paymentStartDate"), "Payment start date"));
+            user.setStudyStatus(StudyStatus.STUDYING);
+        }
         userRepository.save(user);
+    }
+
+    /** Session year of a student: optional, four digits. */
+    private static Integer sessionYear(Object v) {
+        if (isBlank(v)) return null;
+        Integer year;
+        try {
+            year = Integer.valueOf(String.valueOf(v).trim());
+        } catch (NumberFormatException e) {
+            year = null;
+        }
+        if (year == null || year < 1990 || year > 2100) throw new ApiException(HttpStatus.BAD_REQUEST, "Session year must be a year like 2025.");
+        return year;
+    }
+
+    /** An optional yyyy-MM-dd date. */
+    private static LocalDate parseDate(Object v, String label) {
+        if (isBlank(v)) return null;
+        try {
+            return LocalDate.parse(String.valueOf(v).trim());
+        } catch (Exception e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, label + " must be a date like 2025-07-01.");
+        }
     }
 
     private String nextNumericUserId() {
@@ -257,12 +288,12 @@ public class AdminService {
 
         String email = user.getEmail();
         boolean usableEmail = email != null && email.contains("@") && !email.trim().toLowerCase(Locale.ROOT).endsWith("@rahbar.com");
-        boolean emailed = usableEmail && emailService.send(email, "Rahbar: your password was reset",
+        boolean emailed = usableEmail && emailService.sendWithSecret(email, "Rahbar: your password was reset",
                 "Dear " + user.getName() + ",\n\n"
                         + "An administrator reset your Rahbar password. Sign in with this temporary password:\n\n"
                         + "    " + password + "\n\n"
                         + "You will be asked to choose your own password straight after signing in.\n\n"
-                        + "Regards,\nRahbar - Bihar Anjuman");
+                        + "Regards,\nRahbar - Bihar Anjuman", password);
         notificationService.notify(user.getId(), "Password reset",
                 "An administrator reset your password. Use the temporary password you were given and choose a new one.",
                 NotificationService.ACCOUNT, null, false);
@@ -304,7 +335,7 @@ public class AdminService {
         Map<Long, String> names = userNames(userRepository, schedules.stream().map(PaymentSchedule::getUpdatedBy).toList());
         List<Map<String, Object>> rows = new ArrayList<>();
         for (PaymentSchedule s : schedules) {
-            Map<String, Object> row = Rows.pick(s, "schedule_id", "amount", "year", "updated_at");
+            Map<String, Object> row = Rows.pick(s, "schedule_id", "amount", "year", "frequency_months", "updated_at");
             row.put("updated_by_name", s.getUpdatedBy() == null ? null : names.get(s.getUpdatedBy()));
             rows.add(row);
         }
@@ -313,15 +344,25 @@ public class AdminService {
         return result;
     }
 
-    public void saveSchedule(int year, BigDecimal amount) {
+    /**
+     * Amount of each installment for students of this session year, and how often one is due (every 3 or 4 months).
+     * Unpaid installments of those students are rebuilt with the new values.
+     */
+    public void saveSchedule(int year, BigDecimal amount, Integer frequencyMonths) {
         if (amount.signum() < 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Amount cannot be negative.");
+        }
+        int frequency = frequencyMonths == null ? 3 : frequencyMonths;
+        if (frequency != 3 && frequency != 4) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Frequency must be every 3 or every 4 months.");
         }
         PaymentSchedule schedule = paymentScheduleRepository.findByYear(year).orElseGet(PaymentSchedule::new);
         schedule.setYear(year);
         schedule.setAmount(amount);
+        schedule.setFrequencyMonths(frequency);
         schedule.setStatus(1);
-        paymentScheduleRepository.save(schedule);
+        paymentScheduleRepository.saveAndFlush(schedule);
+        installmentService.syncYear(year);
     }
 
     // ---------------------------------------------------------------- RCC centers
@@ -373,12 +414,24 @@ public class AdminService {
         return courseRepository.findByInstitutionId(institutionId);
     }
 
+    /** Adds or edits a course; students on an edited course get their installments rebuilt (semesters may have changed). */
     public Course saveCourse(Course course) {
-        return courseRepository.save(course);
+        Course saved = courseRepository.saveAndFlush(course);
+        if (course.getCourseId() != null) {
+            studentCourseRepository.findByCourseId(saved.getCourseId()).forEach(sic -> installmentService.sync(sic.getUserId()));
+        }
+        return saved;
     }
 
+    /** Deletes a course no student is assigned to. */
     public void deleteCourse(Long id) {
-        courseRepository.deleteById(id);
+        Course course = courseRepository.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Course not found."));
+        long students = studentCourseRepository.countByCourseId(id);
+        if (students > 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "\"" + course.getCourseName() + "\" can't be deleted: " + students
+                    + " student(s) are assigned to it. Assign them another course first.");
+        }
+        courseRepository.delete(course);
     }
 
     public List<Institution> listInstitutions() {
@@ -398,6 +451,35 @@ public class AdminService {
         institution.setEmail(str(body.get("email")));
         institutionRepository.save(institution);
         return institutionId;
+    }
+
+    public Institution getInstitution(String institutionId) {
+        return institutionRepository.findById(institutionId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Institution not found."));
+    }
+
+    /** Edits an institution's name and contact details (its id stays the same). */
+    public void updateInstitution(String institutionId, Map<String, Object> body) {
+        Institution institution = getInstitution(institutionId);
+        String name = trimToNull(str(body.get("institutionName")));
+        if (name == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Institution name is required.");
+        institution.setInstitutionName(name);
+        institution.setAddress(str(body.get("address")));
+        institution.setContactNumber(str(body.get("contactNumber")));
+        institution.setEmail(str(body.get("email")));
+        institutionRepository.save(institution);
+    }
+
+    /** Deletes an institution that has no courses and no students. */
+    public void deleteInstitution(String institutionId) {
+        Institution institution = getInstitution(institutionId);
+        long courses = courseRepository.countByInstitutionId(institutionId);
+        long students = studentCourseRepository.countByInstitutionId(institutionId);
+        if (courses > 0 || students > 0) {
+            throw new ApiException(HttpStatus.CONFLICT, "\"" + institution.getInstitutionName() + "\" can't be deleted: it has "
+                    + courses + " course(s) and " + students + " student(s). Delete its courses (and move its students) first.");
+        }
+        institutionRepository.delete(institution);
     }
 
     // ------------------------------------------------------------------ applications
@@ -446,6 +528,7 @@ public class AdminService {
         sic.setAssignedBy(me());
         sic.setAssignedAt(LocalDateTime.now());
         studentCourseRepository.save(sic);
+        installmentService.sync(userId);
     }
 
     /** Sets the student's institution and course; assigned_by / assigned_at are only set on first assignment. */
@@ -533,6 +616,8 @@ public class AdminService {
         profile.put("id", user.getId());
         profile.put("user_id", user.getUserId());
         profile.put("study_status", StudyStatus.of(user.getStudyStatus()));
+        profile.put("session_year", user.getYear());
+        profile.put("payment_start_date", user.getPaymentStartDate());
         profile.put("study_status_date", user.getStudyStatusDate());
         profile.put("study_status_note", user.getStudyStatusNote());
         profile.put("name", user.getName());
@@ -570,6 +655,8 @@ public class AdminService {
             if (data.get("phone") != null) { user.setPhone(str(data.get("phone"))); changed = true; }
             if (data.containsKey("chapterId")) { user.setChapterId(requireChapter(chapterRepository, data.get("chapterId"))); changed = true; }
             if (data.get("status") != null) { user.setStatus(str(data.get("status"))); changed = true; }
+            if (data.containsKey("year")) { user.setYear(sessionYear(data.get("year"))); changed = true; }
+            if (data.containsKey("paymentStartDate")) { user.setPaymentStartDate(parseDate(data.get("paymentStartDate"), "Payment start date")); changed = true; }
             if (changed) userRepository.save(user);
         });
 
@@ -584,6 +671,7 @@ public class AdminService {
         if (data.get("institutionId") != null && data.get("courseId") != null) {
             saveStudentCourse(userId, str(data.get("institutionId")), toLong(data.get("courseId")));
         }
+        installmentService.sync(userId); // course, session year or start date may have changed
     }
 
     /** Fields kept on the student's application row (grantee_details): family details and the RCC center. */
@@ -648,7 +736,7 @@ public class AdminService {
     /** Maps the student to the sponsor, or removes the mapping when sponsorId is null. */
     private void updateSponsor(Long studentId, Long sponsorId) {
         if (sponsorId == null) {
-            grantorGranteeRepository.deleteByGranteeId(studentId);
+            if (grantorGranteeRepository.findFirstByGranteeId(studentId).isPresent()) sponsorMappingService.unmap(studentId);
         } else {
             sponsorMappingService.map(studentId, sponsorId, "Accepted", false);
         }
@@ -689,6 +777,7 @@ public class AdminService {
         h.setEffectiveDate(effective);
         h.setNote(text);
         statusHistoryRepository.save(h);
+        installmentService.sync(userId); // graduated / dropped out: no more unpaid installments
     }
 
     /** deactivate / activate / unmap (from sponsor). Users are never deleted: deactivate them instead. */
@@ -697,7 +786,7 @@ public class AdminService {
         switch (action == null ? "" : action) {
             case "deactivate" -> setStatus(userId, "Inactive");
             case "activate" -> setStatus(userId, "Active");
-            case "unmap" -> grantorGranteeRepository.deleteByGranteeId(userId);
+            case "unmap" -> sponsorMappingService.unmap(userId);
             default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid action");
         }
     }
@@ -707,6 +796,7 @@ public class AdminService {
             u.setStatus(status);
             userRepository.save(u);
         });
+        installmentService.sync(userId);
     }
 
     // --------------------------------------------------------------- bulk uploads
@@ -736,6 +826,9 @@ public class AdminService {
                     user.setName(name);
                     user.setEmail(email != null ? email : (existing != null ? existing.getEmail() : uId + "@rahbar.com"));
                     user.setPhone(phone);
+                    // Optional columns: "Session Year" and "Payment Start Date" (yyyy-MM-dd).
+                    if (!isBlank(r.get("sessionyear"))) user.setYear(sessionYear(r.get("sessionyear")));
+                    if (!isBlank(r.get("paymentstartdate"))) user.setPaymentStartDate(parseDate(r.get("paymentstartdate"), "Payment Start Date"));
                     userRepository.save(user);
                     if (existing == null) report.created(); else report.updated();
 
@@ -883,8 +976,8 @@ public class AdminService {
     /** Header line of the CSV templates offered in the upload windows (matches what the uploads read). */
     public String csvTemplate(String kind) {
         return switch (kind) {
-            case "students" -> "Student Reference,Student Name,Email,Mobile Student,Father Name,Address,Course (Branch),RCC Non-RCC,Mobile-1,Mobile-2\n"
-                    + "STU-1001,Ayesha Khan,ayesha@example.com,9876543210,Imran Khan,Patna,B.Tech (CSE),RCC,9876500001,9876500002\n";
+            case "students" -> "Student Reference,Student Name,Email,Mobile Student,Father Name,Address,Course (Branch),RCC Non-RCC,Mobile-1,Mobile-2,Session Year,Payment Start Date\n"
+                    + "STU-1001,Ayesha Khan,ayesha@example.com,9876543210,Imran Khan,Patna,B.Tech (CSE),RCC,9876500001,9876500002,2025,2025-08-01\n";
             case "sponsors" -> "Sponsor ID,Sponsor Name,Sponsor Email,Sponsor Mobile1,Sponsor Chapter,Student Assigned\n"
                     + ",Abdul Rahman,abdul@example.com,9800000001,Jeddah,\"STU-1001,STU-1002\"\n";
             default -> throw new ApiException(HttpStatus.NOT_FOUND, "Unknown template.");
@@ -909,7 +1002,8 @@ public class AdminService {
         user.setName(name);
         user.setEmail(email);
         user.setPhone(str(body.get("phone")));
-        user.setYear(toInteger(body.get("year")));
+        user.setYear(sessionYear(body.get("year")));
+        user.setPaymentStartDate(parseDate(body.get("paymentStartDate"), "Payment start date"));
         user.setChapterId(requireChapter(chapterRepository, body.get("chapterId"))); // optional
         Long id = userRepository.save(user).getId();
 
@@ -945,6 +1039,7 @@ public class AdminService {
         if (sponsorId != null) {
             sponsorMappingService.map(id, sponsorId, "Accepted", false);
         }
+        installmentService.sync(id);
         return uId;
     }
 
@@ -971,8 +1066,14 @@ public class AdminService {
 
     /** Records a new payment (credited to the student's sponsor) or edits an existing one. Returns the message. */
     public String recordPayment(String actionType, Long paymentId, Long granteeId, BigDecimal amount,
-                                String paymentDate, String status, MultipartFile receipt) {
+                                String paymentDate, String status, MultipartFile receipt, Long installmentId) {
         boolean create = "create".equals(actionType);
+        if (granteeId != null && com.rahbar.security.Access.chapterScoped()) {
+            Long mine = com.rahbar.security.Access.current().getUser().getChapterId();
+            Long theirs = userRepository.findById(granteeId).map(User::getChapterId).orElse(null);
+            if (mine == null || !mine.equals(theirs)) throw com.rahbar.security.Access.forbidden("You can only record payments for your own chapter's students.");
+        }
+        if (create) installmentService.requireUnpaid(installmentId, granteeId, null);
         Payment payment;
         if (create) {
             Long sponsorId = grantorGranteeRepository.findFirstByGranteeId(granteeId)
@@ -996,7 +1097,8 @@ public class AdminService {
         payment.setAmount(amount);
         payment.setPaymentDate(parseDateTime(paymentDate));
         payment.setStatus(status);
-        paymentRepository.save(payment);
+        paymentRepository.saveAndFlush(payment);
+        installmentService.afterPayment(payment, create ? installmentId : null);
         if (create) {
             String text = "A payment of " + amount + " was recorded for you (status: " + status + ").";
             notificationService.notify(granteeId, "Payment recorded", text, NotificationService.PAYMENT, "/student/payments", false);

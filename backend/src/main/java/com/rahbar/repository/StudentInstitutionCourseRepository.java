@@ -11,6 +11,12 @@ import java.util.Map;
 public interface StudentInstitutionCourseRepository extends JpaRepository<StudentInstitutionCourse, Long> {
     List<StudentInstitutionCourse> findByUserIdIn(List<Long> userIds);
 
+    List<StudentInstitutionCourse> findByCourseId(Long courseId);
+
+    long countByCourseId(Long courseId);
+
+    long countByInstitutionId(String institutionId);
+
     /** Course start date and length/fees for a student (assigned_at, number_of_semesters, fees_per_semester). */
     @Query("""
         select new map(s.assignedAt as assigned_at, c.numberOfSemesters as number_of_semesters,

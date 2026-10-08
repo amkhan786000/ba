@@ -1,6 +1,7 @@
 package com.rahbar.service;
 
 import com.rahbar.entity.GrantorGrantee;
+import com.rahbar.entity.PaymentInstallment;
 import com.rahbar.entity.User;
 import com.rahbar.repository.GrantorGranteeRepository;
 import com.rahbar.repository.PaymentRepository;
@@ -18,8 +19,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * Payment dues and reminders. Each sponsored student pays in quarterly installments from the day their course was
- * assigned: (semesters / 2) * 4 installments, one every 3 months (the same schedule the sponsor pages show).
+ * Payment dues and reminders, from the installments stored for each sponsored student (PaymentInstallmentService:
+ * built from the course, the Payment Config of the student's session year and the payment start date).
  * Every morning sponsors get one reminder per overdue installment and one a week before the next installment is due.
  */
 @Service
@@ -34,10 +35,13 @@ public class PaymentReminderService {
     private final StudentInstitutionCourseRepository studentCourseRepository;
     private final PaymentRepository paymentRepository;
     private final NotificationService notificationService;
+    private final PaymentInstallmentService installmentService;
 
     public PaymentReminderService(GrantorGranteeRepository grantorGranteeRepository, UserRepository userRepository,
                                   StudentInstitutionCourseRepository studentCourseRepository,
-                                  PaymentRepository paymentRepository, NotificationService notificationService) {
+                                  PaymentRepository paymentRepository, NotificationService notificationService,
+                                  PaymentInstallmentService installmentService) {
+        this.installmentService = installmentService;
         this.grantorGranteeRepository = grantorGranteeRepository;
         this.userRepository = userRepository;
         this.studentCourseRepository = studentCourseRepository;
@@ -52,6 +56,7 @@ public class PaymentReminderService {
         Map<Long, User> users = new HashMap<>();
         userRepository.findAll().forEach(u -> users.put(u.getId(), u));
         Long unassigned = ServiceSupport.unassignedGrantorId(userRepository);
+        Map<Long, List<PaymentInstallment>> byStudent = installmentService.byStudent();
 
         for (GrantorGrantee gg : grantorGranteeRepository.findAll()) {
             if (gg.getGrantorId() == null || gg.getGrantorId().equals(unassigned)) continue;
@@ -60,28 +65,27 @@ public class PaymentReminderService {
             if (!StudyStatus.inProgramme(student.getStudyStatus())) continue; // graduated / dropped out: no dues
             User sponsor = users.get(gg.getGrantorId());
 
-            Map<String, Object> course = Rows.first(studentCourseRepository.findCourseInfo(student.getId()));
-            LocalDate start = course != null && course.get("assigned_at") instanceof LocalDateTime t ? t.toLocalDate() : null;
-            int semesters = course != null && course.get("number_of_semesters") instanceof Number n ? n.intValue() : 0;
-            int total = (int) Math.floor(semesters / 2.0 * 4);
-            long paid = paymentRepository.countByGranteeIdAndStatus(student.getId(), "Paid");
-
-            int dueSoFar = 0;
-            LocalDate nextDue = null;
+            // From the stored installments (see PaymentInstallmentService): due = its date has come.
+            List<PaymentInstallment> installments = byStudent.getOrDefault(student.getId(), List.of());
+            int total = installments.size();
+            long paid = installments.stream().filter(i -> i.getPaymentId() != null).count();
+            int dueSoFar = (int) installments.stream().filter(i -> !i.getDueDate().isAfter(today)).count();
+            long overdueCount = installments.stream().filter(i -> i.getPaymentId() == null && !i.getDueDate().isAfter(today)).count();
+            LocalDate nextDue = installments.stream().filter(i -> i.getPaymentId() == null)
+                    .map(PaymentInstallment::getDueDate).min(Comparator.naturalOrder()).orElse(null);
+            LocalDate start = student.getPaymentStartDate();
             String status;
-            if (start == null || total == 0) {
-                status = "No course assigned";
+            if (total == 0) {
+                status = "No schedule";
+            } else if (paid >= total) {
+                status = "Completed";
+            } else if (overdueCount > 0) {
+                status = "Overdue";
+            } else if (nextDue != null && !nextDue.isAfter(today.plusDays(DUE_SOON_DAYS))) {
+                status = "Due soon";
             } else {
-                for (int i = 1; i <= total; i++) {
-                    if (!start.plusMonths(3L * i).isAfter(today)) dueSoFar++;
-                }
-                if (paid < total) nextDue = start.plusMonths(3L * (paid + 1));
-                if (paid >= total) status = "Completed";
-                else if (paid < dueSoFar) status = "Overdue";
-                else if (nextDue != null && !nextDue.isAfter(today.plusDays(DUE_SOON_DAYS))) status = "Due soon";
-                else status = "On schedule";
+                status = "On schedule";
             }
-
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("student_id", student.getId());
             row.put("student_code", student.getUserId());
@@ -94,7 +98,7 @@ public class PaymentReminderService {
             row.put("installments_total", total);
             row.put("installments_due", dueSoFar);
             row.put("installments_paid", paid);
-            row.put("overdue", Math.max(0, dueSoFar - paid));
+            row.put("overdue", overdueCount);
             row.put("next_due_date", nextDue);
             // On hold: dues are still listed, but with this status no reminder goes out.
             if (StudyStatus.ON_HOLD.equals(student.getStudyStatus())) status = "On hold";
@@ -112,7 +116,7 @@ public class PaymentReminderService {
             case "Due soon" -> 1;
             case "On schedule" -> 2;
             case "On hold" -> 3;
-            case "No course assigned" -> 4;
+            case "No schedule" -> 4;
             default -> 5;
         };
     }

@@ -44,14 +44,14 @@ interface Due {
       <div class="card-body">
         <div class="d-flex flex-column flex-md-row justify-content-between mb-3">
           <p class="text-muted mb-2 mb-md-0">
-            Sponsors pay in quarterly installments from the day the student's course was assigned.
+            From the installments created when each student was mapped to a sponsor (see Payment Records).
             Reminders go out automatically every morning: once per overdue installment, and a week before the next one.
           </p>
           <input class="form-control" style="max-width: 260px" placeholder="Search student or sponsor" [(ngModel)]="q">
         </div>
         <div class="table-responsive">
           <table class="table mb-0">
-            <thead><tr><th>Student</th><th>Sponsor</th><th>Course start</th><th>Paid / due / total</th><th>Next due</th><th>Status</th></tr></thead>
+            <thead><tr><th>Student</th><th>Sponsor</th><th>Payments start</th><th>Paid / due / total</th><th>Next due</th><th>Status</th></tr></thead>
             <tbody>
               <tr *ngIf="loading"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
               <tr *ngIf="!loading && !visible.length"><td colspan="6" class="text-center text-muted">Nothing to show.</td></tr>

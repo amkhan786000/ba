@@ -183,6 +183,18 @@ export interface RoleOption {
                     <option *ngFor="let r of assignableRoles" [ngValue]="r.roleId">{{ r.roleName }}</option>
                   </select>
                 </div>
+                <div class="form-row" *ngIf="newUser.roleId === 6">
+                  <div class="form-group col-md-6">
+                    <label>Session Year</label>
+                    <input type="number" class="form-control" name="year" min="1990" max="2100" placeholder="e.g. 2025" [(ngModel)]="newUser.year" />
+                    <small class="text-muted">Picks the Payment Config (amount and frequency).</small>
+                  </div>
+                  <div class="form-group col-md-6">
+                    <label>Payment Start Date</label>
+                    <input type="date" class="form-control" name="paymentStartDate" [(ngModel)]="newUser.paymentStartDate" />
+                    <small class="text-muted">The first installment is due on this date.</small>
+                  </div>
+                </div>
                 <div class="form-group">
                   <label>Status</label>
                   <select class="form-control" name="status" [(ngModel)]="newUser.status" required>
@@ -333,6 +345,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   }
 
   private blankUser() {
-    return { userId: '', name: '', contact: '', email: '', chapterId: null as number | null, rccCenterId: null as number | null, roleId: null as number | null, status: 'Active', password: '' };
+    return { userId: '', name: '', contact: '', email: '', chapterId: null as number | null, rccCenterId: null as number | null, roleId: null as number | null, status: 'Active', password: '',
+      year: new Date().getFullYear() as number | null, paymentStartDate: '' };
   }
 }

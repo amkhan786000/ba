@@ -53,8 +53,13 @@ public class User extends Modifiable {
     @org.hibernate.annotations.Formula("(select c.chapter_name from chapters c where c.chapter_id = chapter_id)")
     private String chapterName;
 
+    /** Students: session year; picks the Payment Config (amount and frequency) for their installments. */
     @Column(name = "year")
     private Integer year;
+
+    /** Students: the date the first installment is due; the next ones follow every 3 or 4 months. */
+    @Column(name = "payment_start_date")
+    private java.time.LocalDate paymentStartDate;
 
     /** Students: STUDYING, ON_HOLD, GRADUATED or DROPPED_OUT (see service.StudyStatus); NULL counts as studying. */
     @Column(name = "study_status", length = 20)

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { asDate, localDate, uploadUrl } from '../shared/format';
+import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 
 type Row = Record<string, any>;
@@ -13,11 +14,11 @@ interface StudentData {
   bankDetails: Row;
   courseInfo: Row | null;
   paidRecords: Row[];
+  installments: InstallmentRow[];
+  installmentProblem: string | null;
 }
 
-interface Installment { n: number; due: string; amount: string; status: string; badge: string; paidOn: string; paid: boolean }
-
-/** Port of templates/convenor/payment.html (student picker, installment schedule, record-payment popup, history). */
+/** Convenor > Payments: student picker, the stored installments (Paid / Due / Not Due), record-payment popup, history. */
 @Component({
   selector: 'app-convenor-payments',
   standalone: true,
@@ -42,26 +43,32 @@ interface Installment { n: number; due: string; amount: string; status: string; 
 
             <div *ngIf="current">
               <h5>Student: {{ current.grantee['name'] || 'N/A' }}</h5>
-              <p>Grantee Academic Year: {{ current.grantee['year'] || 'Not Specified' }}</p>
+              <p>Session Year: {{ current.grantee['year'] || 'Not Specified' }}</p>
               <p>Bank: {{ current.bankDetails['bank_name'] || 'N/A' }} (Acc: {{ current.bankDetails['account_number'] || 'N/A' }})</p>
               <p>IFSC: {{ current.bankDetails['ifsc_code'] || 'N/A' }}</p>
               <p>{{ lastPayment }}</p>
               <p>Payment Status: {{ currentStatus }}</p>
 
-              <p *ngIf="!current.courseInfo?.['assigned_at']" class="alert alert-warning">Payment schedule is not available. The student has not been assigned a course yet.</p>
-              <ng-container *ngIf="current.courseInfo?.['assigned_at']">
-                <hr><h5 class="mt-3">Full Payment Schedule</h5>
+              <p *ngIf="current.installmentProblem" class="alert alert-warning">
+                {{ current.installments.length ? 'No further installments: ' : 'The payment schedule is not ready yet: ' }}{{ current.installmentProblem }}
+              </p>
+              <ng-container *ngIf="current.installments.length">
+                <hr><h5 class="mt-3">Installment Schedule</h5>
+                <p class="text-muted small">Payments you record stay pending until the office approves them; then they pay the earliest unpaid installment.</p>
                 <div class="table-responsive">
                   <table class="table table-hover table-centered">
-                    <thead class="thead-light"><tr><th>#</th><th>Due Date</th><th>Amount Paid</th><th>Status</th><th>Paid On</th><th>Action</th></tr></thead>
+                    <thead class="thead-light"><tr><th>#</th><th>Due Date</th><th>Amount</th><th>Status</th><th>Paid</th><th>Paid On</th><th>Action</th></tr></thead>
                     <tbody>
-                      <tr *ngFor="let i of schedule">
-                        <td>{{ i.n }}</td><td>{{ i.due }}</td><td>{{ i.amount }}</td>
-                        <td><span class="badge" [ngClass]="i.badge">{{ i.status }}</span></td>
-                        <td>{{ i.paidOn }}</td>
+                      <tr *ngFor="let i of current.installments">
+                        <td>{{ i.installment_no }}</td>
+                        <td>{{ i.due_date | date: 'd MMM yyyy' }}</td>
+                        <td>₹{{ i.amount | number: '1.2-2' }}</td>
+                        <td><span class="badge" [ngClass]="badge(i.status)">{{ i.status }}</span></td>
+                        <td>{{ i.paid_amount !== null ? '₹' + (i.paid_amount | number: '1.2-2') : '—' }}</td>
+                        <td>{{ i.paid_date ? (i.paid_date | date: 'd MMM yyyy') : '—' }}</td>
                         <td>
-                          <button *ngIf="i.paid" class="btn btn-sm btn-light" disabled>{{ i.status }}</button>
-                          <button *ngIf="!i.paid" type="button" class="btn btn-sm btn-success" (click)="openPay(i)">Record Payment</button>
+                          <button *ngIf="i.payment_id" class="btn btn-sm btn-light" disabled>Paid</button>
+                          <button *ngIf="!i.payment_id" type="button" class="btn btn-sm btn-success" (click)="openPay(i)">Record Payment</button>
                         </td>
                       </tr>
                     </tbody>
@@ -144,7 +151,6 @@ export class ConvenorPaymentsComponent implements OnInit {
   /** users.id of the selected student (as text: the key of studentDataMap). */
   selectedId = '';
   current: StudentData | null = null;
-  schedule: Installment[] = [];
   currentStatus = '';
   lastPayment = '';
   pay: { installment: number; amount: string; receipt: File | null } | null = null;
@@ -168,48 +174,23 @@ export class ConvenorPaymentsComponent implements OnInit {
   file(p: unknown): string { return uploadUrl(p) ?? '#'; }
   fileOf(e: Event): File | null { return (e.target as HTMLInputElement).files?.[0] ?? null; }
 
-  /** Same schedule rules as updateStudentDetails() in the Flask page. */
   select(): void {
     this.current = this.selectedId ? this.dataMap[this.selectedId] ?? null : null;
-    this.schedule = [];
     if (!this.current) return;
     const records = this.current.paidRecords ?? [];
     const last = records[records.length - 1];
     this.lastPayment = last
       ? `Last Payment: ₹${parseFloat(String(last['amount'])).toFixed(2)} on ${localDate(last['payment_date'])} (Status: ${last['status']})`
       : 'Last Payment: No payments yet';
-
-    const c = this.current.courseInfo;
-    const base = asDate(c?.['assigned_at']);
-    if (!c || !base) { this.currentStatus = 'Course not assigned'; return; }
-
-    const quarterly = (Number(c['fees_per_semester']) || 0) / 2;
-    const total = Math.floor((Number(c['number_of_semesters']) / 2) * 4);
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    let next = 'All Paid';
-    for (let i = 1; i <= total; i++) {
-      const due = new Date(base);
-      due.setMonth(due.getMonth() + 3 * i);
-      const rec = records[i - 1];
-      if (rec) {
-        const st = String(rec['status'] ?? '');
-        const status = st.charAt(0).toUpperCase() + st.slice(1);
-        const badge = st.toLowerCase() === 'paid' ? 'badge-success' : st.toLowerCase() === 'pending' ? 'badge-info' : 'badge-warning';
-        this.schedule.push({ n: i, due: due.toLocaleDateString(), amount: `₹${parseFloat(String(rec['amount'])).toFixed(2)}`, status, badge, paidOn: localDate(rec['payment_date']), paid: true });
-      } else {
-        const overdue = due < today;
-        const status = overdue ? 'Overdue' : 'Pending';
-        if (next === 'All Paid') next = status;
-        this.schedule.push({ n: i, due: due.toLocaleDateString(), amount: '—', status, badge: overdue ? 'badge-danger' : 'badge-warning', paidOn: '—', paid: false });
-      }
-    }
-    this.currentStatus = next;
-    this.quarterly = quarterly.toFixed(2);
+    const rows = this.current.installments ?? [];
+    this.currentStatus = !rows.length ? 'No schedule yet'
+      : rows.every((r) => r.status === 'Paid') ? 'All Paid'
+      : rows.some((r) => r.status === 'Due') ? 'Due' : 'Not Due';
   }
 
-  private quarterly = '0.00';
+  badge(status: string): string { return installmentBadge(status); }
 
-  openPay(i: Installment): void { this.pay = { installment: i.n, amount: this.quarterly, receipt: null }; }
+  openPay(i: InstallmentRow): void { this.pay = { installment: i.installment_no, amount: String(i.amount), receipt: null }; }
 
   submitPay(): void {
     if (!this.pay?.receipt || !this.selectedId) return;
