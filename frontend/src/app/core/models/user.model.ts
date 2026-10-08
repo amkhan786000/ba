@@ -21,7 +21,7 @@ export interface AuthUser {
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
 export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG'
   | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
-  | 'SPONSOR_DETAILS';
+  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
 export const PORTAL_ROLES = [3, 4, 5, 6];
@@ -29,6 +29,7 @@ export const PORTAL_ROLES = [3, 4, 5, 6];
 /** Admin menu, in order; each entry needs VIEW on its section. */
 export const ADMIN_LINKS: { path: string; label: string; icon: string; section: Section }[] = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard', section: 'DASHBOARD' },
+  { path: '/admin/chapter-dashboard', label: 'Chapter Dashboard', icon: 'mdi-view-quilt', section: 'CHAPTER_DASHBOARD' },
   { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS' },
   { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES' },
   { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings', section: 'PAYMENT_CONFIG' },
@@ -41,6 +42,8 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
   { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES' },
   { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS' },
   { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS' },
+  { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES' },
+  { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY' },
   { path: '/admin/broadcasts', label: 'Broadcast Messages', icon: 'mdi-bullhorn', section: 'MESSAGES' },
   { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY' }
 ];

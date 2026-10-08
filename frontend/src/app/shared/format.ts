@@ -28,8 +28,15 @@ export function isoDate(v: unknown): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** Uploaded files are served by file name under /uploads/ (Flask: url_for('...uploaded_file')). */
+/** Uploaded files are served here (sign-in required). */
+export const FILE_PREFIX = '/api/files/';
+
+/**
+ * Link to an uploaded file. Files need sign-in (/api/files/<name>); AppComponent opens these links with the
+ * user's token, so templates can keep using plain <a [href]> links.
+ */
 export function uploadUrl(path: unknown): string | null {
   if (!path) return null;
-  return '/uploads/' + String(path).split(/[\\/]/).pop();
+  return FILE_PREFIX + encodeURIComponent(String(path).split(/[\\/]/).pop() ?? '');
 }
+

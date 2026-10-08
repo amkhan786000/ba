@@ -13,10 +13,12 @@ import { Institution } from './admin-course-edit.component';
 import { Chapter } from './admin-chapters.component';
 import { RccCenter } from './admin-rcc-centers.component';
 import { ChapterService } from '../core/services/chapter.service';
+import { STUDY_STATUSES, studyStatusBadge, studyStatusLabel } from '../shared/study-status';
 
 interface StudentRow {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
   sponsor_id: number | null; sponsor_code: string | null; sponsor_name: string | null; status: string | null;
+  study_status: string | null;
 }
 
 type Row = Record<string, any>;
@@ -28,6 +30,7 @@ interface StudentDetails {
   sponsor: Row | null;
   payments: Row[];
   documents: Row[];
+  statusHistory?: Row[];
 }
 
 interface Installment {
@@ -79,14 +82,15 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
             <div class="table-responsive">
               <table class="table table-bordered table-striped nowrap" style="width:100%">
                 <thead>
-                  <tr><th>Ref_Id</th><th>Name</th><th>Email</th><th>Phone</th><th>Sponsor ID</th><th>Sponsor Name</th><th>Status</th><th>Actions</th></tr>
+                  <tr><th>Ref_Id</th><th>Name</th><th>Email</th><th>Phone</th><th>Sponsor ID</th><th>Sponsor Name</th><th>Study</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
-                  <tr *ngIf="loading"><td colspan="8" class="text-center text-muted">Processing...</td></tr>
-                  <tr *ngIf="!loading && !rows.length"><td colspan="8" class="text-center text-muted">No matching records found</td></tr>
+                  <tr *ngIf="loading"><td colspan="9" class="text-center text-muted">Processing...</td></tr>
+                  <tr *ngIf="!loading && !rows.length"><td colspan="9" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let r of rows">
                     <td>{{ r.user_id }}</td><td>{{ r.name }}</td><td>{{ r.email }}</td><td>{{ r.phone }}</td>
                     <td>{{ r.sponsor_code || '-' }}</td><td>{{ r.sponsor_name || 'Unassigned' }}</td>
+                    <td><span class="badge" [ngClass]="studyBadge(r.study_status)">{{ studyLabel(r.study_status) }}</span></td>
                     <td><span class="badge" [ngClass]="(r.status || '').toLowerCase() === 'active' ? 'badge-success' : 'badge-danger'">{{ r.status }}</span></td>
                     <td><button class="btn btn-xs btn-primary" (click)="openDetails(r.id)">View Details</button></td>
                   </tr>
@@ -104,7 +108,10 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
       <div class="modal-dialog modal-xl modal-dialog-scrollable" (click)="$event.stopPropagation()">
         <div class="modal-content">
           <div class="modal-header">
-            <h4 class="modal-title">Student Profile: {{ details.profile['name'] }}</h4>
+            <h4 class="modal-title">
+              Student Profile: {{ details.profile['name'] }}
+              <span class="badge ml-2 font-13" [ngClass]="studyBadge(details.profile['study_status'])">{{ studyLabel(details.profile['study_status']) }}</span>
+            </h4>
             <button type="button" class="close" (click)="closeDetails()">&times;</button>
           </div>
           <div class="modal-body">
@@ -170,6 +177,48 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                   <option [ngValue]="null">No chapter</option>
                   <option *ngFor="let c of chapterOptions(details.profile['chapter_id'])" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
                 </select>
+              </div>
+            </div>
+
+            <!-- Study status (separate from the account's Active / Inactive) -->
+            <div *ngIf="tab === 'study'">
+              <p class="text-muted small">
+                Graduated and Dropped-out students no longer get payment dues or reminders; students on hold keep their
+                sponsor but get no reminders. This is separate from the login account's Active / Inactive.
+              </p>
+              <p>
+                Current: <span class="badge" [ngClass]="studyBadge(details.profile['study_status'])">{{ studyLabel(details.profile['study_status']) }}</span>
+                <span *ngIf="details.profile['study_status_date']" class="text-muted"> since {{ fmt(details.profile['study_status_date'], '') }}</span>
+                <span *ngIf="details.profile['study_status_note']" class="text-muted"> · {{ details.profile['study_status_note'] }}</span>
+              </p>
+              <div class="row" *ngIf="canEdit">
+                <div class="col-md-3 form-group"><label>New status</label>
+                  <select class="form-control" [(ngModel)]="study.status">
+                    <option *ngFor="let st of studyStatuses" [value]="st">{{ studyLabel(st) }}</option>
+                  </select>
+                </div>
+                <div class="col-md-3 form-group"><label>Effective date</label><input type="date" class="form-control" [(ngModel)]="study.date"></div>
+                <div class="col-md-4 form-group"><label>Note <span class="text-muted">(optional)</span></label>
+                  <input type="text" class="form-control" maxlength="500" [(ngModel)]="study.note" placeholder="e.g. Completed B.Tech">
+                </div>
+                <div class="col-md-2 form-group d-flex align-items-end">
+                  <button type="button" class="btn btn-primary btn-block" (click)="saveStudyStatus()" [disabled]="busy || !study.status">Update</button>
+                </div>
+              </div>
+              <h5 class="mt-2">History</h5>
+              <div class="table-responsive">
+                <table class="table table-sm mb-0">
+                  <thead><tr><th>Effective</th><th>Status</th><th>Note</th><th>Recorded</th></tr></thead>
+                  <tbody>
+                    <tr *ngIf="!details.statusHistory?.length"><td colspan="4" class="text-center text-muted">No changes recorded yet.</td></tr>
+                    <tr *ngFor="let h of details.statusHistory">
+                      <td>{{ fmt(h['effective_date'], '--') }}</td>
+                      <td><span class="badge" [ngClass]="studyBadge(h['status'])">{{ studyLabel(h['status']) }}</span></td>
+                      <td>{{ h['note'] || '' }}</td>
+                      <td class="small text-muted">{{ fmt(h['created_at'], '') }}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </div>
 
@@ -371,7 +420,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
 export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   readonly tabs = [
     { id: 'profile', label: 'Personal' }, { id: 'family', label: 'Family' }, { id: 'course', label: 'Academic' },
-    { id: 'ba', label: 'BA Details' }, { id: 'bank', label: 'Bank Details' },
+    { id: 'ba', label: 'BA Details' }, { id: 'study', label: 'Study Status' }, { id: 'bank', label: 'Bank Details' },
     { id: 'payment', label: 'Payment Schedule' }, { id: 'docs', label: 'Docs' }
   ];
 
@@ -403,6 +452,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   edit: Record<string, string> = {};
   ba: BaDetails = { rccName: '', sponsorId: null, chapterId: null };
   schedule: Installment[] = [];
+  study = { status: 'STUDYING', date: '', note: '' };
+  readonly studyStatuses = STUDY_STATUSES;
 
   pay: { actionType: 'create' | 'edit'; paymentId?: unknown; amount: number | null; paymentDate: string; receipt: File | null } | null = null;
   manual: Record<string, any> | null = null;
@@ -491,6 +542,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
           accountName: s(b['account_name']), bankName: s(b['bank_name']), accountNumber: s(b['account_number']), ifscCode: s(b['ifsc_code'])
         };
         this.schedule = this.buildSchedule(res);
+        this.study = { status: p['study_status'] || 'STUDYING', date: isoDate(new Date()), note: '' };
       },
       error: (e) => (this.error = errorText(e, 'Could not load student details.'))
     });
@@ -534,6 +586,18 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     this.api.put<{ message: string }>(`/admin/students/${encodeURIComponent(this.currentId)}`, body).subscribe({
       next: (r) => { this.busy = false; this.closeDetails(); this.message = r.message; this.load(); },
       error: (err) => { this.busy = false; this.error = errorText(err, 'Could not save the student.'); }
+    });
+  }
+
+  studyLabel(status: unknown): string { return studyStatusLabel(status as string | null); }
+  studyBadge(status: unknown): string { return studyStatusBadge(status as string | null); }
+
+  saveStudyStatus(): void {
+    this.busy = true;
+    this.error = '';
+    this.api.post<{ message: string }>(`/admin/students/${encodeURIComponent(this.currentId)}/study-status`, this.study).subscribe({
+      next: (r) => { this.busy = false; this.message = r.message; this.refreshDetails(); this.load(); },
+      error: (err) => { this.busy = false; this.error = errorText(err, 'Could not update the study status.'); }
     });
   }
 

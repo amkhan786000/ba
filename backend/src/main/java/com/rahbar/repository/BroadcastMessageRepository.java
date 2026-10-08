@@ -7,4 +7,7 @@ import java.util.List;
 
 public interface BroadcastMessageRepository extends JpaRepository<BroadcastMessage, Long> {
     List<BroadcastMessage> findTop100ByOrderByBroadcastIdDesc();
+
+    /** Scheduled messages whose time has come. */
+    List<BroadcastMessage> findByStatusAndScheduledAtLessThanEqual(String status, java.time.LocalDateTime time);
 }

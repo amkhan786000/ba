@@ -50,6 +50,8 @@ public class ReportCatalogService {
                     "Number of students in each chapter.", false),
             new Definition("students_by_year", "Student breakdowns", "Students by academic year",
                     "Number of students in each academic year.", false),
+            new Definition("students_by_study_status", "Student breakdowns", "Students by study status",
+                    "Number of students studying, on hold, graduated and dropped out.", false),
             new Definition("applications_by_course", "Student breakdowns", "Applications by course applied",
                     "Demand before admission: applications per course applied for, with accepted / admitted and rejected counts.", true),
             new Definition("applications_by_rcc", "Student breakdowns", "Applications by RCC center",
@@ -196,6 +198,7 @@ public class ReportCatalogService {
             case "students_by_institution" -> studentsByInstitution();
             case "students_by_course" -> studentsByCourse();
             case "students_by_chapter" -> studentsBy(u -> ServiceSupport.chapterLabel(u.getChapterName()), "chapter");
+            case "students_by_study_status" -> studentsBy(u -> StudyStatus.label(u.getStudyStatus()), "study_status");
             case "students_by_year" -> studentsBy(u -> u.getYear() == null ? "Not set" : String.valueOf(u.getYear()), "academic_year");
             case "applications_by_course" -> applicationsBy(GranteeDetails::getCourseApplied, "course_applied", range);
             case "applications_by_rcc" -> applicationsBy(GranteeDetails::getRccName, "rcc_center", range);
@@ -305,6 +308,7 @@ public class ReportCatalogService {
                     "chapter", u.getChapterName(),
                     "year", u.getYear(),
                     "status", u.getStatus(),
+                    "study_status", StudyStatus.label(u.getStudyStatus()),
                     "sponsor_id", hasSponsor ? codes.get(sponsorId) : null,
                     "sponsor_name", hasSponsor ? names.get(sponsorId) : null,
                     "institution", sic == null ? null : institutionNames.get(sic.getInstitutionId()),

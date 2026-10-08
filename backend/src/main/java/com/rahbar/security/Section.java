@@ -27,7 +27,11 @@ public enum Section {
      * Sponsors' contact and personal details (everyone may see a sponsor's name and user ID).
      * VIEW shows them; EDIT also allows editing a sponsor's profile.
      */
-    SPONSOR_DETAILS("Sponsor details (contact & personal)");
+    SPONSOR_DETAILS("Sponsor details (contact & personal)"),
+    PROGRESS_DUE_DATES("Progress report due dates"),
+    /** Per-chapter overview; with "own chapter" scope a user sees only their chapter. */
+    CHAPTER_DASHBOARD("Chapter dashboard"),
+    DATA_QUALITY("Data quality");
 
     public enum Level { VIEW, EDIT }
 

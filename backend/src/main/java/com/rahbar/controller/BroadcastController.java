@@ -53,8 +53,53 @@ public class BroadcastController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasAuthority('MESSAGES:EDIT')")
     public Map<String, Object> send(@RequestParam String subject, @RequestParam String body, @RequestParam String audience,
-                                    @RequestParam(required = false) List<MultipartFile> files) throws IOException {
+                                    @RequestParam(required = false) List<MultipartFile> files,
+                                    @RequestParam(required = false) String scheduledAt) throws IOException {
         Map<String, Object> parsed = objectMapper.readValue(audience, new TypeReference<Map<String, Object>>() {});
-        return broadcastService.send(subject, body, parsed, files);
+        return broadcastService.send(subject, body, parsed, files, scheduleTime(scheduledAt));
+    }
+
+    /**
+     * scheduledAt is an ISO instant from the browser (e.g. 2026-10-08T06:00:00.000Z), turned into the server's local
+     * time; a plain local date-time (no zone) is taken as server time.
+     */
+    private static java.time.LocalDateTime scheduleTime(String scheduledAt) {
+        if (scheduledAt == null || scheduledAt.isBlank()) return null;
+        String v = scheduledAt.trim();
+        try {
+            if (v.endsWith("Z") || v.matches(".*[+-]\\d{2}:?\\d{2}$")) {
+                return java.time.OffsetDateTime.parse(v).atZoneSameInstant(java.time.ZoneId.systemDefault()).toLocalDateTime();
+            }
+            return java.time.LocalDateTime.parse(v);
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new com.rahbar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "The scheduled time is not valid.");
+        }
+    }
+
+    /** Cancels a scheduled message that hasn't gone out yet. */
+    @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAuthority('MESSAGES:EDIT')")
+    public Map<String, String> cancel(@PathVariable Long id) {
+        broadcastService.cancel(id);
+        return Map.of("message", "The scheduled message was cancelled.");
+    }
+
+    @GetMapping("/templates")
+    @PreAuthorize("hasAuthority('MESSAGES:EDIT')")
+    public List<Map<String, Object>> templates() {
+        return broadcastService.templates();
+    }
+
+    /** Body: { "name": "...", "subject": "...", "body": "..." }; the same name replaces the old template. */
+    @PostMapping("/templates")
+    @PreAuthorize("hasAuthority('MESSAGES:EDIT')")
+    public Map<String, Object> saveTemplate(@RequestBody Map<String, String> body) {
+        return broadcastService.saveTemplate(body.get("name"), body.get("subject"), body.get("body"));
+    }
+
+    @DeleteMapping("/templates/{id}")
+    @PreAuthorize("hasAuthority('MESSAGES:EDIT')")
+    public void deleteTemplate(@PathVariable Long id) {
+        broadcastService.deleteTemplate(id);
     }
 }

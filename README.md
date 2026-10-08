@@ -113,11 +113,11 @@ CORS_ALLOWED_ORIGINS=http://localhost:4200
    since it was committed in plaintext in the old code.
 5. **Uploaded-file routes had no access control** (`/uploads/<filename>` in
    every blueprint) — anyone who could guess or enumerate a filename could
-   download it, including payment receipts and ID documents. This migration
-   keeps the same public-by-filename behavior for parity (it's a straight
-   static file mount), but you should tighten this — e.g. require auth and
-   check the requester owns/approves that payment/record before serving the
-   file — before this goes live with real data.
+   download it, including payment receipts and ID documents. **Fixed:** files
+   are no longer served from `/uploads`; they go through `GET /api/files/<name>`,
+   which needs sign-in. Staff can open any file; students only their own
+   receipts, progress reports and application documents; sponsors only their
+   own payments' receipts and their students' progress reports.
 6. **`/apply` (public application form) was `@login_required` in the
    original**, which contradicts its purpose and template name
    (`public/apply.html`). This looked like a bug, so `PublicController`
@@ -163,7 +163,7 @@ since the build happens on your machine with full internet access.
 
 Files added for this:
 - `backend/Dockerfile` — multi-stage build (Maven+JDK21 → slim JRE Alpine image)
-- `frontend/Dockerfile` — multi-stage build (Node 20 → nginx Alpine, serving the compiled Angular app and reverse-proxying `/api/**` and `/uploads/**` to the backend container)
+- `frontend/Dockerfile` — multi-stage build (Node 20 → nginx Alpine, serving the compiled Angular app and reverse-proxying `/api/**` to the backend container)
 - `frontend/nginx.conf` — the nginx config used above
 - `docker-compose.yml` — wires up `mysql` + `backend` + `frontend`
 - `.env.example` — compose-level environment variables (DB creds, JWT secret, mail creds)

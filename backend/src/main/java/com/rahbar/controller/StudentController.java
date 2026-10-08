@@ -18,8 +18,17 @@ public class StudentController {
 
     private final StudentService studentService;
 
-    public StudentController(StudentService studentService) {
+    private final com.rahbar.service.StudentReminderService reminderService;
+
+    public StudentController(StudentService studentService, com.rahbar.service.StudentReminderService reminderService) {
         this.studentService = studentService;
+        this.reminderService = reminderService;
+    }
+
+    /** Next progress-report due date (and whether it's done) plus any overdue ones. */
+    @GetMapping("/progress-due")
+    public Map<String, Object> progressDue() {
+        return reminderService.forStudent(me());
     }
 
     private static Long me() {

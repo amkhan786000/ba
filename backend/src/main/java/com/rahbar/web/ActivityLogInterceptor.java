@@ -27,6 +27,7 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
 
     /** Paths that are logged elsewhere (sign-in); marking notifications read is skipped as noise. */
     private static final Set<String> SKIP = Set.of("/api/auth/login", "/api/auth/verify-otp",
+            "/api/auth/forgot-password", "/api/auth/reset-password", // logged by AuthService
             "/api/admin/broadcasts/preview"); // a recipient count, not a change
 
     /** Friendly descriptions, first match wins: "METHOD regex" -> label. */
@@ -34,7 +35,6 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
 
     static {
         label("POST /api/auth/register", "Registered a new account");
-        label("POST /api/auth/reset-password", "Reset a forgotten password");
         label("POST /api/account/change-password", "Changed own password");
         label("PUT /api/account/profile", "Updated own profile");
         label("POST /api/public/apply", "Submitted a scholarship application");
@@ -44,7 +44,13 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/admin/users", "Created a user");
         label("PUT /api/admin/users/[^/]+", "Updated a user");
         label("POST /api/admin/users/[^/]+/reset-password", "Reset a user's password");
-        label("POST /api/admin/broadcasts", "Sent a broadcast message");
+        label("POST /api/admin/broadcasts", "Sent or scheduled a broadcast message");
+        label("POST /api/admin/broadcasts/[0-9]+/cancel", "Cancelled a scheduled broadcast");
+        label("POST /api/admin/broadcasts/templates", "Saved a broadcast template");
+        label("DELETE /api/admin/broadcasts/templates/[^/]+", "Deleted a broadcast template");
+        label("POST /api/admin/progress-due-dates", "Saved a progress due date");
+        label("DELETE /api/admin/progress-due-dates/[^/]+", "Deleted a progress due date");
+        label("POST /api/admin/progress-due-dates/reminders/run", "Sent student reminders");
         label("PUT /api/admin/roles/[^/]+/access", "Changed a role's permissions");
         label("POST /api/admin/roles", "Created a role");
         label("PUT /api/admin/roles/[^/]+", "Updated a role");
@@ -62,6 +68,7 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/admin/manage-students/assign", "Assigned a student's course");
         label("POST /api/admin/sponsorships/[^/]+/map", "Mapped students to a sponsor");
         label("PUT /api/admin/students/[^/]+", "Updated a student record");
+        label("POST /api/admin/students/[^/]+/study-status", "Changed a student's study status");
         label("POST /api/admin/students/[^/]+/action", "Changed a student's account (activate / deactivate / unmap)");
         label("POST /api/admin/students/bulk-upload", "Bulk-uploaded students");
         label("POST /api/admin/sponsors/bulk-upload", "Bulk-uploaded sponsors");

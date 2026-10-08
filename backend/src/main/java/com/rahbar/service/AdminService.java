@@ -57,6 +57,7 @@ public class AdminService {
     private final ApplicationService applicationService;
     private final NotificationService notificationService;
     private final EmailService emailService;
+    private final StudentStatusHistoryRepository statusHistoryRepository;
     private final com.rahbar.security.SponsorPrivacy sponsorPrivacy;
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
@@ -76,7 +77,8 @@ public class AdminService {
                         ApplicationService applicationService, NotificationService notificationService,
                         PasswordEncoder passwordEncoder,
                         FileStorageService fileStorageService, EmailService emailService,
-                        com.rahbar.security.SponsorPrivacy sponsorPrivacy) {
+                        com.rahbar.security.SponsorPrivacy sponsorPrivacy,
+                        StudentStatusHistoryRepository statusHistoryRepository) {
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.roleRepository = roleRepository;
@@ -97,6 +99,7 @@ public class AdminService {
         this.applicationService = applicationService;
         this.notificationService = notificationService;
         this.emailService = emailService;
+        this.statusHistoryRepository = statusHistoryRepository;
         this.sponsorPrivacy = sponsorPrivacy;
         this.passwordEncoder = passwordEncoder;
         this.fileStorageService = fileStorageService;
@@ -248,6 +251,8 @@ public class AdminService {
         String password = PasswordPolicy.temporaryPassword();
         user.setPasswordHash(passwordEncoder.encode(password));
         user.setMustChangePassword(true);
+        user.setFailedAttempts(0);
+        user.setLockedUntil(null); // also unlocks an account locked after too many wrong passwords
         userRepository.save(user);
 
         String email = user.getEmail();
@@ -527,6 +532,9 @@ public class AdminService {
         profile.putAll(gd != null ? Rows.of(gd) : Rows.empty(GranteeDetails.class));
         profile.put("id", user.getId());
         profile.put("user_id", user.getUserId());
+        profile.put("study_status", StudyStatus.of(user.getStudyStatus()));
+        profile.put("study_status_date", user.getStudyStatusDate());
+        profile.put("study_status_note", user.getStudyStatusNote());
         profile.put("name", user.getName());
         profile.put("annual_schedule_amount", user.getYear() == null ? 0 : paymentScheduleRepository
                 .findFirstByYearAndStatus(user.getYear(), 1).map(s -> (Object) s.getAmount()).orElse(0));
@@ -549,6 +557,7 @@ public class AdminService {
                 .map(u -> Rows.pick(u, "id", "user_id", "name", "email")).orElse(null));
         result.put("payments", paymentRows);
         result.put("documents", Rows.list(studentProgressRepository.findByGranteeIdOrderByCreatedAtDesc(userId)));
+        result.put("statusHistory", Rows.list(statusHistoryRepository.findByUserIdOrderByHistoryIdDesc(userId)));
         return result;
     }
 
@@ -654,6 +663,34 @@ public class AdminService {
         bankDetailsRepository.save(bank);
     }
 
+    /**
+     * Sets a student's study status (Studying, On hold, Graduated, Dropped out) with the date it took effect and
+     * an optional note, and keeps the change in the history. Separate from the account's Active / Inactive.
+     */
+    @Transactional
+    public void setStudyStatus(Long userId, String status, String date, String note) {
+        User user = requireUser(userRepository, userId, "Student not found");
+        if (!Integer.valueOf(STUDENT_ROLE).equals(user.getRoleId())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Only students have a study status.");
+        }
+        String s = status == null ? "" : status.trim().toUpperCase(Locale.ROOT);
+        if (!StudyStatus.LABELS.containsKey(s)) throw new ApiException(HttpStatus.BAD_REQUEST, "Unknown study status: " + status);
+        LocalDate effective = isBlank(date) ? LocalDate.now() : LocalDate.parse(date.trim());
+        String text = trimToNull(note);
+        if (text != null && text.length() > 500) throw new ApiException(HttpStatus.BAD_REQUEST, "The note can be at most 500 characters.");
+
+        user.setStudyStatus(s);
+        user.setStudyStatusDate(effective);
+        user.setStudyStatusNote(text);
+        userRepository.save(user);
+        StudentStatusHistory h = new StudentStatusHistory();
+        h.setUserId(userId);
+        h.setStatus(s);
+        h.setEffectiveDate(effective);
+        h.setNote(text);
+        statusHistoryRepository.save(h);
+    }
+
     /** deactivate / activate / unmap (from sponsor). Users are never deleted: deactivate them instead. */
     @Transactional
     public void studentAction(Long userId, String action) {
@@ -743,6 +780,7 @@ public class AdminService {
         user.setUserId(code);
         user.setRoleId(STUDENT_ROLE);
         user.setStatus("Active");
+        user.setStudyStatus(StudyStatus.STUDYING);
         user.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
         user.setMustChangePassword(true);
         return user;
