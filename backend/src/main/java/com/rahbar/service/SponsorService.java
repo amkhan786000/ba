@@ -171,7 +171,8 @@ public class SponsorService {
         String sponsorName = userRepository.findById(sponsorId).map(User::getName).orElse("Your sponsor");
         notificationService.notify(granteeId, "Payment received",
                 sponsorName + " recorded a payment of " + amount + " for you. Please upload your proof of receipt.",
-                NotificationService.PAYMENT, "/student/payments", true);
+                NotificationService.PAYMENT, "/student/payments",
+                EmailType.PAYMENT_RECEIVED, ServiceSupport.vars("sponsor_name", sponsorName, "amount", amount));
     }
 
     public List<Map<String, Object>> studentProgress(Long sponsorId) {

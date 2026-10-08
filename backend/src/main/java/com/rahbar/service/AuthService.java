@@ -117,8 +117,7 @@ public class AuthService {
         otp.setStatus(0);
         otpRepository.save(otp);
 
-        emailService.sendWithSecret(user.getEmail(), "Your Login OTP",
-                "Your OTP for login is " + otpCode + ". It is valid for 5 minutes.", otpCode);
+        emailService.sendWithSecret(EmailType.LOGIN_OTP, user.getEmail(), ServiceSupport.vars("name", user.getName(), "code", otpCode), otpCode);
         if (logOtp) log.warn("LOG_OTP is on: sign-in OTP for {} is {}", user.getUserId(), otpCode);
 
         return AuthResponse.otpRequired(user.getId(), "An OTP has been sent to your email. Please verify.");
@@ -243,10 +242,8 @@ public class AuthService {
         reset.setExpiresAt(LocalDateTime.now().plusMinutes(RESET_CODE_MINUTES));
         resetCodeRepository.save(reset);
 
-        emailService.sendWithSecret(user.getEmail(), "Rahbar: your password reset code",
-                "Dear " + user.getName() + ",\n\nYour code to reset your Rahbar password is: " + code
-                        + "\n\nIt is valid for " + RESET_CODE_MINUTES + " minutes. If you didn't ask for this, ignore this email;"
-                        + " your password stays the same.\n\nRegards,\nRahbar - Bihar Anjuman", code);
+        emailService.sendWithSecret(EmailType.PASSWORD_RESET_CODE, user.getEmail(),
+                ServiceSupport.vars("name", user.getName(), "code", code, "minutes", RESET_CODE_MINUTES), code);
         if (logOtp) log.warn("LOG_OTP is on: password reset code for {} is {}", user.getUserId(), code);
         activityLogService.record(user, "Password reset code sent", "POST", "/api/auth/forgot-password", 200, ip);
     }
@@ -279,7 +276,7 @@ public class AuthService {
         // Same notice as a password change from the profile: in-app notification plus email.
         notificationService.notify(user.getId(), "Password changed",
                 "Your Rahbar password was reset using \"Forgot password\". If this wasn't you, contact the administrator straight away.",
-                NotificationService.ACCOUNT, null, true);
+                NotificationService.ACCOUNT, null, EmailType.PASSWORD_RESET_DONE, ServiceSupport.vars());
     }
 
     /** The user a bearer token belongs to. */

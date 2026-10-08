@@ -288,12 +288,8 @@ public class AdminService {
 
         String email = user.getEmail();
         boolean usableEmail = email != null && email.contains("@") && !email.trim().toLowerCase(Locale.ROOT).endsWith("@rahbar.com");
-        boolean emailed = usableEmail && emailService.sendWithSecret(email, "Rahbar: your password was reset",
-                "Dear " + user.getName() + ",\n\n"
-                        + "An administrator reset your Rahbar password. Sign in with this temporary password:\n\n"
-                        + "    " + password + "\n\n"
-                        + "You will be asked to choose your own password straight after signing in.\n\n"
-                        + "Regards,\nRahbar - Bihar Anjuman", password);
+        boolean emailed = usableEmail && emailService.sendWithSecret(EmailType.PASSWORD_RESET_BY_ADMIN, email,
+                vars("name", user.getName(), "password", password), password);
         notificationService.notify(user.getId(), "Password reset",
                 "An administrator reset your password. Use the temporary password you were given and choose a new one.",
                 NotificationService.ACCOUNT, null, false);

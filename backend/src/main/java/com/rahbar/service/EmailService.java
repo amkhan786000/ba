@@ -18,10 +18,28 @@ public class EmailService {
     private String mailUsername;
 
     private final EmailLogService emailLogService;
+    private final EmailTemplateService templateService;
 
-    public EmailService(JavaMailSender mailSender, EmailLogService emailLogService) {
+    public EmailService(JavaMailSender mailSender, EmailLogService emailLogService, EmailTemplateService templateService) {
         this.mailSender = mailSender;
         this.emailLogService = emailLogService;
+        this.templateService = templateService;
+    }
+
+    /** Sends an email of this kind, worded by its template (Admin > Email Templates) with the values filled in. */
+    public boolean send(EmailType type, String to, java.util.Map<String, ?> values) {
+        return send(type, to, values, java.util.List.of());
+    }
+
+    public boolean send(EmailType type, String to, java.util.Map<String, ?> values, java.util.List<Attachment> attachments) {
+        EmailTemplateService.Rendered mail = templateService.render(type, values);
+        return send(to, mail.subject(), mail.body(), attachments, null);
+    }
+
+    /** Like {@link #send(EmailType, String, java.util.Map)} for an email carrying a secret; the email log hides it. */
+    public boolean sendWithSecret(EmailType type, String to, java.util.Map<String, ?> values, String secret) {
+        EmailTemplateService.Rendered mail = templateService.render(type, values);
+        return send(to, mail.subject(), mail.body(), java.util.List.of(), secret);
     }
 
     /** A file to attach: shown to the recipient as name, read from path. */

@@ -158,12 +158,14 @@ public class StudentReminderService {
                         "Progress report due " + due.format(DAY),
                         "Please upload your progress report (" + d.getTitle() + ") by " + due.format(DAY) + "."
                                 + (d.getNote() == null ? "" : " " + d.getNote()),
-                        NotificationService.REMINDER, "/student/progress", true)) upcoming++;
+                        NotificationService.REMINDER, "/student/progress", EmailType.PROGRESS_DUE_SOON,
+                        ServiceSupport.vars("title", d.getTitle(), "due_date", due.format(DAY), "note", d.getNote()))) upcoming++;
                 if (late && notificationService.notifyOnce("progress:overdue:" + u.getUserId() + ":" + due, u.getId(),
                         "Progress report overdue",
                         "Your progress report (" + d.getTitle() + ") was due on " + due.format(DAY)
                                 + ". Please upload it as soon as possible.",
-                        NotificationService.REMINDER, "/student/progress", true)) overdue++;
+                        NotificationService.REMINDER, "/student/progress", EmailType.PROGRESS_OVERDUE,
+                        ServiceSupport.vars("title", d.getTitle(), "due_date", due.format(DAY)))) overdue++;
             }
         }
 
@@ -177,7 +179,7 @@ public class StudentReminderService {
                     "Please add your bank details",
                     "We don't have your bank details yet, so payments can't be sent to you. "
                             + "Please add them on your Payments page.",
-                    NotificationService.REMINDER, "/student/payments", true)) bank++;
+                    NotificationService.REMINDER, "/student/payments", EmailType.BANK_DETAILS_MISSING, ServiceSupport.vars())) bank++;
         }
         return Map.of("progressUpcoming", upcoming, "progressOverdue", overdue, "bankDetailsMissing", bank);
     }

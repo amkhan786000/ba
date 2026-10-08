@@ -63,7 +63,10 @@ public class ProgressReviewService {
                     "Approved".equals(status) ? "Progress report approved" : "Progress report needs changes",
                     ("Approved".equals(status) ? reviewer.getName() + " approved " + what + "."
                             : reviewer.getName() + " sent back " + what + ": " + progress.getReviewComment()),
-                    NotificationService.PROGRESS, "/student/progress", true);
+                    NotificationService.PROGRESS, "/student/progress",
+                    "Approved".equals(status) ? EmailType.PROGRESS_APPROVED : EmailType.PROGRESS_RETURNED,
+                    ServiceSupport.vars("reviewer", reviewer.getName(), "session", progress.getSession(),
+                            "year", progress.getYear(), "comment", progress.getReviewComment()));
         }
         return Rows.of(progress);
     }

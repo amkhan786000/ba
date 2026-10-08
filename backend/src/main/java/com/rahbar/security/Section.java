@@ -38,7 +38,9 @@ public enum Section {
      */
     PAYMENT_RECORDS("Payment records (sponsor-student installments)"),
     /** Every email the application sent, with its text (codes and passwords hidden). */
-    EMAIL_LOG("Email log");
+    EMAIL_LOG("Email log"),
+    /** The wording of every kind of email. EDIT adds / changes templates; only the Super Admin can delete one. */
+    EMAIL_TEMPLATES("Email templates");
 
     public enum Level { VIEW, EDIT }
 

@@ -105,10 +105,12 @@ public class SponsorMappingService {
         notificationService.notify(grantorId, "New student mapped to you",
                 student.getName() + " (" + student.getUserId() + ") is now one of your sponsored students."
                         + " You can see their payment schedule on your Payments page.",
-                NotificationService.MAPPING, Integer.valueOf(5).equals(sponsor.getRoleId()) ? "/sponsor/dashboard" : null, true);
+                NotificationService.MAPPING, Integer.valueOf(5).equals(sponsor.getRoleId()) ? "/sponsor/dashboard" : null,
+                EmailType.SPONSOR_STUDENT_MAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", student.getUserId()));
         notificationService.notify(granteeId, "You have a sponsor",
                 sponsor.getName() + " is now your sponsor. You can see your payment schedule on your Payments page.",
-                NotificationService.MAPPING, "/student/dashboard", true);
+                NotificationService.MAPPING, "/student/dashboard",
+                EmailType.STUDENT_SPONSOR_ASSIGNED, ServiceSupport.vars("sponsor_name", sponsor.getName()));
     }
 
     /** Emails the previous sponsor that the student is no longer mapped to them. */
@@ -122,11 +124,12 @@ public class SponsorMappingService {
                 student.getName() + " (" + student.getUserId() + ") is no longer one of your sponsored students"
                         + (moved ? "; another sponsor has taken over." : ".")
                         + " Installments you already paid stay in your payment history.",
-                NotificationService.MAPPING, Integer.valueOf(5).equals(previous.getRoleId()) ? "/sponsor/dashboard" : null, true);
+                NotificationService.MAPPING, Integer.valueOf(5).equals(previous.getRoleId()) ? "/sponsor/dashboard" : null,
+                EmailType.SPONSOR_STUDENT_UNMAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", student.getUserId()));
         if (!moved) {
             notificationService.notify(granteeId, "Sponsor changed",
                     "You are currently not mapped to a sponsor. The office will let you know when a new sponsor is assigned.",
-                    NotificationService.MAPPING, "/student/dashboard", true);
+                    NotificationService.MAPPING, "/student/dashboard", EmailType.STUDENT_SPONSOR_REMOVED, ServiceSupport.vars());
         }
     }
 }
