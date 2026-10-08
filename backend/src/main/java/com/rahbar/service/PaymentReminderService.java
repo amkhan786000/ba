@@ -142,13 +142,15 @@ public class PaymentReminderService {
                 String key = "reminder:overdue:" + studentId + ":" + d.get("installments_due");
                 if (notificationService.notifyOnce(key, sponsorId, "Payment overdue",
                         late + " installment(s) for " + student + " are overdue. Please record the payment once it is made.",
-                        NotificationService.REMINDER, "/sponsor/payments", true)) overdue++;
+                        NotificationService.REMINDER, "/sponsor/payments", EmailType.PAYMENT_OVERDUE,
+                        ServiceSupport.vars("count", late, "student_name", d.get("student_name"), "student_code", studentId))) overdue++;
             } else if ("Due soon".equals(d.get("status"))) {
                 LocalDate next = (LocalDate) d.get("next_due_date");
                 String key = "reminder:upcoming:" + studentId + ":" + next;
                 if (notificationService.notifyOnce(key, sponsorId, "Payment due soon",
                         "The next installment for " + student + " is due on " + next.format(DAY) + ".",
-                        NotificationService.REMINDER, "/sponsor/payments", true)) upcoming++;
+                        NotificationService.REMINDER, "/sponsor/payments", EmailType.PAYMENT_DUE_SOON,
+                        ServiceSupport.vars("student_name", d.get("student_name"), "student_code", studentId, "due_date", next.format(DAY)))) upcoming++;
             }
         }
         Map<String, Integer> result = new LinkedHashMap<>();

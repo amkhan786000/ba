@@ -303,9 +303,11 @@ public class BroadcastService {
                             NotificationService.ANNOUNCEMENT, null, false);
                 }
                 if (!usable(r.email())) { skipped++; continue; }
-                String text = "Dear " + (r.name() == null ? "member" : r.name()) + ",\n\n" + body
-                        + "\n\nRegards,\nRahbar - Bihar Anjuman";
-                if (emailService.send(r.email(), "Rahbar: " + subject, text, attachments)) sent++; else failed++;
+                Map<String, Object> values = new HashMap<>();
+                values.put("name", r.name() == null ? "member" : r.name());
+                values.put("subject", subject);
+                values.put("message", body);
+                if (emailService.send(EmailType.BROADCAST, r.email(), values, attachments)) sent++; else failed++;
             } catch (Exception e) {
                 failed++;
                 log.warn("Broadcast {}: could not deliver to {}: {}", broadcastId, r.email(), e.getMessage());

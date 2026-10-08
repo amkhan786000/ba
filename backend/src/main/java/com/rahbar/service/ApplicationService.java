@@ -71,7 +71,9 @@ public class ApplicationService {
         notificationService.notify(gd.getUserId(), "Application update",
                 "Your scholarship application #" + applicationId + " is now '" + status + "'."
                         + (comments == null || comments.isBlank() ? "" : " Note: " + comments.trim()),
-                NotificationService.APPLICATION, null, true);
+                NotificationService.APPLICATION, null, EmailType.APPLICATION_STATUS,
+                ServiceSupport.vars("application_id", applicationId, "status", status,
+                        "comments", comments == null || comments.isBlank() ? "" : "Note: " + comments.trim()));
     }
 
     /** Sets the interview date / venue and moves the application to "interviewing". */
@@ -87,7 +89,8 @@ public class ApplicationService {
         String text = "Interview on " + when.format(WHEN) + " at " + venue.trim();
         addStatus(applicationId, "interviewing", text);
         notificationService.notify(gd.getUserId(), "Interview scheduled",
-                "Your scholarship interview is scheduled: " + text + ".", NotificationService.APPLICATION, null, true);
+                "Your scholarship interview is scheduled: " + text + ".", NotificationService.APPLICATION, null,
+                EmailType.INTERVIEW_SCHEDULED, ServiceSupport.vars("interview_at", when.format(WHEN), "venue", venue.trim()));
     }
 
     private void addStatus(Long applicationId, String status, String comments) {

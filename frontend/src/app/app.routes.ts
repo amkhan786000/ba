@@ -51,6 +51,9 @@ import { AdminChapterDashboardComponent } from './admin/admin-chapter-dashboard.
 import { AdminDataQualityComponent } from './admin/admin-data-quality.component';
 import { AdminPaymentRecordsComponent } from './admin/admin-payment-records.component';
 import { AdminEmailLogComponent } from './admin/admin-email-log.component';
+import { AdminEmailTemplatesComponent } from './admin/admin-email-templates.component';
+import { AdminEmailTemplateEditComponent } from './admin/admin-email-template-edit.component';
+import { AdminPaymentConfigEditComponent } from './admin/admin-payment-config-edit.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
 import { TrackApplicationComponent } from './public/track.component';
 import { ProfileComponent } from './shared/profile/profile.component';
@@ -87,12 +90,16 @@ export const routes: Routes = [
       { path: 'roles/new', component: AdminRoleEditComponent, canActivate: [permissionGuard], data: { permission: 'ROLES' } },
       { path: 'roles/:id/edit', component: AdminRoleEditComponent, canActivate: [permissionGuard], data: { permission: 'ROLES' } },
       { path: 'system-configuration', component: AdminSystemConfigComponent, canActivate: [permissionGuard], data: { permission: 'PAYMENT_CONFIG' } },
+      { path: 'system-configuration/new', component: AdminPaymentConfigEditComponent, canActivate: [permissionGuard], data: { permission: 'PAYMENT_CONFIG' } },
+      { path: 'system-configuration/:year/edit', component: AdminPaymentConfigEditComponent, canActivate: [permissionGuard], data: { permission: 'PAYMENT_CONFIG' } },
       { path: 'payment-dues', component: AdminPaymentDuesComponent, canActivate: [permissionGuard], data: { permission: 'PAYMENT_DUES' } },
       { path: 'progress-due-dates', component: AdminProgressDueDatesComponent, canActivate: [permissionGuard], data: { permission: 'PROGRESS_DUE_DATES' } },
       { path: 'chapter-dashboard', component: AdminChapterDashboardComponent, canActivate: [permissionGuard], data: { permission: 'CHAPTER_DASHBOARD' } },
       { path: 'data-quality', component: AdminDataQualityComponent, canActivate: [permissionGuard], data: { permission: 'DATA_QUALITY' } },
       { path: 'payment-records', component: AdminPaymentRecordsComponent, canActivate: [permissionGuard], data: { permission: 'PAYMENT_RECORDS' } },
       { path: 'email-log', component: AdminEmailLogComponent, canActivate: [permissionGuard], data: { permission: 'EMAIL_LOG' } },
+      { path: 'email-templates', component: AdminEmailTemplatesComponent, canActivate: [permissionGuard], data: { permission: 'EMAIL_TEMPLATES' } },
+      { path: 'email-templates/:key', component: AdminEmailTemplateEditComponent, canActivate: [permissionGuard], data: { permission: 'EMAIL_TEMPLATES' } },
       { path: 'institutions/:id/edit', component: AdminInstitutionAddComponent, canActivate: [permissionGuard], data: { permission: 'COURSES' } },
       { path: 'activity', component: AdminActivityLogComponent, canActivate: [permissionGuard], data: { permission: 'ACTIVITY' } },
       { path: 'broadcasts', component: AdminBroadcastsComponent, canActivate: [permissionGuard], data: { permission: 'MESSAGES' } },

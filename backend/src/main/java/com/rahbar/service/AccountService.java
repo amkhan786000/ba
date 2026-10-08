@@ -96,7 +96,7 @@ public class AccountService {
         userRepository.save(u);
         notificationService.notify(userId, "Password changed",
                 "Your Rahbar password was changed. If this wasn't you, contact the administrator straight away.",
-                NotificationService.ACCOUNT, null, true);
+                NotificationService.ACCOUNT, null, EmailType.PASSWORD_CHANGED, ServiceSupport.vars());
     }
 
     private static String trim(String v) {

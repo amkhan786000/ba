@@ -44,7 +44,16 @@ public class NotificationService {
 
     /** Notifies one user in the app (and by email when {@code email} is true and the user has an address). */
     public void notify(Long userId, String title, String message, String category, String link, boolean email) {
-        send(userId, title, message, category, link, null, email);
+        send(userId, title, message, category, link, null, email ? EmailType.GENERAL_NOTIFICATION : null, generic(title, message));
+    }
+
+    /**
+     * Notifies one user in the app with title / message, and emails them the {@code type} email (its wording comes
+     * from Admin > Email Templates; {{name}} is the user's name, the other placeholders come from {@code values}).
+     */
+    public void notify(Long userId, String title, String message, String category, String link,
+                       EmailType type, Map<String, ?> values) {
+        send(userId, title, message, category, link, null, type, values);
     }
 
     /**
@@ -54,7 +63,21 @@ public class NotificationService {
     public boolean notifyOnce(String refKey, Long userId, String title, String message, String category,
                               String link, boolean email) {
         if (refKey != null && notificationRepository.existsByRefKey(refKey)) return false;
-        return send(userId, title, message, category, link, refKey, email);
+        return send(userId, title, message, category, link, refKey, email ? EmailType.GENERAL_NOTIFICATION : null, generic(title, message));
+    }
+
+    /** {@link #notifyOnce} that emails the {@code type} email. */
+    public boolean notifyOnce(String refKey, Long userId, String title, String message, String category, String link,
+                              EmailType type, Map<String, ?> values) {
+        if (refKey != null && notificationRepository.existsByRefKey(refKey)) return false;
+        return send(userId, title, message, category, link, refKey, type, values);
+    }
+
+    private static Map<String, Object> generic(String title, String message) {
+        Map<String, Object> v = new HashMap<>();
+        v.put("title", title);
+        v.put("message", message);
+        return v;
     }
 
     /** Notifies every active user with one of the roles. */
@@ -65,7 +88,7 @@ public class NotificationService {
     }
 
     private boolean send(Long userId, String title, String message, String category, String link, String refKey,
-                         boolean email) {
+                         EmailType emailType, Map<String, ?> values) {
         if (userId == null) return false;
         try {
             Notification n = new Notification();
@@ -82,11 +105,14 @@ public class NotificationService {
             log.warn("Could not save notification for {}: {}", userId, e.getMessage());
             return false;
         }
-        if (email) {
+        if (emailType != null) {
             userRepository.findById(userId)
                     .filter(u -> u.getEmail() != null && u.getEmail().contains("@") && !u.getEmail().endsWith("@rahbar.com"))
-                    .ifPresent(u -> emailService.send(u.getEmail(), "Rahbar: " + title,
-                            "Dear " + u.getName() + ",\n\n" + message + "\n\nRegards,\nRahbar - Bihar Anjuman"));
+                    .ifPresent(u -> {
+                        Map<String, Object> v = new HashMap<>(values == null ? Map.of() : values);
+                        v.put("name", u.getName());
+                        emailService.send(emailType, u.getEmail(), v);
+                    });
         }
         return true;
     }

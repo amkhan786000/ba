@@ -58,6 +58,13 @@ final class ServiceSupport {
         return AuditConfig.currentUserId();
     }
 
+    /** Placeholder values for an email template: vars("student_name", name, "amount", amount); nulls allowed. */
+    static Map<String, Object> vars(Object... keyValues) {
+        Map<String, Object> m = new java.util.HashMap<>();
+        for (int i = 0; i + 1 < keyValues.length; i += 2) m.put(String.valueOf(keyValues[i]), keyValues[i + 1]);
+        return m;
+    }
+
     static String str(Object v) {
         return v == null ? null : String.valueOf(v);
     }

@@ -64,6 +64,8 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("DELETE /api/admin/courses/[^/]+", "Deleted a course");
         label("POST /api/admin/institutions", "Added an institution");
         label("PUT /api/admin/institutions/[^/]+", "Edited an institution");
+        label("PUT /api/admin/email-templates/[^/]+", "Saved an email template");
+        label("DELETE /api/admin/email-templates/[^/]+", "Deleted an email template (back to the default)");
         label("DELETE /api/admin/institutions/[^/]+", "Deleted an institution");
         label("POST /api/admin/applications/[^/]+/status", "Changed an application status");
         label("POST /api/admin/applications/[^/]+/interview", "Scheduled an interview");
@@ -113,7 +115,8 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         String method = request.getMethod();
         String path = request.getRequestURI();
         if (!CHANGES.contains(method) || path == null || !path.startsWith("/api/") || SKIP.contains(path)
-                || path.startsWith("/api/notifications")) return;
+                || path.startsWith("/api/notifications")
+                || (path.startsWith("/api/admin/email-templates/") && path.endsWith("/preview"))) return; // previews change nothing
 
         int status = response.getStatus();
         String key = method + " " + path;
