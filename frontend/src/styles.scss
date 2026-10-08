@@ -655,3 +655,11 @@ hr { border-top-color: var(--line); }
   overflow: hidden;
 }
 .modal-dialog-scrollable .modal-content > form > .modal-body { overflow-y: auto; }
+
+/*
+ * While a pop-up is on screen, lock the page behind it and let the pop-up scroll instead (what Bootstrap's
+ * "modal-open" body class does; the pop-ups here are shown with *ngIf, without Bootstrap's JavaScript).
+ * Pure CSS on purpose: watching the DOM from JavaScript re-triggered Angular change detection in a loop.
+ */
+body:has(.modal.show) { overflow: hidden; }
+body:has(.modal.show) .modal { overflow-x: hidden; overflow-y: auto; }
