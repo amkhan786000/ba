@@ -642,3 +642,16 @@ hr { border-top-color: var(--line); }
 .badge.badge-inst-paid { background-color: #28a745; color: #fff; }
 .badge.badge-inst-due { background-color: #dc3545; color: #fff; }
 .badge.badge-inst-not-due { background-color: #fd7e14; color: #fff; }
+
+/*
+ * Scrollable pop-ups whose body is wrapped in a <form> (e.g. Register Student): Bootstrap only scrolls a
+ * .modal-body that is a direct flex child of .modal-content, so let the form pass the layout through.
+ */
+.modal-dialog-scrollable .modal-content > form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.modal-dialog-scrollable .modal-content > form > .modal-body { overflow-y: auto; }

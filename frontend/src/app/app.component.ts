@@ -1,4 +1,4 @@
-import { Component, HostListener } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { AuthService } from './core/services/auth.service';
 import { FILE_PREFIX } from './shared/format';
@@ -9,8 +9,24 @@ import { FILE_PREFIX } from './shared/format';
   imports: [RouterOutlet],
   template: `<router-outlet></router-outlet>`
 })
-export class AppComponent {
+export class AppComponent implements OnInit, OnDestroy {
+  private modalWatcher?: MutationObserver;
+
   constructor(private auth: AuthService) {}
+
+  /**
+   * The pop-ups are plain Bootstrap markup shown with *ngIf (no Bootstrap JavaScript), so nothing adds Bootstrap's
+   * "modal-open" class to <body>. Without it the page behind a pop-up scrolls instead of the pop-up, and a tall
+   * pop-up can't be scrolled at all. This keeps the class in step with whether a pop-up is on screen.
+   */
+  ngOnInit(): void {
+    const sync = () => document.body.classList.toggle('modal-open', !!document.querySelector('.modal.show'));
+    this.modalWatcher = new MutationObserver(sync);
+    this.modalWatcher.observe(document.body, { childList: true, subtree: true });
+    sync();
+  }
+
+  ngOnDestroy(): void { this.modalWatcher?.disconnect(); }
 
   /**
    * Uploaded files need sign-in, but a plain <a href> sends no token. Any click on a link to /api/files/...
