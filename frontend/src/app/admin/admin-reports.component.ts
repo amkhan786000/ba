@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { asDate } from '../shared/format';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface ReportDef { key: string; category: string; title: string; description: string; dateRange: boolean }
 interface ReportData { key: string; title: string; columns: string[]; rows: Record<string, unknown>[] }
@@ -27,7 +28,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 @Component({
   selector: 'app-admin-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   styles: [`
     .report-actions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
     .report-table th { white-space: nowrap; cursor: pointer; user-select: none; }

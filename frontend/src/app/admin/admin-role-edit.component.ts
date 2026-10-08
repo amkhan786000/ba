@@ -7,6 +7,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { RoleRow } from './admin-roles.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface SectionOption { key: string; label: string }
 
@@ -17,7 +18,7 @@ interface SectionOption { key: string; label: string }
 @Component({
   selector: 'app-admin-role-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective],
   styles: [`
     .perm-table td, .perm-table th { vertical-align: middle; }
     .perm-table td.check, .perm-table th.check { width: 110px; text-align: center; }
@@ -63,7 +64,7 @@ interface SectionOption { key: string; label: string }
                 </div>
 
                 <div class="table-responsive">
-                  <table class="table table-sm table-striped perm-table mb-0">
+                  <table class="table table-sm table-striped perm-table mb-0 no-cards">
                     <thead>
                       <tr>
                         <th>Screen</th>

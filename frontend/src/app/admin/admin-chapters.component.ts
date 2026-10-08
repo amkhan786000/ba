@@ -7,6 +7,7 @@ import { AuthService } from '../core/services/auth.service';
 import { ChapterService } from '../core/services/chapter.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 export interface Chapter {
   chapterId?: number;
@@ -25,7 +26,7 @@ export interface Chapter {
 @Component({
   selector: 'app-admin-chapters',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Chapters</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>

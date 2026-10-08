@@ -8,6 +8,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { RoleOption } from './admin-users.component';
 import { uploadUrl } from '../shared/format';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 type AudienceType = 'USERS' | 'ROLES' | 'CHAPTER_LEADS';
 
@@ -35,7 +36,7 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,
 @Component({
   selector: 'app-admin-broadcasts',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   styles: [`
     .chip { display: inline-flex; align-items: center; background: #eef2f7; border-radius: 1rem; padding: .15rem .6rem; margin: 0 .35rem .35rem 0; font-size: .85rem; }
     .chip button { border: 0; background: none; margin-left: .35rem; line-height: 1; padding: 0; color: #6c757d; }

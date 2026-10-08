@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { studyStatusBadge, studyStatusLabel } from '../shared/study-status';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Counts {
   students: number; studying: number; withoutSponsor: number; sponsors: number; paymentsOverdue: number; openApplications: number;
@@ -36,7 +37,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
 @Component({
   selector: 'app-admin-chapter-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   styles: [`
     .stat { cursor: pointer; }
     .stat.selected { box-shadow: 0 0 0 2px var(--primary, #3bafda) inset; }

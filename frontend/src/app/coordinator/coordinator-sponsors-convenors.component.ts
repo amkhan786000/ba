@@ -4,12 +4,13 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { SponsorUser } from './coordinator-sponsors.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 /** Port of templates/coordinator/view_sponsors_convenors.html (not in the Flask menu; reachable by URL). */
 @Component({
   selector: 'app-coordinator-sponsors-convenors',
   standalone: true,
-  imports: [CommonModule, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">View Sponsors and Convenors</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>

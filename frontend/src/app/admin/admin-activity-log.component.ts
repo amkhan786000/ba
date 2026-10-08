@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { ROLE_LABELS } from '../core/models/user.model';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface LogRow {
   log_id: number; user_id: number | null; user_code: string | null; user_name: string | null; role_id: number | null; action: string;
@@ -15,7 +16,7 @@ interface LogRow {
 @Component({
   selector: 'app-admin-activity-log',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Activity Log</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>

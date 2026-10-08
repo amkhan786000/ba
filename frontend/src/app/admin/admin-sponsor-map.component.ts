@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe, pageOf } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface MapScreen {
   sponsor: { id: number; user_id: string; name: string; email: string | null; chapter_name: string | null };
@@ -19,7 +20,7 @@ interface MapScreen {
 @Component({
   selector: 'app-admin-sponsor-map',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">

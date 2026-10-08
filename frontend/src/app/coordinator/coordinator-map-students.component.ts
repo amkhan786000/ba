@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface StudentUser { id: number; user_id: string; name: string; email: string | null; phone: string | null }
 
@@ -11,7 +12,7 @@ interface StudentUser { id: number; user_id: string; name: string; email: string
 @Component({
   selector: 'app-coordinator-map-students',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">

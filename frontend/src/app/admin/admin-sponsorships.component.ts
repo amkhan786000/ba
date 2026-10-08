@@ -9,6 +9,7 @@ import { Chapter } from './admin-chapters.component';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { BulkReport, BulkReportComponent } from '../shared/bulk-report.component';
 import { PagerComponent, pageOf } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface SponsorRow {
   id: number;
@@ -35,7 +36,7 @@ interface SponsorStudent {
 @Component({
   selector: 'app-admin-sponsorships',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, BulkReportComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, BulkReportComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Sponsorships</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>

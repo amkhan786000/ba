@@ -7,6 +7,7 @@ import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { localDate } from '../shared/format';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 export interface RoleRow {
   roleId?: number;
@@ -28,7 +29,7 @@ export interface RoleRow {
 @Component({
   selector: 'app-admin-roles',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Roles &amp; Permissions</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>

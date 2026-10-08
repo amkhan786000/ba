@@ -10,6 +10,7 @@ import { RccCenter } from './admin-rcc-centers.component';
 import { AuthService } from '../core/services/auth.service';
 import { ROLE } from '../core/models/user.model';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, merge, switchMap } from 'rxjs';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 export interface UserRow {
   /** users.id: used in links and API calls. */
@@ -38,7 +39,7 @@ export interface RoleOption {
 @Component({
   selector: 'app-admin-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PagerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, PagerComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">

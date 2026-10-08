@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface DueDate {
   due_id: number; title: string; due_date: string; note: string | null;
@@ -20,7 +21,7 @@ interface Form { dueId: number | null; title: string; dueDate: string; note: str
 @Component({
   selector: 'app-admin-progress-due-dates',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">

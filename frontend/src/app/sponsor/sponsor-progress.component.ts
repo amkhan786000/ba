@@ -6,6 +6,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 import { ProgressReviewComponent } from '../shared/review/progress-review.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Progress {
   progress_id: number; review_status?: string | null; review_comment?: string | null; reviewed_at?: string | null;
@@ -17,7 +18,7 @@ interface Progress {
 @Component({
   selector: 'app-sponsor-progress',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, ProgressReviewComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, ProgressReviewComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Student Progress Reports</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>

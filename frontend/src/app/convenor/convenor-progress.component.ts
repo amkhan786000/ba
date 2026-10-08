@@ -5,6 +5,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 import { ProgressReviewComponent } from '../shared/review/progress-review.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Progress { progress_id: number; review_status?: string | null; review_comment?: string | null; grantee_name: string; marks: number | string | null; session: string | null; year: string | number | null; file_path: string | null; created_at: string | null }
 
@@ -12,7 +13,7 @@ interface Progress { progress_id: number; review_status?: string | null; review_
 @Component({
   selector: 'app-convenor-progress',
   standalone: true,
-  imports: [CommonModule, AlertsComponent, ProgressReviewComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, AlertsComponent, ProgressReviewComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Student Progress</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { asDate } from '../shared/format';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Check { key: string; title: string; description: string; count: number; rows: Record<string, unknown>[] }
 
@@ -16,7 +17,7 @@ const HIDDEN = new Set(['role_id']);
 @Component({
   selector: 'app-admin-data-quality',
   standalone: true,
-  imports: [CommonModule, AlertsComponent],
+  imports: [CommonModule, AlertsComponent, CardTableDirective],
   styles: [`
     .check-head { cursor: pointer; }
     .check-head:hover { background: rgba(0, 0, 0, .02); }

@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 export interface ApplicationRow {
   grantee_detail_id: number;
@@ -33,7 +34,7 @@ export const APPLICATION_STATUSES = [
 @Component({
   selector: 'app-admin-applications',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Applications</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>

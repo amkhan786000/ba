@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface AppPreview { grantee_detail_id: number; name: string; student_mobile: string | null; status: string | null }
 
@@ -11,7 +12,7 @@ interface AppPreview { grantee_detail_id: number; name: string; student_mobile: 
 @Component({
   selector: 'app-coordinator-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Generate Reports</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
