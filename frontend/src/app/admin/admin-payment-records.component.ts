@@ -7,6 +7,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { isoDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 /**
  * Admin > Payment Records: every installment between sponsors and students. They are created when a student is
@@ -16,7 +17,7 @@ import { InstallmentRow, installmentBadge } from '../shared/installments';
 @Component({
   selector: 'app-admin-payment-records',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Payment Records</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -42,7 +43,7 @@ import { InstallmentRow, installmentBadge } from '../shared/installments';
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-centered mb-0">
-            <thead><tr><th>Student</th><th>Sponsor</th><th>#</th><th>Due date</th><th>Amount</th><th>Status</th><th>Paid</th><th>Receipt</th><th *ngIf="canEdit"></th></tr></thead>
+            <thead><tr><th>Student</th><th>Sponsor</th><th>#</th><th>Due date</th><th>Amount</th><th>Status</th><th>Paid</th><th class="tablet-hide">Receipt</th><th *ngIf="canEdit"></th></tr></thead>
             <tbody>
               <tr *ngIf="loading"><td colspan="9" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
               <tr *ngIf="!loading && !visible.length"><td colspan="9" class="text-center text-muted">No installments.</td></tr>
@@ -56,7 +57,7 @@ import { InstallmentRow, installmentBadge } from '../shared/installments';
                 <td>
                   <ng-container *ngIf="r.payment_id; else dash">₹{{ r.paid_amount | number: '1.2-2' }}<div class="small text-muted">{{ r.paid_date | date: 'd MMM yyyy' }}</div></ng-container>
                 </td>
-                <td>
+                <td class="tablet-hide">
                   <a *ngIf="link(r.receipt_url) as l; else dash" [href]="l" target="_blank" rel="noopener">View</a>
                   <a *ngIf="link(r.student_proof_url) as p" [href]="p" target="_blank" rel="noopener" class="d-block small text-success">Spent proof</a>
                 </td>

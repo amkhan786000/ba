@@ -6,6 +6,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { isoDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 type Row = Record<string, any>;
 
@@ -27,7 +28,7 @@ interface Detail {
 @Component({
   selector: 'app-sponsor-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   styles: [`.table-schedule td, .table-schedule th { vertical-align: middle; }`],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Sponsorship Payments</h4></div></div></div>
@@ -48,7 +49,7 @@ interface Detail {
 
             <div *ngIf="current" class="mt-4">
               <div class="row mb-3">
-                <div class="col-12 col-md-6 border-right">
+                <div class="col-12 col-md-6 border-md-right mb-3 mb-md-0">
                   <h5 class="text-success mb-1">{{ current.grantee['name'] }}</h5>
                   <p class="mb-1 text-muted">Student ID: <span class="font-weight-bold text-dark">{{ current.grantee['user_id'] }}</span></p>
                   <p class="mb-1 text-muted">Session Year: <span class="text-dark">{{ current.grantee['year'] || 'N/A' }}</span></p>

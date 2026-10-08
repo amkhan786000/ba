@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 export interface EmailTemplateRow {
   key: string;
@@ -30,7 +31,7 @@ export interface EmailTemplateRow {
 @Component({
   selector: 'app-admin-email-templates',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Email Templates</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>

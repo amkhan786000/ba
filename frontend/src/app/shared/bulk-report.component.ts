@@ -1,5 +1,6 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { CardTableDirective } from './card-table.directive';
 
 export interface BulkProblem { row: number; reference: string | null; type: 'skipped' | 'failed' | 'warning'; reason: string }
 export interface BulkReport {
@@ -11,7 +12,7 @@ export interface BulkReport {
 @Component({
   selector: 'app-bulk-report',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, CardTableDirective],
   template: `
     <div class="modal d-block" (click)="closed.emit()">
       <div class="modal-dialog modal-lg modal-dialog-centered" (click)="$event.stopPropagation()">

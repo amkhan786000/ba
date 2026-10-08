@@ -6,6 +6,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.component';
 import { PagerComponent, pageOf } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Grantee {
   user: { id: number; user_id: string; name: string } | null;
@@ -22,7 +23,7 @@ interface SponsorDashboard {
 @Component({
   selector: 'app-sponsor-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, BarChartComponent, PagerComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, BarChartComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Sponsor Overview</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>

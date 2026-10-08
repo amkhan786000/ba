@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 import { ProgressReviewComponent } from '../shared/review/progress-review.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Progress { progress_id: number; review_status?: string | null; review_comment?: string | null; year: string | number | null; session: string | null; marks: string | number | null; file_path: string | null; created_at: string | null }
 
@@ -15,7 +16,7 @@ interface ProgressDue { next: DueItem | null; overdue: DueItem[] }
 @Component({
   selector: 'app-student-progress',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, ProgressReviewComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, ProgressReviewComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Academic Progress</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>

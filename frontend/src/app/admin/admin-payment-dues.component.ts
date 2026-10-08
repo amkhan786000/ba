@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Due {
   student_id: number; student_code: string; student_name: string; student_phone: string | null;
@@ -17,7 +18,7 @@ interface Due {
 @Component({
   selector: 'app-admin-payment-dues',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">

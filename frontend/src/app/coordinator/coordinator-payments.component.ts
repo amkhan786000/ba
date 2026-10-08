@@ -6,6 +6,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent } from '../shared/pager/pager.component';
 import { uploadUrl } from '../shared/format';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface PaymentRow {
   payment_id: number;
@@ -20,7 +21,7 @@ type SortCol = 'grantee_name' | 'grantor_name' | 'amount' | 'status';
 @Component({
   selector: 'app-coordinator-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   styles: [`th.sortable { cursor: pointer; user-select: none; white-space: nowrap; } th.sortable .mdi { color: #adb5bd; }`],
   template: `
     <div class="row">

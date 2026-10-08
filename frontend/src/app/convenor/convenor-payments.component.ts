@@ -6,6 +6,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { asDate, localDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 type Row = Record<string, any>;
 
@@ -22,7 +23,7 @@ interface StudentData {
 @Component({
   selector: 'app-convenor-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Convenor Payments</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>

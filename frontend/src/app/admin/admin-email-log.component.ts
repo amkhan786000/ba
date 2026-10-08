@@ -5,6 +5,7 @@ import { Subject, Subscription, debounceTime } from 'rxjs';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface EmailRow {
   email_id: number; sent_at: string; to_address: string; recipient_code: string | null; recipient_name: string | null;
@@ -19,9 +20,10 @@ interface EmailDetail extends EmailRow { body: string | null }
 @Component({
   selector: 'app-admin-email-log',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   styles: [`
     .subject { max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    @media (max-width: 991.98px) { .subject { max-width: 180px; } }
     .email-body { white-space: pre-wrap; font-family: inherit; background: #f8f9fa; border-radius: .25rem; padding: 1rem; margin: 0; }
   `],
   template: `

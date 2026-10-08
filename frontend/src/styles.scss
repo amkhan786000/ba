@@ -663,3 +663,77 @@ hr { border-top-color: var(--line); }
  */
 body:has(.modal.show) { overflow: hidden; }
 body:has(.modal.show) .modal { overflow-x: hidden; overflow-y: auto; }
+
+/*
+ * Tables as cards on phones: each row becomes a card and each cell shows its column name (data-label, filled in
+ * by shared/card-table.directive.ts), so every column, including status and action buttons, is visible without
+ * sideways scrolling. Cells without a label (action buttons) sit on the right. Add "no-cards" to opt a table out.
+ */
+@media (max-width: 575.98px) {
+  table.table:not(.no-cards) { border: 0; background: transparent; }
+  table.table:not(.no-cards) thead { display: none; }
+  table.table:not(.no-cards),
+  table.table:not(.no-cards) tbody,
+  table.table:not(.no-cards) tr,
+  table.table:not(.no-cards) td { display: block; width: 100%; }
+  table.table:not(.no-cards) tbody tr {
+    background: #fff !important;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    padding: 6px 14px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+  }
+  table.table:not(.no-cards) td {
+    position: relative;
+    border: 0 !important;
+    border-bottom: 1px dashed var(--line) !important;
+    padding: 8px 0 8px 42% !important;
+    min-height: 2.25rem;
+    text-align: right !important;
+    white-space: normal !important;
+    max-width: none !important;
+    overflow: visible !important;
+    word-break: break-word;
+  }
+  table.table:not(.no-cards) td:last-child { border-bottom: 0 !important; }
+  table.table:not(.no-cards) td::before {
+    content: attr(data-label);
+    position: absolute;
+    left: 0;
+    top: 8px;
+    width: 40%;
+    padding-right: 8px;
+    text-align: left;
+    font-weight: 600;
+    font-size: .8rem;
+    color: var(--muted);
+    white-space: normal;
+  }
+  /* No column name (action buttons): full width, buttons on the right. */
+  table.table:not(.no-cards) td[data-label=""],
+  table.table:not(.no-cards) td:not([data-label]) { padding-left: 0 !important; min-height: 0; }
+  table.table:not(.no-cards) td[data-label=""]::before,
+  table.table:not(.no-cards) td:not([data-label])::before { content: none; }
+  /* A cell spanning the whole row ("No records found", loading): centred message. */
+  table.table:not(.no-cards) td[colspan] { padding: 10px 0 !important; text-align: center !important; }
+  table.table:not(.no-cards) .text-truncate,
+  table.table:not(.no-cards) .body-cell,
+  table.table:not(.no-cards) .subject { max-width: none; white-space: normal; }
+}
+
+/* A right border only from md up, where the columns sit side by side. */
+@media (min-width: 768px) { .border-md-right { border-right: 1px solid var(--line); } }
+
+/*
+ * Tablets (e.g. iPad portrait): tighter cells, action buttons may wrap instead of pushing the table wider than
+ * the screen, and columns marked "tablet-hide" (details also shown elsewhere) are left out.
+ */
+@media (min-width: 576px) and (max-width: 991.98px) {
+  .table { font-size: .85rem; }
+  .table th, .table td { padding-left: .45rem; padding-right: .45rem; }
+  .table td.text-nowrap:has(.btn) { white-space: normal !important; }
+  .table td .btn { margin-bottom: 2px; white-space: normal; }
+  .table .tablet-hide { display: none; }
+  .table .subject, .table .body-cell { max-width: 220px; }
+}

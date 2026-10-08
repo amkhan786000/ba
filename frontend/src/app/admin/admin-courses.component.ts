@@ -7,6 +7,7 @@ import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { Institution } from './admin-course-edit.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 export interface CourseRow {
   course_id: number;
@@ -22,7 +23,7 @@ export interface CourseRow {
 @Component({
   selector: 'app-admin-courses',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Courses</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>

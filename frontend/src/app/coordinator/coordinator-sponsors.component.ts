@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 export interface SponsorUser {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
@@ -14,7 +15,7 @@ export interface SponsorUser {
 @Component({
   selector: 'app-coordinator-sponsors',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Sponsors</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>

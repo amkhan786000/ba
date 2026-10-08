@@ -6,6 +6,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CourseRow } from './admin-courses.component';
 import { Institution } from './admin-course-edit.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface ManagedStudent {
   id: number; user_id: string; student_name: string; student_email: string | null; student_phone: string | null; chapter_name: string | null;
@@ -17,7 +18,7 @@ interface ManagedStudent {
 @Component({
   selector: 'app-admin-manage-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   styles: [`.btn-xs { padding: .15rem .45rem; font-size: .75rem; } .filter-btns { margin-right: 4px; }`],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Students</h4></div></div></div>

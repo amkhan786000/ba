@@ -15,6 +15,7 @@ import { RccCenter } from './admin-rcc-centers.component';
 import { ChapterService } from '../core/services/chapter.service';
 import { STUDY_STATUSES, studyStatusBadge, studyStatusLabel } from '../shared/study-status';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface StudentRow {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
@@ -45,7 +46,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
 @Component({
   selector: 'app-admin-student-directory',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, BulkReportComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, BulkReportComponent, CardTableDirective],
   styles: [`
     .nav-pills .nav-link { cursor: pointer; }
     .table-schedule td, .table-schedule th { vertical-align: middle; }
@@ -79,14 +80,14 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
             <div class="table-responsive">
               <table class="table table-bordered table-striped nowrap" style="width:100%">
                 <thead>
-                  <tr><th>Ref_Id</th><th>Name</th><th>Email</th><th>Phone</th><th>Sponsor ID</th><th>Sponsor Name</th><th>Study</th><th>Status</th><th>Actions</th></tr>
+                  <tr><th>Ref_Id</th><th>Name</th><th class="tablet-hide">Email</th><th>Phone</th><th class="tablet-hide">Sponsor ID</th><th>Sponsor Name</th><th>Study</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
                   <tr *ngIf="loading"><td colspan="9" class="text-center text-muted">Processing...</td></tr>
                   <tr *ngIf="!loading && !rows.length"><td colspan="9" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let r of rows">
-                    <td>{{ r.user_id }}</td><td>{{ r.name }}</td><td>{{ r.email }}</td><td>{{ r.phone }}</td>
-                    <td>{{ r.sponsor_code || '-' }}</td><td>{{ r.sponsor_name || 'Unassigned' }}</td>
+                    <td>{{ r.user_id }}</td><td>{{ r.name }}</td><td class="tablet-hide">{{ r.email }}</td><td>{{ r.phone }}</td>
+                    <td class="tablet-hide">{{ r.sponsor_code || '-' }}</td><td>{{ r.sponsor_name || 'Unassigned' }}</td>
                     <td><span class="badge" [ngClass]="studyBadge(r.study_status)">{{ studyLabel(r.study_status) }}</span></td>
                     <td><span class="badge" [ngClass]="(r.status || '').toLowerCase() === 'active' ? 'badge-success' : 'badge-danger'">{{ r.status }}</span></td>
                     <td><button class="btn btn-xs btn-primary" (click)="openDetails(r.id)">View Details</button></td>
@@ -112,7 +113,11 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
             <button type="button" class="close" (click)="closeDetails()">&times;</button>
           </div>
           <div class="modal-body">
-            <ul class="nav nav-pills nav-fill mb-3">
+            <!-- Phones: the tabs as a dropdown (eight tabs take a third of the screen otherwise). -->
+            <select class="form-control mb-3 d-sm-none" [(ngModel)]="tab" aria-label="Section">
+              <option *ngFor="let t of visibleTabs" [value]="t.id">{{ t.label }}</option>
+            </select>
+            <ul class="nav nav-pills nav-fill mb-3 d-none d-sm-flex">
               <li class="nav-item" *ngFor="let t of visibleTabs"><a class="nav-link" [class.active]="tab === t.id" (click)="tab = t.id">{{ t.label }}</a></li>
             </ul>
 

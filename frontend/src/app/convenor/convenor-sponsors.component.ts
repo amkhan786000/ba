@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CHAPTER_NOT_SET } from './convenor-dashboard.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Sponsor { user_id: string; name: string; email: string | null; phone: string | null; status: string | null; chapter_name: string | null }
 
@@ -15,7 +16,7 @@ interface Sponsor { user_id: string; name: string; email: string | null; phone: 
 @Component({
   selector: 'app-convenor-sponsors',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe],
+  imports: [CommonModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Sponsors</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
