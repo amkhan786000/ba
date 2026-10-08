@@ -49,6 +49,8 @@ import { AdminPaymentDuesComponent } from './admin/admin-payment-dues.component'
 import { AdminProgressDueDatesComponent } from './admin/admin-progress-due-dates.component';
 import { AdminChapterDashboardComponent } from './admin/admin-chapter-dashboard.component';
 import { AdminDataQualityComponent } from './admin/admin-data-quality.component';
+import { AdminPaymentRecordsComponent } from './admin/admin-payment-records.component';
+import { AdminEmailLogComponent } from './admin/admin-email-log.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
 import { TrackApplicationComponent } from './public/track.component';
 import { ProfileComponent } from './shared/profile/profile.component';
@@ -89,6 +91,9 @@ export const routes: Routes = [
       { path: 'progress-due-dates', component: AdminProgressDueDatesComponent, canActivate: [permissionGuard], data: { permission: 'PROGRESS_DUE_DATES' } },
       { path: 'chapter-dashboard', component: AdminChapterDashboardComponent, canActivate: [permissionGuard], data: { permission: 'CHAPTER_DASHBOARD' } },
       { path: 'data-quality', component: AdminDataQualityComponent, canActivate: [permissionGuard], data: { permission: 'DATA_QUALITY' } },
+      { path: 'payment-records', component: AdminPaymentRecordsComponent, canActivate: [permissionGuard], data: { permission: 'PAYMENT_RECORDS' } },
+      { path: 'email-log', component: AdminEmailLogComponent, canActivate: [permissionGuard], data: { permission: 'EMAIL_LOG' } },
+      { path: 'institutions/:id/edit', component: AdminInstitutionAddComponent, canActivate: [permissionGuard], data: { permission: 'COURSES' } },
       { path: 'activity', component: AdminActivityLogComponent, canActivate: [permissionGuard], data: { permission: 'ACTIVITY' } },
       { path: 'broadcasts', component: AdminBroadcastsComponent, canActivate: [permissionGuard], data: { permission: 'MESSAGES' } },
       { path: 'reports', component: AdminReportsComponent, canActivate: [permissionGuard], data: { permission: 'REPORTS' } },

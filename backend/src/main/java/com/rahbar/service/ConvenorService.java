@@ -32,6 +32,7 @@ public class ConvenorService {
     private final FileStorageService fileStorageService;
     private final SponsorMappingService sponsorMappingService;
     private final NotificationService notificationService;
+    private final PaymentInstallmentService installmentService;
     private final ApplicationService applicationService;
 
     public ConvenorService(UserRepository userRepository, ChapterRepository chapterRepository,
@@ -42,7 +43,9 @@ public class ConvenorService {
                            StudentInstitutionCourseRepository studentCourseRepository,
                            StudentProgressRepository studentProgressRepository,
                            FileStorageService fileStorageService, SponsorMappingService sponsorMappingService,
-                           NotificationService notificationService, ApplicationService applicationService) {
+                           NotificationService notificationService, ApplicationService applicationService,
+                          PaymentInstallmentService installmentService) {
+        this.installmentService = installmentService;
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.granteeDetailsRepository = granteeDetailsRepository;
@@ -158,22 +161,13 @@ public class ConvenorService {
             userRepository.save(u);
         });
         if (deactivate) {
-            List<GrantorGrantee> mappings = grantorGranteeRepository.findByGrantorId(sponsorId);
-            mappings.forEach(gg -> gg.setGrantorId(unassigned));
-            grantorGranteeRepository.saveAll(mappings);
+            sponsorMappingService.moveAllTo(sponsorId, unassigned, null);
         }
     }
 
     /** Moves each student's existing mapping to the sponsor. */
     public void mapStudents(Long sponsorId, List<Long> studentIds) {
-        for (Long studentId : studentIds) {
-            grantorGranteeRepository.findFirstByGranteeId(studentId).ifPresent(gg -> {
-                boolean changed = !sponsorId.equals(gg.getGrantorId());
-                gg.setGrantorId(sponsorId);
-                grantorGranteeRepository.save(gg);
-                if (changed) sponsorMappingService.notifyMapped(studentId, sponsorId);
-            });
-        }
+        for (Long studentId : studentIds) sponsorMappingService.remap(studentId, sponsorId);
     }
 
     public List<Map<String, Object>> studentProgress(Long convenorId, String granteeName, Double minMarks, Double maxMarks,
@@ -227,6 +221,8 @@ public class ConvenorService {
             entry.put("courseInfo", Rows.first(studentCourseRepository.findCourseInfo(sid)));
             entry.put("paidRecords", Rows.list(
                     paymentRepository.findByGranteeIdAndStatusInOrderByPaymentDateAsc(sid, List.of("Paid", "pending"))));
+            entry.put("installments", installmentService.forSponsorAndStudent(convenorId, sid));
+            entry.put("installmentProblem", installmentService.problem(sid));
             studentDataMap.put(String.valueOf(sid), entry);
         }
 
@@ -260,7 +256,8 @@ public class ConvenorService {
         payment.setPaymentDate(LocalDateTime.now());
         payment.setReceiptUrl(fileStorageService.store(receipt, filename));
         payment.setStatus("pending");
-        paymentRepository.save(payment);
+        paymentRepository.saveAndFlush(payment);
+        installmentService.afterPayment(payment, null); // pays an installment once approved (status Paid)
         notificationService.notify(granteeId, "Payment recorded",
                 "A payment of " + amount + " was recorded for you and is awaiting approval.",
                 NotificationService.PAYMENT, "/student/payments", false);

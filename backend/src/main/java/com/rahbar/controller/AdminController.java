@@ -122,8 +122,10 @@ public class AdminController {
     @PreAuthorize("hasAuthority('PAYMENT_CONFIG:EDIT')")
     public Map<String, String> saveSchedule(@RequestBody Map<String, Object> body) {
         int year = Integer.parseInt(String.valueOf(body.get("year")));
-        adminService.saveSchedule(year, new BigDecimal(String.valueOf(body.get("amount"))));
-        return Map.of("message", "Payment amount for year " + year + " saved successfully.");
+        Object frequency = body.get("frequencyMonths");
+        adminService.saveSchedule(year, new BigDecimal(String.valueOf(body.get("amount"))),
+                frequency == null || String.valueOf(frequency).isBlank() ? null : Integer.valueOf(String.valueOf(frequency)));
+        return Map.of("message", "Payment config for " + year + " saved. Unpaid installments of students from " + year + " were updated.");
     }
 
     // ---------------------------------------------------------------- RCC centers
@@ -183,6 +185,26 @@ public class AdminController {
     public Map<String, String> addInstitution(@RequestBody Map<String, Object> body) {
         String institutionId = adminService.addInstitution(body);
         return Map.of("message", "Institution added successfully with ID: " + institutionId);
+    }
+
+    @GetMapping("/institutions/{institutionId}")
+    @PreAuthorize("hasAuthority('COURSES:VIEW')")
+    public Institution getInstitution(@PathVariable String institutionId) {
+        return adminService.getInstitution(institutionId);
+    }
+
+    @PutMapping("/institutions/{institutionId}")
+    @PreAuthorize("hasAuthority('COURSES:EDIT')")
+    public Map<String, String> updateInstitution(@PathVariable String institutionId, @RequestBody Map<String, Object> body) {
+        adminService.updateInstitution(institutionId, body);
+        return Map.of("message", "Institution updated.");
+    }
+
+    @DeleteMapping("/institutions/{institutionId}")
+    @PreAuthorize("hasAuthority('COURSES:EDIT')")
+    public Map<String, String> deleteInstitution(@PathVariable String institutionId) {
+        adminService.deleteInstitution(institutionId);
+        return Map.of("message", "Institution deleted.");
     }
 
     // ------------------------------------------------------------------ applications
@@ -338,14 +360,15 @@ public class AdminController {
     // ------------------------------------------------------------------ payments
 
     @PostMapping(value = "/payments/record", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT') or hasAuthority('PAYMENT_RECORDS:EDIT')")
     public Map<String, String> recordPayment(@RequestParam String actionType,
+                                             @RequestParam(required = false) Long installmentId,
                                              @RequestParam(required = false) Long paymentId,
                                              @RequestParam(required = false) Long granteeId,
                                              @RequestParam(required = false) BigDecimal amount,
                                              @RequestParam(required = false) String paymentDate,
                                              @RequestParam(defaultValue = "Paid") String status,
                                              @RequestParam(required = false) MultipartFile receipt) {
-        return Map.of("message", adminService.recordPayment(actionType, paymentId, granteeId, amount, paymentDate, status, receipt));
+        return Map.of("message", adminService.recordPayment(actionType, paymentId, granteeId, amount, paymentDate, status, receipt, installmentId));
     }
 }

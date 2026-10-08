@@ -8,6 +8,7 @@ import java.util.Optional;
 
 public interface CourseRepository extends JpaRepository<Course, Long> {
     List<Course> findByInstitutionId(String institutionId);
+    long countByInstitutionId(String institutionId);
     Optional<Course> findByCourseNameAndInstitutionId(String courseName, String institutionId);
     boolean existsByCourseIdAndInstitutionId(Long courseId, String institutionId);
 }

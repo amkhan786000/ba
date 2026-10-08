@@ -14,6 +14,7 @@ import { Chapter } from './admin-chapters.component';
 import { RccCenter } from './admin-rcc-centers.component';
 import { ChapterService } from '../core/services/chapter.service';
 import { STUDY_STATUSES, studyStatusBadge, studyStatusLabel } from '../shared/study-status';
+import { InstallmentRow, installmentBadge } from '../shared/installments';
 
 interface StudentRow {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
@@ -33,10 +34,6 @@ interface StudentDetails {
   statusHistory?: Row[];
 }
 
-interface Installment {
-  n: number; due: string; expected: string;
-  payment: Row | null; actualDate: string; amount: string; receipt: string | null; proof: string | null;
-}
 
 /** A sponsor, convenor or coordinator a student can be mapped to (from /admin/sponsorships). */
 interface SponsorOption { id: number; user_id: string; name: string }
@@ -116,7 +113,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
           </div>
           <div class="modal-body">
             <ul class="nav nav-pills nav-fill mb-3">
-              <li class="nav-item" *ngFor="let t of tabs"><a class="nav-link" [class.active]="tab === t.id" (click)="tab = t.id">{{ t.label }}</a></li>
+              <li class="nav-item" *ngFor="let t of visibleTabs"><a class="nav-link" [class.active]="tab === t.id" (click)="tab = t.id">{{ t.label }}</a></li>
             </ul>
 
             <!-- Personal -->
@@ -153,6 +150,14 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                   <option value="">{{ edit.institutionId ? 'Select Course' : 'Select College First' }}</option>
                   <option *ngFor="let c of coursesFor(edit.institutionId)" [value]="'' + c.course_id">{{ c.course_name }}</option>
                 </select>
+              </div>
+              <div class="col-md-6 form-group"><label>Session Year</label>
+                <input type="number" min="1990" max="2100" class="form-control" [(ngModel)]="edit.year" [disabled]="!editing" placeholder="e.g. 2025">
+                <small class="text-muted">Picks the Payment Config (amount and frequency).</small>
+              </div>
+              <div class="col-md-6 form-group"><label>Payment Start Date</label>
+                <input type="date" class="form-control" [(ngModel)]="edit.paymentStartDate" [disabled]="!editing">
+                <small class="text-muted">The first installment is due on this date.</small>
               </div>
               <div class="col-12 text-muted small">Assigned on: {{ fmt(details.course?.['assigned_at'], 'N/A') }}</div>
             </div>
@@ -233,25 +238,36 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
             <!-- Payment schedule -->
             <div *ngIf="tab === 'payment'">
               <h5 class="text-primary mb-3">Installment Tracker</h5>
-              <div class="table-responsive">
-                <div *ngIf="!details.course?.['assigned_at']" class="alert alert-warning">No course assigned.</div>
-                <table *ngIf="details.course?.['assigned_at']" class="table table-bordered table-schedule text-center">
-                  <thead><tr><th>#</th><th>Exp. Date</th><th>Exp. Amt</th><th>Actual Date</th><th>Amt</th><th>Receipt</th><th>Spent</th><th>Action</th></tr></thead>
+              <p class="text-muted small">
+                Created when the student is mapped to a sponsor, from the course's semesters, the Payment Config of the session year
+                ({{ details.profile['session_year'] || 'not set' }}) and the payment start date ({{ fmt(details.profile['payment_start_date'], 'not set') }}).
+              </p>
+              <div *ngIf="installmentProblem" class="alert alert-warning py-2">
+                <i class="mdi mdi-information-outline mr-1"></i>{{ installments.length ? 'No further installments: ' : 'No installments yet: ' }}{{ installmentProblem }}
+              </div>
+              <div class="table-responsive" *ngIf="installments.length">
+                <table class="table table-bordered table-schedule text-center">
+                  <thead><tr><th>#</th><th>Due date</th><th>Amount</th><th>Status</th><th>Sponsor</th><th>Paid on</th><th>Paid</th><th>Receipt</th><th>Spent</th><th *ngIf="canPay">Action</th></tr></thead>
                   <tbody>
-                    <tr *ngFor="let i of schedule" [class.table-success]="i.payment">
-                      <td>{{ i.n }}</td><td>{{ i.due }}</td><td>₹{{ i.expected }}</td>
-                      <td>{{ i.actualDate }}</td><td>{{ i.amount }}</td>
-                      <td><a *ngIf="i.receipt; else dash" [href]="i.receipt" target="_blank">View</a></td>
-                      <td><a *ngIf="i.proof; else dash" [href]="i.proof" target="_blank">View</a></td>
-                      <td>
-                        <button *ngIf="canEdit && i.payment" class="btn btn-xs btn-warning" (click)="openPayment(i)">Edit</button>
-                        <button *ngIf="canEdit && !i.payment" class="btn btn-xs btn-success" (click)="openPayment(i)">Pay Now</button>
+                    <tr *ngFor="let i of installments">
+                      <td>{{ i.installment_no }}</td>
+                      <td>{{ fmt(i.due_date) }}</td>
+                      <td>₹{{ i.amount | number: '1.2-2' }}</td>
+                      <td><span class="badge" [ngClass]="installmentBadge(i.status)">{{ i.status }}</span></td>
+                      <td><small>{{ sponsorLabel(i.sponsor_id) }}</small></td>
+                      <td>{{ i.paid_date ? fmt(i.paid_date) : '--' }}</td>
+                      <td>{{ i.paid_amount !== null ? '₹' + (i.paid_amount | number: '1.2-2') : '--' }}</td>
+                      <td><a *ngIf="link(i.receipt_url) as l; else dash" [href]="l" target="_blank">View</a></td>
+                      <td><a *ngIf="link(i.student_proof_url) as l; else dash" [href]="l" target="_blank">View</a></td>
+                      <td *ngIf="canPay">
+                        <button *ngIf="i.payment_id" class="btn btn-xs btn-warning" (click)="openPayment(i)">Edit</button>
+                        <button *ngIf="!i.payment_id" class="btn btn-xs btn-success" (click)="openPayment(i)">Pay Now</button>
                       </td>
                     </tr>
                   </tbody>
                 </table>
-                <ng-template #dash>--</ng-template>
               </div>
+              <ng-template #dash>--</ng-template>
             </div>
 
             <!-- Docs -->
@@ -317,7 +333,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                 <div class="col-md-2 form-group"><label>Sex</label><select name="sex" class="form-control" [(ngModel)]="manual.sex"><option value="M">Male</option><option value="F">Female</option></select></div>
               </div>
               <div class="row">
-                <div class="col-md-4 form-group"><label>Admission Year</label><input type="number" name="year" class="form-control" [(ngModel)]="manual.year"></div>
+                <div class="col-md-4 form-group"><label>Session Year</label><input type="number" name="year" min="1990" max="2100" class="form-control" [(ngModel)]="manual.year"></div>
                 <div class="col-md-4 form-group"><label>Student Mobile</label><input type="text" name="phone" class="form-control" [(ngModel)]="manual.phone" required></div>
                 <div class="col-md-4 form-group"><label>Rahbar Alumnus?</label><select name="alumnus" class="form-control" [(ngModel)]="manual.alumnus"><option value="N">No</option><option value="Y">Yes</option></select></div>
               </div>
@@ -345,6 +361,10 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                     <option value="">{{ manual.institutionId ? 'Select Course' : 'Select College First' }}</option>
                     <option *ngFor="let c of coursesFor(manual.institutionId)" [value]="'' + c.course_id">{{ c.course_name }}</option>
                   </select>
+                </div>
+                <div class="col-md-6 form-group"><label>Payment Start Date</label>
+                  <input type="date" name="paymentStartDate" class="form-control" [(ngModel)]="manual.paymentStartDate">
+                  <small class="text-muted">The first installment is due on this date; the next ones follow the Payment Config of the session year.</small>
                 </div>
               </div>
               <h5 class="text-primary border-bottom pb-2 mt-3">Step 4: BA Details</h5>
@@ -392,7 +412,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
           <form (ngSubmit)="upload()">
             <div class="modal-body">
               <div class="alert alert-info">
-                <small>Columns: Student Reference, Student Name, Email, Mobile Student, Father Name, Address, Course (Branch), RCC Non-RCC, Mobile-1, Mobile-2.
+                <small>Columns: Student Reference, Student Name, Email, Mobile Student, Father Name, Address, Course (Branch), RCC Non-RCC, Mobile-1, Mobile-2, Session Year, Payment Start Date (yyyy-mm-dd; optional).
                 Existing students (same Student Reference) are updated. New accounts get the default password and must change it at first sign-in.</small>
                 <div class="mt-2"><button type="button" class="btn btn-sm btn-outline-primary" (click)="template()"><i class="mdi mdi-download"></i> Download CSV template</button></div>
               </div>
@@ -451,11 +471,13 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   editing = false;
   edit: Record<string, string> = {};
   ba: BaDetails = { rccName: '', sponsorId: null, chapterId: null };
-  schedule: Installment[] = [];
+  installments: InstallmentRow[] = [];
+  installmentProblem: string | null = null;
+  readonly installmentBadge = installmentBadge;
   study = { status: 'STUDYING', date: '', note: '' };
   readonly studyStatuses = STUDY_STATUSES;
 
-  pay: { actionType: 'create' | 'edit'; paymentId?: unknown; amount: number | null; paymentDate: string; receipt: File | null } | null = null;
+  pay: { actionType: 'create' | 'edit'; paymentId?: unknown; installmentId?: number; amount: number | null; paymentDate: string; receipt: File | null } | null = null;
   manual: Record<string, any> | null = null;
   showUpload = false;
   csv: File | null = null;
@@ -539,37 +561,40 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
           fatherProfession: s(p['father_profession']), motherProfession: s(p['mother_profession']),
           fatherMobile: s(p['father_mobile']), motherMobile: s(p['mother_mobile']), averageAnnualSalary: s(p['average_annual_salary']),
           institutionId: s(c['institution_id']), courseId: s(c['course_id']),
+          year: s(p['session_year']), paymentStartDate: isoDate(p['payment_start_date']),
           accountName: s(b['account_name']), bankName: s(b['bank_name']), accountNumber: s(b['account_number']), ifscCode: s(b['ifsc_code'])
         };
-        this.schedule = this.buildSchedule(res);
+        this.loadInstallments();
         this.study = { status: p['study_status'] || 'STUDYING', date: isoDate(new Date()), note: '' };
       },
       error: (e) => (this.error = errorText(e, 'Could not load student details.'))
     });
   }
 
-  /** Same rules as generateSchedule() in the Flask page: quarterly installments from the assignment date. */
-  private buildSchedule(res: StudentDetails): Installment[] {
-    const start = asDate(res.course?.['assigned_at']);
-    if (!start) return [];
-    const expected = (parseFloat(String(res.profile['annual_schedule_amount'] ?? 0)) / 4).toFixed(2);
-    const total = (parseInt(String(res.course?.['number_of_semesters'] ?? 0), 10) / 2) * 4;
-    const paid = [...res.payments].sort((a, b) => (asDate(a['payment_date'])?.getTime() ?? 0) - (asDate(b['payment_date'])?.getTime() ?? 0));
-    const out: Installment[] = [];
-    for (let i = 1; i <= total; i++) {
-      const due = new Date(start);
-      due.setMonth(start.getMonth() + 3 * i);
-      const p = paid[i - 1] ?? null;
-      out.push({
-        n: i, due: due.toLocaleDateString(), expected, payment: p,
-        actualDate: p ? localDate(p['payment_date']) : '--',
-        amount: p ? `₹${p['amount']}` : '--',
-        receipt: p ? uploadUrl(p['receipt_url']) : null,
-        proof: p ? uploadUrl(p['student_proof_url']) : null
-      });
-    }
-    return out;
+  /** The stored installments (needs the Payment records permission). */
+  private loadInstallments(): void {
+    this.installments = [];
+    this.installmentProblem = null;
+    if (!this.canSeeInstallments) return;
+    this.api.get<{ installments: InstallmentRow[]; problem: string | null }>(`/admin/students/${encodeURIComponent(this.currentId)}/installments`).subscribe({
+      next: (r) => { this.installments = r.installments; this.installmentProblem = r.problem; },
+      error: (e) => (this.error = errorText(e, 'Could not load the payment schedule.'))
+    });
   }
+
+  get canSeeInstallments(): boolean { return this.auth.can('PAYMENT_RECORDS'); }
+  get canPay(): boolean { return this.auth.can('PAYMENT_RECORDS', 'EDIT') || this.canEdit; }
+  get visibleTabs(): { id: string; label: string }[] {
+    return this.tabs.filter((t) => t.id !== 'payment' || this.canSeeInstallments);
+  }
+
+  /** Sponsor of an installment: the current sponsor's name, else (an earlier sponsor) just "earlier sponsor". */
+  sponsorLabel(sponsorId: number): string {
+    const sp = this.sponsors.find((s) => s.id === sponsorId);
+    return sp ? `${sp.name} (${sp.user_id})` : 'Earlier sponsor';
+  }
+
+  link(path: string | null): string | null { return uploadUrl(path); }
 
   saveProfile(): void {
     const e = this.edit;
@@ -579,7 +604,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
       fatherName: e['fatherName'], motherName: e['motherName'], address: e['address'],
       fatherProfession: e['fatherProfession'], motherProfession: e['motherProfession'],
       fatherMobile: e['fatherMobile'], motherMobile: e['motherMobile'], averageAnnualSalary: e['averageAnnualSalary'],
-      accountNumber: e['accountNumber'], bankName: e['bankName'], ifscCode: e['ifscCode'], accountName: e['accountName']
+      accountNumber: e['accountNumber'], bankName: e['bankName'], ifscCode: e['ifscCode'], accountName: e['accountName'],
+      year: e['year'], paymentStartDate: e['paymentStartDate']
     };
     if (e['institutionId'] && e['courseId']) { body['institutionId'] = e['institutionId']; body['courseId'] = e['courseId']; }
     this.busy = true;
@@ -610,10 +636,10 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   // ---------------- payments
 
-  openPayment(i: Installment): void {
-    this.pay = i.payment
-      ? { actionType: 'edit', paymentId: i.payment['payment_id'], amount: Number(i.payment['amount']), paymentDate: isoDate(i.payment['payment_date']), receipt: null }
-      : { actionType: 'create', amount: Number(i.expected), paymentDate: isoDate(new Date()), receipt: null };
+  openPayment(i: InstallmentRow): void {
+    this.pay = i.payment_id
+      ? { actionType: 'edit', paymentId: i.payment_id, amount: Number(i.paid_amount), paymentDate: isoDate(i.paid_date), receipt: null }
+      : { actionType: 'create', installmentId: i.installment_id, amount: Number(i.amount), paymentDate: isoDate(new Date()), receipt: null };
   }
 
   savePayment(): void {
@@ -621,6 +647,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     const f = new FormData();
     f.append('actionType', this.pay.actionType);
     if (this.pay.paymentId !== undefined) f.append('paymentId', String(this.pay.paymentId));
+    if (this.pay.installmentId !== undefined) f.append('installmentId', String(this.pay.installmentId));
     f.append('granteeId', this.currentId);
     f.append('amount', String(this.pay.amount ?? 0));
     f.append('paymentDate', this.pay.paymentDate);
@@ -636,7 +663,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   openManual(): void {
     this.manual = {
-      userId: '', name: '', email: '', sex: 'M', chapterId: null, year: 2024, phone: '', alumnus: 'N',
+      userId: '', name: '', email: '', sex: 'M', chapterId: null, year: new Date().getFullYear(), paymentStartDate: '', phone: '', alumnus: 'N',
       fatherName: '', fatherProfession: '', motherName: '', motherProfession: '', salary: 0, fatherMobile: '', motherMobile: '', address: '',
       institutionId: '', courseId: '', rccName: '', sponsorId: null, bankName: '', accountNumber: '', ifscCode: ''
     };

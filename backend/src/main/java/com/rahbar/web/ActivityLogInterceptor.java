@@ -55,7 +55,7 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/admin/roles", "Created a role");
         label("PUT /api/admin/roles/[^/]+", "Updated a role");
         label("DELETE /api/admin/roles/[^/]+", "Deleted a role");
-        label("POST /api/admin/system-configuration", "Saved the payment amount for a year");
+        label("POST /api/admin/system-configuration", "Saved the payment config (amount and frequency) for a year");
         label("POST /api/admin/rcc-centers", "Saved an RCC center");
         label("DELETE /api/admin/rcc-centers/[^/]+", "Deleted an RCC center");
         label("POST /api/admin/chapters", "Saved a chapter");
@@ -63,6 +63,8 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/admin/courses", "Saved a course");
         label("DELETE /api/admin/courses/[^/]+", "Deleted a course");
         label("POST /api/admin/institutions", "Added an institution");
+        label("PUT /api/admin/institutions/[^/]+", "Edited an institution");
+        label("DELETE /api/admin/institutions/[^/]+", "Deleted an institution");
         label("POST /api/admin/applications/[^/]+/status", "Changed an application status");
         label("POST /api/admin/applications/[^/]+/interview", "Scheduled an interview");
         label("POST /api/admin/manage-students/assign", "Assigned a student's course");

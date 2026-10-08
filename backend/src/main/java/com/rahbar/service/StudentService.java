@@ -31,12 +31,15 @@ public class StudentService {
     private final StudentProgressRepository studentProgressRepository;
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
+    private final PaymentInstallmentService installmentService;
 
     public StudentService(UserRepository userRepository, GrantorGranteeRepository grantorGranteeRepository,
                           PaymentRepository paymentRepository, BankDetailsRepository bankDetailsRepository,
                           StudentInstitutionCourseRepository studentCourseRepository,
                           StudentProgressRepository studentProgressRepository,
-                          FileStorageService fileStorageService, NotificationService notificationService) {
+                          FileStorageService fileStorageService, NotificationService notificationService,
+                          PaymentInstallmentService installmentService) {
+        this.installmentService = installmentService;
         this.userRepository = userRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
         this.paymentRepository = paymentRepository;
@@ -68,6 +71,8 @@ public class StudentService {
         result.put("bankDetails", bankDetails(userId));
         result.put("student", Rows.pick(requireUser(userRepository, userId, "Student not found"), STUDENT_COLUMNS));
         result.put("courseInfo", Rows.first(studentCourseRepository.findCourseInfo(userId)));
+        result.put("installments", installmentService.forStudent(userId));
+        result.put("installmentProblem", installmentService.problem(userId));
         return result;
     }
 

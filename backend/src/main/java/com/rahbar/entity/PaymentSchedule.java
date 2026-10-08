@@ -27,4 +27,9 @@ public class PaymentSchedule extends Modifiable {
     @Column(name = "deadline_date")
     private LocalDate deadlineDate;
 
+    /** An installment is due every this many months (3 or 4); the amount is per installment. */
+    @Column(name = "frequency_months", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("3")
+    private Integer frequencyMonths = 3;
+
 }

@@ -637,3 +637,8 @@ hr { border-top-color: var(--line); }
 .pager-size select { width: auto; min-width: 70px; }
 .pager .page-link i { font-size: 16px; line-height: 1; vertical-align: -2px; }
 @media (max-width: 575.98px) { .pager { justify-content: center; } .pager-info { justify-content: center; } }
+
+/* Payment installments: Paid (green), Due (red), Not Due (orange); solid so the colour is unmistakable. */
+.badge.badge-inst-paid { background-color: #28a745; color: #fff; }
+.badge.badge-inst-due { background-color: #dc3545; color: #fff; }
+.badge.badge-inst-not-due { background-color: #fd7e14; color: #fff; }

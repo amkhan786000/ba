@@ -9,11 +9,15 @@ interface Schedule {
   schedule_id: number;
   year: number;
   amount: number | null;
+  frequency_months: number | null;
   updated_at: string | null;
   updated_by_name: string | null;
 }
 
-/** Port of templates/admin/system_configuration.html (Payment Config). */
+/**
+ * Payment Config: for each session year, the amount of each installment and how often one is due (every 3 or
+ * 4 months). Students of that year get their installments from it; changing it updates their unpaid installments.
+ */
 @Component({
   selector: 'app-admin-system-config',
   standalone: true,
@@ -38,17 +42,29 @@ interface Schedule {
                 </div>
               </div>
               <div class="form-group row">
-                <label for="amount_input" class="col-sm-3 col-form-label">Fee Amount (₹)</label>
+                <label for="amount_input" class="col-sm-3 col-form-label">Amount per installment (₹)</label>
                 <div class="col-sm-9">
                   <input type="number" class="form-control" id="amount_input" name="amount" step="0.01" min="0"
-                         [placeholder]="placeholder" [(ngModel)]="amount" [disabled]="locked || !canEdit" required>
+                         [placeholder]="placeholder" [(ngModel)]="amount" [disabled]="year === null || !canEdit" required>
+                </div>
+              </div>
+              <div class="form-group row">
+                <label for="frequency_input" class="col-sm-3 col-form-label">Frequency</label>
+                <div class="col-sm-9">
+                  <select class="form-control" id="frequency_input" name="frequency" [(ngModel)]="frequency" [disabled]="year === null || !canEdit">
+                    <option [ngValue]="3">Every 3 months (4 installments a year)</option>
+                    <option [ngValue]="4">Every 4 months (3 installments a year)</option>
+                  </select>
+                  <small class="text-muted">
+                    Applies to students whose session year is {{ year || 'this year' }}. E.g. an 8-semester course paid every 4 months has
+                    4 × 3 = 12 installments, the first one due on the student's payment start date.
+                  </small>
                 </div>
               </div>
               <div *ngIf="canEdit" class="form-group row mt-4">
                 <div class="col-sm-9 offset-sm-3">
-                  <button type="submit" class="btn btn-primary waves-effect waves-light" [disabled]="locked || saving || amount === null"
-                          [title]="locked ? lockReason : ''">
-                    <i class="mdi mdi-content-save mr-1"></i> Save Amount for Year
+                  <button type="submit" class="btn btn-primary waves-effect waves-light" [disabled]="year === null || saving || amount === null">
+                    <i class="mdi mdi-content-save mr-1"></i> {{ existing ? 'Update' : 'Save' }} config for {{ year || 'year' }}
                   </button>
                 </div>
               </div>
@@ -66,13 +82,14 @@ interface Schedule {
             <div class="table-responsive" *ngIf="schedules.length; else none">
               <table class="table table-bordered table-hover mb-0">
                 <thead class="thead-light">
-                  <tr><th>ID</th><th>Year</th><th>Amount (₹)</th><th>Last Updated At</th><th>Updated By</th></tr>
+                  <tr><th>ID</th><th>Year</th><th>Amount (₹)</th><th>Frequency</th><th>Last Updated At</th><th>Updated By</th></tr>
                 </thead>
                 <tbody>
                   <tr *ngFor="let s of schedules">
                     <td>{{ s.schedule_id }}</td>
                     <td>{{ s.year }}</td>
                     <td>{{ s.amount !== null ? (s.amount | number: '1.2-2') : 'N/A' }}</td>
+                    <td>Every {{ s.frequency_months || 3 }} months</td>
                     <td>{{ s.updated_at ? (s.updated_at | date: 'yyyy-MM-dd HH:mm:ss') : 'N/A' }}</td>
                     <td>{{ s.updated_by_name || 'N/A' }}</td>
                   </tr>
@@ -92,6 +109,7 @@ export class AdminSystemConfigComponent implements OnInit {
   schedules: Schedule[] = [];
   year: number | null = null;
   amount: number | null = null;
+  frequency = 3;
   saving = false;
   message = '';
   error = '';
@@ -113,23 +131,21 @@ export class AdminSystemConfigComponent implements OnInit {
   get existing(): Schedule | undefined {
     return this.schedules.find((s) => s.year === this.year && (s.amount ?? 0) > 0);
   }
-  get locked(): boolean { return this.year === null || !!this.existing; }
-  get lockReason(): string {
-    return this.year === null ? 'Please select a year.' : 'Cannot save, amount already set for the selected year.';
-  }
   get placeholder(): string {
-    if (this.year === null) return 'Select a year first';
-    return this.existing ? 'Amount already set for this year' : 'Enter amount for selected year';
+    return this.year === null ? 'Select a year first' : 'Amount of each installment';
   }
 
   onYearChange(): void {
     this.amount = this.existing?.amount ?? null;
+    this.frequency = this.existing?.frequency_months ?? 3;
   }
 
   save(): void {
-    if (this.locked || this.amount === null) return;
+    if (this.year === null || this.amount === null) return;
+    if (this.existing && !confirm(`Change the ${this.year} config? Unpaid installments of students whose session year is ${this.year} `
+        + 'will be updated to the new amount and dates (paid ones stay as they are).')) return;
     this.saving = true;
-    this.api.post<{ message: string }>('/admin/system-configuration', { year: this.year, amount: this.amount }).subscribe({
+    this.api.post<{ message: string }>('/admin/system-configuration', { year: this.year, amount: this.amount, frequencyMonths: this.frequency }).subscribe({
       next: (r) => { this.saving = false; this.message = r.message; this.error = ''; this.load(); },
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not save the amount.'); }
     });

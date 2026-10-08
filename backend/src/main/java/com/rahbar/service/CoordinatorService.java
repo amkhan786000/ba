@@ -106,12 +106,7 @@ public class CoordinatorService {
             userRepository.save(u);
         });
         if (deactivate) {
-            List<GrantorGrantee> mappings = grantorGranteeRepository.findByGrantorId(userId);
-            mappings.forEach(gg -> {
-                gg.setGrantorId(unassigned);
-                gg.setStatus("Unassigned");
-            });
-            grantorGranteeRepository.saveAll(mappings);
+            sponsorMappingService.moveAllTo(userId, unassigned, "Unassigned");
         }
     }
 
@@ -125,14 +120,7 @@ public class CoordinatorService {
 
     /** Moves each student's existing mapping to the sponsor. */
     public void mapStudents(Long sponsorId, List<Long> studentIds) {
-        for (Long studentId : studentIds) {
-            grantorGranteeRepository.findFirstByGranteeId(studentId).ifPresent(gg -> {
-                boolean changed = !sponsorId.equals(gg.getGrantorId());
-                gg.setGrantorId(sponsorId);
-                grantorGranteeRepository.save(gg);
-                if (changed) sponsorMappingService.notifyMapped(studentId, sponsorId);
-            });
-        }
+        for (Long studentId : studentIds) sponsorMappingService.remap(studentId, sponsorId);
     }
 
     /** Convenors and sponsors with their role name and description. */

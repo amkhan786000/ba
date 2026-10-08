@@ -31,7 +31,14 @@ public enum Section {
     PROGRESS_DUE_DATES("Progress report due dates"),
     /** Per-chapter overview; with "own chapter" scope a user sees only their chapter. */
     CHAPTER_DASHBOARD("Chapter dashboard"),
-    DATA_QUALITY("Data quality");
+    DATA_QUALITY("Data quality"),
+    /**
+     * Installments between sponsors and students (Admin > Payment Records). EDIT also records payments against them.
+     * With "own chapter" scope a user sees only their chapter's students. Sponsors and students always see their own.
+     */
+    PAYMENT_RECORDS("Payment records (sponsor-student installments)"),
+    /** Every email the application sent, with its text (codes and passwords hidden). */
+    EMAIL_LOG("Email log");
 
     public enum Level { VIEW, EDIT }
 

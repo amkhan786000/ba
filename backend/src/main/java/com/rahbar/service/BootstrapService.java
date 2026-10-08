@@ -113,11 +113,11 @@ public class BootstrapService implements ApplicationRunner {
 
         log.warn("Bootstrap: created the first Super Admin. Sign in with e-mail {} and temporary password {} "
                 + "(you will be asked to choose a new one).", email, password);
-        emailService.send(email, "Your Rahbar administrator account",
+        emailService.sendWithSecret(email, "Your Rahbar administrator account",
                 "An administrator account was created for you on Rahbar"
                         + (isBlank(siteUrl) ? "" : " (" + siteUrl.split(",")[0].trim() + ")") + ".\n\n"
                         + "E-mail: " + email + "\nTemporary password: " + password + "\n\n"
-                        + "After signing in you will receive a one-time code by e-mail, and then you must choose a new password.");
+                        + "After signing in you will receive a one-time code by e-mail, and then you must choose a new password.", password);
     }
 
     private String nextUserId() {

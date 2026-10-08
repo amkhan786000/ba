@@ -14,6 +14,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUserId(String userId);
     boolean existsByUserId(String userId);
     Optional<User> findByEmail(String email);
+
+    /** The oldest user with this email (several users can share one, e.g. siblings). */
+    Optional<User> findFirstByEmailIgnoreCaseOrderByIdAsc(String email);
     Optional<User> findByPhone(String phone);
     List<User> findByRoleId(Integer roleId);
     List<User> findByRoleIdIn(List<Integer> roleIds);

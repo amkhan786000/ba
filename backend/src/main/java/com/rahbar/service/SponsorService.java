@@ -32,13 +32,16 @@ public class SponsorService {
     private final StudentProgressRepository studentProgressRepository;
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
+    private final PaymentInstallmentService installmentService;
 
     public SponsorService(UserRepository userRepository, GrantorGranteeRepository grantorGranteeRepository,
                           PaymentRepository paymentRepository, PaymentScheduleRepository paymentScheduleRepository,
                           BankDetailsRepository bankDetailsRepository,
                           StudentInstitutionCourseRepository studentCourseRepository,
                           StudentProgressRepository studentProgressRepository,
-                          FileStorageService fileStorageService, NotificationService notificationService) {
+                          FileStorageService fileStorageService, NotificationService notificationService,
+                          PaymentInstallmentService installmentService) {
+        this.installmentService = installmentService;
         this.userRepository = userRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
         this.paymentRepository = paymentRepository;
@@ -61,31 +64,19 @@ public class SponsorService {
             entry.put("user", userRepository.findById(granteeId).map(StudentService::studentCard).orElse(null));
             entry.put("bankDetails", bankDetailsRepository.findFirstByUserId(granteeId).map(Rows::of).orElse(null));
             entry.put("latestPayment", paymentRepository.findFirstByGranteeIdOrderByCreatedAtDesc(granteeId).map(Rows::of).orElse(null));
-            entry.put("paymentStatus", paymentStatus(granteeId));
+            entry.put("paymentStatus", paymentStatus(sponsorId, granteeId));
             grantees.add(entry);
         }
 
         return Map.of("sponsor", sponsor, "grantees", grantees, "performanceByYear", performanceByYear(sponsorId));
     }
 
-    /**
-     * Flask showed "On Schedule" for anyone with a course; this checks quarterly installments actually due vs paid
-     * (same schedule as the payments page: (semesters / 2) * 4 installments, one every 3 months).
-     */
-    private String paymentStatus(Long granteeId) {
-        Map<String, Object> courseInfo = Rows.first(studentCourseRepository.findCourseInfo(granteeId));
-        if (courseInfo == null || courseInfo.get("assigned_at") == null) return "Pending";
-        LocalDate start = ((LocalDateTime) courseInfo.get("assigned_at")).toLocalDate();
-        Object sem = courseInfo.get("number_of_semesters");
-        int semesters = sem == null ? 0 : ((Number) sem).intValue();
-        int total = (int) Math.floor(semesters / 2.0 * 4);
-        int dueSoFar = 0;
-        for (int i = 1; i <= total; i++) {
-            if (!start.plusMonths(3L * i).isAfter(LocalDate.now())) dueSoFar++;
-        }
-        long paidCount = paymentRepository.countByGranteeIdAndStatus(granteeId, "Paid");
-        if (total > 0 && paidCount >= total) return "Completed";
-        return paidCount >= dueSoFar ? "On Schedule" : "Overdue";
+    /** From the installments between this sponsor and the student: Pending (none yet), Completed, Overdue or On Schedule. */
+    private String paymentStatus(Long sponsorId, Long granteeId) {
+        List<Map<String, Object>> rows = installmentService.forSponsorAndStudent(sponsorId, granteeId);
+        if (rows.isEmpty()) return "Pending";
+        if (rows.stream().allMatch(r -> PaymentInstallmentService.PAID.equals(r.get("status")))) return "Completed";
+        return rows.stream().anyMatch(r -> PaymentInstallmentService.DUE.equals(r.get("status"))) ? "Overdue" : "On Schedule";
     }
 
     /** Average marks per academic year of this sponsor's students: [{label: "Year N", value}]. */
@@ -124,8 +115,30 @@ public class SponsorService {
             detail.put("payments", Rows.list(paymentRepository.findByGranteeIdAndStatusOrderByPaymentDateDesc(sId, "Paid")));
             detail.put("courseInfo", Rows.first(studentCourseRepository.findCourseInfo(sId)));
             detail.put("annualScheduleAmount", annualAmount);
+            detail.put("installments", installmentService.forSponsorAndStudent(sponsorId, sId));
+            detail.put("installmentProblem", installmentService.problem(sId));
+            detail.put("former", false);
             paymentDetails.add(detail);
             studentDataMap.put(String.valueOf(sId), detail);
+        }
+
+        // Students who moved to another sponsor: only the installments this sponsor paid (read-only, no bank details).
+        Set<Long> current = new HashSet<>();
+        paymentDetails.forEach(d -> current.add((Long) ((Map<?, ?>) d.get("grantee")).get("id")));
+        for (Long formerId : installmentService.formerStudentIds(sponsorId, current)) {
+            userRepository.findById(formerId).ifPresent(student -> {
+                Map<String, Object> detail = new LinkedHashMap<>();
+                detail.put("grantee", StudentService.studentCard(student));
+                detail.put("bankDetails", null);
+                detail.put("payments", List.of());
+                detail.put("courseInfo", null);
+                detail.put("annualScheduleAmount", null);
+                detail.put("installments", installmentService.forSponsorAndStudent(sponsorId, formerId));
+                detail.put("installmentProblem", null);
+                detail.put("former", true);
+                paymentDetails.add(detail);
+                studentDataMap.put(String.valueOf(formerId), detail);
+            });
         }
 
         List<Payment> recent = paymentRepository.findTop5ByGrantorIdAndStatusOrderByPaymentDateDesc(sponsorId, "Paid");
@@ -138,10 +151,12 @@ public class SponsorService {
     }
 
     /** A sponsor can only record payments for students mapped to them. */
-    public void recordPayment(Long sponsorId, Long granteeId, BigDecimal amount, String paymentDate, MultipartFile receipt) {
+    public void recordPayment(Long sponsorId, Long granteeId, BigDecimal amount, String paymentDate, MultipartFile receipt,
+                              Long installmentId) {
         if (!grantorGranteeRepository.existsByGranteeIdAndGrantorId(granteeId, sponsorId)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Error: This student is not assigned to you.");
         }
+        installmentService.requireUnpaid(installmentId, granteeId, sponsorId);
         String filename = "sponsor_pay_" + granteeId + "_" + System.currentTimeMillis() + "_"
                 + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());
         Payment payment = new Payment();
@@ -151,7 +166,8 @@ public class SponsorService {
         payment.setPaymentDate(parseDateTime(paymentDate));
         payment.setReceiptUrl(fileStorageService.store(receipt, filename));
         payment.setStatus("Paid");
-        paymentRepository.save(payment);
+        paymentRepository.saveAndFlush(payment);
+        installmentService.afterPayment(payment, installmentId); // without one: the earliest unpaid installment
         String sponsorName = userRepository.findById(sponsorId).map(User::getName).orElse("Your sponsor");
         notificationService.notify(granteeId, "Payment received",
                 sponsorName + " recorded a payment of " + amount + " for you. Please upload your proof of receipt.",

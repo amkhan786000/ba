@@ -117,8 +117,8 @@ public class AuthService {
         otp.setStatus(0);
         otpRepository.save(otp);
 
-        emailService.send(user.getEmail(), "Your Login OTP",
-                "Your OTP for login is " + otpCode + ". It is valid for 5 minutes.");
+        emailService.sendWithSecret(user.getEmail(), "Your Login OTP",
+                "Your OTP for login is " + otpCode + ". It is valid for 5 minutes.", otpCode);
         if (logOtp) log.warn("LOG_OTP is on: sign-in OTP for {} is {}", user.getUserId(), otpCode);
 
         return AuthResponse.otpRequired(user.getId(), "An OTP has been sent to your email. Please verify.");
@@ -243,10 +243,10 @@ public class AuthService {
         reset.setExpiresAt(LocalDateTime.now().plusMinutes(RESET_CODE_MINUTES));
         resetCodeRepository.save(reset);
 
-        emailService.send(user.getEmail(), "Rahbar: your password reset code",
+        emailService.sendWithSecret(user.getEmail(), "Rahbar: your password reset code",
                 "Dear " + user.getName() + ",\n\nYour code to reset your Rahbar password is: " + code
                         + "\n\nIt is valid for " + RESET_CODE_MINUTES + " minutes. If you didn't ask for this, ignore this email;"
-                        + " your password stays the same.\n\nRegards,\nRahbar - Bihar Anjuman");
+                        + " your password stays the same.\n\nRegards,\nRahbar - Bihar Anjuman", code);
         if (logOtp) log.warn("LOG_OTP is on: password reset code for {} is {}", user.getUserId(), code);
         activityLogService.record(user, "Password reset code sent", "POST", "/api/auth/forgot-password", 200, ip);
     }
