@@ -25,7 +25,22 @@ interface SponsorDashboard {
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, BarChartComponent, PagerComponent, CardTableDirective],
   template: `
-    <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Sponsor Overview</h4></div></div></div>
+    <div class="row">
+      <div class="col-12">
+        <div class="page-title-box mt-2 d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+          <h4 class="page-title mb-2 mb-md-0">Sponsor Overview</h4>
+          <div class="d-flex align-items-center">
+            <label for="stmtYear" class="mb-0 mr-2 small text-muted">Yearly statement</label>
+            <select id="stmtYear" class="form-control form-control-sm mr-2" style="width: auto" [(ngModel)]="statementYear">
+              <option *ngFor="let y of statementYears" [ngValue]="y">{{ y }}</option>
+            </select>
+            <button type="button" class="btn btn-sm btn-outline-primary text-nowrap" (click)="downloadStatement()" [disabled]="downloading">
+              <i class="mdi mdi-file-pdf-box mr-1"></i>{{ downloading ? 'Preparing…' : 'Download PDF' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
     <app-alerts [(error)]="error"></app-alerts>
 
     <div class="row" *ngIf="data">
@@ -101,7 +116,20 @@ export class SponsorDashboardComponent implements OnInit {
   page = 1;
   error = '';
 
+  /** Calendar years for the statement: this year back to five years ago (default: last year). */
+  readonly statementYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
+  statementYear = new Date().getFullYear() - 1;
+  downloading = false;
+
   constructor(private api: ApiService) {}
+
+  downloadStatement(): void {
+    this.downloading = true;
+    this.api.download('/sponsor/statement', { year: this.statementYear }, `Rahbar_statement_${this.statementYear}.pdf`).subscribe({
+      next: () => (this.downloading = false),
+      error: (e) => { this.downloading = false; this.error = errorText(e, 'Could not create the statement.'); }
+    });
+  }
 
   ngOnInit(): void {
     this.api.get<SponsorDashboard>('/sponsor/dashboard').subscribe({

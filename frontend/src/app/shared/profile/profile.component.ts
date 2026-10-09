@@ -8,6 +8,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../alerts/alerts.component';
 import { PasswordFormComponent } from '../password-form.component';
 import { localDate } from '../format';
+import { PushService } from '../../core/services/push.service';
 
 interface Profile {
   userId: string; name: string; email: string; phone: string; sex: string | null; chapterId: number | null; chapterName: string | null;
@@ -33,7 +34,7 @@ interface Profile {
             <div class="profile-facts">
               <div><span>User ID</span><strong>{{ p.userId }}</strong></div>
               <div><span>Status</span><strong>{{ p.status || '--' }}</strong></div>
-              <div *ngIf="p.year"><span>Academic year</span><strong>{{ p.year }}</strong></div>
+              <div *ngIf="p.year"><span>Session year</span><strong>{{ p.year }}</strong></div>
               <div><span>Member since</span><strong>{{ date(p.memberSince) }}</strong></div>
             </div>
           </div>
@@ -81,6 +82,40 @@ interface Profile {
 
         <div class="card">
           <div class="card-body">
+            <h4 class="header-title">Notifications on this device</h4>
+            <p class="text-muted">
+              Get your Rahbar notifications (reminders, payments, messages) as pop-ups on this phone or computer, even when Rahbar
+              isn't open. It's free and you can switch it off any time.
+            </p>
+            <ng-container *ngIf="push.supported; else unsupported">
+              <div class="d-flex flex-wrap align-items-center">
+                <span class="badge mr-2 mb-2" [ngClass]="pushOn ? 'badge-success' : 'badge-light'">{{ pushOn ? 'On for this device' : 'Off for this device' }}</span>
+                <button *ngIf="!pushOn" type="button" class="btn btn-primary mr-2 mb-2" (click)="enablePush()" [disabled]="pushBusy">
+                  <i class="mdi mdi-bell-ring-outline mr-1"></i>{{ pushBusy ? 'Switching on…' : 'Switch on' }}
+                </button>
+                <ng-container *ngIf="pushOn">
+                  <button type="button" class="btn btn-outline-primary mr-2 mb-2" (click)="testPush()" [disabled]="pushBusy">Send a test</button>
+                  <button type="button" class="btn btn-light mb-2" (click)="disablePush()" [disabled]="pushBusy">Switch off</button>
+                </ng-container>
+              </div>
+              <small *ngIf="push.permission === 'denied'" class="text-danger d-block">
+                Notifications are blocked for this site. Allow them in your browser's site settings, then switch on again.
+              </small>
+            </ng-container>
+            <ng-template #unsupported>
+              <p class="mb-0 text-muted small">
+                <ng-container *ngIf="push.needsHomeScreen; else noPush">
+                  On iPhone / iPad: tap <strong>Share</strong> &rarr; <strong>Add to Home Screen</strong>, open Rahbar from the home screen and switch
+                  notifications on here.
+                </ng-container>
+                <ng-template #noPush>This browser doesn't support notifications. Try Chrome, Edge, Firefox or Safari.</ng-template>
+              </p>
+            </ng-template>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
             <h4 class="header-title">Change password</h4>
             <app-password-form (changed)="message = $event"></app-password-form>
           </div>
@@ -98,7 +133,34 @@ export class ProfileComponent implements OnInit {
   error = '';
   readonly date = localDate;
 
-  constructor(private api: ApiService, private auth: AuthService, private chapterList: ChapterService) {}
+  pushOn = false;
+  pushBusy = false;
+
+  constructor(private api: ApiService, private auth: AuthService, private chapterList: ChapterService, public push: PushService) {}
+
+  enablePush(): void {
+    this.pushBusy = true;
+    this.error = '';
+    this.push.turnOn()
+      .then(() => { this.pushOn = true; this.message = 'Notifications are on for this device.'; })
+      .catch((e) => (this.error = e?.message || 'Could not switch notifications on.'))
+      .finally(() => (this.pushBusy = false));
+  }
+
+  disablePush(): void {
+    this.pushBusy = true;
+    this.push.turnOff()
+      .then(() => { this.pushOn = false; this.message = 'Notifications are off for this device.'; })
+      .catch((e) => (this.error = errorText(e, 'Could not switch notifications off.')))
+      .finally(() => (this.pushBusy = false));
+  }
+
+  testPush(): void {
+    this.push.test().subscribe({
+      next: (r) => (r.sent ? (this.message = r.message) : (this.error = r.message)),
+      error: (e) => (this.error = errorText(e, 'Could not send a test notification.'))
+    });
+  }
 
   /** Active chapters, plus the given one when it is inactive. */
   chapterOptions(currentId: number | null | undefined): Chapter[] {
@@ -111,6 +173,7 @@ export class ProfileComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.push.isOn().then((on) => (this.pushOn = on)).catch(() => {});
     this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
     this.api.get<Profile>('/account/profile').subscribe({
       next: (p) => this.fill(p),
@@ -131,6 +194,7 @@ export class ProfileComponent implements OnInit {
         this.saving = false;
         this.fill(p);
         this.auth.updateUser({ name: p.name });
+        this.auth.refreshAccess().subscribe({ error: () => {} }); // e.g. clears the "add your email" banner
         this.message = 'Your profile has been updated.';
       },
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not save your profile.'); }

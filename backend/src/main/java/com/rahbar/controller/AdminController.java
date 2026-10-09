@@ -91,9 +91,8 @@ public class AdminController {
 
     @PostMapping("/users")
     @PreAuthorize("hasAuthority('USERS:EDIT')")
-    public Map<String, String> createUser(@RequestBody Map<String, Object> body) {
-        adminService.createUser(body);
-        return Map.of("message", "User saved successfully!");
+    public Map<String, Object> createUser(@RequestBody Map<String, Object> body) {
+        return adminService.createUser(body);
     }
 
     /** New temporary password, emailed to the user (returned instead when it can't be emailed). */

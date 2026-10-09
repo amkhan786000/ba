@@ -37,6 +37,9 @@ public class AdminService {
     /** Initial password of accounts created by an admin, bulk upload or manual add (must be changed at first sign-in). */
     private static final String DEFAULT_PASSWORD = PasswordPolicy.DEFAULT_PASSWORD;
 
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:}")
+    private String siteUrl;
+
     private final UserRepository userRepository;
     private final ChapterRepository chapterRepository;
     private final RoleRepository roleRepository;
@@ -192,7 +195,12 @@ public class AdminService {
         return names;
     }
 
-    public void createUser(Map<String, Object> body) {
+    /**
+     * Adds a user with a generated temporary password (they must choose their own at first sign-in) and emails it
+     * to them (template "New account"; the email log hides the password). When it can't be emailed, the result
+     * carries the temporary password so the admin can pass it on.
+     */
+    public Map<String, Object> createUser(Map<String, Object> body) {
         User user = new User();
         // Blank code: next number after the highest numeric user code (what the Add User form used to work out itself).
         String code = isBlank(body.get("userId")) ? nextNumericUserId() : String.valueOf(body.get("userId")).trim();
@@ -210,14 +218,40 @@ public class AdminService {
         user.setChapterId(requireChapter(chapterRepository, body.get("chapterId"))); // optional
         user.setRccCenterId(requireRccCenter(body.get("rccCenterId")));              // optional
         user.setSex(String.valueOf(body.getOrDefault("sex", "M")));
-        user.setPasswordHash(passwordEncoder.encode(String.valueOf(body.get("password"))));
-        user.setMustChangePassword(true); // the admin chose this password; the user picks their own at first sign-in
+        String password = PasswordPolicy.temporaryPassword();
+        user.setPasswordHash(passwordEncoder.encode(password));
+        user.setMustChangePassword(true); // a temporary password: the user picks their own at first sign-in
         if (Integer.valueOf(STUDENT_ROLE).equals(roleId)) {
             user.setYear(sessionYear(body.get("year")));
             user.setPaymentStartDate(parseDate(body.get("paymentStartDate"), "Payment start date"));
             user.setStudyStatus(StudyStatus.STUDYING);
         }
         userRepository.save(user);
+
+        String email = user.getEmail();
+        boolean usableEmail = email != null && email.contains("@") && !email.trim().toLowerCase(Locale.ROOT).endsWith("@rahbar.com");
+        String role = roleRepository.findById(roleId).map(Role::getRoleName).orElse("a user");
+        boolean emailed = usableEmail && emailService.sendWithSecret(EmailType.ACCOUNT_CREATED, email,
+                vars("name", user.getName(), "role", role, "sign_in_url", signInUrl(), "email", email,
+                        "user_id", user.getUserId(), "password", password), password);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("emailed", emailed);
+        if (emailed) {
+            result.put("message", "User " + code + " was added and their sign-in details were emailed to " + email + ".");
+        } else {
+            result.put("message", usableEmail
+                    ? "User " + code + " was added, but the email could not be sent. Give them this temporary password."
+                    : "User " + code + " was added. They have no email address, so give them this temporary password.");
+            result.put("temporaryPassword", password);
+        }
+        return result;
+    }
+
+    /** The site address for emails: the first allowed origin (e.g. https://rahbar.example.org). */
+    private String signInUrl() {
+        String first = siteUrl == null ? "" : siteUrl.split(",")[0].trim();
+        return first.isEmpty() ? "the Rahbar website" : first + "/login";
     }
 
     /** Session year of a student: optional, four digits. */

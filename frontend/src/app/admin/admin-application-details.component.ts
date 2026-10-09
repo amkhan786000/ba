@@ -6,6 +6,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 import { APPLICATION_STATUSES, ApplicationRow } from './admin-applications.component';
+import { InterviewScoresComponent } from '../shared/interview-scores.component';
 
 interface ApplicationDetail extends ApplicationRow {
   user_id: number | null;
@@ -30,7 +31,7 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
 @Component({
   selector: 'app-admin-application-details',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, InterviewScoresComponent],
   template: `
     <div class="row">
       <div class="col-12">
@@ -147,6 +148,8 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
           </div>
         </div>
 
+        <app-interview-scores [applicationId]="id"></app-interview-scores>
+
         <div class="card">
           <div class="card-body">
             <h4 class="header-title">History</h4>
@@ -213,7 +216,7 @@ export class AdminApplicationDetailsComponent implements OnInit {
     if (s.includes('accepted') || s.includes('admitted')) return 'badge-success';
     if (s.includes('rejected')) return 'badge-danger';
     if (s.includes('submitted') || s.includes('interviewing')) return 'badge-primary';
-    if (s.includes('on hold')) return 'badge-warning';
+    if (s.includes('on hold') || s.includes('waitlisted')) return 'badge-warning';
     return 'badge-info';
   }
 

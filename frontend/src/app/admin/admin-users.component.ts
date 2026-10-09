@@ -203,7 +203,10 @@ export interface RoleOption {
                     <option value="Inactive">Inactive</option>
                   </select>
                 </div>
-                <div class="form-group"><label>Password</label><input type="password" class="form-control" name="password" [(ngModel)]="newUser.password" required /></div>
+                <p class="small text-muted mb-3">
+                  <i class="mdi mdi-information-outline mr-1"></i>A temporary password is created and emailed to the user (if they have an email).
+                  They must choose their own password at first sign-in.
+                </p>
                 <div class="text-right">
                   <button type="submit" class="btn btn-primary waves-effect waves-light" [disabled]="f.invalid || saving">
                     {{ saving ? 'Saving…' : 'Save User' }}
@@ -331,11 +334,17 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     const body = { ...this.newUser, userId: this.newUser.userId.trim() };
     this.saving = true;
     this.addError = '';
-    this.api.post<{ message: string }>('/admin/users', body).subscribe({
+    this.api.post<{ message: string; emailed: boolean; temporaryPassword?: string }>('/admin/users', body).subscribe({
       next: (res) => {
         this.saving = false;
         this.showAdd = false;
-        this.message = res.message ?? 'User saved successfully!';
+        if (res.temporaryPassword) {
+          // Not emailed: show the temporary password once so the admin can pass it on.
+          this.copied = false;
+          this.tempPassword = { name: body.name, message: res.message, password: res.temporaryPassword };
+        } else {
+          this.message = res.message ?? 'User saved successfully!';
+        }
         this.load();
       },
       error: (err) => {
@@ -346,7 +355,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   }
 
   private blankUser() {
-    return { userId: '', name: '', contact: '', email: '', chapterId: null as number | null, rccCenterId: null as number | null, roleId: null as number | null, status: 'Active', password: '',
+    return { userId: '', name: '', contact: '', email: '', chapterId: null as number | null, rccCenterId: null as number | null, roleId: null as number | null, status: 'Active',
       year: new Date().getFullYear() as number | null, paymentStartDate: '' };
   }
 }

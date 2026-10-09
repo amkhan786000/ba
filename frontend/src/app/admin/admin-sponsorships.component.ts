@@ -85,6 +85,9 @@ interface SponsorStudent {
                         <a [routerLink]="['/', section, 'sponsorships', s.id, 'map']" class="btn btn-sm btn-primary waves-effect waves-light">
                           <i class="mdi mdi-account-arrow-right"></i> Map Students
                         </a>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="statement = { sponsor: s, year: lastYear, busy: false }">
+                          <i class="mdi mdi-file-pdf-box"></i> Statement
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -182,6 +185,28 @@ interface SponsorStudent {
       <h3 class="mt-3 text-dark">Processing Sponsor Data...</h3>
       <p class="text-muted">Please wait while the system updates the records.</p>
     </div>
+
+    <!-- Yearly statement of one sponsor -->
+    <div *ngIf="statement" class="modal fade show d-block" tabindex="-1" (click)="statement = null">
+      <div class="modal-dialog modal-dialog-centered" (click)="$event.stopPropagation()">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Yearly statement: {{ statement.sponsor.name }}</h5><button type="button" class="close" (click)="statement = null">&times;</button></div>
+          <div class="modal-body">
+            <p class="text-muted small">Installments due, payments made and outstanding amounts for the calendar year, with each student's latest progress report.</p>
+            <label for="sy">Year</label>
+            <select id="sy" class="form-control" [(ngModel)]="statement.year">
+              <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>
+            </select>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-primary" (click)="downloadStatement()" [disabled]="statement.busy"><i class="mdi mdi-download mr-1"></i>Download PDF</button>
+            <button *ngIf="canEmailStatement" type="button" class="btn btn-primary" (click)="emailStatement()" [disabled]="statement.busy">
+              <i class="mdi mdi-email-send-outline mr-1"></i>{{ statement.busy ? 'Working…' : 'Email to sponsor' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   `
 })
 export class AdminSponsorshipsComponent implements OnInit {
@@ -214,7 +239,33 @@ export class AdminSponsorshipsComponent implements OnInit {
   students: SponsorStudent[] = [];
   saving = false;
 
+  readonly lastYear = new Date().getFullYear() - 1;
+  readonly years = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
+  statement: { sponsor: { id: number; name: string }; year: number; busy: boolean } | null = null;
+
   constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService) {}
+
+  get canEmailStatement(): boolean { return this.auth.can('SPONSORSHIPS', 'EDIT'); }
+
+  downloadStatement(): void {
+    const st = this.statement;
+    if (!st) return;
+    st.busy = true;
+    this.api.download(`/admin/sponsors/${st.sponsor.id}/statement`, { year: st.year }, `Rahbar_statement_${st.year}.pdf`).subscribe({
+      next: () => (st.busy = false),
+      error: (e) => { st.busy = false; this.error = errorText(e, 'Could not create the statement.'); }
+    });
+  }
+
+  emailStatement(): void {
+    const st = this.statement;
+    if (!st || !confirm(`Email the ${st.year} statement to ${st.sponsor.name}?`)) return;
+    st.busy = true;
+    this.api.post<{ sent: boolean; message: string }>(`/admin/sponsors/${st.sponsor.id}/statement/email?year=${st.year}`, {}).subscribe({
+      next: (r) => { this.statement = null; if (r.sent) this.message = r.message; else this.error = r.message; },
+      error: (e) => { st.busy = false; this.error = errorText(e, 'Could not email the statement.'); }
+    });
+  }
 
 
 

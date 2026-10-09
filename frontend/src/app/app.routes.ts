@@ -54,6 +54,9 @@ import { AdminEmailLogComponent } from './admin/admin-email-log.component';
 import { AdminEmailTemplatesComponent } from './admin/admin-email-templates.component';
 import { AdminEmailTemplateEditComponent } from './admin/admin-email-template-edit.component';
 import { AdminPaymentConfigEditComponent } from './admin/admin-payment-config-edit.component';
+import { AdminInterviewRankingComponent } from './admin/admin-interview-ranking.component';
+import { AdminAlumniComponent } from './admin/admin-alumni.component';
+import { StudentAlumniComponent } from './student/student-alumni.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
 import { TrackApplicationComponent } from './public/track.component';
 import { ProfileComponent } from './shared/profile/profile.component';
@@ -121,6 +124,8 @@ export const routes: Routes = [
       // Not in the Flask sidebar either: reached by URL (manage students) or from coordinator/convenor menus (applications)
       { path: 'manage-students', component: AdminManageStudentsComponent, canActivate: [permissionGuard], data: { permission: 'STUDENTS' } },
       { path: 'applications', component: AdminApplicationsComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
+      { path: 'applications/ranking', component: AdminInterviewRankingComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
+      { path: 'alumni', component: AdminAlumniComponent, canActivate: [permissionGuard], data: { permission: 'ALUMNI' } },
       { path: 'applications/:id', component: AdminApplicationDetailsComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } }
     ]
   },
@@ -208,7 +213,8 @@ export const routes: Routes = [
       links: [
         { path: '/student/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
         { path: '/student/payments', label: 'Payments', icon: 'mdi-cash-multiple' },
-        { path: '/student/progress', label: 'Progress', icon: 'mdi-chart-line' }
+        { path: '/student/progress', label: 'Progress', icon: 'mdi-chart-line' },
+        { path: '/student/alumni', label: 'Alumni Profile', icon: 'mdi-school' }
       ]
     },
     children: [
@@ -216,7 +222,8 @@ export const routes: Routes = [
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: StudentDashboardComponent },
       { path: 'payments', component: StudentPaymentsComponent },
-      { path: 'progress', component: StudentProgressComponent }
+      { path: 'progress', component: StudentProgressComponent },
+      { path: 'alumni', component: StudentAlumniComponent }
     ]
   },
 

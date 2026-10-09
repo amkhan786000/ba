@@ -30,6 +30,13 @@ public enum EmailType {
                     + "    {{password}}\n\nYou will be asked to choose your own password straight after signing in.\n\n"
                     + "Regards,\nRahbar - Bihar Anjuman",
             List.of("name", "password"), List.of("password")),
+    ACCOUNT_CREATED("Account", "New account (Manage Users)",
+            "Sent with a temporary password when an administrator adds a user in Manage Users.",
+            "Rahbar: your account has been created",
+            "Dear {{name}},\n\nAn account has been created for you on Rahbar as {{role}}.\n\n"
+                    + "Sign in at: {{sign_in_url}}\nEmail: {{email}}\nUser ID: {{user_id}}\nTemporary password: {{password}}\n\n"
+                    + "You will be asked to choose your own password straight after signing in.\n\nRegards,\nRahbar - Bihar Anjuman",
+            List.of("name", "role", "sign_in_url", "email", "user_id", "password"), List.of("password")),
     ADMIN_ACCOUNT_CREATED("Account", "First administrator account",
             "Sent once, when the application creates the first Super Admin on an empty database.",
             "Your Rahbar administrator account",
@@ -94,6 +101,13 @@ public enum EmailType {
             "Dear {{name}},\n\nThe next installment for {{student_name}} ({{student_code}}) is due on {{due_date}}."
                     + "\n\nRegards,\nRahbar - Bihar Anjuman",
             List.of("name", "student_name", "student_code", "due_date"), List.of()),
+
+    SPONSOR_STATEMENT("Payments", "To sponsor: yearly statement",
+            "Sent with the sponsor's yearly statement (PDF attached) when the office emails it.",
+            "Rahbar: your sponsorship statement for {{year}}",
+            "Dear {{name}},\n\nPlease find attached your sponsorship statement for {{year}}: the installments due, the payments "
+                    + "you made and your students' latest progress reports.\n\nThank you for your support.\n\nRegards,\nRahbar - Bihar Anjuman",
+            List.of("name", "year"), List.of()),
 
     // ------------------------------------------------------------------ students
     PROGRESS_APPROVED("Students", "Progress report approved",

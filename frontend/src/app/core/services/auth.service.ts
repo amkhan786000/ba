@@ -6,6 +6,7 @@ import { AuthUser, Section, canAccess } from '../models/user.model';
 
 export interface AccessInfo {
   roleId: number; roleName: string | null; permissions: string[]; scope: string; chapterId: number | null; rccCenterId: number | null;
+  emailMissing: boolean;
 }
 
 interface LoginResponse {
@@ -75,7 +76,7 @@ export class AuthService {
   refreshAccess(): Observable<AccessInfo> {
     return this.http.get<AccessInfo>(`${environment.apiBaseUrl}/account/access`).pipe(tap((a) =>
       this.updateUser({ roleName: a.roleName ?? undefined, permissions: a.permissions, scope: a.scope,
-        chapterId: a.chapterId, rccCenterId: a.rccCenterId })));
+        chapterId: a.chapterId, rccCenterId: a.rccCenterId, emailMissing: a.emailMissing })));
   }
 
   /** Updates the stored user (e.g. after a profile edit or a password change). */
