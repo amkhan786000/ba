@@ -141,6 +141,7 @@ interface SponsorStudent {
             <button type="button" class="close text-white" (click)="edit = null">&times;</button>
           </div>
           <div class="modal-body">
+            <div *ngIf="editError" class="alert alert-danger">{{ editError }}</div>
             <h5 class="text-info border-bottom pb-2"><i class="mdi mdi-account-circle"></i> Master Account Details</h5>
             <div class="row">
               <div class="col-md-6 form-group"><label>Full Name</label><input type="text" class="form-control" [(ngModel)]="edit.name"></div>
@@ -234,6 +235,7 @@ export class AdminSponsorshipsComponent implements OnInit {
   uploading = false;
 
   edit: { id: number; name: string; email: string; phone: string; chapterId: number | null } | null = null;
+  editError = '';
   chapters: Chapter[] = [];
   editName = '';
   students: SponsorStudent[] = [];
@@ -326,6 +328,7 @@ export class AdminSponsorshipsComponent implements OnInit {
       next: (res) => {
         const p = res.profile;
         this.editName = p['name'] ?? '';
+        this.editError = '';
         this.edit = { id, name: p['name'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', chapterId: p['chapter_id'] === null || p['chapter_id'] === undefined ? null : Number(p['chapter_id']) };
         this.students = res.students ?? [];
       },
@@ -336,10 +339,12 @@ export class AdminSponsorshipsComponent implements OnInit {
   saveEdit(): void {
     if (!this.edit) return;
     this.saving = true;
+    this.editError = '';
     const { id, ...body } = this.edit;
     this.api.put<{ message: string }>(`/admin/sponsors/${id}`, body).subscribe({
       next: () => { this.saving = false; this.edit = null; this.message = 'Profile Updated Successfully!'; this.load(); },
-      error: (e) => { this.saving = false; this.error = errorText(e, 'Update failed'); }
+      // Shown inside the pop-up (the page's own alert is hidden behind it).
+      error: (e) => { this.saving = false; this.editError = errorText(e, 'Update failed'); }
     });
   }
 }

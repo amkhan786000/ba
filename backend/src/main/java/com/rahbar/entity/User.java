@@ -90,4 +90,17 @@ public class User extends Modifiable {
     @Column(name = "must_change_password")
     private Boolean mustChangePassword = false;
 
+
+    /**
+     * Email and phone are unique, so a blank one must be stored as NULL (many users may have none): an empty string
+     * counts as a value and a second '' fails with "Duplicate entry ''". Applies to every save, whichever screen.
+     */
+    @PrePersist
+    @PreUpdate
+    void blankContactsToNull() {
+        if (email != null && email.isBlank()) email = null;
+        else if (email != null) email = email.trim();
+        if (phone != null && phone.isBlank()) phone = null;
+        else if (phone != null) phone = phone.trim();
+    }
 }

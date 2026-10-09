@@ -32,7 +32,24 @@ const USER_KEY = 'rahbar_user';
 export class AuthService {
   currentUser = signal<AuthUser | null>(this.loadUser());
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    // Every tab shares one stored sign-in. When another tab signs in as someone else (or signs out), this tab must
+    // follow: otherwise it keeps showing the old user and their buttons while its requests go out as the new one.
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', (e) => {
+        if (e.key !== TOKEN_KEY && e.key !== USER_KEY && e.key !== null) return; // null: storage was cleared
+        const before = this.currentUser();
+        const after = this.loadUser();
+        if (!after || !localStorage.getItem(TOKEN_KEY)) {
+          if (before) location.assign('/login'); // signed out in another tab
+        } else if (!before || before.id !== after.id) {
+          location.reload(); // another person signed in: start over as them
+        } else {
+          this.currentUser.set(after); // same person, e.g. profile or permissions refreshed elsewhere
+        }
+      });
+    }
+  }
 
   login(loginMethod: 'email' | 'phone', identifier: string, password: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${environment.apiBaseUrl}/auth/login`, { loginMethod, identifier, password });

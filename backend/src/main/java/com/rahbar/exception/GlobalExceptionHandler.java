@@ -22,6 +22,18 @@ public class GlobalExceptionHandler {
                 .body(Map.of("error", "You do not have permission to do this."));
     }
 
+    /** A unique value clashed (e.g. an email or phone number another user already has): say so plainly, no SQL. */
+    @ExceptionHandler(org.springframework.dao.DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, Object>> handleConflict(org.springframework.dao.DataIntegrityViolationException ex) {
+        String detail = ex.getMostSpecificCause() == null ? "" : String.valueOf(ex.getMostSpecificCause().getMessage());
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("Duplicate entry '([^']*)'").matcher(detail);
+        String message = m.find()
+                ? (m.group(1).isEmpty() ? "A required value is empty." : "\"" + m.group(1) + "\" is already used by another user or record.")
+                : "The change conflicts with existing data and was not saved.";
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).warn("Data conflict: {}", detail);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", message));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
