@@ -20,12 +20,27 @@ public class StudentController {
 
     private final com.rahbar.service.StudentReminderService reminderService;
 
-    public StudentController(StudentService studentService, com.rahbar.service.StudentReminderService reminderService) {
+    private final com.rahbar.service.AlumniService alumniService;
+
+    public StudentController(StudentService studentService, com.rahbar.service.StudentReminderService reminderService,
+                             com.rahbar.service.AlumniService alumniService) {
+        this.alumniService = alumniService;
         this.studentService = studentService;
         this.reminderService = reminderService;
     }
 
     /** Next progress-report due date (and whether it's done) plus any overdue ones. */
+    /** The student's alumni profile (editable once they are marked as graduated). */
+    @GetMapping("/alumni-profile")
+    public Map<String, Object> alumniProfile() {
+        return alumniService.mine(me());
+    }
+
+    @PutMapping("/alumni-profile")
+    public Map<String, Object> saveAlumniProfile(@RequestBody Map<String, Object> body) {
+        return alumniService.saveMine(me(), body);
+    }
+
     @GetMapping("/progress-due")
     public Map<String, Object> progressDue() {
         return reminderService.forStudent(me());

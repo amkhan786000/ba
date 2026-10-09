@@ -65,6 +65,14 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/admin/institutions", "Added an institution");
         label("PUT /api/admin/institutions/[^/]+", "Edited an institution");
         label("PUT /api/admin/email-templates/[^/]+", "Saved an email template");
+        label("POST /api/admin/students/merge", "Merged a duplicate student into another");
+        label("PUT /api/admin/applications/[^/]+/interview-scores", "Scored an interview");
+        label("DELETE /api/admin/applications/[^/]+/interview-scores", "Removed own interview scores");
+        label("POST /api/admin/interviews/criteria", "Saved an interview criterion");
+        label("DELETE /api/admin/interviews/criteria/[^/]+", "Deleted an interview criterion");
+        label("PUT /api/admin/alumni/[^/]+", "Updated an alumni profile");
+        label("PUT /api/student/alumni-profile", "Updated own alumni profile");
+        label("POST /api/admin/sponsors/[^/]+/statement/email", "Emailed a sponsor their yearly statement");
         label("DELETE /api/admin/email-templates/[^/]+", "Deleted an email template (back to the default)");
         label("DELETE /api/admin/institutions/[^/]+", "Deleted an institution");
         label("POST /api/admin/applications/[^/]+/status", "Changed an application status");
@@ -116,7 +124,7 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         String path = request.getRequestURI();
         if (!CHANGES.contains(method) || path == null || !path.startsWith("/api/") || SKIP.contains(path)
                 || path.startsWith("/api/notifications")
-                || (path.startsWith("/api/admin/email-templates/") && path.endsWith("/preview"))) return; // previews change nothing
+                || path.endsWith("/preview") || path.startsWith("/api/push/")) return; // previews and push subscriptions change no records
 
         int status = response.getStatus();
         String key = method + " " + path;

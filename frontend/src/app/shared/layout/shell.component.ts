@@ -74,6 +74,15 @@ export interface NavLink {
         </header>
 
         <main class="app-content">
+          <div *ngIf="auth.currentUser()?.emailMissing && !emailBannerHidden" class="alert alert-warning d-flex align-items-start email-banner">
+            <i class="mdi mdi-email-alert-outline mr-2 mt-1"></i>
+            <div class="flex-fill">
+              <strong>Add your email address.</strong>
+              We don't have a real email for you, so you miss reminders, payment notices and sign-in help.
+              <a [routerLink]="[sectionRoot, 'profile']" class="font-weight-bold ml-1">Add it in My profile</a>
+            </div>
+            <button type="button" class="close ml-2" aria-label="Hide" (click)="hideEmailBanner()"><span>&times;</span></button>
+          </div>
           <router-outlet></router-outlet>
         </main>
 
@@ -96,6 +105,8 @@ export class ShellComponent implements OnDestroy {
 
   menuOpen = false;
   mobileOpen = false;
+  /** The "add your email" banner was hidden for this browser session. */
+  emailBannerHidden = (() => { try { return sessionStorage.getItem('rahbar_email_banner') === 'hidden'; } catch { return false; } })();
   collapsed = false;
   currentLabel = '';
   readonly year = new Date().getFullYear();
@@ -108,6 +119,11 @@ export class ShellComponent implements OnDestroy {
       this.updateLabel();
       this.menuOpen = false;
     });
+  }
+
+  hideEmailBanner(): void {
+    this.emailBannerHidden = true;
+    try { sessionStorage.setItem('rahbar_email_banner', 'hidden'); } catch { /* private mode */ }
   }
 
   get homeLink(): string { return this.links.length ? this.links[0].path : '/'; }

@@ -18,8 +18,10 @@ import java.util.Map;
 public class SponsorController {
 
     private final SponsorService sponsorService;
+    private final com.rahbar.service.SponsorStatementService statementService;
 
-    public SponsorController(SponsorService sponsorService) {
+    public SponsorController(SponsorService sponsorService, com.rahbar.service.SponsorStatementService statementService) {
+        this.statementService = statementService;
         this.sponsorService = sponsorService;
     }
 
@@ -50,5 +52,13 @@ public class SponsorController {
     @GetMapping("/student-progress")
     public List<Map<String, Object>> studentProgress() {
         return sponsorService.studentProgress(me());
+    }
+
+    /** The signed-in sponsor's statement for a calendar year (default: last year), as a PDF. */
+    @GetMapping("/statement")
+    public org.springframework.http.ResponseEntity<byte[]> statement(@RequestParam(required = false) Integer year) {
+        int y = year == null ? java.time.LocalDate.now().getYear() - 1 : year;
+        byte[] pdf = statementService.pdf(me(), y);
+        return StatementResponses.pdf(pdf, com.rahbar.service.SponsorStatementService.fileName(statementService.requireSponsor(me()), y));
     }
 }

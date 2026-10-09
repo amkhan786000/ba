@@ -688,7 +688,7 @@ body:has(.modal.show) .modal { overflow-x: hidden; overflow-y: auto; }
     position: relative;
     border: 0 !important;
     border-bottom: 1px dashed var(--line) !important;
-    padding: 8px 0 8px 42% !important;
+    padding: 8px 0 8px 46% !important;
     min-height: 2.25rem;
     text-align: right !important;
     white-space: normal !important;
@@ -702,13 +702,15 @@ body:has(.modal.show) .modal { overflow-x: hidden; overflow-y: auto; }
     position: absolute;
     left: 0;
     top: 8px;
-    width: 40%;
+    width: 44%;
     padding-right: 8px;
     text-align: left;
     font-weight: 600;
     font-size: .8rem;
     color: var(--muted);
     white-space: normal;
+    word-break: normal;
+    overflow-wrap: normal;
   }
   /* No column name (action buttons): full width, buttons on the right. */
   table.table:not(.no-cards) td[data-label=""],

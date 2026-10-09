@@ -8,6 +8,8 @@ export interface AuthUser {
   status: string;
   /** True until the user replaces the password an admin / bulk upload gave them. */
   mustChangePassword?: boolean;
+  /** True when the user has no real email address (none, or a placeholder ...@rahbar.com). */
+  emailMissing?: boolean;
   /** Name of the user's role (custom roles have no built-in label). */
   roleName?: string;
   /** Admin-screen permission keys of the user's role, e.g. "USERS:EDIT" (EDIT implies VIEW). */
@@ -21,7 +23,7 @@ export interface AuthUser {
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
 export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG'
   | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
-  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES';
+  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
 export const PORTAL_ROLES = [3, 4, 5, 6];
@@ -43,6 +45,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
   { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES' },
   { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS' },
   { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS' },
+  { path: '/admin/alumni', label: 'Alumni', icon: 'mdi-school', section: 'ALUMNI' },
   { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES' },
   { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY' },
   { path: '/admin/broadcasts', label: 'Broadcast Messages', icon: 'mdi-bullhorn', section: 'MESSAGES' },

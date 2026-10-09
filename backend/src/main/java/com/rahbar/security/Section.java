@@ -40,7 +40,9 @@ public enum Section {
     /** Every email the application sent, with its text (codes and passwords hidden). */
     EMAIL_LOG("Email log"),
     /** The wording of every kind of email. EDIT adds / changes templates; only the Super Admin can delete one. */
-    EMAIL_TEMPLATES("Email templates");
+    EMAIL_TEMPLATES("Email templates"),
+    /** Graduated students and what they do now. */
+    ALUMNI("Alumni");
 
     public enum Level { VIEW, EDIT }
 

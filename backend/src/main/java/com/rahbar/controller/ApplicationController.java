@@ -15,9 +15,35 @@ import java.util.Map;
 public class ApplicationController {
 
     private final ApplicationService applicationService;
+    private final com.rahbar.service.InterviewService interviewService;
 
-    public ApplicationController(ApplicationService applicationService) {
+    public ApplicationController(ApplicationService applicationService, com.rahbar.service.InterviewService interviewService) {
         this.applicationService = applicationService;
+        this.interviewService = interviewService;
+    }
+
+    /** Every interviewer's scores for this application, the averages and the signed-in user's own review. */
+    @GetMapping("/interview-scores")
+    @PreAuthorize("hasAuthority('APPLICATIONS:VIEW') or hasAnyRole('3','4')")
+    public Map<String, Object> interviewScores(@PathVariable Long id) {
+        return interviewService.forApplication(id);
+    }
+
+    /** Body: { scores: { "<criterionId>": 1-10, ... }, recommendation: APPROVE | WAITLIST | REJECT, comment }. */
+    @PutMapping("/interview-scores")
+    @PreAuthorize("hasAuthority('APPLICATIONS:EDIT') or hasAnyRole('3','4')")
+    @SuppressWarnings("unchecked")
+    public Map<String, Object> saveInterviewScores(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Object scores = body.get("scores");
+        return interviewService.saveMyReview(id, scores instanceof Map<?, ?> m ? (Map<String, Object>) m : Map.of(),
+                (String) body.get("recommendation"), (String) body.get("comment"));
+    }
+
+    @DeleteMapping("/interview-scores")
+    @PreAuthorize("hasAuthority('APPLICATIONS:EDIT') or hasAnyRole('3','4')")
+    public Map<String, String> deleteInterviewScores(@PathVariable Long id) {
+        interviewService.deleteMyReview(id);
+        return Map.of("message", "Your scores for this application were removed.");
     }
 
     @GetMapping("/details")

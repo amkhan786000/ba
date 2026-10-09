@@ -58,6 +58,10 @@ public class User extends Modifiable {
     private Integer year;
 
     /** Students: the date the first installment is due; the next ones follow every 3 or 4 months. */
+    /** A duplicate student account merged into this users.id (the merged account is deactivated). */
+    @Column(name = "merged_into_id")
+    private Long mergedIntoId;
+
     @Column(name = "payment_start_date")
     private java.time.LocalDate paymentStartDate;
 

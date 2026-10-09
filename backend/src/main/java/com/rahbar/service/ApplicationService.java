@@ -25,7 +25,7 @@ import java.util.*;
 public class ApplicationService {
 
     public static final Set<String> VALID_STATUSES = Set.of(
-            "draft", "submitted", "interviewing", "accepted", "rejected",
+            "draft", "submitted", "interviewing", "accepted", "waitlisted", "rejected",
             "on hold", "provisional admission letter", "admitted");
 
     public static final List<String> DOCUMENT_TYPES = List.of(

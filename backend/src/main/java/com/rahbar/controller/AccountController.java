@@ -36,6 +36,10 @@ public class AccountController {
         body.put("scope", p.getScope());
         body.put("chapterId", p.getUser().getChapterId());
         body.put("rccCenterId", p.getUser().getRccCenterId());
+        // No address, or a placeholder (...@rahbar.com): the app shows a banner asking to add a real one.
+        String email = p.getUser().getEmail();
+        body.put("emailMissing", email == null || !email.contains("@")
+                || email.trim().toLowerCase(java.util.Locale.ROOT).endsWith("@rahbar.com"));
         return body;
     }
 

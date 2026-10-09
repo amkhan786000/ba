@@ -24,6 +24,7 @@ export const APPLICATION_STATUSES = [
   { value: 'submitted', label: 'Submitted' },
   { value: 'interviewing', label: 'Interviewing' },
   { value: 'accepted', label: 'Accepted' },
+  { value: 'waitlisted', label: 'Waitlisted' },
   { value: 'on hold', label: 'On Hold' },
   { value: 'provisional admission letter', label: 'Provisional Admission Letter Issued' },
   { value: 'admitted', label: 'Admitted' },
@@ -36,7 +37,14 @@ export const APPLICATION_STATUSES = [
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
-    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Applications</h4></div></div></div>
+    <div class="row">
+      <div class="col-12">
+        <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-md-center">
+          <h4 class="page-title mb-2 mb-md-0">Applications</h4>
+          <a *ngIf="section === 'admin'" routerLink="/admin/applications/ranking" class="btn btn-outline-primary"><i class="mdi mdi-trophy-outline mr-1"></i>Interview ranking</a>
+        </div>
+      </div>
+    </div>
     <app-alerts [(error)]="error"></app-alerts>
 
     <div class="row justify-content-center mt-4">

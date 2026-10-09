@@ -34,9 +34,11 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final EmailService emailService;
+    private final PushService pushService;
 
     public NotificationService(NotificationRepository notificationRepository, UserRepository userRepository,
-                               EmailService emailService) {
+                               EmailService emailService, PushService pushService) {
+        this.pushService = pushService;
         this.notificationRepository = notificationRepository;
         this.userRepository = userRepository;
         this.emailService = emailService;
@@ -105,6 +107,7 @@ public class NotificationService {
             log.warn("Could not save notification for {}: {}", userId, e.getMessage());
             return false;
         }
+        pushService.sendToUser(userId, title, message, link); // browsers / phones the user switched on (background)
         if (emailType != null) {
             userRepository.findById(userId)
                     .filter(u -> u.getEmail() != null && u.getEmail().contains("@") && !u.getEmail().endsWith("@rahbar.com"))
