@@ -27,7 +27,6 @@ import java.util.*;
 public class PaymentReminderService {
 
     private static final Logger log = LoggerFactory.getLogger(PaymentReminderService.class);
-    private static final int DUE_SOON_DAYS = 7;
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMM yyyy");
 
     private final GrantorGranteeRepository grantorGranteeRepository;
@@ -57,6 +56,8 @@ public class PaymentReminderService {
         userRepository.findAll().forEach(u -> users.put(u.getId(), u));
         Long unassigned = ServiceSupport.unassignedGrantorId(userRepository);
         Map<Long, List<PaymentInstallment>> byStudent = installmentService.byStudent();
+        // "Due soon" window per student: the "show as due" days of their session year's Payment Config.
+        Map<Long, Integer> notice = installmentService.noticeDays(byStudent.keySet());
 
         for (GrantorGrantee gg : grantorGranteeRepository.findAll()) {
             if (gg.getGrantorId() == null || gg.getGrantorId().equals(unassigned)) continue;
@@ -70,7 +71,8 @@ public class PaymentReminderService {
             int total = installments.size();
             long paid = installments.stream().filter(i -> i.getPaymentId() != null).count();
             int dueSoFar = (int) installments.stream().filter(i -> !i.getDueDate().isAfter(today)).count();
-            long overdueCount = installments.stream().filter(i -> i.getPaymentId() == null && !i.getDueDate().isAfter(today)).count();
+            long overdueCount = installments.stream().filter(i -> i.getPaymentId() == null && i.getDueDate().isBefore(today)).count();
+            int noticeDays = notice.getOrDefault(student.getId(), PaymentInstallmentService.DEFAULT_NOTICE_DAYS);
             LocalDate nextDue = installments.stream().filter(i -> i.getPaymentId() == null)
                     .map(PaymentInstallment::getDueDate).min(Comparator.naturalOrder()).orElse(null);
             LocalDate start = student.getPaymentStartDate();
@@ -81,7 +83,7 @@ public class PaymentReminderService {
                 status = "Completed";
             } else if (overdueCount > 0) {
                 status = "Overdue";
-            } else if (nextDue != null && !nextDue.isAfter(today.plusDays(DUE_SOON_DAYS))) {
+            } else if (nextDue != null && !nextDue.isAfter(today.plusDays(noticeDays))) {
                 status = "Due soon";
             } else {
                 status = "On schedule";

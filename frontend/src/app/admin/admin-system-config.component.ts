@@ -13,6 +13,7 @@ export interface Schedule {
   year: number;
   amount: number | null;
   frequency_months: number | null;
+  due_notice_days: number | null;
   updated_at: string | null;
   updated_by_name: string | null;
 }
@@ -51,15 +52,16 @@ export interface Schedule {
             </div>
             <div class="table-responsive">
               <table class="table table-striped table-centered mb-0">
-                <thead><tr><th>Session Year</th><th>Amount per Installment</th><th>Frequency</th><th>Installments a Year</th><th>Last Updated</th><th>Updated By</th><th *ngIf="canEdit">Actions</th></tr></thead>
+                <thead><tr><th>Session Year</th><th>Amount per Installment</th><th>Frequency</th><th>Installments a Year</th><th>Shows as Due</th><th>Last Updated</th><th>Updated By</th><th *ngIf="canEdit">Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="loading"><td colspan="7" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
-                  <tr *ngIf="!loading && !visible.length"><td colspan="7" class="text-center text-muted">No payment config found.</td></tr>
+                  <tr *ngIf="loading"><td colspan="8" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                  <tr *ngIf="!loading && !visible.length"><td colspan="8" class="text-center text-muted">No payment config found.</td></tr>
                   <tr *ngFor="let s of visible | paginate: pg.page : pg.size">
                     <td><strong>{{ s.year }}</strong></td>
                     <td>₹{{ s.amount !== null ? (s.amount | number: '1.2-2') : '--' }}</td>
                     <td>Every {{ s.frequency_months || 3 }} months</td>
                     <td>{{ 12 / (s.frequency_months || 3) }}</td>
+                    <td>{{ s.due_notice_days ?? 30 }} days before</td>
                     <td>{{ s.updated_at ? (s.updated_at | date: 'd MMM yyyy, h:mm a') : '--' }}</td>
                     <td>{{ s.updated_by_name || '--' }}</td>
                     <td *ngIf="canEdit"><a [routerLink]="['/admin/system-configuration', s.year, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a></td>

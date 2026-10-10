@@ -76,7 +76,8 @@ public class SponsorService {
         List<Map<String, Object>> rows = installmentService.forSponsorAndStudent(sponsorId, granteeId);
         if (rows.isEmpty()) return "Pending";
         if (rows.stream().allMatch(r -> PaymentInstallmentService.PAID.equals(r.get("status")))) return "Completed";
-        return rows.stream().anyMatch(r -> PaymentInstallmentService.DUE.equals(r.get("status"))) ? "Overdue" : "On Schedule";
+        if (rows.stream().anyMatch(r -> PaymentInstallmentService.OVERDUE.equals(r.get("status")))) return "Overdue";
+        return rows.stream().anyMatch(r -> PaymentInstallmentService.DUE.equals(r.get("status"))) ? "Due" : "On Schedule";
     }
 
     /** Average marks per academic year of this sponsor's students: [{label: "Year N", value}]. */

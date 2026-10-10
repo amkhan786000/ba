@@ -37,7 +37,7 @@ import { CardTableDirective } from '../shared/card-table.directive';
         <div class="d-flex flex-column flex-md-row justify-content-between mb-3">
           <p class="text-muted mb-2 mb-md-0 mr-md-3">
             Installments are created when a student is mapped to a sponsor, from the course's semesters, the Payment Config
-            of the student's session year and the student's payment start date. <strong>Due</strong> = the date has come and it isn't paid.
+            of the student's session year and the student's payment start date. <strong>Due</strong> = due soon (see "Show as due" in Payment Config), <strong>Overdue</strong> = the date has passed and it isn't paid.
           </p>
           <input class="form-control" style="max-width: 280px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="pg.reset()">
         </div>
@@ -121,7 +121,7 @@ export class AdminPaymentRecordsComponent implements OnInit {
   }
 
   get summary(): { status: string; count: number; amount: number }[] {
-    return ['Due', 'Not Due', 'Paid'].map((status) => {
+    return ['Overdue', 'Due', 'Not Due', 'Paid'].map((status) => {
       const rows = this.rows.filter((r) => r.status === status);
       return { status, count: rows.length, amount: rows.reduce((sum, r) => sum + Number(status === 'Paid' ? r.paid_amount ?? 0 : r.amount), 0) };
     });

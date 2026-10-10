@@ -32,4 +32,9 @@ public class PaymentSchedule extends Modifiable {
     @org.hibernate.annotations.ColumnDefault("3")
     private Integer frequencyMonths = 3;
 
+    /** An installment shows as "Due" this many days before its due date (and as "Overdue" after it). */
+    @Column(name = "due_notice_days", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("30")
+    private Integer dueNoticeDays = 30;
+
 }

@@ -33,6 +33,12 @@ interface SponsorStudent {
 }
 
 /** Port of templates/admin/manage_sponsorships.html (DataTable, bulk upload, edit-profile modal). Students map straight to sponsors. */
+/** One student's fee schedule status (Sponsorships > Fee Schedule). */
+interface FeeRow {
+  student_id: number; student_code: string; student_name: string; session_year: number | null; payment_start_date: string | null;
+  installments: number; paid: number; due: number; overdue: number; problem: string | null;
+}
+
 @Component({
   selector: 'app-admin-sponsorships',
   standalone: true,
@@ -87,6 +93,9 @@ interface SponsorStudent {
                         </a>
                         <button type="button" class="btn btn-sm btn-outline-secondary" (click)="statement = { sponsor: s, year: lastYear, busy: false }">
                           <i class="mdi mdi-file-pdf-box"></i> Statement
+                        </button>
+                        <button *ngIf="canSeeFeeSchedule" type="button" class="btn btn-sm btn-outline-success" (click)="openFeeSchedule(s)">
+                          <i class="mdi mdi-calendar-check"></i> Fee Schedule
                         </button>
                       </div>
                     </td>
@@ -187,6 +196,53 @@ interface SponsorStudent {
       <p class="text-muted">Please wait while the system updates the records.</p>
     </div>
 
+    <!-- Fee schedules (installments) of the sponsor's students -->
+    <div *ngIf="fee" class="modal fade show d-block" tabindex="-1" (click)="fee = null">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable" (click)="$event.stopPropagation()">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Fee schedule: {{ fee.sponsor.name }}</h5><button type="button" class="close" (click)="fee = null">&times;</button></div>
+          <div class="modal-body">
+            <p class="text-muted small">
+              Each student's installments are built from their course (semesters), the Payment Config of their session year and their
+              payment start date. Generating creates what is missing and updates unpaid installments; paid ones never change.
+            </p>
+            <div *ngIf="fee.message" class="alert py-2" [ngClass]="fee.error ? 'alert-danger' : 'alert-success'">{{ fee.message }}</div>
+            <div *ngIf="fee.loading" class="text-center my-3"><span class="spinner-border spinner-border-sm"></span></div>
+            <div class="table-responsive" *ngIf="!fee.loading">
+              <table class="table table-sm table-centered mb-0">
+                <thead><tr><th>Student</th><th>Session year</th><th>Payments start</th><th>Installments</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr *ngIf="!fee.rows.length"><td colspan="5" class="text-center text-muted">No students are mapped to this sponsor.</td></tr>
+                  <tr *ngFor="let r of fee.rows">
+                    <td><strong>{{ r.student_name }}</strong><div class="small text-muted">{{ r.student_code }}</div></td>
+                    <td>{{ r.session_year || '--' }}</td>
+                    <td>{{ r.payment_start_date ? (r.payment_start_date | date: 'd MMM yyyy') : '--' }}</td>
+                    <td>
+                      <strong>{{ r.installments }}</strong>
+                      <div *ngIf="r.installments" class="small text-muted">
+                        {{ r.paid }} paid · {{ r.due }} due<span *ngIf="r.overdue" class="text-danger font-weight-bold"> · {{ r.overdue }} overdue</span>
+                      </div>
+                    </td>
+                    <td>
+                      <span *ngIf="!r.problem" class="badge badge-success">Ready</span>
+                      <span *ngIf="r.problem" class="text-danger small">{{ r.problem }}</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <small class="text-muted mr-auto" *ngIf="hasBlocked">Fix what is missing in the Student Directory (Academic tab), then generate again.</small>
+            <button type="button" class="btn btn-light" (click)="fee = null">Close</button>
+            <button *ngIf="canGenerateFeeSchedule" type="button" class="btn btn-success" (click)="generateFeeSchedule()" [disabled]="fee.busy || !fee.rows.length">
+              <i class="mdi mdi-calendar-sync mr-1"></i>{{ fee.busy ? 'Generating…' : 'Generate fee schedule' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Yearly statement of one sponsor -->
     <div *ngIf="statement" class="modal fade show d-block" tabindex="-1" (click)="statement = null">
       <div class="modal-dialog modal-dialog-centered" (click)="$event.stopPropagation()">
@@ -248,6 +304,34 @@ export class AdminSponsorshipsComponent implements OnInit {
   constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService) {}
 
   get canEmailStatement(): boolean { return this.auth.can('SPONSORSHIPS', 'EDIT'); }
+
+  // ---------------- fee schedules (Payment records permission: view to see, edit to generate)
+
+  fee: { sponsor: { id: number; name: string }; rows: FeeRow[]; loading: boolean; busy: boolean; message: string; error: boolean } | null = null;
+
+  get canSeeFeeSchedule(): boolean { return this.auth.can('PAYMENT_RECORDS'); }
+  get canGenerateFeeSchedule(): boolean { return this.auth.can('PAYMENT_RECORDS', 'EDIT'); }
+  get hasBlocked(): boolean { return !!this.fee?.rows.some((r) => r.problem); }
+
+  openFeeSchedule(s: { id: number; name: string }): void {
+    const fee = { sponsor: s, rows: [] as FeeRow[], loading: true, busy: false, message: '', error: false };
+    this.fee = fee;
+    this.api.get<FeeRow[]>(`/admin/sponsors/${s.id}/fee-schedule`).subscribe({
+      next: (rows) => { fee.loading = false; fee.rows = rows; },
+      error: (e) => { fee.loading = false; fee.error = true; fee.message = errorText(e, 'Could not load the fee schedules.'); }
+    });
+  }
+
+  generateFeeSchedule(): void {
+    const fee = this.fee;
+    if (!fee) return;
+    fee.busy = true;
+    fee.message = '';
+    this.api.post<{ message: string; rows: FeeRow[] }>(`/admin/sponsors/${fee.sponsor.id}/fee-schedule`, {}).subscribe({
+      next: (r) => { fee.busy = false; fee.error = false; fee.message = r.message; fee.rows = r.rows; },
+      error: (e) => { fee.busy = false; fee.error = true; fee.message = errorText(e, 'Could not generate the fee schedules.'); }
+    });
+  }
 
   downloadStatement(): void {
     const st = this.statement;
