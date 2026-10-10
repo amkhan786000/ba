@@ -22,9 +22,12 @@ public class SponsorMappingService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final PaymentInstallmentService installmentService;
+    private final com.rahbar.repository.SponsorMappingHistoryRepository historyRepository;
 
     public SponsorMappingService(GrantorGranteeRepository grantorGranteeRepository, UserRepository userRepository,
-                                 NotificationService notificationService, PaymentInstallmentService installmentService) {
+                                 NotificationService notificationService, PaymentInstallmentService installmentService,
+                                 com.rahbar.repository.SponsorMappingHistoryRepository historyRepository) {
+        this.historyRepository = historyRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
         this.userRepository = userRepository;
         this.notificationService = notificationService;
@@ -86,10 +89,27 @@ public class SponsorMappingService {
 
     private void changed(Long granteeId, Long previous, Long current) {
         if (!Objects.equals(previous, current)) {
+            recordHistory(granteeId, current);
             notifyMapped(granteeId, current);
             notifyUnmapped(granteeId, previous, current);
         }
         installmentService.sync(granteeId);
+    }
+
+    /** Closes the student's open mapping period and opens one with the new sponsor (none for "unassigned" / unmap). */
+    private void recordHistory(Long granteeId, Long current) {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        for (com.rahbar.entity.SponsorMappingHistory h : historyRepository.findByGranteeIdAndEndedAtIsNull(granteeId)) {
+            h.setEndedAt(now);
+            historyRepository.save(h);
+        }
+        if (current != null && realSponsor(userRepository.findById(current).orElse(null))) {
+            com.rahbar.entity.SponsorMappingHistory h = new com.rahbar.entity.SponsorMappingHistory();
+            h.setGranteeId(granteeId);
+            h.setGrantorId(current);
+            h.setStartedAt(now);
+            historyRepository.save(h);
+        }
     }
 
     private boolean realSponsor(User sponsor) {

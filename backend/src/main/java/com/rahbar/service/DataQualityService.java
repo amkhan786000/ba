@@ -39,6 +39,9 @@ public class DataQualityService {
     }
 
     public List<Map<String, Object>> checks() {
+        if (com.rahbar.security.Access.chapterScoped() || com.rahbar.security.Access.rccScoped()) {
+            throw com.rahbar.security.Access.forbidden("Data quality checks cover the whole organisation and aren't available for chapter or RCC roles.");
+        }
         // Current students: active accounts that are still studying or on hold.
         List<User> students = userRepository.findByRoleId(6).stream()
                 .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && StudyStatus.inProgramme(u.getStudyStatus()))

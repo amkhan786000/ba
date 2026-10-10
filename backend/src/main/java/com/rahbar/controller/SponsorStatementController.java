@@ -13,16 +13,22 @@ import java.util.Map;
 @RequestMapping("/api/admin/sponsors/{sponsorId}/statement")
 @PreAuthorize("denyAll()")
 public class SponsorStatementController {
+    /** Chapter / RCC-scoped users only see their own students. */
+    private final com.rahbar.security.StudentScope studentScope;
+
 
     private final SponsorStatementService statementService;
 
-    public SponsorStatementController(SponsorStatementService statementService) {
+    public SponsorStatementController(SponsorStatementService statementService,
+                                      com.rahbar.security.StudentScope studentScope) {
+        this.studentScope = studentScope;
         this.statementService = statementService;
     }
 
     @GetMapping
     @PreAuthorize("hasAuthority('SPONSORSHIPS:VIEW')")
     public ResponseEntity<byte[]> download(@PathVariable Long sponsorId, @RequestParam(required = false) Integer year) {
+        studentScope.requireSponsor(sponsorId);
         int y = year == null ? LocalDate.now().getYear() - 1 : year;
         return StatementResponses.pdf(statementService.pdf(sponsorId, y),
                 SponsorStatementService.fileName(statementService.requireSponsor(sponsorId), y));
@@ -31,6 +37,7 @@ public class SponsorStatementController {
     @PostMapping("/email")
     @PreAuthorize("hasAuthority('SPONSORSHIPS:EDIT')")
     public Map<String, Object> email(@PathVariable Long sponsorId, @RequestParam(required = false) Integer year) {
+        studentScope.requireSponsor(sponsorId);
         int y = year == null ? LocalDate.now().getYear() - 1 : year;
         boolean sent = statementService.email(sponsorId, y);
         return Map.of("sent", sent, "message", sent ? "The " + y + " statement was emailed to the sponsor."

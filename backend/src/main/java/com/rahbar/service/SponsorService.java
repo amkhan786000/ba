@@ -32,6 +32,7 @@ public class SponsorService {
     private final StudentProgressRepository studentProgressRepository;
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
+    private final com.rahbar.repository.SponsorMappingHistoryRepository historyRepository;
     private final PaymentInstallmentService installmentService;
 
     public SponsorService(UserRepository userRepository, GrantorGranteeRepository grantorGranteeRepository,
@@ -40,7 +41,9 @@ public class SponsorService {
                           StudentInstitutionCourseRepository studentCourseRepository,
                           StudentProgressRepository studentProgressRepository,
                           FileStorageService fileStorageService, NotificationService notificationService,
-                          PaymentInstallmentService installmentService) {
+                          PaymentInstallmentService installmentService,
+                          com.rahbar.repository.SponsorMappingHistoryRepository historyRepository) {
+        this.historyRepository = historyRepository;
         this.installmentService = installmentService;
         this.userRepository = userRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
@@ -68,7 +71,47 @@ public class SponsorService {
             grantees.add(entry);
         }
 
-        return Map.of("sponsor", sponsor, "grantees", grantees, "performanceByYear", performanceByYear(sponsorId));
+        return Map.of("sponsor", sponsor, "grantees", grantees, "performanceByYear", performanceByYear(sponsorId),
+                "pastStudents", pastStudents(sponsorId));
+    }
+
+    /** A student this sponsor sponsored before (not mapped to them now) and when that ended. */
+    private record Past(User student, java.time.LocalDateTime from, java.time.LocalDateTime until) {}
+
+    /**
+     * Students this sponsor sponsored in the past: from the mapping history (with the period), plus older ones known
+     * only from the installments / payments the sponsor made (their period ends at the last payment).
+     */
+    private Map<Long, Past> past(Long sponsorId) {
+        Set<Long> current = new HashSet<>(granteeIds(sponsorId));
+        Map<Long, Past> past = new LinkedHashMap<>();
+        for (com.rahbar.entity.SponsorMappingHistory h : historyRepository.findByGrantorIdOrderByStartedAtDesc(sponsorId)) {
+            if (h.getEndedAt() == null || current.contains(h.getGranteeId())) continue;
+            userRepository.findById(h.getGranteeId()).ifPresent(u -> past.merge(u.getId(), new Past(u, h.getStartedAt(), h.getEndedAt()),
+                    (a, b) -> new Past(u, a.from().isBefore(b.from()) ? a.from() : b.from(), a.until().isAfter(b.until()) ? a.until() : b.until())));
+        }
+        for (Payment p : paymentRepository.findByGrantorIdOrderByPaymentDateDesc(sponsorId)) {
+            if (current.contains(p.getGranteeId()) || past.containsKey(p.getGranteeId()) || p.getPaymentDate() == null) continue;
+            userRepository.findById(p.getGranteeId()).ifPresent(u -> past.put(u.getId(), new Past(u, null, p.getPaymentDate())));
+        }
+        return past;
+    }
+
+    /** Past students for the dashboard: who, when, and what this sponsor paid for them. */
+    private List<Map<String, Object>> pastStudents(Long sponsorId) {
+        Map<Long, java.math.BigDecimal> paid = new HashMap<>();
+        for (Payment p : paymentRepository.findByGrantorIdOrderByPaymentDateDesc(sponsorId)) {
+            if ("Paid".equalsIgnoreCase(p.getStatus()) && p.getAmount() != null) paid.merge(p.getGranteeId(), p.getAmount(), java.math.BigDecimal::add);
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Past p : past(sponsorId).values()) {
+            Map<String, Object> row = new LinkedHashMap<>(StudentService.studentCard(p.student()));
+            row.put("sponsored_from", p.from());
+            row.put("sponsored_until", p.until());
+            row.put("total_paid", paid.getOrDefault(p.student().getId(), java.math.BigDecimal.ZERO));
+            rows.add(row);
+        }
+        return rows;
     }
 
     /** From the installments between this sponsor and the student: Pending (none yet), Completed, Overdue or On Schedule. */
@@ -176,8 +219,14 @@ public class SponsorService {
                 EmailType.PAYMENT_RECEIVED, ServiceSupport.vars("sponsor_name", sponsorName, "amount", amount));
     }
 
+    /**
+     * Progress reports of the sponsor's current students, and of past students up to the day they moved to another
+     * sponsor (marked past = true).
+     */
     public List<Map<String, Object>> studentProgress(Long sponsorId) {
-        List<Long> ids = granteeIds(sponsorId);
+        List<Long> ids = new ArrayList<>(granteeIds(sponsorId));
+        Map<Long, Past> past = past(sponsorId);
+        ids.addAll(past.keySet());
         if (ids.isEmpty()) return List.of();
         List<StudentProgress> progress = studentProgressRepository.findByGranteeIdInOrderByCreatedAtDesc(ids);
         Map<Long, User> students = new HashMap<>();
@@ -186,9 +235,12 @@ public class SponsorService {
         for (StudentProgress sp : progress) {
             User student = students.get(sp.getGranteeId());
             if (student == null) continue;
+            Past p = past.get(sp.getGranteeId());
+            if (p != null && sp.getCreatedAt() != null && sp.getCreatedAt().isAfter(p.until())) continue; // after they moved on
             Map<String, Object> row = Rows.of(sp);
             row.put("grantee_name", student.getName());
             row.put("grantee_code", student.getUserId());
+            row.put("past", p != null);
             rows.add(row);
         }
         return rows;

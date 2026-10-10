@@ -11,7 +11,7 @@ import { CardTableDirective } from '../shared/card-table.directive';
 interface Progress {
   progress_id: number; review_status?: string | null; review_comment?: string | null; reviewed_at?: string | null;
   grantee_name: string; grantee_id: number | null; grantee_code: string | null; marks: string | number | null;
-  session: string | null; year: string | number | null; file_path: string | null; created_at: string | null;
+  past?: boolean; session: string | null; year: string | number | null; file_path: string | null; created_at: string | null;
 }
 
 /** Port of templates/sponsor/student_progress.html */
@@ -47,7 +47,7 @@ interface Progress {
                 <tbody>
                   <tr *ngIf="!shown.length"><td colspan="8" class="text-center text-muted">{{ rows.length ? 'No matching records found.' : 'No progress data found.' }}</td></tr>
                   <tr *ngFor="let p of shown | paginate: pg.page : pg.size">
-                    <td><strong>{{ p.grantee_name }}</strong></td>
+                    <td><strong>{{ p.grantee_name }}</strong> <span *ngIf="p.past" class="badge badge-light border ml-1" title="You sponsored this student before">Past</span></td>
                     <td><span class="badge badge-light border">{{ p.grantee_code }}</span></td>
                     <td>{{ p.marks }}%</td>
                     <td>{{ p.session }}</td>

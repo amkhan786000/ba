@@ -14,11 +14,16 @@ import java.util.Map;
 @RequestMapping("/api/admin")
 @PreAuthorize("denyAll()")
 public class PaymentRecordsController {
+    /** Chapter / RCC-scoped users only see their own students. */
+    private final com.rahbar.security.StudentScope studentScope;
+
 
     private final PaymentInstallmentService installmentService;
     private final EmailLogService emailLogService;
 
-    public PaymentRecordsController(PaymentInstallmentService installmentService, EmailLogService emailLogService) {
+    public PaymentRecordsController(PaymentInstallmentService installmentService, EmailLogService emailLogService,
+                                    com.rahbar.security.StudentScope studentScope) {
+        this.studentScope = studentScope;
         this.installmentService = installmentService;
         this.emailLogService = emailLogService;
     }
@@ -35,6 +40,7 @@ public class PaymentRecordsController {
     @GetMapping("/students/{userId}/installments")
     @PreAuthorize("hasAuthority('PAYMENT_RECORDS:VIEW')")
     public Map<String, Object> studentInstallments(@PathVariable Long userId) {
+        studentScope.requireStudent(userId);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("installments", installmentService.forStudent(userId));
         body.put("problem", installmentService.problem(userId));

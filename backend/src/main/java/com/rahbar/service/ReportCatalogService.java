@@ -102,6 +102,7 @@ public class ReportCatalogService {
     private final com.rahbar.security.SponsorPrivacy sponsorPrivacy;
     private final ActivityLogService activityLogService;
     private final ReportService reportService;
+    private final com.rahbar.security.StudentScope studentScope;
 
     public ReportCatalogService(com.rahbar.security.SponsorPrivacy sponsorPrivacy, UserRepository userRepository, RoleRepository roleRepository,
                                 GranteeDetailsRepository granteeDetailsRepository,
@@ -113,7 +114,9 @@ public class ReportCatalogService {
                                 PaymentScheduleRepository paymentScheduleRepository,
                                 StudentProgressRepository studentProgressRepository,
                                 RccCenterRepository rccCenterRepository, PaymentReminderService paymentReminderService,
-                                ActivityLogService activityLogService, ReportService reportService) {
+                                ActivityLogService activityLogService, ReportService reportService,
+                                com.rahbar.security.StudentScope studentScope) {
+        this.studentScope = studentScope;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.granteeDetailsRepository = granteeDetailsRepository;
@@ -133,8 +136,54 @@ public class ReportCatalogService {
         this.reportService = reportService;
     }
 
+    /** The reports the signed-in user may open: chapter / RCC-scoped users get the ones filtered to their students. */
     public List<Definition> catalog() {
-        return CATALOG;
+        if (studentScope.current().all()) return CATALOG;
+        return CATALOG.stream().filter(d -> !ORGANISATION_WIDE.contains(d.key())).toList();
+    }
+
+    /** Reports about the whole organisation (not filtered per chapter / RCC center): not for scoped users. */
+    private static final Set<String> ORGANISATION_WIDE = Set.of("sponsors_by_chapter", "users_by_role", "activity_log");
+
+    // ---------------------------------------------------------------- what the signed-in user may see
+
+    /** The scope of the report being built (set in rows(); unscoped users see everything). */
+    private static final ThreadLocal<com.rahbar.security.StudentScope.Scope> SCOPE = new ThreadLocal<>();
+    private static final ThreadLocal<Map<Long, User>> USERS = new ThreadLocal<>();
+
+    private com.rahbar.security.StudentScope.Scope scope() {
+        com.rahbar.security.StudentScope.Scope s = SCOPE.get();
+        return s == null ? com.rahbar.security.StudentScope.Scope.ALL : s;
+    }
+
+    private Map<Long, User> scopeUsers() {
+        Map<Long, User> users = USERS.get();
+        if (users == null) {
+            users = new HashMap<>();
+            for (User u : userRepository.findAll()) users.put(u.getId(), u);
+            USERS.set(users);
+        }
+        return users;
+    }
+
+    private boolean seesStudent(Long studentId) {
+        return scope().all() || scope().includesId(studentId, scopeUsers());
+    }
+
+    private List<User> visibleStudents() {
+        List<User> all = userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE);
+        return scope().all() ? all : all.stream().filter(scope()::includes).toList();
+    }
+
+    private List<GranteeDetails> visibleApplications() {
+        List<GranteeDetails> all = granteeDetailsRepository.findAll();
+        return scope().all() ? all : all.stream().filter(g -> scope().includesApplication(g, scopeUsers())).toList();
+    }
+
+    /** Payments to students the user may see. */
+    private List<Payment> visiblePayments() {
+        List<Payment> all = paymentRepository.findAll();
+        return scope().all() ? all : all.stream().filter(p -> seesStudent(p.getGranteeId())).toList();
     }
 
     /** Builds a report download. from / to are optional inclusive days (ignored by reports without a date). */
@@ -158,8 +207,12 @@ public class ReportCatalogService {
     }
 
     private Definition definition(String key) {
-        return CATALOG.stream().filter(d -> d.key().equals(key)).findFirst()
+        Definition def = CATALOG.stream().filter(d -> d.key().equals(key)).findFirst()
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid report type selected."));
+        if (ORGANISATION_WIDE.contains(key) && !studentScope.current().all()) {
+            throw com.rahbar.security.Access.forbidden("This report covers the whole organisation and isn't available for your role.");
+        }
+        return def;
     }
 
     /** Report rows with sponsors' details blanked unless the user may see them (see SponsorPrivacy). */
@@ -178,35 +231,42 @@ public class ReportCatalogService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "The 'to' date cannot be before the 'from' date.");
         }
         DateRange range = new DateRange(from, to);
-        return switch (key) {
-            case "applications" -> applications(range);
-            case "applications_by_status" -> applicationsByStatus(range);
-            case "interviews" -> interviews(range);
-            case "grantees" -> students(false, false);
-            case "students_without_sponsor" -> students(true, false);
-            case "students_without_bank" -> students(false, true);
-            case "student_progress" -> studentProgress(range);
-            case "sponsors_convenors" -> sponsors();
-            case "sponsors_by_chapter" -> sponsorsByChapter();
-            case "payments" -> payments(range, null);
-            case "pending_payments" -> payments(range, "pending");
-            case "payments_by_month" -> paymentsByMonth(range);
-            case "payments_by_sponsor" -> paymentsBySponsor(range);
-            case "payment_dues" -> paymentReminderService.dues();
-            case "payment_schedules" -> paymentSchedules();
-            case "institutions_courses" -> institutionsCourses();
-            case "students_by_institution" -> studentsByInstitution();
-            case "students_by_course" -> studentsByCourse();
-            case "students_by_chapter" -> studentsBy(u -> ServiceSupport.chapterLabel(u.getChapterName()), "chapter");
-            case "students_by_study_status" -> studentsBy(u -> StudyStatus.label(u.getStudyStatus()), "study_status");
-            case "students_by_year" -> studentsBy(u -> u.getYear() == null ? "Not set" : String.valueOf(u.getYear()), "academic_year");
-            case "applications_by_course" -> applicationsBy(GranteeDetails::getCourseApplied, "course_applied", range);
-            case "applications_by_rcc" -> applicationsBy(GranteeDetails::getRccName, "rcc_center", range);
-            case "rcc_centers" -> rccCenters();
-            case "users_by_role" -> usersByRole();
-            case "activity_log" -> activityLog(from, to);
-            default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid report type selected.");
-        };
+        SCOPE.set(studentScope.current());
+        try {
+            return switch (key) {
+                case "applications" -> applications(range);
+                case "applications_by_status" -> applicationsByStatus(range);
+                case "interviews" -> interviews(range);
+                case "grantees" -> students(false, false);
+                case "students_without_sponsor" -> students(true, false);
+                case "students_without_bank" -> students(false, true);
+                case "student_progress" -> studentProgress(range);
+                case "sponsors_convenors" -> sponsors();
+                case "sponsors_by_chapter" -> sponsorsByChapter();
+                case "payments" -> payments(range, null);
+                case "pending_payments" -> payments(range, "pending");
+                case "payments_by_month" -> paymentsByMonth(range);
+                case "payments_by_sponsor" -> paymentsBySponsor(range);
+                case "payment_dues" -> paymentReminderService.dues().stream()
+                        .filter(d -> seesStudent(((Number) d.get("student_id")).longValue())).toList();
+                case "payment_schedules" -> paymentSchedules();
+                case "institutions_courses" -> institutionsCourses();
+                case "students_by_institution" -> studentsByInstitution();
+                case "students_by_course" -> studentsByCourse();
+                case "students_by_chapter" -> studentsBy(u -> ServiceSupport.chapterLabel(u.getChapterName()), "chapter");
+                case "students_by_study_status" -> studentsBy(u -> StudyStatus.label(u.getStudyStatus()), "study_status");
+                case "students_by_year" -> studentsBy(u -> u.getYear() == null ? "Not set" : String.valueOf(u.getYear()), "academic_year");
+                case "applications_by_course" -> applicationsBy(GranteeDetails::getCourseApplied, "course_applied", range);
+                case "applications_by_rcc" -> applicationsBy(GranteeDetails::getRccName, "rcc_center", range);
+                case "rcc_centers" -> rccCenters();
+                case "users_by_role" -> usersByRole();
+                case "activity_log" -> activityLog(from, to);
+                default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid report type selected.");
+            };
+        } finally {
+            SCOPE.remove();
+            USERS.remove();
+        }
     }
 
     // ---------------------------------------------------------------- applications
@@ -217,7 +277,7 @@ public class ReportCatalogService {
         Map<Long, String> names = userNames();
         Map<Long, String> codes = userCodes();
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (GranteeDetails g : sorted(granteeDetailsRepository.findAll(), GranteeDetails::getGranteeDetailId)) {
+        for (GranteeDetails g : sorted(visibleApplications(), GranteeDetails::getGranteeDetailId)) {
             if (!range.contains(g.getCreatedAt())) continue;
             ApplicationStatus s = latest.get(g.getGranteeDetailId());
             Long sponsorId = g.getUserId() == null ? null : sponsorOf.get(g.getUserId());
@@ -248,7 +308,7 @@ public class ReportCatalogService {
     private List<Map<String, Object>> applicationsByStatus(DateRange range) {
         Map<Long, ApplicationStatus> latest = ServiceSupport.latestByApplication(applicationStatusRepository.findLatestPerApplication());
         Map<String, Long> counts = new TreeMap<>();
-        for (GranteeDetails g : granteeDetailsRepository.findAll()) {
+        for (GranteeDetails g : visibleApplications()) {
             if (!range.contains(g.getCreatedAt())) continue;
             ApplicationStatus s = latest.get(g.getGranteeDetailId());
             counts.merge(s == null || s.getStatus() == null ? "no status" : s.getStatus(), 1L, Long::sum);
@@ -261,7 +321,7 @@ public class ReportCatalogService {
 
     private List<Map<String, Object>> interviews(DateRange range) {
         List<Map<String, Object>> rows = new ArrayList<>();
-        granteeDetailsRepository.findAll().stream()
+        visibleApplications().stream()
                 .filter(g -> g.getInterviewAt() != null && range.contains(g.getInterviewAt()))
                 .sorted(Comparator.comparing(GranteeDetails::getInterviewAt))
                 .forEach(g -> rows.add(row(
@@ -291,7 +351,7 @@ public class ReportCatalogService {
         Map<Long, StudentInstitutionCourse> enrolment = enrolments();
 
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (User u : sorted(userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE), User::getUserId)) {
+        for (User u : sorted(visibleStudents(), User::getUserId)) {
             boolean active = !"Inactive".equalsIgnoreCase(u.getStatus());
             Long sponsorId = sponsorOf.get(u.getId());
             boolean hasSponsor = sponsorId != null && !sponsorId.equals(unassigned);
@@ -327,6 +387,7 @@ public class ReportCatalogService {
         List<Map<String, Object>> rows = new ArrayList<>();
         studentProgressRepository.findAll().stream()
                 .filter(p -> range.contains(p.getCreatedAt()))
+                .filter(p -> seesStudent(p.getGranteeId()))
                 .sorted(Comparator.comparing(StudentProgress::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder())))
                 .forEach(p -> {
                     Long sponsorId = sponsorOf.get(p.getGranteeId());
@@ -387,7 +448,7 @@ public class ReportCatalogService {
                 .collect(Collectors.groupingBy(Course::getInstitutionId, Collectors.counting()));
         Map<String, Tally> tallies = new HashMap<>();
         Tally unassigned = new Tally();
-        for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) {
+        for (User u : visibleStudents()) {
             StudentInstitutionCourse sic = enrolment.get(u.getId());
             Tally t = sic == null ? unassigned : tallies.computeIfAbsent(sic.getInstitutionId(), k -> new Tally());
             t.add(u, hasSponsor(sponsorOf, u.getId(), unassignedGrantor));
@@ -418,7 +479,7 @@ public class ReportCatalogService {
         institutionRepository.findAll().forEach(i -> institutionNames.put(i.getInstitutionId(), i.getInstitutionName()));
         Map<Long, Tally> tallies = new HashMap<>();
         Tally unassigned = new Tally();
-        for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) {
+        for (User u : visibleStudents()) {
             StudentInstitutionCourse sic = enrolment.get(u.getId());
             Tally t = sic == null ? unassigned : tallies.computeIfAbsent(sic.getCourseId(), k -> new Tally());
             t.add(u, hasSponsor(sponsorOf, u.getId(), unassignedGrantor));
@@ -448,7 +509,7 @@ public class ReportCatalogService {
         Map<Long, Long> sponsorOf = sponsorIdByStudent();
         Long unassignedGrantor = ServiceSupport.unassignedGrantorId(userRepository);
         Map<String, Tally> tallies = new HashMap<>();
-        for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) {
+        for (User u : visibleStudents()) {
             tallies.computeIfAbsent(label.apply(u), k -> new Tally()).add(u, hasSponsor(sponsorOf, u.getId(), unassignedGrantor));
         }
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -467,7 +528,7 @@ public class ReportCatalogService {
         Map<Long, ApplicationStatus> latest = ServiceSupport.latestByApplication(applicationStatusRepository.findLatestPerApplication());
         Map<String, long[]> counts = new HashMap<>();   // [applications, accepted/admitted, rejected]
         Map<String, String> display = new HashMap<>();  // first spelling seen for each case-insensitive key
-        for (GranteeDetails g : granteeDetailsRepository.findAll()) {
+        for (GranteeDetails g : visibleApplications()) {
             if (!range.contains(g.getCreatedAt())) continue;
             String value = field.apply(g);
             String shown = value == null || value.isBlank() ? "Not given" : value.trim().replaceAll("\\s+", " ");
@@ -497,6 +558,7 @@ public class ReportCatalogService {
         Map<Integer, String> roleNames = roleNames();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (User u : sorted(userRepository.findByRoleIdIn(ServiceSupport.SPONSOR_CONVENOR_ROLES), User::getName)) {
+            if (!scope().includesSponsor(u)) continue;
             rows.add(row(
                     "user_id", u.getUserId(),
                     "name", u.getName(),
@@ -537,7 +599,7 @@ public class ReportCatalogService {
         Map<Long, String> names = userNames();
         Map<Long, String> codes = userCodes();
         List<Map<String, Object>> rows = new ArrayList<>();
-        paymentRepository.findAll().stream()
+        visiblePayments().stream()
                 .filter(p -> range.contains(p.getPaymentDate()))
                 .filter(p -> onlyStatus == null || onlyStatus.equalsIgnoreCase(p.getStatus()))
                 .sorted(Comparator.comparing(Payment::getPaymentDate, Comparator.nullsLast(Comparator.reverseOrder())))
@@ -559,7 +621,7 @@ public class ReportCatalogService {
     private List<Map<String, Object>> paymentsByMonth(DateRange range) {
         Map<YearMonth, long[]> counts = new TreeMap<>(Comparator.reverseOrder());
         Map<YearMonth, BigDecimal> totals = new HashMap<>();
-        for (Payment p : paymentRepository.findAll()) {
+        for (Payment p : visiblePayments()) {
             if (p.getPaymentDate() == null || !"Paid".equalsIgnoreCase(p.getStatus()) || !range.contains(p.getPaymentDate())) continue;
             YearMonth month = YearMonth.from(p.getPaymentDate());
             counts.computeIfAbsent(month, m -> new long[1])[0]++;
@@ -575,7 +637,7 @@ public class ReportCatalogService {
         Map<Long, String> codes = userCodes();
         Map<Long, long[]> counts = new HashMap<>();
         Map<Long, BigDecimal> totals = paidTotalsByGrantor(range);
-        for (Payment p : paymentRepository.findAll()) {
+        for (Payment p : visiblePayments()) {
             if (!"Paid".equalsIgnoreCase(p.getStatus()) || !range.contains(p.getPaymentDate())) continue;
             counts.computeIfAbsent(p.getGrantorId(), g -> new long[1])[0]++;
         }
@@ -588,7 +650,7 @@ public class ReportCatalogService {
 
     private Map<Long, BigDecimal> paidTotalsByGrantor(DateRange range) {
         Map<Long, BigDecimal> totals = new HashMap<>();
-        for (Payment p : paymentRepository.findAll()) {
+        for (Payment p : visiblePayments()) {
             if (!"Paid".equalsIgnoreCase(p.getStatus()) || !range.contains(p.getPaymentDate()) || p.getGrantorId() == null) continue;
             totals.merge(p.getGrantorId(), p.getAmount() == null ? BigDecimal.ZERO : p.getAmount(), BigDecimal::add);
         }

@@ -40,6 +40,9 @@ import java.util.*;
  */
 @Service
 public class PaymentInstallmentService {
+    /** Chapter / RCC-scoped users only see their own students. */
+    private final com.rahbar.security.StudentScope studentScope;
+
 
     private static final Logger log = LoggerFactory.getLogger(PaymentInstallmentService.class);
 
@@ -63,7 +66,9 @@ public class PaymentInstallmentService {
                                      GrantorGranteeRepository grantorGranteeRepository, UserRepository userRepository,
                                      StudentInstitutionCourseRepository studentCourseRepository,
                                      PaymentScheduleRepository paymentScheduleRepository, PaymentRepository paymentRepository,
-                                     org.springframework.transaction.PlatformTransactionManager transactionManager) {
+                                     org.springframework.transaction.PlatformTransactionManager transactionManager,
+                                     com.rahbar.security.StudentScope studentScope) {
+        this.studentScope = studentScope;
         this.installmentRepository = installmentRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
         this.userRepository = userRepository;
@@ -305,9 +310,12 @@ public class PaymentInstallmentService {
      */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> sponsorOverview(Long sponsorId) {
+        studentScope.requireSponsor(sponsorId);
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
         LocalDate today = LocalDate.now();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (User s : userRepository.findGranteesOf(sponsorId)) {
+            if (!scope.includes(s)) continue;
             List<PaymentInstallment> mine = installmentRepository.findByGranteeIdOrderByInstallmentNoAsc(s.getId());
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("student_id", s.getId());
@@ -329,7 +337,9 @@ public class PaymentInstallmentService {
 
     /** Builds (or brings up to date) the installments of every student mapped to the sponsor; paid ones never change. */
     public Map<String, Object> generateForSponsor(Long sponsorId) {
-        List<User> students = userRepository.findGranteesOf(sponsorId);
+        studentScope.requireSponsor(sponsorId);
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        List<User> students = userRepository.findGranteesOf(sponsorId).stream().filter(scope::includes).toList();
         int before = 0, after = 0, ready = 0;
         for (User s : students) {
             before += installmentRepository.findByGranteeIdOrderByInstallmentNoAsc(s.getId()).size();
@@ -362,17 +372,12 @@ public class PaymentInstallmentService {
      */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> search(String q, String status) {
-        if (Access.rccScoped()) throw Access.forbidden("Payment records are not available for RCC-scoped roles.");
-        Long chapterId = null;
-        if (Access.chapterScoped()) {
-            chapterId = Access.current().getUser().getChapterId();
-            if (chapterId == null) throw new ApiException(HttpStatus.BAD_REQUEST, "You are not linked to a chapter.");
-        }
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current(); // chapter / RCC-scoped: own students only
+        Map<Long, User> users = scope.all() ? Map.of() : studentScope.usersById();
         List<Map<String, Object>> rows = rows(installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc(), true);
         String text = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
-        Long chapter = chapterId;
         return rows.stream()
-                .filter(r -> chapter == null || chapter.equals(r.get("student_chapter_id")))
+                .filter(r -> scope.includesId((Long) r.get("student_id"), users))
                 .filter(r -> status == null || status.isBlank() || status.equalsIgnoreCase((String) r.get("status")))
                 .filter(r -> text.isEmpty() || java.util.stream.Stream.of("student_name", "student_code", "sponsor_name", "sponsor_code")
                         .anyMatch(k -> String.valueOf(r.get(k)).toLowerCase(Locale.ROOT).contains(text)))
