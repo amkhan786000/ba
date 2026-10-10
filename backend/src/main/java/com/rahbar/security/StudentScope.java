@@ -116,6 +116,11 @@ public class StudentScope {
             return this == NONE;
         }
 
+        /** The RCC center of an RCC-scoped user (null otherwise). */
+        public Long rccCenterId() {
+            return rccCenterId;
+        }
+
         /** "your chapter" / "your RCC center", for messages. */
         public String label() {
             return chapterId != null ? "your chapter" : rccCenterId != null ? "your RCC center" : "your area";
@@ -125,7 +130,7 @@ public class StudentScope {
             if (all()) return true;
             if (none() || student == null) return false;
             if (chapterId != null) return chapterId.equals(student.getChapterId());
-            return rccName.equals(rccOf(student.getId()));
+            return rccCenterId.equals(student.getRccCenterId()) || rccName.equals(rccOf(student.getId()));
         }
 
         public boolean includesId(Long studentId, Map<Long, User> users) {

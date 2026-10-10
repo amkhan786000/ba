@@ -125,6 +125,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
             <div *ngIf="tab === 'profile'">
               <div class="row">
                 <div class="col-md-6 form-group"><label>Full Name</label><input type="text" class="form-control" [(ngModel)]="edit.name" [disabled]="!editing"></div>
+                <div class="col-md-6 form-group"><label>Reference ID</label><input type="text" class="form-control" [(ngModel)]="edit.refId" [disabled]="!editing" placeholder="Not assigned yet"></div>
                 <div class="col-md-6 form-group"><label>Email</label><input type="email" class="form-control" [(ngModel)]="edit.email" [disabled]="!editing"></div>
                 <div class="col-md-6 form-group"><label>Phone</label><input type="text" class="form-control" [(ngModel)]="edit.phone" [disabled]="!editing"></div>
               </div>
@@ -561,7 +562,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
         const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
         this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null };
         this.edit = {
-          name: s(p['name']), email: s(p['email']), phone: s(p['phone']),
+          name: s(p['name']), refId: s(p['user_id']), email: s(p['email']), phone: s(p['phone']),
           fatherName: s(p['father_name']), motherName: s(p['mother_name']), address: s(p['address']),
           fatherProfession: s(p['father_profession']), motherProfession: s(p['mother_profession']),
           fatherMobile: s(p['father_mobile']), motherMobile: s(p['mother_mobile']), averageAnnualSalary: s(p['average_annual_salary']),
@@ -604,7 +605,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   saveProfile(): void {
     const e = this.edit;
     const body: Record<string, unknown> = {
-      name: e['name'], email: e['email'], phone: e['phone'],
+      name: e['name'], refId: e['refId'], email: e['email'], phone: e['phone'],
       rccName: this.ba.rccName, sponsorId: this.ba.sponsorId, chapterId: this.ba.chapterId,
       fatherName: e['fatherName'], motherName: e['motherName'], address: e['address'],
       fatherProfession: e['fatherProfession'], motherProfession: e['motherProfession'],

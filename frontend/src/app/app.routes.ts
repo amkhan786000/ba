@@ -56,6 +56,7 @@ import { AdminEmailTemplateEditComponent } from './admin/admin-email-template-ed
 import { AdminPaymentConfigEditComponent } from './admin/admin-payment-config-edit.component';
 import { AdminInterviewRankingComponent } from './admin/admin-interview-ranking.component';
 import { AdminAlumniComponent } from './admin/admin-alumni.component';
+import { AdminRccStudentsComponent } from './admin/admin-rcc-students.component';
 import { StudentAlumniComponent } from './student/student-alumni.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
 import { TrackApplicationComponent } from './public/track.component';
@@ -126,6 +127,7 @@ export const routes: Routes = [
       { path: 'applications', component: AdminApplicationsComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
       { path: 'applications/ranking', component: AdminInterviewRankingComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
       { path: 'alumni', component: AdminAlumniComponent, canActivate: [permissionGuard], data: { permission: 'ALUMNI' } },
+      { path: 'rcc-students', component: AdminRccStudentsComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'applications/:id', component: AdminApplicationDetailsComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } }
     ]
   },

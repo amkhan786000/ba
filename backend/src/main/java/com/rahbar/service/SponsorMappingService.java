@@ -123,10 +123,10 @@ public class SponsorMappingService {
         User sponsor = userRepository.findById(grantorId).orElse(null);
         if (student == null || !realSponsor(sponsor)) return;
         notificationService.notify(grantorId, "New student mapped to you",
-                student.getName() + " (" + student.getUserId() + ") is now one of your sponsored students."
+                student.getName() + " (" + ServiceSupport.refOf(student) + ") is now one of your sponsored students."
                         + " You can see their payment schedule on your Payments page.",
                 NotificationService.MAPPING, Integer.valueOf(5).equals(sponsor.getRoleId()) ? "/sponsor/dashboard" : null,
-                EmailType.SPONSOR_STUDENT_MAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", student.getUserId()));
+                EmailType.SPONSOR_STUDENT_MAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", ServiceSupport.refOf(student)));
         notificationService.notify(granteeId, "You have a sponsor",
                 sponsor.getName() + " is now your sponsor. You can see your payment schedule on your Payments page.",
                 NotificationService.MAPPING, "/student/dashboard",
@@ -141,11 +141,11 @@ public class SponsorMappingService {
         if (student == null || !realSponsor(previous)) return;
         boolean moved = currentId != null && userRepository.findById(currentId).filter(this::realSponsor).isPresent();
         notificationService.notify(previousId, "Student no longer mapped to you",
-                student.getName() + " (" + student.getUserId() + ") is no longer one of your sponsored students"
+                student.getName() + " (" + ServiceSupport.refOf(student) + ") is no longer one of your sponsored students"
                         + (moved ? "; another sponsor has taken over." : ".")
                         + " Installments you already paid stay in your payment history.",
                 NotificationService.MAPPING, Integer.valueOf(5).equals(previous.getRoleId()) ? "/sponsor/dashboard" : null,
-                EmailType.SPONSOR_STUDENT_UNMAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", student.getUserId()));
+                EmailType.SPONSOR_STUDENT_UNMAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", ServiceSupport.refOf(student)));
         if (!moved) {
             notificationService.notify(granteeId, "Sponsor changed",
                     "You are currently not mapped to a sponsor. The office will let you know when a new sponsor is assigned.",

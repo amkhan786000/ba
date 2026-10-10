@@ -154,13 +154,13 @@ public class StudentReminderService {
             LocalDate from = windowStart(dates, i);
             for (User u : students) {
                 if (uploadedSince(uploads.get(u.getId()), from)) continue;
-                if (soon && notificationService.notifyOnce("progress:upcoming:" + u.getUserId() + ":" + due, u.getId(),
+                if (soon && notificationService.notifyOnce("progress:upcoming:" + ServiceSupport.refOf(u) + ":" + due, u.getId(),
                         "Progress report due " + due.format(DAY),
                         "Please upload your progress report (" + d.getTitle() + ") by " + due.format(DAY) + "."
                                 + (d.getNote() == null ? "" : " " + d.getNote()),
                         NotificationService.REMINDER, "/student/progress", EmailType.PROGRESS_DUE_SOON,
                         ServiceSupport.vars("title", d.getTitle(), "due_date", due.format(DAY), "note", d.getNote()))) upcoming++;
-                if (late && notificationService.notifyOnce("progress:overdue:" + u.getUserId() + ":" + due, u.getId(),
+                if (late && notificationService.notifyOnce("progress:overdue:" + ServiceSupport.refOf(u) + ":" + due, u.getId(),
                         "Progress report overdue",
                         "Your progress report (" + d.getTitle() + ") was due on " + due.format(DAY)
                                 + ". Please upload it as soon as possible.",
@@ -175,7 +175,7 @@ public class StudentReminderService {
         String month = today.toString().substring(0, 7);
         for (User u : students) {
             if (withBank.contains(u.getId())) continue;
-            if (notificationService.notifyOnce("bank:missing:" + u.getUserId() + ":" + month, u.getId(),
+            if (notificationService.notifyOnce("bank:missing:" + ServiceSupport.refOf(u) + ":" + month, u.getId(),
                     "Please add your bank details",
                     "We don't have your bank details yet, so payments can't be sent to you. "
                             + "Please add them on your Payments page.",

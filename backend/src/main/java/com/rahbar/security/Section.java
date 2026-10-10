@@ -42,7 +42,12 @@ public enum Section {
     /** The wording of every kind of email. EDIT adds / changes templates; only the Super Admin can delete one. */
     EMAIL_TEMPLATES("Email templates"),
     /** Graduated students and what they do now. */
-    ALUMNI("Alumni");
+    ALUMNI("Alumni"),
+    /**
+     * Students studying at an RCC / coaching center: their personal and family details. With "own RCC center"
+     * scope (coaching center lead) only their center's students; EDIT adds and updates them.
+     */
+    RCC_STUDENTS("Coaching center students");
 
     public enum Level { VIEW, EDIT }
 
