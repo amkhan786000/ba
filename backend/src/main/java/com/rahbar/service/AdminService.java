@@ -62,6 +62,8 @@ public class AdminService {
     private final EmailService emailService;
     private final StudentStatusHistoryRepository statusHistoryRepository;
     private final PaymentInstallmentService installmentService;
+    /** Chapter / RCC-scoped users only see their own students (see security.StudentScope). */
+    private final com.rahbar.security.StudentScope studentScope;
     private final com.rahbar.security.SponsorPrivacy sponsorPrivacy;
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
@@ -83,7 +85,9 @@ public class AdminService {
                         FileStorageService fileStorageService, EmailService emailService,
                         com.rahbar.security.SponsorPrivacy sponsorPrivacy,
                         StudentStatusHistoryRepository statusHistoryRepository,
-                        PaymentInstallmentService installmentService) {
+                        PaymentInstallmentService installmentService,
+                        com.rahbar.security.StudentScope studentScope) {
+        this.studentScope = studentScope;
         this.installmentService = installmentService;
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
@@ -519,9 +523,24 @@ public class AdminService {
 
     /** One page of applications (newest first) with their latest status; filters are optional. */
     public Map<String, Object> applications(int page, int size, String name, String status, String rcc) {
-        org.springframework.data.domain.Page<GranteeDetails> result = granteeDetailsRepository.searchApplications(
-                likePattern(name), likePattern(rcc), isBlank(status) ? null : status.trim().toLowerCase(Locale.ROOT),
-                pageRequest(page, size, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "granteeDetailId")));
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        org.springframework.data.domain.Sort newest = org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "granteeDetailId");
+        org.springframework.data.domain.Page<GranteeDetails> result;
+        if (scope.all()) {
+            result = granteeDetailsRepository.searchApplications(likePattern(name), likePattern(rcc),
+                    isBlank(status) ? null : status.trim().toLowerCase(Locale.ROOT), pageRequest(page, size, newest));
+        } else {
+            // Scoped (chapter / RCC) users: only their area's applications, paged here.
+            Map<Long, User> users = usersById();
+            List<GranteeDetails> visible = granteeDetailsRepository.searchApplications(likePattern(name), likePattern(rcc),
+                            isBlank(status) ? null : status.trim().toLowerCase(Locale.ROOT),
+                            org.springframework.data.domain.PageRequest.of(0, Integer.MAX_VALUE, newest)).getContent().stream()
+                    .filter(g -> scope.includesApplication(g, users)).toList();
+            org.springframework.data.domain.PageRequest req = pageRequest(page, size, newest);
+            int from = (int) Math.min(req.getOffset(), visible.size());
+            int to = Math.min(from + req.getPageSize(), visible.size());
+            result = new org.springframework.data.domain.PageImpl<>(visible.subList(from, to), req, visible.size());
+        }
         List<Long> ids = result.getContent().stream().map(GranteeDetails::getGranteeDetailId).toList();
         Map<Long, ApplicationStatus> latest = ids.isEmpty() ? Map.of()
                 : latestByApplication(applicationStatusRepository.findLatestFor(ids));
@@ -537,6 +556,28 @@ public class AdminService {
         return pageBody(result, rows);
     }
 
+    /** Users by users.id (for scope checks on many rows). */
+    private Map<Long, User> usersById() {
+        Map<Long, User> users = new HashMap<>();
+        userRepository.findAll().forEach(u -> users.put(u.getId(), u));
+        return users;
+    }
+
+    /** A sponsor the signed-in user may see (chapter scope: their chapter's sponsors), else 404. */
+    private User requireVisibleSponsor(Long sponsorId) {
+        User u = requireUser(userRepository, sponsorId, "Sponsor not found");
+        if (!studentScope.current().includesSponsor(u)) throw new ApiException(HttpStatus.NOT_FOUND, "Sponsor not found");
+        return u;
+    }
+
+    /** Keeps the rows whose "id" (users.id) is a student the signed-in user may see. */
+    private List<Map<String, Object>> visibleStudentRows(List<Map<String, Object>> rows) {
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        if (scope.all()) return rows;
+        Map<Long, User> users = usersById();
+        return rows.stream().filter(r -> scope.includesId(toLong(r.get("id")), users)).toList();
+    }
+
     public void updateApplicationStatus(Long granteeDetailId, String status, String comments) {
         applicationService.updateStatus(granteeDetailId, status, comments);
     }
@@ -544,10 +585,11 @@ public class AdminService {
     // ------------------------------------------------------------------ manage students
 
     public List<Map<String, Object>> manageStudents() {
-        return userRepository.findStudentOverview();
+        return visibleStudentRows(userRepository.findStudentOverview());
     }
 
     public void assignStudentCourse(Long userId, String institutionId, Long courseId) {
+        studentScope.requireStudent(userId);
         if (!courseRepository.existsByCourseIdAndInstitutionId(courseId, institutionId)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid course-institution combination");
         }
@@ -582,8 +624,11 @@ public class AdminService {
 
     /** Active coordinators / convenors / sponsors with their student count; contact info hidden when asked. */
     public List<Map<String, Object>> sponsorships(boolean hideContactInfo) {
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        Map<Long, User> users = scope.all() ? Map.of() : usersById();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Map<String, Object> r : userRepository.findActiveSponsorships()) {
+            if (!scope.all() && !scope.includesSponsor(users.get(toLong(r.get("id"))))) continue;
             Map<String, Object> row = new LinkedHashMap<>(r);
             if (hideContactInfo) {
                 row.remove("email");
@@ -595,18 +640,19 @@ public class AdminService {
     }
 
     public Map<String, Object> sponsorMappingScreen(Long sponsorId, boolean hideContactInfo) {
-        Map<String, Object> sponsor = Rows.pick(requireUser(userRepository, sponsorId, "Sponsor not found"),
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        Map<String, Object> sponsor = Rows.pick(requireVisibleSponsor(sponsorId),
                 "id", "user_id", "name", "email", "chapter_id", "chapter_name");
         if (hideContactInfo) sponsor.remove("email");
 
         List<User> mapped = new ArrayList<>(userRepository.findGranteesOf(sponsorId).stream()
-                .filter(u -> "active".equalsIgnoreCase(u.getStatus())).toList());
+                .filter(u -> "active".equalsIgnoreCase(u.getStatus()) && scope.includes(u)).toList());
         mapped.sort(Comparator.comparing(User::getName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sponsor", sponsor);
         result.put("mappedStudents", Rows.pickAll(mapped, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name"));
-        result.put("availableStudents", userRepository.findStudentsAvailableFor(sponsorId));
+        result.put("availableStudents", visibleStudentRows(userRepository.findStudentsAvailableFor(sponsorId)));
         return result;
     }
 
@@ -614,6 +660,8 @@ public class AdminService {
         if (studentIds == null || studentIds.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please select at least one student.");
         }
+        requireVisibleSponsor(sponsorId);
+        for (Long studentId : studentIds) studentScope.requireStudent(studentId);
         for (Long studentId : studentIds) {
             sponsorMappingService.map(studentId, sponsorId, "Accepted", false);
         }
@@ -624,17 +672,17 @@ public class AdminService {
     /** Student directory page (DataTables shape: recordsTotal, recordsFiltered, data). */
     public Map<String, Object> listStudents(int start, int length, String search, String institutionId, Long courseId) {
         String pattern = isBlank(search) ? null : "%" + search.trim() + "%";
-        List<Map<String, Object>> filtered = userRepository.searchStudentDirectory(
-                isBlank(institutionId) ? null : institutionId, courseId, pattern);
+        List<Map<String, Object>> filtered = visibleStudentRows(userRepository.searchStudentDirectory(
+                isBlank(institutionId) ? null : institutionId, courseId, pattern));
         int from = Math.min(Math.max(start, 0), filtered.size());
         int to = Math.min(from + Math.max(length, 0), filtered.size());
-        return Map.of("recordsTotal", userRepository.countByRoleId(STUDENT_ROLE),
+        return Map.of("recordsTotal", studentScope.current().all() ? userRepository.countByRoleId(STUDENT_ROLE) : (long) filtered.size(),
                 "recordsFiltered", (long) filtered.size(),
                 "data", new ArrayList<>(filtered.subList(from, to)));
     }
 
     public Map<String, Object> studentDetails(Long userId) {
-        User user = requireUser(userRepository, userId, "Student not found");
+        User user = studentScope.requireStudent(userId);
         GranteeDetails gd = granteeDetailsRepository.findFirstByUserIdOrderByGranteeDetailIdAsc(userId).orElse(null);
 
         Map<String, Object> profile = new LinkedHashMap<>();
@@ -681,6 +729,7 @@ public class AdminService {
 
     /** Partial update of a student's account, family details, bank details and course (only the fields sent). */
     public void updateStudent(Long userId, Map<String, Object> data) {
+        studentScope.requireStudent(userId);
         userRepository.findById(userId).ifPresent(user -> {
             boolean changed = false;
             if (data.get("name") != null) { user.setName(str(data.get("name"))); changed = true; }
@@ -790,7 +839,7 @@ public class AdminService {
      */
     @Transactional
     public void setStudyStatus(Long userId, String status, String date, String note) {
-        User user = requireUser(userRepository, userId, "Student not found");
+        User user = studentScope.requireStudent(userId);
         if (!Integer.valueOf(STUDENT_ROLE).equals(user.getRoleId())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Only students have a study status.");
         }
@@ -816,6 +865,7 @@ public class AdminService {
     /** deactivate / activate / unmap (from sponsor). Users are never deleted: deactivate them instead. */
     @Transactional
     public void studentAction(Long userId, String action) {
+        studentScope.requireStudent(userId);
         switch (action == null ? "" : action) {
             case "deactivate" -> setStatus(userId, "Inactive");
             case "activate" -> setStatus(userId, "Active");
@@ -1077,16 +1127,17 @@ public class AdminService {
     }
 
     public Map<String, Object> sponsorDetails(Long userId) {
-        Map<String, Object> profile = Rows.pick(requireUser(userRepository, userId, "Sponsor not found"),
+        Map<String, Object> profile = Rows.pick(requireVisibleSponsor(userId),
                 "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name", "status");
-        List<User> students = new ArrayList<>(userRepository.findGranteesOf(userId));
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        List<User> students = new ArrayList<>(userRepository.findGranteesOf(userId).stream().filter(scope::includes).toList());
         students.sort(Comparator.comparing(User::getName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
         return Map.of("profile", profile,
                 "students", Rows.pickAll(students, "id", "user_id", "name", "email", "phone", "status"));
     }
 
     public void updateSponsor(Long userId, Map<String, Object> data) {
-        User user = requireUser(userRepository, userId, "Sponsor not found");
+        User user = requireVisibleSponsor(userId);
         boolean hidden = hidesDetailsOf(user); // the editor saw blanks: keep the real details
         if (data.get("name") != null) user.setName(str(data.get("name")));
         if (!hidden && data.get("email") != null) user.setEmail(str(data.get("email")));
@@ -1101,11 +1152,7 @@ public class AdminService {
     public String recordPayment(String actionType, Long paymentId, Long granteeId, BigDecimal amount,
                                 String paymentDate, String status, MultipartFile receipt, Long installmentId) {
         boolean create = "create".equals(actionType);
-        if (granteeId != null && com.rahbar.security.Access.chapterScoped()) {
-            Long mine = com.rahbar.security.Access.current().getUser().getChapterId();
-            Long theirs = userRepository.findById(granteeId).map(User::getChapterId).orElse(null);
-            if (mine == null || !mine.equals(theirs)) throw com.rahbar.security.Access.forbidden("You can only record payments for your own chapter's students.");
-        }
+        if (granteeId != null) studentScope.requireStudent(granteeId);
         if (create) installmentService.requireUnpaid(installmentId, granteeId, null);
         Payment payment;
         if (create) {

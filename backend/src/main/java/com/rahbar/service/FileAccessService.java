@@ -1,5 +1,11 @@
 package com.rahbar.service;
 
+import com.rahbar.entity.GranteeDetails;
+import com.rahbar.repository.GranteeDetailsRepository;
+import com.rahbar.security.StudentScope;
+import java.util.ArrayList;
+import java.util.Map;
+
 import com.rahbar.entity.User;
 import com.rahbar.exception.ApiException;
 import com.rahbar.security.Access;
@@ -12,7 +18,8 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Who may open an uploaded file. Staff (every signed-in role other than sponsor and student) may open any file.
+ * Who may open an uploaded file. Staff (every signed-in role other than sponsor and student) may open any file,
+ * except chapter / RCC-scoped staff, who may only open their own students' files.
  * A student may open receipts / proofs of their own payments, their own progress reports and their own
  * application documents. A sponsor may open receipts / proofs of payments they made and the progress reports
  * of the students mapped to them.
@@ -25,7 +32,13 @@ public class FileAccessService {
     private final JdbcTemplate jdbc;
     private final FileStorageService fileStorageService;
 
-    public FileAccessService(JdbcTemplate jdbc, FileStorageService fileStorageService) {
+    private final StudentScope studentScope;
+    private final GranteeDetailsRepository granteeDetailsRepository;
+
+    public FileAccessService(JdbcTemplate jdbc, FileStorageService fileStorageService, StudentScope studentScope,
+                             GranteeDetailsRepository granteeDetailsRepository) {
+        this.studentScope = studentScope;
+        this.granteeDetailsRepository = granteeDetailsRepository;
         this.jdbc = jdbc;
         this.fileStorageService = fileStorageService;
     }
@@ -42,10 +55,10 @@ public class FileAccessService {
 
     private boolean mayRead(User me, String file) {
         Integer role = me.getRoleId();
-        if (role == null || (role != SPONSOR && role != STUDENT)) return true; // staff
-        Long id = me.getId();
         // Stored paths may carry a folder (legacy rows): match on the file name at the end.
         String like = "%/" + file, likeWin = "%\\\\" + file;
+        if (role == null || (role != SPONSOR && role != STUDENT)) return staffMayRead(file, like, likeWin);
+        Long id = me.getId();
         if (role == STUDENT) {
             return exists("""
                 select 1 from payments where grantee_id = ? and (receipt_url in (?, ?) or student_proof_url in (?, ?)
@@ -66,7 +79,38 @@ public class FileAccessService {
                 || exists("""
                 select 1 from student_progress p join grantor_grantees gg on gg.grantee_id = p.grantee_id
                  where gg.grantor_id = ? and (p.file_path = ? or p.file_path like ? or p.file_path like ?)
+                """, id, file, like, likeWin)
+                // a past student's reports, uploaded while this sponsor was their sponsor
+                || exists("""
+                select 1 from student_progress p join sponsor_mapping_history h on h.grantee_id = p.grantee_id
+                 where h.grantor_id = ? and (h.ended_at is null or p.created_at <= h.ended_at)
+                   and (p.file_path = ? or p.file_path like ? or p.file_path like ?)
                 """, id, file, like, likeWin);
+    }
+
+    /**
+     * Staff: everything, except chapter / RCC-scoped users (e.g. a Chapter Lead), who may only open files of their own
+     * students: payment receipts / proofs, progress reports and application documents.
+     */
+    private boolean staffMayRead(String file, String like, String likeWin) {
+        StudentScope.Scope scope = studentScope.current();
+        if (scope.all()) return true;
+        if (scope.none()) return false;
+        Map<Long, User> users = studentScope.usersById();
+        List<Long> students = new ArrayList<>(jdbc.queryForList("""
+                select grantee_id from payments where receipt_url in (?, ?) or student_proof_url in (?, ?)
+                  or receipt_url like ? or student_proof_url like ? or receipt_url like ? or student_proof_url like ?
+                """, Long.class, file, "uploads/" + file, file, "uploads/" + file, like, like, likeWin, likeWin));
+        students.addAll(jdbc.queryForList("select grantee_id from student_progress where file_path = ? or file_path like ? or file_path like ?",
+                Long.class, file, like, likeWin));
+        for (Long s : students) if (scope.includesId(s, users)) return true;
+        List<Long> apps = jdbc.queryForList("select grantee_detail_id from application_documents where file_path = ? or file_path like ? or file_path like ?",
+                Long.class, file, like, likeWin);
+        for (Long a : apps) {
+            GranteeDetails g = granteeDetailsRepository.findById(a).orElse(null);
+            if (g != null && scope.includesApplication(g, users)) return true;
+        }
+        return false;
     }
 
     private boolean exists(String sql, Object... args) {

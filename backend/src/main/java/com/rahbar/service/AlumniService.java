@@ -20,13 +20,18 @@ import java.util.*;
  */
 @Service
 public class AlumniService {
+    /** Chapter / RCC-scoped users only see their own students. */
+    private final com.rahbar.security.StudentScope studentScope;
+
 
     private final AlumniProfileRepository profileRepository;
     private final UserRepository userRepository;
     private final StudentInstitutionCourseRepository studentCourseRepository;
 
     public AlumniService(AlumniProfileRepository profileRepository, UserRepository userRepository,
-                         StudentInstitutionCourseRepository studentCourseRepository) {
+                         StudentInstitutionCourseRepository studentCourseRepository,
+                         com.rahbar.security.StudentScope studentScope) {
+        this.studentScope = studentScope;
         this.profileRepository = profileRepository;
         this.userRepository = userRepository;
         this.studentCourseRepository = studentCourseRepository;
@@ -35,9 +40,7 @@ public class AlumniService {
     /** Every graduate (chapter-scoped users: their chapter's), with their profile, and counts by current status. */
     @Transactional(readOnly = true)
     public Map<String, Object> list() {
-        Long chapterId = Access.chapterScoped() ? Access.current().getUser().getChapterId() : null;
-        if (Access.chapterScoped() && chapterId == null) throw new ApiException(HttpStatus.BAD_REQUEST, "You are not linked to a chapter.");
-        if (Access.rccScoped()) throw Access.forbidden("Alumni are not available for RCC-scoped roles.");
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current(); // chapter / RCC-scoped: own students only
         Map<Long, AlumniProfile> profiles = new HashMap<>();
         profileRepository.findAll().forEach(p -> profiles.put(p.getUserId(), p));
 
@@ -46,7 +49,7 @@ public class AlumniService {
             boolean graduated = StudyStatus.GRADUATED.equals(u.getStudyStatus());
             if (!graduated && !profiles.containsKey(u.getId())) continue;
             if (u.getMergedIntoId() != null) continue;
-            if (chapterId != null && !chapterId.equals(u.getChapterId())) continue;
+            if (!scope.includes(u)) continue;
             rows.add(row(u, profiles.get(u.getId())));
         }
         rows.sort(Comparator.comparing((Map<String, Object> r) -> String.valueOf(r.get("name")), String.CASE_INSENSITIVE_ORDER));
@@ -66,9 +69,7 @@ public class AlumniService {
     @Transactional
     public Map<String, Object> save(Long userId, Map<String, Object> body) {
         User u = requireStudent(userId);
-        if (Access.chapterScoped() && !Objects.equals(Access.current().getUser().getChapterId(), u.getChapterId())) {
-            throw Access.forbidden("You can only edit your own chapter's alumni.");
-        }
+        studentScope.requireStudent(userId);
         return row(u, apply(u, body));
     }
 

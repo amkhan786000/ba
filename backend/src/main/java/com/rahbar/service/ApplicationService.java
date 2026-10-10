@@ -41,11 +41,14 @@ public class ApplicationService {
     private final FileStorageService fileStorageService;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final com.rahbar.security.StudentScope studentScope;
 
     public ApplicationService(GranteeDetailsRepository granteeDetailsRepository,
                               ApplicationStatusRepository applicationStatusRepository,
                               ApplicationDocumentRepository documentRepository, FileStorageService fileStorageService,
-                              NotificationService notificationService, UserRepository userRepository) {
+                              NotificationService notificationService, UserRepository userRepository,
+                              com.rahbar.security.StudentScope studentScope) {
+        this.studentScope = studentScope;
         this.granteeDetailsRepository = granteeDetailsRepository;
         this.applicationStatusRepository = applicationStatusRepository;
         this.documentRepository = documentRepository;
@@ -54,9 +57,10 @@ public class ApplicationService {
         this.userRepository = userRepository;
     }
 
+    /** Staff access to an application: chapter / RCC-scoped users only reach their own area's (else 404). */
     private GranteeDetails require(Long applicationId) {
-        return granteeDetailsRepository.findById(applicationId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Application not found."));
+        return studentScope.requireApplication(granteeDetailsRepository.findById(applicationId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Application not found.")));
     }
 
     // ---------------------------------------------------------------- staff actions

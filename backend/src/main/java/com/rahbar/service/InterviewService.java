@@ -31,10 +31,13 @@ public class InterviewService {
     private final GranteeDetailsRepository granteeDetailsRepository;
     private final ApplicationStatusRepository applicationStatusRepository;
     private final UserRepository userRepository;
+    private final com.rahbar.security.StudentScope studentScope;
 
     public InterviewService(InterviewCriterionRepository criterionRepository, InterviewReviewRepository reviewRepository,
                             InterviewScoreRepository scoreRepository, GranteeDetailsRepository granteeDetailsRepository,
-                            ApplicationStatusRepository applicationStatusRepository, UserRepository userRepository) {
+                            ApplicationStatusRepository applicationStatusRepository, UserRepository userRepository,
+                            com.rahbar.security.StudentScope studentScope) {
+        this.studentScope = studentScope;
         this.criterionRepository = criterionRepository;
         this.reviewRepository = reviewRepository;
         this.scoreRepository = scoreRepository;
@@ -202,7 +205,11 @@ public class InterviewService {
         List<InterviewCriterion> criteria = criterionRepository.findAllByOrderBySortOrderAscNameAsc();
 
         Map<Long, GranteeDetails> apps = new HashMap<>();
-        granteeDetailsRepository.findAllById(byApp.keySet()).forEach(a -> apps.put(a.getGranteeDetailId(), a));
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        Map<Long, User> users = scope.all() ? Map.of() : studentScope.usersById();
+        granteeDetailsRepository.findAllById(byApp.keySet()).stream()
+                .filter(a -> scope.includesApplication(a, users)) // chapter / RCC-scoped: own area only
+                .forEach(a -> apps.put(a.getGranteeDetailId(), a));
         Map<Long, ApplicationStatus> latest = byApp.isEmpty() ? Map.of()
                 : ServiceSupport.latestByApplication(applicationStatusRepository.findLatestFor(new ArrayList<>(byApp.keySet())));
 
@@ -246,9 +253,9 @@ public class InterviewService {
     // ------------------------------------------------------------------------------------ helpers
 
     private void requireApplication(Long applicationId) {
-        if (applicationId == null || !granteeDetailsRepository.existsById(applicationId)) {
-            throw new ApiException(HttpStatus.NOT_FOUND, "Application not found.");
-        }
+        GranteeDetails g = applicationId == null ? null : granteeDetailsRepository.findById(applicationId).orElse(null);
+        if (g == null) throw new ApiException(HttpStatus.NOT_FOUND, "Application not found.");
+        studentScope.requireApplication(g);
     }
 
     private Map<Long, List<InterviewScore>> scoresByReview(List<InterviewReview> reviews) {

@@ -17,6 +17,8 @@ interface SponsorDashboard {
   sponsor: { name: string | null; email: string | null; phone: string | null; chapter_name: string | null };
   grantees: Grantee[];
   performanceByYear: BarDatum[];
+  /** Students this sponsor sponsored before (now with another sponsor or finished). */
+  pastStudents: { id: number; user_id: string; name: string; sponsored_from: string | null; sponsored_until: string | null; total_paid: number }[];
 }
 
 /** Port of templates/sponsor/dashboard.html (charts use real data instead of the template's sample numbers). */
@@ -86,6 +88,29 @@ interface SponsorDashboard {
               </table>
             </div>
             <app-pager *ngIf="filtered.length > 5" [total]="filtered.length" [page]="page" [pageSize]="5" (pageChange)="page = $event"></app-pager>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row" *ngIf="data?.pastStudents?.length">
+      <div class="col-12">
+        <div class="card">
+          <div class="card-body">
+            <h4 class="header-title card-header-title">Past Students</h4>
+            <p class="text-muted small">Students you sponsored before. Their payments and progress reports from your period stay visible to you.</p>
+            <div class="table-responsive">
+              <table class="table table-sm table-centered mb-0">
+                <thead><tr><th>Student</th><th>Sponsored</th><th class="text-right">You paid</th></tr></thead>
+                <tbody>
+                  <tr *ngFor="let p of data!.pastStudents">
+                    <td><span class="font-weight-bold d-block text-dark">{{ p.name }}</span><small class="text-muted">ID: {{ p.user_id }}</small></td>
+                    <td>{{ p.sponsored_from ? (p.sponsored_from | date: 'MMM yyyy') : '…' }} – {{ p.sponsored_until | date: 'MMM yyyy' }}</td>
+                    <td class="text-right">₹{{ p.total_paid | number: '1.0-2' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
