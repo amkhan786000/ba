@@ -365,7 +365,7 @@ public class AdminService {
         Map<Long, String> names = userNames(userRepository, schedules.stream().map(PaymentSchedule::getUpdatedBy).toList());
         List<Map<String, Object>> rows = new ArrayList<>();
         for (PaymentSchedule s : schedules) {
-            Map<String, Object> row = Rows.pick(s, "schedule_id", "amount", "year", "frequency_months", "updated_at");
+            Map<String, Object> row = Rows.pick(s, "schedule_id", "amount", "year", "frequency_months", "due_notice_days", "updated_at");
             row.put("updated_by_name", s.getUpdatedBy() == null ? null : names.get(s.getUpdatedBy()));
             rows.add(row);
         }
@@ -378,7 +378,7 @@ public class AdminService {
      * Amount of each installment for students of this session year, and how often one is due (every 3 or 4 months).
      * Unpaid installments of those students are rebuilt with the new values.
      */
-    public void saveSchedule(int year, BigDecimal amount, Integer frequencyMonths) {
+    public void saveSchedule(int year, BigDecimal amount, Integer frequencyMonths, Integer dueNoticeDays) {
         if (amount.signum() < 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Amount cannot be negative.");
         }
@@ -390,6 +390,9 @@ public class AdminService {
         schedule.setYear(year);
         schedule.setAmount(amount);
         schedule.setFrequencyMonths(frequency);
+        int notice = dueNoticeDays == null ? PaymentInstallmentService.DEFAULT_NOTICE_DAYS : dueNoticeDays;
+        if (notice < 0 || notice > 120) throw new ApiException(HttpStatus.BAD_REQUEST, "\"Show as due\" must be between 0 and 120 days before the due date.");
+        schedule.setDueNoticeDays(notice);
         schedule.setStatus(1);
         paymentScheduleRepository.saveAndFlush(schedule);
         installmentService.syncYear(year);

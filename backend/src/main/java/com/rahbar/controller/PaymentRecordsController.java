@@ -41,6 +41,20 @@ public class PaymentRecordsController {
         return body;
     }
 
+    /** Fee schedule of each student mapped to the sponsor (installments, or what is missing to build them). */
+    @GetMapping("/sponsors/{sponsorId}/fee-schedule")
+    @PreAuthorize("hasAuthority('PAYMENT_RECORDS:VIEW')")
+    public List<Map<String, Object>> sponsorFeeSchedule(@PathVariable Long sponsorId) {
+        return installmentService.sponsorOverview(sponsorId);
+    }
+
+    /** Generates / updates the fee schedules of the sponsor's students (paid installments are never changed). */
+    @PostMapping("/sponsors/{sponsorId}/fee-schedule")
+    @PreAuthorize("hasAuthority('PAYMENT_RECORDS:EDIT')")
+    public Map<String, Object> generateFeeSchedule(@PathVariable Long sponsorId) {
+        return installmentService.generateForSponsor(sponsorId);
+    }
+
     @GetMapping("/email-log")
     @PreAuthorize("hasAuthority('EMAIL_LOG:VIEW')")
     public Map<String, Object> emailLog(@RequestParam(required = false) String q,

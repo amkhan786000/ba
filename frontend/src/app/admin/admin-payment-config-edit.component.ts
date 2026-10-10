@@ -41,6 +41,17 @@ import { Schedule } from './admin-system-config.component';
                   </select>
                 </div>
               </div>
+              <div class="form-group">
+                <label for="notice">Show as "Due"</label>
+                <div class="input-group" style="max-width: 260px">
+                  <input type="number" class="form-control" id="notice" name="notice" min="0" max="120" [(ngModel)]="form.dueNoticeDays" required />
+                  <div class="input-group-append"><span class="input-group-text">days before</span></div>
+                </div>
+                <small class="text-muted">
+                  An installment shows as <strong>Due</strong> (red) this many days before its due date, and the sponsor gets a "due soon"
+                  reminder then. After the due date it shows as <strong>Overdue</strong>.
+                </small>
+              </div>
               <div class="alert alert-light border small" *ngIf="form.amount">
                 A student of {{ form.year || 'this year' }} on an 8-semester (4-year) course gets {{ 4 * 12 / form.frequency }} installments of
                 ₹{{ form.amount | number: '1.2-2' }}, one every {{ form.frequency }} months from their payment start date.
@@ -65,7 +76,7 @@ export class AdminPaymentConfigEditComponent implements OnInit {
   /** From the route parameter :year (absent on /admin/system-configuration/new). */
   @Input() year?: string;
 
-  form = { year: null as number | null, amount: null as number | null, frequency: 3 };
+  form = { year: null as number | null, amount: null as number | null, frequency: 3, dueNoticeDays: 30 };
   /** Years that have no config yet (for a new one): 5 years back to 5 years ahead. */
   freeYears: number[] = [];
   saving = false;
@@ -84,7 +95,7 @@ export class AdminPaymentConfigEditComponent implements OnInit {
         if (this.isEdit) {
           const s = r.schedules.find((x) => String(x.year) === this.year);
           if (!s) { this.error = `There is no payment config for ${this.year}.`; return; }
-          this.form = { year: s.year, amount: s.amount, frequency: s.frequency_months || 3 };
+          this.form = { year: s.year, amount: s.amount, frequency: s.frequency_months || 3, dueNoticeDays: s.due_notice_days ?? 30 };
         }
       },
       error: (e) => (this.error = errorText(e, 'Could not load the payment config.'))
@@ -96,7 +107,7 @@ export class AdminPaymentConfigEditComponent implements OnInit {
     this.saving = true;
     this.error = '';
     this.api.post<{ message: string }>('/admin/system-configuration',
-      { year: this.form.year, amount: this.form.amount, frequencyMonths: this.form.frequency }).subscribe({
+      { year: this.form.year, amount: this.form.amount, frequencyMonths: this.form.frequency, dueNoticeDays: this.form.dueNoticeDays }).subscribe({
       next: () => this.router.navigate(['/admin/system-configuration']),
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not save the payment config.'); }
     });

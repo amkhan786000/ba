@@ -46,7 +46,8 @@ interface Due {
         <div class="d-flex flex-column flex-md-row justify-content-between mb-3">
           <p class="text-muted mb-2 mb-md-0">
             From the installments created when each student was mapped to a sponsor (see Payment Records).
-            Reminders go out automatically every morning: once per overdue installment, and a week before the next one.
+            Reminders go out automatically every morning: once per overdue installment, and once when the next one becomes due
+            (the "show as due" days in Payment Config, 30 by default).
           </p>
           <input class="form-control" style="max-width: 260px" placeholder="Search student or sponsor" [(ngModel)]="q">
         </div>

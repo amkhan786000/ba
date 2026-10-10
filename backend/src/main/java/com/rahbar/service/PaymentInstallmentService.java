@@ -45,6 +45,9 @@ public class PaymentInstallmentService {
 
     public static final String PAID = "Paid";
     public static final String DUE = "Due";
+    public static final String OVERDUE = "Overdue";
+    /** Default "show as due" lead time when a Payment Config has none. */
+    public static final int DEFAULT_NOTICE_DAYS = 30;
     public static final String NOT_DUE = "Not Due";
 
     private final PaymentInstallmentRepository installmentRepository;
@@ -255,10 +258,25 @@ public class PaymentInstallmentService {
 
     // ------------------------------------------------------------------------------------ reading
 
-    /** Paid / Due / Not Due. */
-    public static String status(PaymentInstallment i, LocalDate today) {
+    /**
+     * Paid; Overdue once the due date has passed; Due from {@code noticeDays} before the due date until the due
+     * date itself; otherwise Not Due.
+     */
+    public static String status(PaymentInstallment i, LocalDate today, int noticeDays) {
         if (i.getPaymentId() != null) return PAID;
-        return i.getDueDate().isAfter(today) ? NOT_DUE : DUE;
+        if (i.getDueDate().isBefore(today)) return OVERDUE;
+        return i.getDueDate().isAfter(today.plusDays(noticeDays)) ? NOT_DUE : DUE;
+    }
+
+    /** "Show as due" lead time (days) per student, from the Payment Config of their session year. */
+    public Map<Long, Integer> noticeDays(Collection<Long> studentIds) {
+        Map<Integer, Integer> byYear = new HashMap<>();
+        paymentScheduleRepository.findAll().forEach(ps -> byYear.put(ps.getYear(),
+                ps.getDueNoticeDays() == null ? DEFAULT_NOTICE_DAYS : ps.getDueNoticeDays()));
+        Map<Long, Integer> out = new HashMap<>();
+        userRepository.findAllById(studentIds).forEach(u ->
+                out.put(u.getId(), u.getYear() == null ? DEFAULT_NOTICE_DAYS : byYear.getOrDefault(u.getYear(), DEFAULT_NOTICE_DAYS)));
+        return out;
     }
 
     /** A student's installments (all sponsors) as rows, with the payment that paid each one. */
@@ -279,6 +297,56 @@ public class PaymentInstallmentService {
         return installmentRepository.findByGrantorIdOrderByGranteeIdAscInstallmentNoAsc(sponsorId).stream()
                 .map(PaymentInstallment::getGranteeId).distinct()
                 .filter(id -> !currentStudentIds.contains(id)).toList();
+    }
+
+    /**
+     * Sponsor > Fee schedule: each student mapped to the sponsor with how many installments they have (paid / due)
+     * and, when the schedule can't be built, what is missing (e.g. no payment start date).
+     */
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> sponsorOverview(Long sponsorId) {
+        LocalDate today = LocalDate.now();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (User s : userRepository.findGranteesOf(sponsorId)) {
+            List<PaymentInstallment> mine = installmentRepository.findByGranteeIdOrderByInstallmentNoAsc(s.getId());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("student_id", s.getId());
+            row.put("student_code", s.getUserId());
+            row.put("student_name", s.getName());
+            row.put("session_year", s.getYear());
+            row.put("payment_start_date", s.getPaymentStartDate());
+            row.put("installments", mine.size());
+            row.put("paid", mine.stream().filter(i -> i.getPaymentId() != null).count());
+            int notice = noticeDays(List.of(s.getId())).getOrDefault(s.getId(), DEFAULT_NOTICE_DAYS);
+            row.put("due", mine.stream().filter(i -> DUE.equals(status(i, today, notice))).count());
+            row.put("overdue", mine.stream().filter(i -> OVERDUE.equals(status(i, today, notice))).count());
+            row.put("problem", plan(s).problem());
+            rows.add(row);
+        }
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> String.valueOf(r.get("student_name")), String.CASE_INSENSITIVE_ORDER));
+        return rows;
+    }
+
+    /** Builds (or brings up to date) the installments of every student mapped to the sponsor; paid ones never change. */
+    public Map<String, Object> generateForSponsor(Long sponsorId) {
+        List<User> students = userRepository.findGranteesOf(sponsorId);
+        int before = 0, after = 0, ready = 0;
+        for (User s : students) {
+            before += installmentRepository.findByGranteeIdOrderByInstallmentNoAsc(s.getId()).size();
+            tx.executeWithoutResult(t -> sync(s.getId()));
+            after += installmentRepository.findByGranteeIdOrderByInstallmentNoAsc(s.getId()).size();
+        }
+        List<Map<String, Object>> rows = sponsorOverview(sponsorId);
+        for (Map<String, Object> r : rows) if (r.get("problem") == null) ready++;
+        int blocked = rows.size() - ready;
+        String message = students.isEmpty() ? "No students are mapped to this sponsor."
+                : "Fee schedules are up to date for " + ready + " of " + rows.size() + " student(s)"
+                + (after > before ? " (" + (after - before) + " installment(s) created)" : "")
+                + (blocked > 0 ? ". " + blocked + " can't be built yet; see what is missing below." : ".");
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", message);
+        body.put("rows", rows);
+        return body;
     }
 
     /** Why a student has no (or no more) installments, or null when the schedule is complete. */
@@ -325,6 +393,7 @@ public class PaymentInstallmentService {
         paymentRepository.findAllById(paymentIds).forEach(p -> payments.put(p.getPaymentId(), p));
         Map<Long, User> users = new HashMap<>();
         if (withNames) userRepository.findAllById(userIds).forEach(u -> users.put(u.getId(), u));
+        Map<Long, Integer> notice = noticeDays(installments.stream().map(PaymentInstallment::getGranteeId).collect(java.util.stream.Collectors.toSet()));
 
         List<Map<String, Object>> out = new ArrayList<>();
         for (PaymentInstallment i : installments) {
@@ -333,7 +402,7 @@ public class PaymentInstallmentService {
             row.put("installment_no", i.getInstallmentNo());
             row.put("due_date", i.getDueDate());
             row.put("amount", i.getAmount());
-            row.put("status", status(i, today));
+            row.put("status", status(i, today, notice.getOrDefault(i.getGranteeId(), DEFAULT_NOTICE_DAYS)));
             row.put("student_id", i.getGranteeId());
             row.put("sponsor_id", i.getGrantorId());
             if (withNames) {

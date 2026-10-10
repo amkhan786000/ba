@@ -122,8 +122,10 @@ public class AdminController {
     public Map<String, String> saveSchedule(@RequestBody Map<String, Object> body) {
         int year = Integer.parseInt(String.valueOf(body.get("year")));
         Object frequency = body.get("frequencyMonths");
+        Object notice = body.get("dueNoticeDays");
         adminService.saveSchedule(year, new BigDecimal(String.valueOf(body.get("amount"))),
-                frequency == null || String.valueOf(frequency).isBlank() ? null : Integer.valueOf(String.valueOf(frequency)));
+                frequency == null || String.valueOf(frequency).isBlank() ? null : Integer.valueOf(String.valueOf(frequency)),
+                notice == null || String.valueOf(notice).isBlank() ? null : Integer.valueOf(String.valueOf(notice)));
         return Map.of("message", "Payment config for " + year + " saved. Unpaid installments of students from " + year + " were updated.");
     }
 
