@@ -733,6 +733,7 @@ public class AdminService {
         userRepository.findById(userId).ifPresent(user -> {
             boolean changed = false;
             if (data.get("name") != null) { user.setName(str(data.get("name"))); changed = true; }
+            if (data.get("refId") != null) { ServiceSupport.setRefId(userRepository, user, data.get("refId")); changed = true; }
             if (data.get("email") != null) { user.setEmail(str(data.get("email"))); changed = true; }
             if (data.get("phone") != null) { user.setPhone(str(data.get("phone"))); changed = true; }
             if (data.containsKey("chapterId")) { user.setChapterId(requireChapter(chapterRepository, data.get("chapterId"))); changed = true; }

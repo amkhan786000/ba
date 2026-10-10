@@ -15,8 +15,11 @@ public class User extends Modifiable {
     @Column(name = "id")
     private Long id;
 
-    /** Human-facing user code (e.g. STU-1001, REG-..., 1005): unique, but not the key other tables link to. */
-    @Column(name = "user_id", length = 50, nullable = false, unique = true)
+    /**
+     * Human-facing user code / reference ID (e.g. STU-1001, REG-..., 1005): unique, but not the key other tables link to.
+     * Empty for a student a coaching center lead added, until the office assigns one after their application.
+     */
+    @Column(name = "user_id", length = 50, unique = true)
     private String userId;
 
     @Column(name = "name", nullable = false)

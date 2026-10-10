@@ -65,6 +65,29 @@ final class ServiceSupport {
         return m;
     }
 
+    /**
+     * Sets a student's reference ID (users.user_id), which the office assigns after the application; students a
+     * coaching center lead adds have none until then. Blank leaves it as it is. 400 when another account has it.
+     */
+    static void setRefId(com.rahbar.repository.UserRepository users, com.rahbar.entity.User u, Object value) {
+        String ref = value == null ? "" : String.valueOf(value).trim();
+        if (ref.isEmpty() || ref.equals(u.getUserId())) return;
+        if (ref.length() > 50) throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "The reference ID can be at most 50 characters.");
+        if (!com.rahbar.security.Access.chapterScoped() && !com.rahbar.security.Access.rccScoped()) {
+            if (users.findByUserId(ref).filter(o -> !o.getId().equals(u.getId())).isPresent()) {
+                throw new ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "Reference ID " + ref + " is already used by another account.");
+            }
+            u.setUserId(ref);
+        } else {
+            throw com.rahbar.security.Access.forbidden("Only the office assigns reference IDs.");
+        }
+    }
+
+    /** A user's reference ID for messages and keys: users.user_id, or "#<id>" while none is assigned. */
+    static String refOf(com.rahbar.entity.User u) {
+        return u.getUserId() != null ? u.getUserId() : "#" + u.getId();
+    }
+
     static String str(Object v) {
         return v == null ? null : String.valueOf(v);
     }
