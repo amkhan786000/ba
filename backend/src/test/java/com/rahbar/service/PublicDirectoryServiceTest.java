@@ -3,8 +3,10 @@ package com.rahbar.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rahbar.entity.Chapter;
 import com.rahbar.entity.RccCenter;
+import com.rahbar.entity.User;
 import com.rahbar.repository.ChapterRepository;
 import com.rahbar.repository.RccCenterRepository;
+import com.rahbar.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** The public lists share names, descriptions / locations and lead names only. */
+/** The public lists share names, descriptions / locations and lead names only; students only as a count. */
 class PublicDirectoryServiceTest {
 
     private static Chapter chapter(long id, String name, boolean active) {
@@ -38,12 +40,22 @@ class PublicDirectoryServiceTest {
         return c;
     }
 
+    private final UserRepository users = mock(UserRepository.class);
+
     private PublicDirectoryService service(List<Chapter> chapters, List<RccCenter> centers) {
         ChapterRepository cr = mock(ChapterRepository.class);
         RccCenterRepository rr = mock(RccCenterRepository.class);
         when(cr.findAllByOrderByChapterNameAsc()).thenReturn(chapters);
         when(rr.findAll()).thenReturn(centers);
-        return new PublicDirectoryService(cr, rr);
+        return new PublicDirectoryService(cr, rr, users);
+    }
+
+    private static User user(long id, Long mergedInto) {
+        User u = new User();
+        u.setId(id);
+        u.setUserId("STU-" + id);
+        u.setMergedIntoId(mergedInto);
+        return u;
     }
 
     @Test
@@ -69,5 +81,12 @@ class PublicDirectoryServiceTest {
         assertEquals("Incharge hazaribagh", list.get(0).inchargeName());
         assertEquals("hazaribagh, Jharkhand", list.get(0).location());
         assertFalse(new ObjectMapper().writeValueAsString(list).contains("9999999999"));
+    }
+
+    @Test
+    void countsStudentsWithoutMergedDuplicates() {
+        // 4 was merged into 1
+        when(users.findByRoleId(6)).thenReturn(List.of(user(1, null), user(2, null), user(3, null), user(4, 1L)));
+        assertEquals(3, service(List.of(), List.of()).stats().students());
     }
 }
