@@ -21,6 +21,9 @@ import java.util.*;
  * Admin > Documents: by-laws and other organisation documents kept as text, in categories. Saving a changed
  * document keeps the previous version, which can be viewed and restored. Documents are archived rather than
  * deleted; only the Super Admin can delete one.
+ * <p>
+ * Who may read a document is set on it: PUBLIC (every signed-in user, whatever the role) or ROLES (only the roles
+ * chosen). People with "Documents" edit see every document, its earlier versions and archived ones.
  */
 @Service
 public class OrgDocumentService {
@@ -32,6 +35,8 @@ public class OrgDocumentService {
     private final OrgDocumentCategoryRepository categories;
     private final OrgDocumentRevisionRepository revisions;
     private final UserRepository users;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.RoleRepository roles;
 
     public OrgDocumentService(OrgDocumentRepository documents, OrgDocumentCategoryRepository categories,
                               OrgDocumentRevisionRepository revisions, UserRepository users) {
@@ -62,11 +67,52 @@ public class OrgDocumentService {
         return out;
     }
 
+    // ---------------------------------------------------------------- who may read
+
+    /** Adds and edits documents, and sees all of them. */
+    static boolean editor() {
+        return Access.can(com.rahbar.security.Section.DOCUMENTS, com.rahbar.security.Section.Level.EDIT);
+    }
+
+    /** May the signed-in user read the document? Editors: every one; others: public ones and their role's, not archived. */
+    static boolean mayRead(OrgDocument d) {
+        if (editor()) return true;
+        if (d.isArchived()) return false;
+        if ("PUBLIC".equals(d.getVisibility())) return true;
+        Integer role = Access.current().getUser().getRoleId();
+        return role != null && d.visibleRoles().contains(role);
+    }
+
+    /** role id -> name, for showing who may read a document. */
+    private Map<Integer, String> roleNames() {
+        Map<Integer, String> out = new HashMap<>();
+        if (roles != null) roles.findAll().forEach(r -> out.put(r.getRoleId(), r.getRoleName()));
+        return out;
+    }
+
+    /** "Everyone", or the role names (editors only see this). */
+    private String readers(OrgDocument d, Map<Integer, String> names) {
+        if ("PUBLIC".equals(d.getVisibility())) return "Everyone";
+        List<String> list = d.visibleRoles().stream().map(id -> names.getOrDefault(id, "Role " + id)).toList();
+        return list.isEmpty() ? "Only people who edit documents" : String.join(", ", list);
+    }
+
+    /** The roles to choose from when setting who may read a document. */
+    public List<Map<String, Object>> roleOptions() {
+        List<Map<String, Object>> out = new ArrayList<>();
+        if (roles == null) return out;
+        roles.findAll().stream().sorted(Comparator.comparing(com.rahbar.entity.Role::getRoleName, String.CASE_INSENSITIVE_ORDER))
+                .forEach(r -> out.add(Map.of("id", r.getRoleId(), "name", r.getRoleName())));
+        return out;
+    }
+
     // ---------------------------------------------------------------- documents
 
-    /** Every document (without its text, to keep the list small) and the categories. */
+    /** The documents the signed-in user may read (without their text, to keep the list small) and their categories. */
     public Map<String, Object> list() {
-        List<OrgDocument> all = documents.findAllByOrderByTitleAsc();
+        List<OrgDocument> all = documents.findAllByOrderByTitleAsc().stream().filter(OrgDocumentService::mayRead).toList();
+        boolean editor = editor();
+        Map<Integer, String> names = editor ? roleNames() : Map.of();
         Map<Long, String> who = names(all.stream().map(OrgDocument::getUpdatedBy).toList());
         Map<Long, Long> versions = new HashMap<>();
         revisions.findAll().forEach(r -> versions.merge(r.getDocumentId(), 1L, Long::sum));
@@ -82,14 +128,31 @@ public class OrgDocumentService {
             r.put("updated_by_name", who.get(d.getUpdatedBy()));
             r.put("earlier_versions", versions.getOrDefault(d.getId(), 0L));
             r.put("length", d.getContent() == null ? 0 : d.getContent().length());
+            if (editor) {
+                r.put("visibility", d.getVisibility());
+                r.put("readers", readers(d, names));
+            } else {
+                r.remove("earlier_versions");
+            }
             rows.add(r);
         }
-        return Map.of("documents", rows, "categories", categoryRows());
+        Set<Long> used = new HashSet<>();
+        all.forEach(d -> used.add(d.getCategoryId()));
+        List<Map<String, Object>> cats = categoryRows().stream().filter(c -> editor || used.contains((Long) c.get("id"))).toList();
+        return Map.of("documents", rows, "categories", cats, "editor", editor);
     }
 
     public Map<String, Object> get(Long id) {
         OrgDocument d = require(id);
+        if (!mayRead(d)) throw new ApiException(HttpStatus.NOT_FOUND, "Document not found.");
         Map<String, Object> r = Rows.of(d);
+        if (editor()) {
+            r.put("readers", readers(d, roleNames()));
+            r.put("visible_roles", new ArrayList<>(d.visibleRoles()));
+        } else {
+            r.remove("visibility");
+            r.remove("visible_role_ids");
+        }
         Map<Long, String> who = names(List.of(Objects.requireNonNullElse(d.getCreatedBy(), 0L), Objects.requireNonNullElse(d.getUpdatedBy(), 0L)));
         r.put("created_by_name", who.get(d.getCreatedBy()));
         r.put("updated_by_name", who.get(d.getUpdatedBy()));
@@ -133,7 +196,36 @@ public class OrgDocumentService {
         d.setTitle(title);
         d.setContent(content);
         d.setEffectiveDate(effective);
+        if (body.containsKey("visibility") || d.getId() == null) setReaders(d, body);
         return documents.save(d);
+    }
+
+    /** Body: visibility PUBLIC | ROLES (default PUBLIC), visibleRoleIds: [role ids] (for ROLES). */
+    private void setReaders(OrgDocument d, Map<String, Object> body) {
+        String v = body.get("visibility") == null ? "PUBLIC" : String.valueOf(body.get("visibility")).strip().toUpperCase(Locale.ROOT);
+        if (!Set.of("PUBLIC", "ROLES").contains(v)) throw bad("Choose who can read the document.");
+        d.setVisibility(v);
+        if ("PUBLIC".equals(v)) {
+            d.setVisibleRoleIds(null);
+            return;
+        }
+        Set<Integer> known = new HashSet<>();
+        if (roles != null) roles.findAll().forEach(r -> known.add(r.getRoleId()));
+        Set<Integer> chosen = new LinkedHashSet<>();
+        if (body.get("visibleRoleIds") instanceof Collection<?> list) {
+            for (Object o : list) {
+                Integer id;
+                try {
+                    id = Integer.valueOf(String.valueOf(o).strip());
+                } catch (NumberFormatException e) {
+                    throw bad("Unknown role.");
+                }
+                if (!known.isEmpty() && !known.contains(id)) throw bad("Unknown role.");
+                chosen.add(id);
+            }
+        }
+        if (chosen.isEmpty()) throw bad("Choose at least one role that can read the document, or make it visible to everyone.");
+        d.setVisibleRoleIds(String.join(",", chosen.stream().map(String::valueOf).toList()));
     }
 
     @Transactional

@@ -147,7 +147,7 @@ export const routes: Routes = [
       { path: 'rcc-students', component: AdminRccStudentsComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'volunteers', component: AdminVolunteersComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEERS' } },
       { path: 'volunteer-options', component: AdminVolunteerOptionsComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEER_OPTIONS' } },
-      { path: 'documents', component: AdminDocumentsComponent, canActivate: [permissionGuard], data: { permission: 'DOCUMENTS' } },
+      { path: 'documents', component: AdminDocumentsComponent }, // everyone: each document says who may read it
       // Rahbar-e-Banaat
       { path: 'reb/dashboard', component: RebDashboardComponent, canActivate: [permissionGuard], data: { permission: 'REB_DASHBOARD' } },
       { path: 'reb/students', component: RebStudentsComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
@@ -185,10 +185,12 @@ export const routes: Routes = [
         { path: '/coordinator/sponsors', label: 'Manage Sponsors', icon: 'mdi-account-multiple' },
         { path: '/coordinator/assign-students', label: 'Assign Students', icon: 'mdi-account-multiple-plus' },
         { path: '/coordinator/payments', label: 'Monitor Payments', icon: 'mdi-cash-multiple' },
-        { path: '/coordinator/reports', label: 'Generate Reports', icon: 'mdi-chart-bar' }
+        { path: '/coordinator/reports', label: 'Generate Reports', icon: 'mdi-chart-bar' },
+        { path: '/coordinator/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
       ]
     },
     children: [
+      { path: 'documents', component: AdminDocumentsComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: CoordinatorDashboardComponent },
@@ -214,10 +216,12 @@ export const routes: Routes = [
         { path: '/convenor/applications', label: 'View Applications', icon: 'mdi-file-document' },
         { path: '/convenor/sponsors', label: 'Manage Sponsors', icon: 'mdi-account-multiple' },
         { path: '/convenor/progress', label: 'Student Progress', icon: 'mdi-chart-line' },
-        { path: '/convenor/payments', label: 'Payments', icon: 'mdi-account-multiple' }
+        { path: '/convenor/payments', label: 'Payments', icon: 'mdi-account-multiple' },
+        { path: '/convenor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
       ]
     },
     children: [
+      { path: 'documents', component: AdminDocumentsComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: ConvenorDashboardComponent },
@@ -237,10 +241,12 @@ export const routes: Routes = [
       links: [
         { path: '/sponsor/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
         { path: '/sponsor/payments', label: 'Payments', icon: 'mdi-cash-multiple' },
-        { path: '/sponsor/progress', label: 'Student Progress', icon: 'mdi-chart-line' }
+        { path: '/sponsor/progress', label: 'Student Progress', icon: 'mdi-chart-line' },
+        { path: '/sponsor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
       ]
     },
     children: [
+      { path: 'documents', component: AdminDocumentsComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: SponsorDashboardComponent },
@@ -258,10 +264,12 @@ export const routes: Routes = [
         { path: '/student/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
         { path: '/student/payments', label: 'Payments', icon: 'mdi-cash-multiple' },
         { path: '/student/progress', label: 'Progress', icon: 'mdi-chart-line' },
-        { path: '/student/alumni', label: 'Alumni Profile', icon: 'mdi-school' }
+        { path: '/student/alumni', label: 'Alumni Profile', icon: 'mdi-school' },
+        { path: '/student/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
       ]
     },
     children: [
+      { path: 'documents', component: AdminDocumentsComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: StudentDashboardComponent },

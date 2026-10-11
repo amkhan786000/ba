@@ -8,7 +8,10 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/** Admin > Documents: by-laws and other documents kept as text, and their categories. */
+/**
+ * Admin > Documents: by-laws and other documents kept as text, and their categories. Every signed-in user may list
+ * and open the documents they are allowed to read (set on each document); adding and editing needs "Documents" edit.
+ */
 @RestController
 @RequestMapping("/api/admin/documents")
 @PreAuthorize("denyAll()")
@@ -21,18 +24,25 @@ public class OrgDocumentController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('DOCUMENTS:VIEW', 'DOCUMENT_CATEGORIES:VIEW')")
+    @PreAuthorize("isAuthenticated()")
     public Map<String, Object> list() {
         return service.list();
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAuthority('DOCUMENTS:VIEW')")
+    @PreAuthorize("isAuthenticated()")
     public Map<String, Object> get(@PathVariable Long id) {
         return service.get(id);
     }
 
-    /** Body: { categoryId, title, content, effectiveDate }. */
+    /** The roles to choose from for "who can read". */
+    @GetMapping("/role-options")
+    @PreAuthorize("hasAuthority('DOCUMENTS:EDIT')")
+    public List<Map<String, Object>> roleOptions() {
+        return service.roleOptions();
+    }
+
+    /** Body: { categoryId, title, content, effectiveDate, visibility PUBLIC | ROLES, visibleRoleIds: [role ids] }. */
     @PostMapping
     @PreAuthorize("hasAuthority('DOCUMENTS:EDIT')")
     public Map<String, Object> add(@RequestBody Map<String, Object> body) {
@@ -64,7 +74,7 @@ public class OrgDocumentController {
     }
 
     @GetMapping("/{id}/revisions")
-    @PreAuthorize("hasAuthority('DOCUMENTS:VIEW')")
+    @PreAuthorize("hasAuthority('DOCUMENTS:EDIT')")
     public List<Map<String, Object>> revisions(@PathVariable Long id) {
         return service.revisions(id);
     }

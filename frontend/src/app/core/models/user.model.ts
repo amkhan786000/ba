@@ -45,7 +45,8 @@ export const NAV_GROUPS: Record<string, { label: string; icon: string }> = {
 };
 
 /** Admin menu, in order; each entry needs VIEW on its section. Entries of a group stay together. */
-export const ADMIN_LINKS: { path: string; label: string; icon: string; section: Section; group?: string }[] = [
+/** Entries without a section are shown to everyone in the admin area (e.g. Documents, which filters per document). */
+export const ADMIN_LINKS: { path: string; label: string; icon: string; section?: Section; group?: string }[] = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard', section: 'DASHBOARD' },
 
   { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS', group: 'students' },
@@ -93,7 +94,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
   { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS', group: 'administration' },
   { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES', group: 'administration' },
   { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS', group: 'administration' },
-  { path: '/admin/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline', section: 'DOCUMENTS', group: 'administration' },
+  { path: '/admin/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline', group: 'administration' },
   { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY', group: 'administration' },
   { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY', group: 'administration' }
 ];
@@ -110,7 +111,7 @@ export function canAccess(user: AuthUser | null, section: Section, level: 'VIEW'
 export function landingPath(user: AuthUser | null): string {
   if (!user) return '/login';
   if (PORTAL_ROLES.includes(user.roleId)) return dashboardPathForRole(user.roleId);
-  return ADMIN_LINKS.find((l) => canAccess(user, l.section))?.path ?? '/admin/profile';
+  return ADMIN_LINKS.find((l) => l.section && canAccess(user, l.section))?.path ?? '/admin/profile';
 }
 
 export const ROLE = {

@@ -32,4 +32,26 @@ public class OrgDocument extends Modifiable {
 
     /** Kept but hidden from the normal list. */
     private boolean archived;
+
+    /** PUBLIC: every signed-in user; ROLES: only the roles in visibleRoleIds (editors always see every document). */
+    @Column(nullable = false, length = 10)
+    private String visibility = "PUBLIC";
+
+    /** Comma-separated role ids that may read a ROLES document. */
+    @Column(length = 500)
+    private String visibleRoleIds;
+
+    /** The role ids of visibleRoleIds. */
+    public java.util.Set<Integer> visibleRoles() {
+        java.util.Set<Integer> out = new java.util.LinkedHashSet<>();
+        if (visibleRoleIds == null) return out;
+        for (String s : visibleRoleIds.split(",")) {
+            try {
+                if (!s.isBlank()) out.add(Integer.valueOf(s.strip()));
+            } catch (NumberFormatException ignored) {
+                // not a role id
+            }
+        }
+        return out;
+    }
 }
