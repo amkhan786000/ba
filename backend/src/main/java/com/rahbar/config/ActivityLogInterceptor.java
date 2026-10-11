@@ -51,6 +51,14 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
             label("PUT " + path + "/[0-9]+", "Updated a " + r[1]);
             label("DELETE " + path + "/[0-9]+", "Deleted a " + r[1]);
         }
+        label("POST /api/admin/documents", "Added a document");
+        label("PUT /api/admin/documents/[0-9]+", "Edited a document");
+        label("POST /api/admin/documents/[0-9]+/archive", "Archived or un-archived a document");
+        label("DELETE /api/admin/documents/[0-9]+", "Deleted a document");
+        label("POST /api/admin/documents/[0-9]+/revisions/[0-9]+/restore", "Restored an earlier version of a document");
+        label("POST /api/admin/documents/categories", "Added a document category");
+        label("PUT /api/admin/documents/categories/[0-9]+", "Updated a document category");
+        label("DELETE /api/admin/documents/categories/[0-9]+", "Deleted a document category");
         // Rahbar-e-Banaat
         for (String[] r : new String[][]{{"sessions", "REB session"}, {"classes", "REB class"}, {"sections", "REB section"},
                 {"subjects", "REB subject"}, {"staff", "REB staff member"}}) {

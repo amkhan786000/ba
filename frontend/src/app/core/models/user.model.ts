@@ -26,6 +26,7 @@ export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTER
   | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'RCC_STUDENTS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
+  | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES'
   | 'REB_DASHBOARD' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
@@ -87,6 +88,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
   { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS', group: 'administration' },
   { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES', group: 'administration' },
   { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS', group: 'administration' },
+  { path: '/admin/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline', section: 'DOCUMENTS', group: 'administration' },
   { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY', group: 'administration' },
   { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY', group: 'administration' }
 ];
