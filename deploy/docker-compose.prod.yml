@@ -71,8 +71,9 @@ services:
       # With HTTPS (see deploy/README.md) set HTTP_BIND=127.0.0.1:8081 so only Caddy faces the internet.
       - "${HTTP_BIND:-80}:80"
 
-  # Optional HTTPS with a free Let's Encrypt certificate. Needs a domain pointing to the server:
-  # set DOMAIN, HTTP_BIND=127.0.0.1:8081 and COMPOSE_PROFILES=https in /opt/rahbar/.env.
+  # Front door for HTTPS (free Let's Encrypt certificates): serves Rahbar on the server's IP (and on DOMAIN, if
+  # set) and the Bihar Anjuman website on WEBSITE_DOMAINS (see Caddyfile). Turn on with COMPOSE_PROFILES=https and
+  # HTTP_BIND=127.0.0.1:8081 in /opt/rahbar/.env (deploy/README.md, "HTTPS and the website's domain").
   caddy:
     image: caddy:2-alpine
     container_name: rahbar-caddy
@@ -82,6 +83,7 @@ services:
       - frontend
     environment:
       DOMAIN: ${DOMAIN:-}
+      WEBSITE_DOMAINS: ${WEBSITE_DOMAINS:-biharanjuman.com, www.biharanjuman.com}
     ports:
       - "80:80"
       - "443:443"
