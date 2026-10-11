@@ -99,7 +99,11 @@ public enum Section {
     /** REB concessions, waiving or cancelling bills and cancelling receipts. */
     REB_FEE_APPROVALS("REB: fee concessions & cancellations"),
     /** REB sponsorships: which Rahbar sponsor supports which girl. */
-    REB_SPONSORSHIPS("REB: sponsorships");
+    REB_SPONSORSHIPS("REB: sponsorships"),
+    /** REB daily attendance and the holiday calendar. With the "own REB classes" scope: only her classes. */
+    REB_ATTENDANCE("REB: attendance"),
+    /** REB exams, marks, results and report cards. With the "own REB classes" scope: marks of her subjects only. */
+    REB_EXAMS("REB: exams & results");
 
     public enum Level { VIEW, EDIT }
 

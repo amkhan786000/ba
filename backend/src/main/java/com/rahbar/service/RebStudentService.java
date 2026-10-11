@@ -54,6 +54,13 @@ public class RebStudentService {
     private final RebSetupService setup;
     private final FileStorageService files;
     private final UserRepository users;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.security.RebClassScope classScope;
+
+    /** The signed-in user's REB classes (everything when not limited to the classes she teaches). */
+    com.rahbar.security.RebClassScope.Scope classScope() {
+        return classScope == null ? new com.rahbar.security.RebClassScope.Scope(true, Set.of(), Set.of()) : classScope.current();
+    }
 
     public RebStudentService(RebStudentRepository students, RebGuardianRepository guardians, RebEnrollmentRepository enrollments,
                              RebStudentDocumentRepository documents, RebSectionRepository sections, RebClassRepository classes,
@@ -112,6 +119,7 @@ public class RebStudentService {
         }
         String query = q == null ? "" : q.strip().toLowerCase(Locale.ROOT);
         String wanted = status == null || status.isBlank() ? "ACTIVE" : status.toUpperCase(Locale.ROOT);
+        com.rahbar.security.RebClassScope.Scope scope = classScope();
 
         List<Map<String, Object>> rows = new ArrayList<>();
         for (RebStudent s : students.findAll()) {
@@ -121,6 +129,7 @@ public class RebStudentService {
             RebEnrollment e = enrolled.get(s.getId());
             RebSection sec = e == null ? null : sectionById.get(e.getSectionId());
             if (sectionId != null && (e == null || !sectionId.equals(e.getSectionId()))) continue;
+            if (!scope.all() && (e == null || !scope.seesSection(e.getSectionId()))) continue; // a teacher: her classes only
             if (classId != null && (sec == null || !classId.equals(sec.getClassId()))) continue;
             RebGuardian g = mainGuardian.get(s.getId());
             if (!query.isEmpty() && java.util.stream.Stream.of(s.getName(), s.getAdmissionNo(), g == null ? null : g.getName(), g == null ? null : g.getPhone())
@@ -163,6 +172,10 @@ public class RebStudentService {
 
     public Map<String, Object> get(Long id) {
         RebStudent s = require(id);
+        com.rahbar.security.RebClassScope.Scope scope = classScope();
+        if (!scope.all() && enrollments.findByStudentId(id).stream().noneMatch(e -> scope.seesSection(e.getSectionId()))) {
+            throw notFound("Student");
+        }
         boolean priv = seesPrivate();
         Map<String, Object> student = Rows.of(s);
         if (!priv) {

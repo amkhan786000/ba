@@ -83,6 +83,18 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("DELETE /api/admin/reb/documents/[0-9]+", "Removed a REB document");
         label("POST /api/admin/reb/students/import", "Imported REB girls from a file");
         label("POST /api/admin/reb/promotion", "Promoted REB girls to the next session");
+        label("PUT /api/admin/reb/attendance", "Marked REB attendance");
+        label("POST /api/admin/reb/calendar", "Added a REB holiday or event");
+        label("PUT /api/admin/reb/calendar/[0-9]+", "Changed a REB holiday or event");
+        label("DELETE /api/admin/reb/calendar/[0-9]+", "Removed a REB holiday or event");
+        label("PUT /api/admin/reb/grade-scale", "Changed the REB grading scale");
+        label("POST /api/admin/reb/exams", "Added a REB exam");
+        label("PUT /api/admin/reb/exams/[0-9]+", "Updated a REB exam");
+        label("DELETE /api/admin/reb/exams/[0-9]+", "Deleted a REB exam");
+        label("POST /api/admin/reb/exams/[0-9]+/status", "Opened marks entry, published or unpublished a REB exam");
+        label("PUT /api/admin/reb/exams/[0-9]+/papers", "Changed a REB exam's date sheet");
+        label("PUT /api/admin/reb/papers/[0-9]+/marks", "Entered REB exam marks");
+        label("PUT /api/admin/reb/exams/[0-9]+/remarks", "Wrote REB report card remarks");
         label("POST /api/admin/reb/fee-heads", "Added a REB fee head");
         label("PUT /api/admin/reb/fee-heads/[0-9]+", "Updated a REB fee head");
         label("PUT /api/admin/reb/fee-structure", "Changed REB fee amounts");

@@ -58,6 +58,8 @@ public class RebSetupService {
     private final RebStaffRepository staff;
     private final RebEnrollmentRepository enrollments;
     private final RebTeacherAssignmentRepository assignments;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.security.RebClassScope classScope;
 
     public RebSetupService(RebSessionRepository sessions, RebClassRepository classes, RebSectionRepository sections,
                            RebSubjectRepository subjects, RebClassSubjectRepository classSubjects, RebSettingRepository settings,
@@ -176,7 +178,9 @@ public class RebSetupService {
         list.sort(Comparator.comparing((RebSection s) -> classById.get(s.getClassId()) == null ? 0 : classById.get(s.getClassId()).getLevelOrder())
                 .thenComparing(s -> classById.get(s.getClassId()) == null ? "" : classById.get(s.getClassId()).getName())
                 .thenComparing(RebSection::getName));
+        com.rahbar.security.RebClassScope.Scope scope = classScope == null ? null : classScope.current();
         for (RebSection s : list) {
+            if (scope != null && !scope.seesSection(s.getId())) continue; // a teacher: her classes only
             Map<String, Object> r = Rows.of(s);
             RebClass c = classById.get(s.getClassId());
             r.put("class_name", c == null ? null : c.getName());

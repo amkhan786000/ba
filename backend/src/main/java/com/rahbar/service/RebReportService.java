@@ -53,7 +53,15 @@ public class RebReportService {
             new RebReportDefinition("reb_concessions", "Fees", "Concessions",
                     "Fee concessions of the current session: who, how much, why and who approved them.", false),
             new RebReportDefinition("reb_sponsorship_coverage", "Fees", "Sponsorship coverage",
-                    "Every girl studying now with her fee plan and sponsor (name and ID only), and girls without a sponsor.", false));
+                    "Every girl studying now with her fee plan and sponsor (name and ID only), and girls without a sponsor.", false),
+            new RebReportDefinition("reb_attendance_summary", "Attendance & results", "Attendance summary",
+                    "Each girl's days present, absent, late and on leave, and her percentage, in the date range (default: the current session).", true),
+            new RebReportDefinition("reb_low_attendance", "Attendance & results", "Low attendance",
+                    "Girls below 75% attendance in the date range (default: the current session).", true),
+            new RebReportDefinition("reb_result_analysis", "Attendance & results", "Result analysis",
+                    "Each published exam of the current session, class by class: girls, passed, pass percentage, average and topper.", false),
+            new RebReportDefinition("reb_subject_performance", "Attendance & results", "Subject performance",
+                    "Each subject of each published exam: average, highest and lowest marks, girls below the pass marks, and the teacher.", false));
 
     /** Reports with money in them: only for people who may see REB fees. */
     static final Set<String> FEE_REPORTS = Set.of("reb_fee_collection", "reb_outstanding", "reb_concessions", "reb_sponsorship_coverage");
@@ -171,6 +179,10 @@ public class RebReportService {
             case "reb_outstanding" -> outstanding();
             case "reb_concessions" -> concessionRows();
             case "reb_sponsorship_coverage" -> sponsorshipCoverage();
+            case "reb_attendance_summary" -> attendanceRows(from, to, null);
+            case "reb_low_attendance" -> attendanceRows(from, to, new java.math.BigDecimal("75"));
+            case "reb_result_analysis" -> resultAnalysis();
+            case "reb_subject_performance" -> subjectPerformance();
             default -> throw bad("Unknown report.");
         };
     }
@@ -415,6 +427,107 @@ public class RebReportService {
             r.put("per_month", sp.map(com.rahbar.entity.RebSponsorship::getMonthlyAmount).orElse(null));
             r.put("since", sp.map(com.rahbar.entity.RebSponsorship::getStartPeriod).orElse(null));
             rows.add(r);
+        }
+        return rows;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private RebAttendanceService attendance;
+    @org.springframework.beans.factory.annotation.Autowired
+    private RebExamService examService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.RebExamRepository exams;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.RebExamPaperRepository papers;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.RebMarkRepository marks;
+
+    private List<Map<String, Object>> attendanceRows(LocalDate from, LocalDate to, java.math.BigDecimal below) {
+        RebSession session = setup.currentSession();
+        LocalDate start = from != null ? from : session.getStartDate();
+        LocalDate end = to != null ? to : (LocalDate.now().isBefore(session.getEndDate()) ? LocalDate.now() : session.getEndDate());
+        if (end.isBefore(start)) throw bad("The end date is before the start date.");
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Seat x : seats()) {
+            Map<String, Object> s = attendance.summary(x.student().getId(), start, end);
+            java.math.BigDecimal pct = (java.math.BigDecimal) s.get("percent");
+            if (below != null && (pct == null || pct.compareTo(below) >= 0)) continue;
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("class", x.label());
+            r.put("roll_no", x.enrollment().getRollNo());
+            r.put("name", x.student().getName());
+            r.put("present", s.get("PRESENT"));
+            r.put("absent", s.get("ABSENT"));
+            r.put("late", s.get("LATE"));
+            r.put("leave", s.get("LEAVE"));
+            r.put("percent", pct);
+            rows.add(r);
+        }
+        return rows;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> resultAnalysis() {
+        RebSession session = setup.currentSession();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (com.rahbar.entity.RebExam e : exams.findBySessionIdOrderByStartDateAscIdAsc(session.getId())) {
+            if (!"PUBLISHED".equals(e.getStatus())) continue;
+            for (RebSection sec : sections.findBySessionId(session.getId())) {
+                List<Map<String, Object>> res = (List<Map<String, Object>>) examService.results(e.getId(), sec.getId()).get("rows");
+                List<Map<String, Object>> sat = res.stream().filter(r -> r.get("percent") != null && !"ABSENT".equals(r.get("result"))).toList();
+                if (sat.isEmpty()) continue;
+                long passed = sat.stream().filter(r -> "PASS".equals(r.get("result"))).count();
+                java.math.BigDecimal avg = sat.stream().map(r -> (java.math.BigDecimal) r.get("percent")).reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add)
+                        .divide(java.math.BigDecimal.valueOf(sat.size()), 1, java.math.RoundingMode.HALF_UP);
+                Map<String, Object> top = sat.stream().max(Comparator.comparing(r -> (java.math.BigDecimal) r.get("percent"))).orElse(null);
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("exam", e.getName());
+                r.put("class", studentService.sectionLabels().get(sec.getId()));
+                r.put("girls", sat.size());
+                r.put("passed", passed);
+                r.put("pass_percent", java.math.BigDecimal.valueOf(passed * 100.0 / sat.size()).setScale(1, java.math.RoundingMode.HALF_UP));
+                r.put("average_percent", avg);
+                r.put("topper", top == null ? null : top.get("name") + " (" + top.get("percent") + "%)");
+                rows.add(r);
+            }
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> subjectPerformance() {
+        RebSession session = setup.currentSession();
+        Map<Long, String> subjectNames = new HashMap<>();
+        subjects.findAll().forEach(s -> subjectNames.put(s.getId(), s.getName()));
+        Map<Long, String> classNames = new HashMap<>();
+        classes.findAll().forEach(c -> classNames.put(c.getId(), c.getName()));
+        Map<Long, String> staffNames = new HashMap<>();
+        staff.findAll().forEach(s -> staffNames.put(s.getId(), s.getName()));
+        Map<String, Set<String>> teachers = new HashMap<>(); // classId:subjectId -> teacher names
+        Map<Long, Long> classOfSection = new HashMap<>();
+        sections.findBySessionId(session.getId()).forEach(s -> classOfSection.put(s.getId(), s.getClassId()));
+        for (RebTeacherAssignment a : assignments.findBySessionId(session.getId())) {
+            teachers.computeIfAbsent(classOfSection.get(a.getSectionId()) + ":" + a.getSubjectId(), k -> new TreeSet<>()).add(staffNames.get(a.getStaffId()));
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (com.rahbar.entity.RebExam e : exams.findBySessionIdOrderByStartDateAscIdAsc(session.getId())) {
+            if (!"PUBLISHED".equals(e.getStatus())) continue;
+            for (com.rahbar.entity.RebExamPaper p : papers.findByExamId(e.getId())) {
+                List<java.math.BigDecimal> got = marks.findByPaperId(p.getId()).stream().filter(m -> !m.isAbsent() && m.getMarks() != null)
+                        .map(com.rahbar.entity.RebMark::getMarks).toList();
+                if (got.isEmpty()) continue;
+                java.math.BigDecimal sum = got.stream().reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("exam", e.getName());
+                r.put("class", classNames.get(p.getClassId()));
+                r.put("subject", subjectNames.get(p.getSubjectId()));
+                r.put("max_marks", p.getMaxMarks());
+                r.put("average", sum.divide(java.math.BigDecimal.valueOf(got.size()), 1, java.math.RoundingMode.HALF_UP));
+                r.put("highest", got.stream().max(Comparator.naturalOrder()).orElse(null));
+                r.put("lowest", got.stream().min(Comparator.naturalOrder()).orElse(null));
+                r.put("below_pass", got.stream().filter(m -> m.compareTo(java.math.BigDecimal.valueOf(p.getPassMarks())) < 0).count());
+                r.put("teacher", String.join(", ", teachers.getOrDefault(p.getClassId() + ":" + p.getSubjectId(), Set.of())));
+                rows.add(r);
+            }
         }
         return rows;
     }

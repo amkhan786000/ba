@@ -28,7 +28,7 @@ export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTER
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
   | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES'
   | 'REB_DASHBOARD' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS'
-  | 'REB_FEES' | 'REB_FEE_APPROVALS' | 'REB_SPONSORSHIPS';
+  | 'REB_FEES' | 'REB_FEE_APPROVALS' | 'REB_SPONSORSHIPS' | 'REB_ATTENDANCE' | 'REB_EXAMS';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
 export const PORTAL_ROLES = [3, 4, 5, 6];
@@ -69,6 +69,8 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
 
   { path: '/admin/reb/dashboard', label: 'REB Dashboard', icon: 'mdi-view-dashboard-outline', section: 'REB_DASHBOARD', group: 'reb' },
   { path: '/admin/reb/students', label: 'Girls', icon: 'mdi-human-female', section: 'REB_STUDENTS', group: 'reb' },
+  { path: '/admin/reb/attendance', label: 'Attendance', icon: 'mdi-calendar-check', section: 'REB_ATTENDANCE', group: 'reb' },
+  { path: '/admin/reb/exams', label: 'Exams & Results', icon: 'mdi-clipboard-text', section: 'REB_EXAMS', group: 'reb' },
   { path: '/admin/reb/fees', label: 'REB Fees', icon: 'mdi-cash-multiple', section: 'REB_FEES', group: 'reb' },
   { path: '/admin/reb/sponsorships', label: 'REB Sponsorships', icon: 'mdi-hand-heart', section: 'REB_SPONSORSHIPS', group: 'reb' },
   { path: '/admin/reb/staff', label: 'Teachers & Staff', icon: 'mdi-teach', section: 'REB_STAFF', group: 'reb' },

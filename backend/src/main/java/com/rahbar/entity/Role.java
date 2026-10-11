@@ -35,6 +35,8 @@ public class Role extends Modifiable {
     public static final String SCOPE_ALL = "ALL";
     public static final String SCOPE_CHAPTER = "CHAPTER";
     public static final String SCOPE_RCC = "RCC";
+    /** Rahbar-e-Banaat teachers: only the REB sections and subjects they teach (REB > Teachers & Staff). */
+    public static final String SCOPE_REB_CLASSES = "REB_CLASSES";
     public static final int SUPER_ADMIN = 1;
 
     public java.util.Set<String> permissionSet() {
