@@ -10,8 +10,10 @@
 #
 # By hand: Actions -> "Deploy Latest Tag" -> Run workflow deploys the latest release (leave "Use workflow from" on main).
 #
-# Either way it starts "Build & deploy" for the release's commit (its images were built when it was merged) and
+# Either way it starts "Build & deploy" from the release's tag (so the run shows e.g. "4.2.0", and the deploy files
+# deploy.sh / docker-compose come from that release) with the images built for its commit when it was merged, and
 # follows that run: this run turns red when the deploy fails (the deploy itself rolls back to the previous version).
+# If the "production" environment is ever limited to certain branches, allow tags too (Settings -> Environments).
 
 name: Deploy Latest Tag
 
@@ -91,15 +93,18 @@ jobs:
           echo "name=${name:-$tag}" >> "$GITHUB_OUTPUT"
           echo "skip=false" >> "$GITHUB_OUTPUT"
 
-      - name: Start "Build & deploy" for that release
+      - name: Start "Build & deploy" from the release's tag
         id: start
         if: steps.release.outputs.skip == 'false'
         env:
           SHA: ${{ steps.release.outputs.sha }}
+          TAG: ${{ steps.release.outputs.tag }}
         run: |
           set -euo pipefail
           since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          gh workflow run deploy.yml --repo "$REPO" --ref main -f tag="$SHA"
+          # --ref: the workflow and the deploy files come from the release; tag=: deploy the images of its commit
+          # (built when it was merged, so nothing is built again)
+          gh workflow run deploy.yml --repo "$REPO" --ref "$TAG" -f tag="$SHA"
           for i in $(seq 1 30); do
             sleep 5
             id="$(gh run list --repo "$REPO" --workflow deploy.yml --event workflow_dispatch --limit 5 \
