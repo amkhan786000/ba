@@ -231,8 +231,10 @@ public class AdminController {
 
     @GetMapping("/manage-students")
     @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
-    public List<Map<String, Object>> manageStudents() {
-        return adminService.manageStudents();
+    public Map<String, Object> manageStudents(@RequestParam(required = false) String q, @RequestParam(required = false) String institutionId,
+                                              @RequestParam(required = false) Long courseId, @RequestParam(required = false) Integer page,
+                                              @RequestParam(required = false) Integer size) {
+        return adminService.manageStudents(q, institutionId, courseId, page, size);
     }
 
     @PostMapping("/manage-students/assign")
@@ -247,9 +249,15 @@ public class AdminController {
 
     @GetMapping("/sponsorships")
     @PreAuthorize("hasAuthority('SPONSORSHIPS:VIEW') or hasAuthority('STUDENTS:VIEW')")
-    public List<Map<String, Object>> manageSponsorships() {
+    public Object manageSponsorships(@RequestParam(required = false) String q, @RequestParam(required = false) Integer page,
+                                     @RequestParam(required = false) Integer size) {
         // Office coordinators may not see sponsor contact details.
-        return adminService.sponsorships(hideSponsorContacts());
+        List<Map<String, Object>> rows = adminService.sponsorships(hideSponsorContacts());
+        // Without page / size: every sponsor (the Student Directory's sponsor list); with them: one page of the matches.
+        if (page == null && size == null) return rows;
+        return com.rahbar.util.Paging.of(rows.stream()
+                .filter(r -> com.rahbar.util.Paging.matches(q, r.get("name"), r.get("user_id"), r.get("email"), r.get("phone"), r.get("chapter_name")))
+                .toList(), page, size);
     }
 
     @GetMapping("/sponsorships/{userId}/map")
