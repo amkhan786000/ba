@@ -25,8 +25,8 @@ public class OrgDocumentController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public Map<String, Object> list() {
-        return service.list();
+    public Map<String, Object> list(@RequestParam(required = false) String q) {
+        return service.list(q);
     }
 
     @GetMapping("/{id}")

@@ -97,6 +97,21 @@ public class OrgDocumentService {
         return list.isEmpty() ? "Only people who edit documents" : String.join(", ", list);
     }
 
+    /** About 180 characters of the text around the first word found (empty when only the title matched). */
+    static String snippet(String content, List<String> words) {
+        if (content == null) return "";
+        String lower = content.toLowerCase(Locale.ROOT);
+        int at = -1;
+        for (String w : words) {
+            int i = lower.indexOf(w);
+            if (i >= 0 && (at < 0 || i < at)) at = i;
+        }
+        if (at < 0) return "";
+        int from = Math.max(0, at - 60), to = Math.min(content.length(), at + 120);
+        String s = content.substring(from, to).replaceAll("\\s+", " ").strip();
+        return (from > 0 ? "…" : "") + s + (to < content.length() ? "…" : "");
+    }
+
     /** The roles to choose from when setting who may read a document. */
     public List<Map<String, Object>> roleOptions() {
         List<Map<String, Object>> out = new ArrayList<>();
@@ -110,7 +125,18 @@ public class OrgDocumentService {
 
     /** The documents the signed-in user may read (without their text, to keep the list small) and their categories. */
     public Map<String, Object> list() {
-        List<OrgDocument> all = documents.findAllByOrderByTitleAsc().stream().filter(OrgDocumentService::mayRead).toList();
+        return list(null);
+    }
+
+    /**
+     * The documents the signed-in user may read; with a search, only those whose title or text contains every word of
+     * it (any case), each with a short snippet of the text around the first match.
+     */
+    public Map<String, Object> list(String q) {
+        List<String> words = q == null ? List.of() : Arrays.stream(q.toLowerCase(Locale.ROOT).split("\\s+")).filter(w -> !w.isBlank()).toList();
+        List<OrgDocument> all = documents.findAllByOrderByTitleAsc().stream().filter(OrgDocumentService::mayRead)
+                .filter(d -> words.isEmpty() || words.stream().allMatch(w -> (d.getTitle() + "\n" + d.getContent()).toLowerCase(Locale.ROOT).contains(w)))
+                .toList();
         boolean editor = editor();
         Map<Integer, String> names = editor ? roleNames() : Map.of();
         Map<Long, String> who = names(all.stream().map(OrgDocument::getUpdatedBy).toList());
@@ -128,6 +154,7 @@ public class OrgDocumentService {
             r.put("updated_by_name", who.get(d.getUpdatedBy()));
             r.put("earlier_versions", versions.getOrDefault(d.getId(), 0L));
             r.put("length", d.getContent() == null ? 0 : d.getContent().length());
+            if (!words.isEmpty()) r.put("snippet", snippet(d.getContent(), words));
             if (editor) {
                 r.put("visibility", d.getVisibility());
                 r.put("readers", readers(d, names));

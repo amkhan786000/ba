@@ -164,4 +164,28 @@ class OrgDocumentServiceTest {
         assertEquals("ROLES", d.getVisibility());
         assertEquals(Set.of(2, 8), d.visibleRoles());
     }
+
+    @Test
+    void searchLooksInTheTextAndShowsWhereItMatched() {
+        OrgDocument byLaws = existing(); // "Article 1\nThe name is Bihar Anjuman."
+        byLaws.setVisibility("PUBLIC");
+        OrgDocument policy = new OrgDocument();
+        policy.setId(8L);
+        policy.setCategoryId(3L);
+        policy.setTitle("Travel policy");
+        policy.setContent("Trains only.");
+        policy.setVisibility("PUBLIC");
+        when(documents.findAllByOrderByTitleAsc()).thenReturn(List.of(byLaws, policy));
+        when(revisions.findAll()).thenReturn(List.of());
+        when(categories.findAllByOrderByDisplayOrderAscNameAsc()).thenReturn(List.of());
+        when(documents.findAll()).thenReturn(List.of(byLaws, policy));
+
+        @SuppressWarnings("unchecked") List<Map<String, Object>> found = (List<Map<String, Object>>) service.list("bihar ARTICLE").get("documents");
+        assertEquals(1, found.size());
+        assertEquals("By-laws", found.get(0).get("title"));
+        assertTrue(String.valueOf(found.get(0).get("snippet")).startsWith("Article 1"));
+        @SuppressWarnings("unchecked") List<Map<String, Object>> all = (List<Map<String, Object>>) service.list("  ").get("documents");
+        assertEquals(2, all.size());
+        assertEquals("…the end", OrgDocumentService.snippet("x".repeat(100) + " the end", List.of("end")).replaceAll("x+ ", ""));
+    }
 }

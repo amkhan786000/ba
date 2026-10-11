@@ -10,7 +10,7 @@ import { WebsiteMarkdownPipe } from './website/website-markdown.pipe';
 
 interface DocRow {
   id: number; category_id: number; title: string; effective_date: string | null; archived: boolean;
-  updated_at: string | null; updated_by_name: string | null; earlier_versions?: number; visibility?: string; readers?: string;
+  updated_at: string | null; updated_by_name: string | null; earlier_versions?: number; visibility?: string; readers?: string; snippet?: string;
 }
 interface Doc {
   id: number; category_id: number; category_name: string | null; title: string; content: string; effective_date: string | null;
@@ -54,7 +54,8 @@ interface Revision { id: number; title: string; content: string; effective_date:
           <button *ngIf="canEdit" class="btn btn-primary btn-block mb-3" (click)="newDoc()" [disabled]="!categories.length">
             <i class="mdi mdi-plus mr-1"></i>Add document</button>
           <p *ngIf="canEdit && !categories.length" class="small text-muted">{{ canCategories ? 'Add a category first (Categories tab).' : 'An admin needs to add a category first.' }}</p>
-          <input class="form-control mb-2" placeholder="Search titles" [(ngModel)]="q" aria-label="Search documents">
+          <input class="form-control mb-2" placeholder="Search titles and text" [(ngModel)]="q" (ngModelChange)="search()" aria-label="Search documents">
+          <p *ngIf="hits" class="small text-muted mb-2">{{ hits.length }} document{{ hits.length === 1 ? '' : 's' }} contain “{{ q.trim() }}”.</p>
           <select class="form-control mb-2" [(ngModel)]="categoryId" aria-label="Category">
             <option [ngValue]="null">All categories</option>
             <option *ngFor="let c of categories" [ngValue]="c.id">{{ c.name }}</option>
@@ -72,6 +73,7 @@ interface Revision { id: number; title: string; content: string; effective_date:
                    tabindex="0" (click)="open(d.id)" (keydown.enter)="open(d.id)">
                   <div>{{ d.title }} <span *ngIf="d.archived" class="badge badge-secondary ml-1">Archived</span></div>
                   <small [class.text-muted]="d.id !== current?.id">{{ d.effective_date ? 'Effective ' + (d.effective_date | date: 'd MMM yyyy') : 'Updated ' + (d.updated_at | date: 'd MMM yyyy') }}</small>
+                  <div *ngIf="d.snippet" class="small font-italic mt-1" [class.text-muted]="d.id !== current?.id">{{ d.snippet }}</div>
                 </a>
               </div>
             </div>
@@ -242,6 +244,9 @@ export class AdminDocumentsComponent implements OnInit {
   categories: Category[] = [];
   current: Doc | null = null;
   q = '';
+  /** Server search results (title and text) while a search of 2+ letters is typed; null: the full list. */
+  hits: DocRow[] | null = null;
+  private searchTimer: ReturnType<typeof setTimeout> | null = null;
   categoryId: number | null = null;
   showArchived = false;
   edit: { id: number | null; title: string; categoryId: number | null; effectiveDate: string; content: string; visibility: string; roles: number[] } | null = null;
@@ -265,17 +270,29 @@ export class AdminDocumentsComponent implements OnInit {
 
   /** Documents matching the filters, by category in the categories' order. */
   get groups(): { name: string; docs: DocRow[] }[] {
-    const q = this.q.trim().toLowerCase();
     return this.categories
       .filter((c) => !this.categoryId || c.id === this.categoryId)
       .map((c) => ({
         name: c.name,
-        docs: this.docs.filter((d) => d.category_id === c.id && (this.showArchived || !d.archived) && (!q || d.title.toLowerCase().includes(q)))
+        docs: (this.hits ?? this.docs).filter((d) => d.category_id === c.id && (this.showArchived || !d.archived))
       }))
       .filter((g) => g.docs.length);
   }
 
   ngOnInit(): void { this.load(); }
+
+  /** Searches titles and text on the server, a moment after typing stops. */
+  search(): void {
+    if (this.searchTimer) clearTimeout(this.searchTimer);
+    const q = this.q.trim();
+    if (q.length < 2) { this.hits = null; return; }
+    this.searchTimer = setTimeout(() => {
+      this.api.get<{ documents: DocRow[] }>('/admin/documents', { q }).subscribe({
+        next: (r) => { if (this.q.trim() === q) this.hits = r.documents; },
+        error: (e) => (this.error = errorText(e, 'Could not search the documents.'))
+      });
+    }, 300);
+  }
 
   load(openId?: number): void {
     this.api.get<{ documents: DocRow[]; categories: Category[] }>('/admin/documents').subscribe({
@@ -283,6 +300,7 @@ export class AdminDocumentsComponent implements OnInit {
         this.docs = r.documents;
         this.categories = r.categories;
         if (openId) this.open(openId);
+        if (this.hits) this.search(); // keep the search results up to date
       },
       error: (e) => (this.error = errorText(e, 'Could not load the documents.'))
     });
