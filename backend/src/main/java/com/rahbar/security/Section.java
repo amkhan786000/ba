@@ -106,7 +106,13 @@ public enum Section {
     /** REB daily attendance and the holiday calendar. With the "own REB classes" scope: only her classes. */
     REB_ATTENDANCE("REB: attendance"),
     /** REB exams, marks, results and report cards. With the "own REB classes" scope: marks of her subjects only. */
-    REB_EXAMS("REB: exams & results");
+    REB_EXAMS("REB: exams & results"),
+    /** REB admission enquiries from the website, phone or visits; EDIT follows them up and admits. */
+    REB_ENQUIRIES("REB: admission enquiries"),
+    /** REB Quran / Hifz progress (sabaq, sabqi, manzil). With the "own REB classes" scope: her classes only. */
+    REB_QURAN("REB: Quran / Hifz progress"),
+    /** REB hostel leave and gate passes. */
+    REB_HOSTEL("REB: hostel leave & gate passes");
 
     public enum Level { VIEW, EDIT }
 

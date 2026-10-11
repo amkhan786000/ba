@@ -73,6 +73,10 @@ import { RebSetupComponent } from './admin/reb/reb-setup.component';
 import { RebFeesComponent } from './admin/reb/reb-fees.component';
 import { RebAttendanceComponent } from './admin/reb/reb-attendance.component';
 import { RebExamsComponent } from './admin/reb/reb-exams.component';
+import { RebEnquiriesComponent } from './admin/reb/reb-enquiries.component';
+import { RebQuranComponent } from './admin/reb/reb-quran.component';
+import { RebHostelComponent } from './admin/reb/reb-hostel.component';
+import { SponsorRebComponent } from './sponsor/sponsor-reb.component';
 import { RebSponsorshipsComponent } from './admin/reb/reb-sponsorships.component';
 import { StudentAlumniComponent } from './student/student-alumni.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
@@ -153,6 +157,9 @@ export const routes: Routes = [
       { path: 'reb/students', component: RebStudentsComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
       { path: 'reb/students/:id', component: RebStudentComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
       { path: 'reb/promotion', component: RebPromotionComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
+      { path: 'reb/enquiries', component: RebEnquiriesComponent, canActivate: [permissionGuard], data: { permission: 'REB_ENQUIRIES' } },
+      { path: 'reb/quran', component: RebQuranComponent, canActivate: [permissionGuard], data: { permission: 'REB_QURAN' } },
+      { path: 'reb/hostel', component: RebHostelComponent, canActivate: [permissionGuard], data: { permission: 'REB_HOSTEL' } },
       { path: 'reb/attendance', component: RebAttendanceComponent, canActivate: [permissionGuard], data: { permission: 'REB_ATTENDANCE' } },
       { path: 'reb/exams', component: RebExamsComponent, canActivate: [permissionGuard], data: { permission: 'REB_EXAMS' } },
       { path: 'reb/fees', component: RebFeesComponent, canActivate: [permissionGuard], data: { permission: 'REB_FEES' } },
@@ -242,6 +249,7 @@ export const routes: Routes = [
         { path: '/sponsor/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
         { path: '/sponsor/payments', label: 'Payments', icon: 'mdi-cash-multiple' },
         { path: '/sponsor/progress', label: 'Student Progress', icon: 'mdi-chart-line' },
+        { path: '/sponsor/reb', label: 'Rahbar-e-Banaat', icon: 'mdi-human-female-girl' },
         { path: '/sponsor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
       ]
     },
@@ -251,7 +259,8 @@ export const routes: Routes = [
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: SponsorDashboardComponent },
       { path: 'payments', component: SponsorPaymentsComponent },
-      { path: 'progress', component: SponsorProgressComponent }
+      { path: 'progress', component: SponsorProgressComponent },
+      { path: 'reb', component: SponsorRebComponent }
     ]
   },
   {
