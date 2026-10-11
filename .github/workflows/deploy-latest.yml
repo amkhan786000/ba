@@ -1,18 +1,31 @@
-# Actions -> "Deploy Latest Tag" -> Run workflow: deploys the newest release (e.g. v4.2.0), with nothing to choose.
+# Deploys the newest release (e.g. v4.2.0) to the server.
 #
-# It looks up the latest published release, takes the commit its tag points to, and starts "Build & deploy" for
-# that commit's images (built when it was merged into main). It then follows that run and ends with its result, so
-# this run turns red if the deploy fails (the deploy itself rolls back to the previous version).
-# Leave "Use workflow from" on main.
+# Automatically, after every merge into main:
+#   1. "Build & deploy" (push) tests and builds the merge commit's images, while "Release" tags it and publishes
+#      the release - both start when the pull request is merged.
+#   2. When that build has succeeded, this workflow starts by itself, waits until the commit's release exists
+#      (up to 10 minutes) and deploys it.
+#   Nothing is deployed if the build failed, if a newer release exists already (an older merge never replaces a
+#   newer one), or if the pull request has the label "no-deploy".
+#
+# By hand: Actions -> "Deploy Latest Tag" -> Run workflow deploys the latest release (leave "Use workflow from" on main).
+#
+# Either way it starts "Build & deploy" for the release's commit (its images were built when it was merged) and
+# follows that run: this run turns red when the deploy fails (the deploy itself rolls back to the previous version).
 
 name: Deploy Latest Tag
 
 on:
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Build & deploy"]
+    types: [completed]
+    branches: [main]
 
 permissions:
   contents: read
   actions: write
+  pull-requests: read
 
 concurrency:
   group: deploy-latest-tag
@@ -21,36 +34,72 @@ concurrency:
 jobs:
   deploy:
     name: Deploy the latest release
+    # automatically only after a successful build of a merge (push); the deploys this workflow starts itself are
+    # "workflow_dispatch" runs of Build & deploy, so they never start it again
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
+      BUILT_SHA: ${{ github.event.workflow_run.head_sha }}
     steps:
-      - name: Find the latest release
+      - name: Find the release to deploy
         id: release
         run: |
           set -euo pipefail
-          tag="$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || true)"
-          if [ -z "$tag" ]; then
-            echo "::error title=No release yet::There is no published release to deploy. Merge a pull request (a release is made automatically) or create one."
-            exit 1
+          latest() { gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || true; }
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="$(latest)"
+            if [ -z "$tag" ]; then
+              echo "::error title=No release yet::There is no published release to deploy. Merge a pull request (a release is made automatically) or create one."
+              exit 1
+            fi
+            sha="$(gh api "repos/$REPO/commits/$tag" -q .sha)"
+          else
+            sha="$BUILT_SHA"
+            # Skipped when the merged pull request is labelled "no-deploy".
+            labels="$(gh api "repos/$REPO/commits/$sha/pulls" -q '[.[].labels[].name] | join(" ")' 2>/dev/null || true)"
+            if [[ " $labels " == *" no-deploy "* ]]; then
+              echo "The pull request has the label no-deploy: not deploying ${sha:0:7}."
+              echo "### Not deployed (label no-deploy)" >> "$GITHUB_STEP_SUMMARY"
+              echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            # The release is made at the same time as the build: wait for it.
+            tag=""
+            for i in $(seq 1 40); do
+              tag="$(gh api "repos/$REPO/tags?per_page=100" -q ".[] | select(.commit.sha == \"$sha\") | .name" | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
+              if [ -n "$tag" ] && gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then break; fi
+              tag=""; sleep 15
+            done
+            if [ -z "$tag" ]; then
+              echo "::warning title=No release for this merge::Commit ${sha:0:7} got no release within 10 minutes, so it was not deployed. Run 'Deploy Latest Tag' by hand once the release exists."
+              echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+            fi
+            newest="$(latest)"
+            if [ "$newest" != "$tag" ]; then
+              echo "A newer release ($newest) exists: not deploying $tag."
+              echo "### Not deployed: $tag is older than the latest release $newest" >> "$GITHUB_STEP_SUMMARY"
+              echo "skip=true" >> "$GITHUB_OUTPUT"; exit 0
+            fi
           fi
-          sha="$(gh api "repos/$REPO/commits/$tag" -q .sha)"
           name="$(gh release view "$tag" --repo "$REPO" --json name -q .name)"
-          echo "Latest release: ${name:-$tag} (tag $tag, commit $sha)"
+          echo "Deploying ${name:-$tag} (tag $tag, commit $sha)"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "sha=$sha" >> "$GITHUB_OUTPUT"
           echo "name=${name:-$tag}" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
 
       - name: Start "Build & deploy" for that release
         id: start
+        if: steps.release.outputs.skip == 'false'
         env:
           SHA: ${{ steps.release.outputs.sha }}
         run: |
           set -euo pipefail
           since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           gh workflow run deploy.yml --repo "$REPO" --ref main -f tag="$SHA"
-          # find the run that was just started
           for i in $(seq 1 30); do
             sleep 5
             id="$(gh run list --repo "$REPO" --workflow deploy.yml --event workflow_dispatch --limit 5 \
@@ -65,6 +114,7 @@ jobs:
           echo "Deploy run: ${{ github.server_url }}/$REPO/actions/runs/$id"
 
       - name: Follow the deploy
+        if: steps.release.outputs.skip == 'false'
         env:
           RUN_ID: ${{ steps.start.outputs.id }}
           NAME: ${{ steps.release.outputs.name }}
