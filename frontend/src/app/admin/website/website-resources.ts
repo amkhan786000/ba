@@ -52,8 +52,8 @@ const MARKDOWN = 'Markdown: ## Heading, **bold**, *italic*, - list, [link](https
 
 export const WEBSITE_RESOURCES: WebsiteResource[] = [
   {
-    path: 'blog', section: 'WEBSITE_BLOG', label: 'Blog', canCreate: true,
-    intro: 'Posts of the website’s Media & Knowledge Hub (articles, research, case studies, reports, interviews). Everyone with blog access can write; publishers check and publish them.',
+    path: 'blog', section: 'WEBSITE_BLOG', label: 'Posts', canCreate: true,
+    intro: 'Posts of the website’s Media & Knowledge Hub (articles, research, case studies, reports, interviews). Everyone with Knowledge Hub access can write; publishers check and publish them.',
     defaults: { published: false, reviewRequested: false, topic: 'Community', projectId: null, categoryId: null },
     toggle: { key: 'published', on: 'Unpublish', off: 'Publish', requires: 'WEBSITE_BLOG_PUBLISH' },
     fields: [
@@ -61,9 +61,9 @@ export const WEBSITE_RESOURCES: WebsiteResource[] = [
       { key: 'status', label: 'Status', type: 'info', column: true },
       { key: 'categoryId', label: 'Category', type: 'ref', ref: 'categories', column: true, required: true,
         hint: 'The Knowledge Hub section the post appears in. Categories are on the Categories tab.' },
-      { key: 'slug', label: 'Slug (address)', type: 'text', required: true, hint: 'Filled in from the title. The post opens at /blog/<slug>.' },
+      { key: 'slug', label: 'Slug (address)', type: 'text', required: true, hint: 'Filled in from the title. The post opens at /knowledge-hub/<category>/<slug>.' },
       { key: 'projectId', label: 'Project', type: 'ref', ref: 'projects', column: true, emptyLabel: 'Others (not about a specific project)',
-        hint: 'The post is also shown on this project’s page. “Others” = only on the blog.' },
+        hint: 'The post is also shown on this project’s page. “Others” = only in the Knowledge Hub.' },
       { key: 'topic', label: 'Topic', type: 'text', required: true, suggest: true },
       { key: 'author', label: 'Author', type: 'text', column: true },
       { key: 'authorEmail', label: 'Sent by a website visitor', type: 'info' },
@@ -92,7 +92,7 @@ export const WEBSITE_RESOURCES: WebsiteResource[] = [
     toggle: { key: 'active', on: 'Hide', off: 'Show' },
     fields: [
       { key: 'name', label: 'Name', type: 'text', required: true, column: true },
-      { key: 'slug', label: 'Slug (address)', type: 'text', required: true, column: true, hint: 'The section opens at /knowledge-hub/<slug>.' },
+      { key: 'slug', label: 'Slug (address)', type: 'text', required: true, column: true, hint: 'The section opens at /knowledge-hub/<slug> (not “all” or “write”: the website uses those).' },
       { key: 'description', label: 'Description', type: 'textarea', hint: 'One sentence shown under the name.' },
       { key: 'displayOrder', label: 'Order', type: 'number', column: true, hint: 'Lower numbers show first.' },
       { key: 'active', label: 'Shown on the website', type: 'bool', column: true }

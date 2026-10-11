@@ -4,15 +4,15 @@ import { AuthService } from '../../core/services/auth.service';
 import { WebsiteRecordsComponent } from './website-records.component';
 
 /**
- * Admin > Website > Blog: the posts of the Media & Knowledge Hub and, for people with "Website: blog categories",
- * its categories.
+ * Admin > Website > Knowledge Hub: the posts of the website's Media & Knowledge Hub and, for people with
+ * "Website: Knowledge Hub categories", its categories.
  */
 @Component({
   selector: 'app-website-blog',
   standalone: true,
   imports: [CommonModule, WebsiteRecordsComponent],
   template: `
-    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Blog · Knowledge Hub</h4></div></div></div>
+    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Knowledge Hub</h4></div></div></div>
     <ul class="nav nav-tabs mb-3" *ngIf="canCategories">
       <li class="nav-item"><a class="nav-link" href="" [class.active]="tab === 'posts'" (click)="$event.preventDefault(); tab = 'posts'">Posts</a></li>
       <li class="nav-item"><a class="nav-link" href="" [class.active]="tab === 'categories'" (click)="$event.preventDefault(); tab = 'categories'">Categories</a></li>

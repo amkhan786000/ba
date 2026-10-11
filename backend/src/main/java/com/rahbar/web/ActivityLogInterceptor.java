@@ -38,14 +38,14 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         // the Bihar Anjuman website: its forms, and Admin > Website
         label("POST /api/public/website/contact", "Sent a message through the website");
         label("POST /api/public/website/directory", "Asked to join the website's directory");
-        label("POST /api/public/website/blog/submissions", "Sent a blog post through the website");
+        label("POST /api/public/website/blog/submissions", "Sent a Knowledge Hub post through the website");
         label("POST /api/public/website/volunteer", "Signed up as a volunteer on the website");
         label("PUT /api/admin/website/content", "Edited website page text");
         label("PUT /api/admin/website/translations", "Edited a website translation");
         label("POST /api/admin/website/photo", "Uploaded a website photo");
         for (String[] r : new String[][]{{"projects", "website project"}, {"news", "website news item"},
                 {"directory", "directory member"}, {"messages", "website message"}, {"pages", "website page"},
-                {"blog", "blog post"}, {"stories", "success story"}, {"gallery", "gallery photo"}}) {
+                {"blog", "Knowledge Hub post"}, {"stories", "success story"}, {"gallery", "gallery photo"}}) {
             String path = "/api/admin/website/" + r[0];
             label("POST " + path, r[0].equals("gallery") ? "Uploaded a gallery photo" : "Created a " + r[1]);
             label("PUT " + path + "/[0-9]+", "Updated a " + r[1]);

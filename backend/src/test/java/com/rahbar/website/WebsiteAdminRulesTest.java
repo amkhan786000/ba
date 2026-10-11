@@ -151,4 +151,18 @@ class WebsiteAdminRulesTest {
         verify(repo, times(2)).save(any()); // the old text first, then the new one
         assertEquals(Map.of(), Map.of());
     }
+
+    @Test
+    void categorySlugsUsedByTheWebsiteAreRefused() {
+        WebsiteTestUsers.signIn(1, "WEBSITE_BLOG_CATEGORIES:EDIT");
+        WebBlogCategoryRepository repo = mock(WebBlogCategoryRepository.class);
+        var admin = new WebsiteAdminControllers.Categories(repo);
+        WebBlogCategory c = new WebBlogCategory();
+        c.setName("All posts");
+        c.setSlug("all");
+        ApiException e = assertThrows(ApiException.class, () -> admin.validate(c));
+        assertTrue(e.getMessage().contains("used by the website"), e.getMessage());
+        c.setSlug("reports");
+        admin.validate(c);
+    }
 }

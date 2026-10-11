@@ -59,10 +59,10 @@ public enum Section {
      * Blog. VIEW: write posts and see / edit one's own drafts. EDIT: see and edit every post (publishing needs
      * WEBSITE_BLOG_PUBLISH).
      */
-    WEBSITE_BLOG("Website: blog"),
-    WEBSITE_BLOG_PUBLISH("Website: publish blog posts"),
+    WEBSITE_BLOG("Website: Knowledge Hub posts"),
+    WEBSITE_BLOG_PUBLISH("Website: publish Knowledge Hub posts"),
     /** The Knowledge Hub categories every post belongs to (Articles, Research, ...): add, rename, order, hide. */
-    WEBSITE_BLOG_CATEGORIES("Website: blog categories"),
+    WEBSITE_BLOG_CATEGORIES("Website: Knowledge Hub categories"),
     /** Success stories; chapter / RCC-scoped users only their own chapter's / center's. Publishing needs WEBSITE_STORIES_PUBLISH. */
     WEBSITE_STORIES("Website: success stories"),
     WEBSITE_STORIES_PUBLISH("Website: publish success stories"),

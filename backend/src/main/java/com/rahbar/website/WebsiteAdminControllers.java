@@ -144,6 +144,8 @@ final class WebsiteAdminControllers {
     @RestController
     @RequestMapping("/api/admin/website/categories")
     static class Categories extends WebsiteCrud<WebBlogCategory> {
+        static final java.util.Set<String> RESERVED_SLUGS = java.util.Set.of("all", "write");
+
         Categories(WebBlogCategoryRepository r) {
             super(r, Section.WEBSITE_BLOG_CATEGORIES, "Category", WebBlogCategory::getId);
         }
@@ -153,6 +155,8 @@ final class WebsiteAdminControllers {
             c.setName(WebsiteSupport.text(c.getName(), "Name", 100, true));
             c.setSlug(WebsiteSupport.slug(c.getSlug()));
             if (c.getSlug().length() > 100) throw WebsiteSupport.bad("Slug is too long (at most 100 characters).");
+            // the website uses /knowledge-hub/all and /knowledge-hub/write itself
+            if (RESERVED_SLUGS.contains(c.getSlug())) throw WebsiteSupport.bad("The slug \"" + c.getSlug() + "\" is used by the website; choose another.");
             c.setDescription(WebsiteSupport.text(c.getDescription(), "Description", 600, false));
         }
 
