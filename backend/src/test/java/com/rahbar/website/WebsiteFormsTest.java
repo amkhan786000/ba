@@ -29,7 +29,7 @@ class WebsiteFormsTest {
     private final WebsiteNotifier notifier = mock(WebsiteNotifier.class);
     private final VolunteerService volunteers = mock(VolunteerService.class);
     private final WebsiteFormsController forms = new WebsiteFormsController(messages, members, posts, projects, images, chapters,
-            mock(WebsiteImageStorage.class), notifier, volunteers);
+            mock(WebsiteImageStorage.class), notifier, volunteers, mock(WebBlogCategoryRepository.class));
 
     private static MockHttpServletRequest from(String ip) {
         MockHttpServletRequest r = new MockHttpServletRequest();

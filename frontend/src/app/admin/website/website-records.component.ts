@@ -15,7 +15,7 @@ import { RefList, WebsiteField, WebsiteResource, slugify, toLocalInput, websiteR
 type Row = Record<string, unknown> & { id?: number };
 interface Option { id: number; name: string }
 interface ImageOption { id: number; title: string; album?: string; url: string }
-interface Lookups { projects: Option[]; chapters: Option[]; centers: Option[]; images: ImageOption[] }
+interface Lookups { projects: Option[]; chapters: Option[]; centers: Option[]; categories: Option[]; images: ImageOption[] }
 
 const STATUS_LABELS: Record<string, string> = { PUBLISHED: 'Published', IN_REVIEW: 'Waiting for review', DRAFT: 'Draft' };
 const MAX_PHOTO = 10 * 1024 * 1024;
@@ -74,9 +74,9 @@ const MAX_PHOTO = 10 * 1024 * 1024;
                     </select>
                   </div>
                   <div *ngSwitchCase="'ref'" class="col-md-6 form-group">
-                    <label [for]="'f-' + f.key">{{ f.label }}</label>
+                    <label [for]="'f-' + f.key">{{ f.label }}{{ f.required ? ' *' : '' }}</label>
                     <select class="form-control" [id]="'f-' + f.key" [(ngModel)]="d[f.key]">
-                      <option [ngValue]="null">{{ f.emptyLabel || '—' }}</option>
+                      <option *ngIf="!f.required || d[f.key] == null" [ngValue]="null" [disabled]="!!f.required">{{ f.required ? 'Choose…' : f.emptyLabel || '—' }}</option>
                       <option *ngFor="let o of options(f)" [ngValue]="o.id">{{ o.name }}</option>
                     </select>
                     <small *ngIf="f.hint" class="text-muted">{{ f.hint }}</small>
@@ -100,6 +100,18 @@ const MAX_PHOTO = 10 * 1024 * 1024;
                     </label>
                     <small *ngIf="f.hint" class="text-muted d-block">{{ f.hint }}</small>
                     <img *ngIf="d[f.key]" [src]="d[f.key]" alt="Selected image" class="d-block mt-2 rounded border" style="max-height: 160px; max-width: 100%">
+                  </div>
+                  <div *ngSwitchCase="'file'" class="col-12 form-group">
+                    <label>{{ f.label }}</label>
+                    <div class="d-flex flex-wrap align-items-center">
+                      <a *ngIf="d[f.key]" [href]="d[f.key]" target="_blank" rel="noopener" class="mr-3 mb-1"><i class="mdi mdi-file-pdf-box mr-1"></i>{{ (f.nameField && d[f.nameField]) || 'Open the PDF' }}</a>
+                      <label class="btn btn-sm btn-outline-secondary mb-1 mr-2" *ngIf="canEdit">
+                        <i class="mdi mdi-upload mr-1"></i>{{ uploading ? 'Uploading…' : d[f.key] ? 'Replace PDF' : 'Upload PDF' }}
+                        <input type="file" accept="application/pdf" hidden (change)="uploadPdf(f, d, $event)" [disabled]="uploading">
+                      </label>
+                      <button *ngIf="d[f.key] && canEdit" type="button" class="btn btn-sm btn-link text-danger mb-1" (click)="d[f.key] = null">Remove</button>
+                    </div>
+                    <small *ngIf="f.hint" class="text-muted d-block">{{ f.hint }}</small>
                   </div>
                   <div *ngSwitchCase="'datetime'" class="col-md-6 form-group">
                     <label [for]="'f-' + f.key">{{ f.label }}</label>
@@ -178,7 +190,7 @@ export class WebsiteRecordsComponent implements OnInit, OnChanges {
   res: WebsiteResource = websiteResource('blog');
   rows: Row[] = [];
   names: Record<string, string> = {};
-  lookups: Lookups = { projects: [], chapters: [], centers: [], images: [] };
+  lookups: Lookups = { projects: [], chapters: [], centers: [], categories: [], images: [] };
   draft: Row | null = null;
   q = '';
   loading = false;
@@ -284,7 +296,12 @@ export class WebsiteRecordsComponent implements OnInit, OnChanges {
   startNew(): void {
     this.message = '';
     this.error = '';
-    this.draft = { ...this.res.defaults };
+    const d: Row = { ...this.res.defaults };
+    // a required dropdown starts on its first choice (e.g. the first blog category, Articles)
+    for (const f of this.res.fields) {
+      if (f.type === 'ref' && f.required && d[f.key] == null) d[f.key] = this.options(f)[0]?.id ?? null;
+    }
+    this.draft = d;
   }
 
   edit(row: Row): void {
@@ -367,6 +384,29 @@ export class WebsiteRecordsComponent implements OnInit, OnChanges {
     this.api.post<{ url: string }>('/admin/website/photo', form).subscribe({
       next: (r) => { this.uploading = false; d[f.key] = r.url; },
       error: (err) => { this.uploading = false; this.error = errorText(err, 'Could not upload the photo.'); }
+    });
+  }
+
+  /** A PDF for the post; also fills in the download button text from the file name. */
+  uploadPdf(f: WebsiteField, d: Row, e: Event): void {
+    const input = e.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      this.error = 'That PDF is larger than 20 MB.';
+      return;
+    }
+    const form = new FormData();
+    form.append('file', file);
+    this.uploading = true;
+    this.api.post<{ url: string; name: string }>('/admin/website/document', form).subscribe({
+      next: (r) => {
+        this.uploading = false;
+        d[f.key] = r.url;
+        if (f.nameField && !d[f.nameField]) d[f.nameField] = r.name;
+      },
+      error: (err) => { this.uploading = false; this.error = errorText(err, 'Could not upload the PDF.'); }
     });
   }
 

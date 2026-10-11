@@ -44,6 +44,7 @@ export const SLOT_GROUPS: SlotGroup[] = [
       { key: 'nav.projects', label: 'Menu: Projects', type: 'inline', default: 'Projects' },
       { key: 'nav.news', label: 'Menu: News', type: 'inline', default: 'News' },
       { key: 'nav.blog', label: 'Menu: Blog', type: 'inline', default: 'Blog' },
+      { key: 'nav.hub', label: 'Menu: Knowledge Hub', type: 'inline', default: 'Knowledge Hub' },
       { key: 'nav.gallery', label: 'Menu: Gallery', type: 'inline', default: 'Gallery' },
       { key: 'nav.directory', label: 'Menu: Directory', type: 'inline', default: 'Directory' },
       { key: 'nav.stories', label: 'Menu: Success stories', type: 'inline', default: 'Stories' },
@@ -110,6 +111,16 @@ export const SLOT_GROUPS: SlotGroup[] = [
   { id: 'chapters', label: 'Chapters page', slots: head('chapters', 'Worldwide', 'Chapters', 'Local chapters meet regularly, support members in times of need and guide newcomers.') },
   { id: 'centres', label: 'Coaching centres page', slots: head('centres', 'Rahbar Coaching Centres', 'Coaching centres', 'Free coaching for Grades 8–10 government-school students. Our goal: a centre in every district.') },
   { id: 'news', label: 'News page', slots: head('news', 'Updates', 'News & events', '') },
+  {
+    id: 'hub', label: 'Knowledge Hub page', slots: [
+      ...head('hub', 'Media & Knowledge Hub', 'Learn from our *work*',
+        'Articles, research about education in Bihar, case studies, community reports and interviews from the Anjuman and its projects.'),
+      { key: 'hub.all', label: 'Link under each section', type: 'inline', default: 'See all' },
+      { key: 'hub.empty', label: 'Section without posts yet', type: 'inline', default: 'Coming soon.' },
+      { key: 'hub.subject', label: 'Post page: heading of the interviewee / subject box', type: 'inline', default: 'About' },
+      { key: 'hub.download', label: 'Post page: download button when it has no text', type: 'inline', default: 'Download (PDF)' },
+    ],
+  },
   {
     id: 'blog', label: 'Blog page', slots: [
       ...head('blog', 'Blog', 'Stories, ideas & *reflections*', 'Writing from members and volunteers on education, community and Islamic values.'),

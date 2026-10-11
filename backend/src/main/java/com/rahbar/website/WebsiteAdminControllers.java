@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
-/** Admin > Website: projects, news & events, directory, messages and custom pages (see WebsiteCrud). */
+/** Admin > Website: projects, news & events, directory, messages, custom pages and blog categories (see WebsiteCrud). */
 final class WebsiteAdminControllers {
 
     private WebsiteAdminControllers() {
@@ -137,6 +137,34 @@ final class WebsiteAdminControllers {
             m.setSubject(WebsiteSupport.text(m.getSubject(), "Subject", 200, true));
             m.setMessage(WebsiteSupport.text(m.getMessage(), "Message", 5000, true));
             if (m.getTopic() == null) m.setTopic(WebMessage.Topic.GENERAL);
+        }
+    }
+
+    /** Knowledge Hub sections every blog post belongs to; WEBSITE_BLOG_CATEGORIES (set on Roles & permissions). */
+    @RestController
+    @RequestMapping("/api/admin/website/categories")
+    static class Categories extends WebsiteCrud<WebBlogCategory> {
+        Categories(WebBlogCategoryRepository r) {
+            super(r, Section.WEBSITE_BLOG_CATEGORIES, "Category", WebBlogCategory::getId);
+        }
+
+        @Override
+        protected void validate(WebBlogCategory c) {
+            c.setName(WebsiteSupport.text(c.getName(), "Name", 100, true));
+            c.setSlug(WebsiteSupport.slug(c.getSlug()));
+            if (c.getSlug().length() > 100) throw WebsiteSupport.bad("Slug is too long (at most 100 characters).");
+            c.setDescription(WebsiteSupport.text(c.getDescription(), "Description", 600, false));
+        }
+
+        @Override
+        protected WebsiteTranslatable type() {
+            return WebsiteTranslatable.CATEGORY;
+        }
+
+        /** As on the website. */
+        @Override
+        protected org.springframework.data.domain.Sort listOrder() {
+            return org.springframework.data.domain.Sort.by("displayOrder", "name");
         }
     }
 

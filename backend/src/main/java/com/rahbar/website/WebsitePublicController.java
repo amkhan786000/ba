@@ -52,14 +52,29 @@ public class WebsitePublicController {
         }
     }
 
+    /** A Knowledge Hub section as the website shows it: name and address, plus how many posts it has. */
+    public record CategoryView(Long id, String slug, String name, String description, long posts) {
+    }
+
     /** The author's email is never shown. */
     public record PostView(Long id, String title, String slug, String topic, String author, String summary, String content,
-                           String coverImageUrl, Long projectId, boolean published, LocalDateTime publishedAt,
-                           LocalDateTime createdAt) {
+                           String coverImageUrl, Long projectId, Long categoryId, CategoryRef category,
+                           String attachmentUrl, String attachmentName, String mediaUrl, String subjectName,
+                           String subjectDetails, boolean published, LocalDateTime publishedAt, LocalDateTime createdAt) {
         static PostView of(WebBlogPost p) {
-            return new PostView(p.getId(), p.getTitle(), p.getSlug(), p.getTopic(), p.getAuthor(), p.getSummary(),
-                    p.getContent(), p.getCoverImageUrl(), p.getProjectId(), p.isPublished(), p.getPublishedAt(), p.getCreatedAt());
+            return of(p, Map.of());
         }
+
+        static PostView of(WebBlogPost p, Map<Long, CategoryRef> categories) {
+            return new PostView(p.getId(), p.getTitle(), p.getSlug(), p.getTopic(), p.getAuthor(), p.getSummary(),
+                    p.getContent(), p.getCoverImageUrl(), p.getProjectId(), p.getCategoryId(),
+                    p.getCategoryId() == null ? null : categories.get(p.getCategoryId()), // none after a category was deleted
+                    p.getAttachmentUrl(), p.getAttachmentName(), p.getMediaUrl(), p.getSubjectName(), p.getSubjectDetails(),
+                    p.isPublished(), p.getPublishedAt(), p.getCreatedAt());
+        }
+    }
+
+    public record CategoryRef(String slug, String name) {
     }
 
     public record ImageView(Long id, String title, String caption, String album, LocalDate takenOn, int displayOrder,
@@ -115,13 +130,14 @@ public class WebsitePublicController {
     private final WebMemberRepository members;
     private final WebPageRepository pages;
     private final WebContentRepository content;
+    private final WebBlogCategoryRepository categories;
     private final WebsiteTranslations i18n;
     private final WebsiteImageStorage storage;
 
     public WebsitePublicController(PublicDirectoryService directory, WebProjectRepository projects, WebNewsRepository news,
                                    WebBlogPostRepository posts, WebStoryRepository stories, WebGalleryImageRepository images,
                                    WebMemberRepository members, WebPageRepository pages, WebContentRepository content,
-                                   WebsiteTranslations i18n, WebsiteImageStorage storage) {
+                                   WebsiteTranslations i18n, WebsiteImageStorage storage, WebBlogCategoryRepository categories) {
         this.directory = directory;
         this.projects = projects;
         this.news = news;
@@ -133,6 +149,7 @@ public class WebsitePublicController {
         this.content = content;
         this.i18n = i18n;
         this.storage = storage;
+        this.categories = categories;
     }
 
     // ---- chapters, centers and numbers (Rahbar's own data) ------------------------------------------------
@@ -201,10 +218,31 @@ public class WebsitePublicController {
 
     // ---- blog ----------------------------------------------------------------------------------------------
 
-    /** projectId 0 = posts not linked to a project ("Others"). */
+    /** Active categories (Knowledge Hub sections), in their order, with the number of published posts in each. */
+    @GetMapping("/blog/categories")
+    public List<CategoryView> blogCategories(@RequestParam(required = false) String lang) {
+        List<WebBlogCategory> list = i18n.apply(WebsiteTranslatable.CATEGORY, WebsiteLang.of(lang),
+                categories.findByActiveTrueOrderByDisplayOrderAscNameAsc(), WebBlogCategory::getId, WebsiteTranslations.CATEGORY);
+        Map<Long, Long> counts = new HashMap<>();
+        for (Object[] row : posts.countPublishedByCategory()) counts.put((Long) row[0], (Long) row[1]);
+        return list.stream().map(c -> new CategoryView(c.getId(), c.getSlug(), c.getName(), c.getDescription(),
+                counts.getOrDefault(c.getId(), 0L))).toList();
+    }
+
+    /** slug -> name of the active categories (names in the visitor's language). */
+    private Map<Long, CategoryRef> categoryRefs(String lang) {
+        Map<Long, CategoryRef> out = new HashMap<>();
+        i18n.apply(WebsiteTranslatable.CATEGORY, WebsiteLang.of(lang), categories.findByActiveTrueOrderByDisplayOrderAscNameAsc(),
+                WebBlogCategory::getId, WebsiteTranslations.CATEGORY).forEach(c -> out.put(c.getId(), new CategoryRef(c.getSlug(), c.getName())));
+        return out;
+    }
+
+    /** projectId 0 = posts not linked to a project ("Others"); category = a category's slug (Knowledge Hub section). */
     @GetMapping("/blog")
     public PageBody<PostView> blog(@RequestParam(required = false) String q,
                                    @RequestParam(required = false) String topic,
+                                   @RequestParam(required = false) String category,
+                                   @RequestParam(required = false) String lang,
                                    @RequestParam(required = false) Long projectId,
                                    @RequestParam(defaultValue = "NEWEST") BlogSort sort,
                                    @RequestParam(defaultValue = "0") int page,
@@ -219,15 +257,20 @@ public class WebsitePublicController {
             List<Predicate> where = new ArrayList<>();
             where.add(cb.isTrue(root.get("published")));
             if (topic != null && !topic.isBlank()) where.add(cb.equal(root.get("topic"), topic.strip()));
+            if (category != null && !category.isBlank()) {
+                Long id = categories.findBySlug(category.strip()).filter(WebBlogCategory::isActive).map(WebBlogCategory::getId).orElse(-1L);
+                where.add(cb.equal(root.get("categoryId"), id));
+            }
             if (projectId != null) {
                 where.add(projectId == 0 ? cb.isNull(root.get("projectId")) : cb.equal(root.get("projectId"), projectId));
             }
             if (WebsiteSupport.present(q)) {
-                where.add(WebsiteSupport.anyFieldContains(root, cb, q, "title", "summary", "topic", "author", "content"));
+                where.add(WebsiteSupport.anyFieldContains(root, cb, q, "title", "summary", "topic", "author", "content", "subjectName"));
             }
             return cb.and(where.toArray(Predicate[]::new));
         };
-        return PageBody.of(posts.findAll(spec, PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 50), order)).map(PostView::of));
+        Map<Long, CategoryRef> refs = categoryRefs(lang);
+        return PageBody.of(posts.findAll(spec, PageRequest.of(Math.max(page, 0), Math.clamp(size, 1, 50), order)).map(p -> PostView.of(p, refs)));
     }
 
     @GetMapping("/blog/topics")
@@ -236,14 +279,20 @@ public class WebsitePublicController {
     }
 
     @GetMapping("/blog/{slug}")
-    public PostView post(@PathVariable String slug) {
-        return PostView.of(findPost(slug));
+    public PostView post(@PathVariable String slug, @RequestParam(required = false) String lang) {
+        return PostView.of(findPost(slug), categoryRefs(lang));
     }
 
+    /** Other posts on the same topic, or else in the same category. */
     @GetMapping("/blog/{slug}/related")
-    public List<PostView> related(@PathVariable String slug) {
+    public List<PostView> related(@PathVariable String slug, @RequestParam(required = false) String lang) {
         WebBlogPost p = findPost(slug);
-        return posts.findTop3ByPublishedTrueAndTopicAndIdNotOrderByPublishedAtDesc(p.getTopic(), p.getId()).stream().map(PostView::of).toList();
+        Map<Long, CategoryRef> refs = categoryRefs(lang);
+        List<WebBlogPost> list = posts.findTop3ByPublishedTrueAndTopicAndIdNotOrderByPublishedAtDesc(p.getTopic(), p.getId());
+        if (list.isEmpty() && p.getCategoryId() != null) {
+            list = posts.findTop3ByPublishedTrueAndCategoryIdAndIdNotOrderByPublishedAtDesc(p.getCategoryId(), p.getId());
+        }
+        return list.stream().map(x -> PostView.of(x, refs)).toList();
     }
 
     private WebBlogPost findPost(String slug) {
@@ -316,12 +365,19 @@ public class WebsitePublicController {
      */
     @GetMapping("/images/{fileName}")
     public ResponseEntity<Resource> image(@PathVariable String fileName) {
-        return serve(storage, fileName);
+        return serve(storage, fileName, false);
     }
 
-    static ResponseEntity<Resource> serve(WebsiteImageStorage storage, String fileName) {
-        Path path = storage.resolve(fileName);
-        if (path == null) throw WebsiteSupport.notFound("Image");
+    /** A PDF attached to a post (the website's /api/documents/{file}). */
+    @GetMapping("/documents/{fileName}")
+    public ResponseEntity<Resource> document(@PathVariable String fileName) {
+        return serve(storage, fileName, true);
+    }
+
+    /** Photos at .../images/, PDFs at .../documents/ (each only its own kind). */
+    static ResponseEntity<Resource> serve(WebsiteImageStorage storage, String fileName, boolean pdf) {
+        Path path = fileName != null && fileName.endsWith(".pdf") == pdf ? storage.resolve(fileName) : null;
+        if (path == null) throw WebsiteSupport.notFound(pdf ? "Document" : "Image");
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(WebsiteImageStorage.contentTypeOf(fileName)))
                 .cacheControl(CacheControl.maxAge(Duration.ofDays(365)).cachePublic().immutable())

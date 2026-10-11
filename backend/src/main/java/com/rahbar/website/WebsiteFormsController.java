@@ -32,6 +32,7 @@ public class WebsiteFormsController {
     private final WebsiteImageStorage storage;
     private final WebsiteNotifier notifier;
     private final VolunteerService volunteers;
+    private final WebBlogCategoryRepository categories;
 
     private final WebsiteLimiter contactLimit = new WebsiteLimiter(5, 300);
     private final WebsiteLimiter directoryLimit = new WebsiteLimiter(3, 200);
@@ -40,7 +41,8 @@ public class WebsiteFormsController {
 
     public WebsiteFormsController(WebMessageRepository messages, WebMemberRepository members, WebBlogPostRepository posts,
                                   WebProjectRepository projects, WebGalleryImageRepository images, ChapterRepository chapters,
-                                  WebsiteImageStorage storage, WebsiteNotifier notifier, VolunteerService volunteers) {
+                                  WebsiteImageStorage storage, WebsiteNotifier notifier, VolunteerService volunteers,
+                                  WebBlogCategoryRepository categories) {
         this.messages = messages;
         this.members = members;
         this.posts = posts;
@@ -50,6 +52,7 @@ public class WebsiteFormsController {
         this.storage = storage;
         this.notifier = notifier;
         this.volunteers = volunteers;
+        this.categories = categories;
     }
 
     private static void limit(WebsiteLimiter limiter, HttpServletRequest request, String message) {
@@ -134,6 +137,7 @@ public class WebsiteFormsController {
                                           @RequestParam(required = false) String summary,
                                           @RequestParam(required = false) String topic,
                                           @RequestParam(required = false) Long projectId,
+                                          @RequestParam(required = false) Long categoryId,
                                           @RequestParam(name = "website", required = false) String trap,
                                           @RequestPart(name = "photo", required = false) MultipartFile photo,
                                           HttpServletRequest request) {
@@ -149,6 +153,9 @@ public class WebsiteFormsController {
         p.setTopic(t == null ? "Community" : t);
         if (projectId != null && !projects.existsById(projectId)) throw WebsiteSupport.bad("Unknown project.");
         p.setProjectId(projectId);
+        // a visitor picks one of the shown (active) categories; otherwise it is an article
+        p.setCategoryId((categoryId == null ? java.util.Optional.<WebBlogCategory>empty() : categories.findById(categoryId))
+                .filter(WebBlogCategory::isActive).or(() -> categories.findBySlug("articles")).map(WebBlogCategory::getId).orElse(null));
         p.setSource(WebBlogPost.Source.PUBLIC);
         p.setReviewRequested(true);
         p.setPublished(false);

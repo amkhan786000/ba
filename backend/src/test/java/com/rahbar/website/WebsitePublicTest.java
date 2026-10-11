@@ -64,4 +64,26 @@ class WebsitePublicTest {
         assertEquals("png", WebsiteImageStorage.detect(new byte[]{(byte) 0x89, 'P', 'N', 'G', 0, 0, 0, 0}));
         assertNull(WebsiteImageStorage.detect("<html>".getBytes()));
     }
+
+    @Test
+    void postsShowTheirCategoryAndCopeWithoutOne() {
+        WebBlogPost p = new WebBlogPost();
+        p.setCategoryId(2L);
+        p.setMediaUrl("https://www.youtube.com/watch?v=abc");
+        var view = WebsitePublicController.PostView.of(p, java.util.Map.of(2L, new WebsitePublicController.CategoryRef("research", "Research")));
+        assertEquals("research", view.category().slug());
+        assertEquals("https://www.youtube.com/watch?v=abc", view.mediaUrl());
+        p.setCategoryId(null);
+        assertNull(WebsitePublicController.PostView.of(p, java.util.Map.of()).category());
+    }
+
+    @Test
+    void pdfsAndPhotosAreToldApart() {
+        assertEquals("pdf", WebsiteImageStorage.detect("%PDF-1.7".getBytes()));
+        assertEquals("/api/documents/0123456789abcdef0123456789abcdef.pdf",
+                WebsiteAdminPostsController.document("/api/documents/0123456789abcdef0123456789abcdef.pdf"));
+        assertThrows(com.rahbar.exception.ApiException.class, () -> WebsiteAdminPostsController.document("https://elsewhere.example/x.pdf"));
+        assertThrows(com.rahbar.exception.ApiException.class, () -> WebsiteAdminPostsController.mediaLink("javascript:alert(1)"));
+        assertEquals("https://youtu.be/abc", WebsiteAdminPostsController.mediaLink(" https://youtu.be/abc "));
+    }
 }

@@ -63,7 +63,12 @@ pages). Code: `backend/.../website/` (tables `web_*`, migration V26) and `fronte
   news / directory / stories to Chapter Lead, stories to RCC Coordinator.
 * The website's forms (contact, directory sign-up, "Write for us", volunteer) are at
   `/api/public/website/...`, each with a bot trap and a limit per visitor; staff with the section get a notification.
-* Photos are stored in `<upload-dir>/website/` and served at `/api/images/<file>` (also on the website).
+* The blog is the website's **Media & Knowledge Hub**: every post has a category (Articles, Research, Case Studies,
+  Community Reports, Interview Series, V27), managed on Blog → Categories with *Website: blog categories*
+  (Application Administrator by default). Posts can have a PDF (`/api/documents/<file>`), a video / audio link and
+  an interviewee / subject.
+* Photos and PDFs are stored in `<upload-dir>/website/` and served at `/api/images/<file>` and
+  `/api/documents/<file>` (also on the website).
 * The page-text editor lists the slots of `frontend/src/app/admin/website/website-content-registry.ts`, a copy of
   the website's own list: keep the two the same.
 
