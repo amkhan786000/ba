@@ -83,7 +83,7 @@ class DataQualityServiceTest {
     void everyCheckHasAMenuGroupAndAScreen() {
         Set<String> groups = Set.of("students", "sponsors", "community", "website", "administration");
         var checks = service.checks();
-        assertEquals(31, checks.size()); // 23 before, duplicate sponsors, 7 payment set-up checks
+        assertEquals(32, checks.size()); // 23 before, duplicate sponsors, 8 payment set-up checks
         for (var c : checks) {
             assertTrue(groups.contains((String) c.get("group")), c.get("key") + " has group " + c.get("group"));
             assertTrue(String.valueOf(c.get("link")).startsWith("/admin/"), c.get("key") + " has link " + c.get("link"));
@@ -214,5 +214,26 @@ class DataQualityServiceTest {
 
         var check = byKey().get("possible_duplicate_sponsors");
         assertEquals(Set.of(40L, 41L, 43L, 44L), new HashSet<>(rows(check).stream().map(x -> (Long) x.get("id")).toList()));
+    }
+
+    @Test
+    void everyCurrentStudentNeedsAPaymentStartDate() {
+        User noStart = user(30, 6, "STU-30");
+        User withStart = user(31, 6, "STU-31");
+        withStart.setPaymentStartDate(java.time.LocalDate.of(2026, 7, 1));
+        User coaching = user(32, 6, null); // a coaching-center student without a reference ID is not checked
+        coaching.setRccCenterId(3L);
+        User graduated = user(33, 6, "STU-33");
+        graduated.setStudyStatus("GRADUATED");
+        when(users.findByRoleId(6)).thenReturn(List.of(noStart, withStart, coaching, graduated));
+
+        var check = byKey().get("students_without_payment_start");
+        assertEquals("sponsors", check.get("group"));
+        assertEquals(1, check.get("count"));
+        @SuppressWarnings("unchecked")
+        var rows = (List<Map<String, Object>>) check.get("rows");
+        assertEquals("STU-30", rows.get(0).get("user_id"));
+        assertEquals("No", rows.get(0).get("sponsored"));
+        assertEquals(0, byKey().get("sponsored_students_without_session_year").get("count")); // nobody is sponsored here
     }
 }
