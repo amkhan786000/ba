@@ -118,17 +118,33 @@ service watch it. With [UptimeRobot](https://uptimerobot.com) (free plan, checks
 
 You get an email when either goes down and when it is back.
 
-## HTTPS later (when a domain points to the server)
+## HTTPS and the website's domain
 
-1. Create a DNS `A` record for your domain pointing to the server IP.
-2. Add to `/opt/rahbar/.env`:
+With `COMPOSE_PROFILES=https`, Caddy becomes the server's front door on ports 80 and 443 (see `deploy/Caddyfile`):
+
+| Opened as | Goes to |
+| --- | --- |
+| `http://YOUR_SERVER_IP` (any name not listed below) | Rahbar, plain HTTP as before |
+| `https://biharanjuman.com`, `https://www.biharanjuman.com` | the Bihar Anjuman website (`biharanjuman-frontend`) |
+| `https://$DOMAIN` (optional, Rahbar's own domain) | Rahbar |
+
+Caddy gets and renews the Let's Encrypt certificates by itself.
+
+1. Add to `/opt/rahbar/.env`:
    ```
-   DOMAIN=rahbar.example.org
-   HTTP_BIND=127.0.0.1:8081
    COMPOSE_PROFILES=https
-   PUBLIC_URL=https://rahbar.example.org
+   HTTP_BIND=127.0.0.1:8081
+   # optional, only when Rahbar gets its own domain:
+   # DOMAIN=rahbar.example.org
+   # PUBLIC_URL=https://rahbar.example.org
+   # WEBSITE_DOMAINS=biharanjuman.com, www.biharanjuman.com   (this is the default)
    ```
-3. Run the deploy again. Caddy gets and renews the Let's Encrypt certificate by itself.
+2. Open the HTTPS port: `sudo ufw allow 443/tcp`.
+3. Run the deploy again (Actions → Deploy Latest Tag). Rahbar keeps working on `http://YOUR_SERVER_IP`.
+4. The website joins Caddy's network and its DNS is switched over: see "Domain and HTTPS" in the biharanjuman.com
+   repository's `deploy/README.md`.
+
+Until a domain's DNS points to this server, Caddy just retries its certificate in the background; nothing breaks.
 
 ## Looking at the database with DBeaver (or another client)
 
