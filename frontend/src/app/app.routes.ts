@@ -66,6 +66,7 @@ import { AdminVolunteerOptionsComponent } from './admin/admin-volunteer-options.
 import { AdminDocumentsComponent } from './admin/admin-documents.component';
 import { AdminFinanceComponent } from './admin/admin-finance.component';
 import { AdminSponsorFollowupComponent } from './admin/admin-sponsor-followup.component';
+import { AdminMentoringComponent } from './admin/admin-mentoring.component';
 import { RebDashboardComponent } from './admin/reb/reb-dashboard.component';
 import { RebStudentsComponent } from './admin/reb/reb-students.component';
 import { RebStudentComponent } from './admin/reb/reb-student.component';
@@ -155,6 +156,7 @@ export const routes: Routes = [
       { path: 'volunteer-options', component: AdminVolunteerOptionsComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEER_OPTIONS' } },
       { path: 'documents', component: AdminDocumentsComponent }, // everyone: each document says who may read it
       { path: 'sponsor-followup', component: AdminSponsorFollowupComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
+      { path: 'mentoring', component: AdminMentoringComponent, canActivate: [permissionGuard], data: { permission: 'MENTORING' } },
       { path: 'finance', component: AdminFinanceComponent, canActivate: [permissionGuard], data: { permission: 'FINANCE' } },
       // Rahbar-e-Banaat
       { path: 'reb/dashboard', component: RebDashboardComponent, canActivate: [permissionGuard], data: { permission: 'REB_DASHBOARD' } },
