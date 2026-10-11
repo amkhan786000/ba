@@ -1,11 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
-import { PagerComponent, PageState, PaginatePipe } from '../../shared/pager/pager.component';
+import { PagerComponent } from '../../shared/pager/pager.component';
+import { PagedResult, ServerTable } from '../../shared/pager/server-table';
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { isoDate } from '../../shared/format';
 import {
@@ -22,7 +23,7 @@ interface ImportResult { added: number; updated: number; skipped: number; messag
 @Component({
   selector: 'app-reb-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Girls</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -46,7 +47,7 @@ interface ImportResult { added: number; updated: number; skipped: number; messag
           </div>
           <div class="col-6 col-md-3 form-group">
             <label for="f-section">Class</label>
-            <select id="f-section" class="form-control" [(ngModel)]="sectionId" (ngModelChange)="pg.reset()">
+            <select id="f-section" class="form-control" [(ngModel)]="sectionId" (ngModelChange)="table.filter()">
               <option [ngValue]="null">All classes</option>
               <option *ngFor="let s of sections" [ngValue]="s.id">{{ s.label }} ({{ s.girls }})</option>
             </select>
@@ -60,24 +61,24 @@ interface ImportResult { added: number; updated: number; skipped: number; messag
           </div>
           <div class="col-6 col-md-2 form-group">
             <label for="f-plan">Fee plan</label>
-            <select id="f-plan" class="form-control" [(ngModel)]="feePlan" (ngModelChange)="pg.reset()">
+            <select id="f-plan" class="form-control" [(ngModel)]="feePlan" (ngModelChange)="table.filter()">
               <option value="">Any</option>
               <option *ngFor="let p of planKeys" [value]="p">{{ plans[p] }}</option>
             </select>
           </div>
           <div class="col-12 col-md-3 form-group">
             <label for="f-q">Search</label>
-            <input id="f-q" class="form-control" placeholder="Name, admission no., guardian, phone" [(ngModel)]="q" (ngModelChange)="pg.reset()">
+            <input id="f-q" class="form-control" placeholder="Name, admission no., guardian, phone" [(ngModel)]="q" (ngModelChange)="table.search()">
           </div>
         </div>
-        <p class="small text-muted mb-2">{{ visible.length }} girl{{ visible.length === 1 ? '' : 's' }}<span *ngIf="residentialCount !== null"> · {{ residentialCount }} in the hostel</span></p>
+        <p class="small text-muted mb-2">{{ table.total }} girl{{ table.total === 1 ? '' : 's' }}<span *ngIf="table.last"> · {{ table.last.residential }} in the hostel</span></p>
         <div class="table-responsive">
           <table class="table table-sm table-centered table-hover mb-0">
             <thead><tr><th>Girl</th><th>Class</th><th>Roll</th><th>Guardian</th><th>Fee plan</th><th>Status</th></tr></thead>
             <tbody>
-              <tr *ngIf="loading"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
-              <tr *ngIf="!loading && !visible.length"><td colspan="6" class="text-center text-muted">No girls found.</td></tr>
-              <tr *ngFor="let r of visible | paginate: pg.page : pg.size" class="clickable" (click)="open(r)">
+              <tr *ngIf="table.loading && !table.rows.length"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
+              <tr *ngIf="!table.loading && !table.rows.length"><td colspan="6" class="text-center text-muted">No girls found.</td></tr>
+              <tr *ngFor="let r of table.rows" class="clickable" (click)="open(r)">
                 <td><a [routerLink]="['/admin/reb/students', r.id]" (click)="$event.stopPropagation()"><strong>{{ r.name }}</strong></a>
                   <div class="small text-muted">{{ r.admission_no }}<span *ngIf="r.residential"> · Hostel</span></div></td>
                 <td>{{ r.section || '--' }}</td>
@@ -89,7 +90,7 @@ interface ImportResult { added: number; updated: number; skipped: number; messag
             </tbody>
           </table>
         </div>
-        <app-pager [state]="pg" [total]="visible.length"></app-pager>
+        <app-pager [state]="table.pg" [total]="table.total" (pageChange)="table.load()"></app-pager>
       </div>
     </div>
 
@@ -183,8 +184,7 @@ interface ImportResult { added: number; updated: number; skipped: number; messag
     </div>
   `
 })
-export class RebStudentsComponent implements OnInit {
-  readonly pg = new PageState(25);
+export class RebStudentsComponent implements OnInit, OnDestroy {
   readonly plans = FEE_PLANS;
   readonly planKeys = Object.keys(FEE_PLANS);
   readonly statuses = STATUSES;
@@ -198,14 +198,16 @@ export class RebStudentsComponent implements OnInit {
 
   sessions: RebSession[] = [];
   sections: RebSectionRow[] = [];
-  rows: RebStudentRow[] = [];
   sessionId: number | null = null;
   sectionId: number | null = null;
   status = 'ACTIVE';
   feePlan = '';
   q = '';
+  readonly table = new ServerTable<RebStudentRow, PagedResult<RebStudentRow> & { residential: number }>(
+    (p) => this.api.get('/admin/reb/students', { sessionId: this.sessionId, sectionId: this.sectionId, status: this.status,
+      feePlan: this.feePlan, q: this.q, ...p }),
+    (e) => (this.error = errorText(e, 'Could not load the girls.')));
   noSession = false;
-  loading = false;
   busy = false;
   message = '';
   error = '';
@@ -216,15 +218,6 @@ export class RebStudentsComponent implements OnInit {
 
   get canEdit(): boolean { return this.auth.can('REB_STUDENTS', 'EDIT'); }
   get canPrivate(): boolean { return this.auth.can('REB_STUDENT_PRIVATE', 'EDIT'); }
-
-  get visible(): RebStudentRow[] {
-    const q = this.q.trim().toLowerCase();
-    return this.rows.filter((r) => (!this.sectionId || r.section_id === this.sectionId)
-      && (!this.feePlan || r.fee_plan === this.feePlan)
-      && (!q || [r.name, r.admission_no, r.guardian_name, r.guardian_phone].some((v) => (v ?? '').toLowerCase().includes(q))));
-  }
-
-  get residentialCount(): number | null { return this.rows.length ? this.visible.filter((r) => r.residential).length : null; }
 
   ngOnInit(): void {
     this.api.get<RebSession[]>('/admin/reb/sessions').subscribe({
@@ -247,13 +240,9 @@ export class RebStudentsComponent implements OnInit {
     });
   }
 
-  load(): void {
-    this.loading = true;
-    this.api.get<{ students: RebStudentRow[] }>('/admin/reb/students', { sessionId: this.sessionId, status: this.status }).subscribe({
-      next: (r) => { this.loading = false; this.rows = r.students; this.pg.reset(); },
-      error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load the girls.'); }
-    });
-  }
+  load(): void { this.table.filter(); }
+
+  ngOnDestroy(): void { this.table.destroy(); }
 
   open(r: RebStudentRow): void { this.router.navigate(['/admin/reb/students', r.id]); }
 

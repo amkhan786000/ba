@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { PagedResult } from '../../shared/pager/server-table';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { PagerComponent, PageState, PaginatePipe } from '../../shared/pager/pager.component';
@@ -328,7 +329,6 @@ export class RebFeesComponent implements OnInit {
 
   girlQ = '';
   girlOptions: RebStudentRow[] = [];
-  private allGirls: RebStudentRow[] | null = null;
   due: Due | null = null;
   pay = { payer: 'FAMILY', amount: 0 as number | null, paidOn: isoDate(new Date()), method: 'CASH', reference: '', note: '' };
   lastReceipt: { id: number; no: string } | null = null;
@@ -406,9 +406,8 @@ export class RebFeesComponent implements OnInit {
   searchGirls(): void {
     const q = this.girlQ.trim().toLowerCase();
     if (q.length < 2) { this.girlOptions = []; return; }
-    const filter = () => (this.girlOptions = (this.allGirls ?? []).filter((g) => g.name.toLowerCase().includes(q) || g.admission_no.toLowerCase().includes(q)).slice(0, 12));
-    if (this.allGirls) { filter(); return; }
-    this.api.get<{ students: RebStudentRow[] }>('/admin/reb/students', { status: 'ALL' }).subscribe({ next: (r) => { this.allGirls = r.students; filter(); } });
+    this.api.get<PagedResult<RebStudentRow>>('/admin/reb/students', { status: 'ALL', q, page: 0, size: 12 }).subscribe({
+      next: (r) => { if (this.girlQ.trim().toLowerCase() === q) this.girlOptions = r.rows; } });
   }
 
   pickGirl(id: number): void {

@@ -160,6 +160,18 @@ public class RebStudentService {
         return out;
     }
 
+    /** {@link #list} one page at a time ({ total, page, size, rows }), with how many of all the matches live in the hostel. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> page(Long sessionId, Long classId, Long sectionId, String status, Boolean residential, String feePlan,
+                                    String q, Integer page, Integer size) {
+        Map<String, Object> all = list(sessionId, classId, sectionId, status, residential, feePlan, q);
+        @SuppressWarnings("unchecked") List<Map<String, Object>> rows = (List<Map<String, Object>>) all.get("students");
+        Map<String, Object> out = com.rahbar.util.Paging.of(rows, page, size);
+        out.put("session", all.get("session"));
+        out.put("residential", rows.stream().filter(r -> Boolean.TRUE.equals(r.get("residential"))).count());
+        return out;
+    }
+
     private static int rollOrder(Object roll) {
         try {
             return roll == null ? Integer.MAX_VALUE : Integer.parseInt(String.valueOf(roll).replaceAll("\\D", ""));
