@@ -46,6 +46,7 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/api/public/**").permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/images/**").permitAll() // website photos
                 .requestMatchers("/actuator/health").permitAll()
                 .anyRequest().authenticated()
             )
