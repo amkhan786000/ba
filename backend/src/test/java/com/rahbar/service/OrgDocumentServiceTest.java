@@ -29,10 +29,14 @@ class OrgDocumentServiceTest {
     private final OrgDocumentService service = new OrgDocumentService(documents, categories, revisions, mock(UserRepository.class));
 
     private static void signIn(int roleId) {
+        signIn(roleId, "DOCUMENTS:EDIT");
+    }
+
+    private static void signIn(int roleId, String... permissions) {
         User u = new User();
         u.setId(1L);
         u.setRoleId(roleId);
-        var p = new RahbarUserPrincipal(u, Set.of("DOCUMENTS:EDIT"), Role.SCOPE_ALL);
+        var p = new RahbarUserPrincipal(u, Set.of(permissions), Role.SCOPE_ALL);
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()));
     }
 
@@ -126,5 +130,38 @@ class OrgDocumentServiceTest {
         when(documents.existsByCategoryId(3L)).thenReturn(true);
         assertThrows(ApiException.class, () -> service.deleteCategory(3L));
         verify(categories, never()).delete(any());
+    }
+
+    private static OrgDocument doc(String visibility, String roles, boolean archived) {
+        OrgDocument d = new OrgDocument();
+        d.setVisibility(visibility);
+        d.setVisibleRoleIds(roles);
+        d.setArchived(archived);
+        return d;
+    }
+
+    @Test
+    void readersAreChosenOnEachDocument() {
+        signIn(5, "DASHBOARD:VIEW"); // a sponsor without any documents permission
+        assertTrue(OrgDocumentService.mayRead(doc("PUBLIC", null, false)));
+        assertFalse(OrgDocumentService.mayRead(doc("ROLES", "2,8", false)));
+        assertTrue(OrgDocumentService.mayRead(doc("ROLES", "2,5", false)));
+        assertFalse(OrgDocumentService.mayRead(doc("PUBLIC", null, true)));   // archived: editors only
+        assertFalse(OrgDocumentService.mayRead(doc("ROLES", null, false)));   // no roles chosen yet: editors only
+
+        signIn(8, "DOCUMENTS:EDIT"); // editors see everything
+        assertTrue(OrgDocumentService.mayRead(doc("ROLES", "2", true)));
+    }
+
+    @Test
+    void aNewDocumentIsForEveryoneUnlessRolesAreChosen() {
+        assertEquals("PUBLIC", service.save(null, body("Policy", "Text")).getVisibility());
+        Map<String, Object> roles = body("Board minutes", "Text");
+        roles.put("visibility", "ROLES");
+        assertThrows(ApiException.class, () -> service.save(null, roles)); // no role chosen
+        roles.put("visibleRoleIds", List.of(2, 8));
+        OrgDocument d = service.save(null, roles);
+        assertEquals("ROLES", d.getVisibility());
+        assertEquals(Set.of(2, 8), d.visibleRoles());
     }
 }

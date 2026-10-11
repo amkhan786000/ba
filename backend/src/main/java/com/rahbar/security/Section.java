@@ -78,8 +78,11 @@ public enum Section {
     WEBSITE_MESSAGES("Website: messages"),
     /** Custom pages, the text of the fixed pages and its Urdu / Hindi versions. */
     WEBSITE_PAGES("Website: pages & page text"),
-    /** Admin > Documents: by-laws and other documents kept as text. VIEW reads them; EDIT adds, edits and archives. */
-    DOCUMENTS("Documents"),
+    /**
+     * Admin > Documents: by-laws and other documents kept as text. EDIT adds, edits and archives them and sees every
+     * document. Who may read a document is chosen on the document (everyone, or some roles), not here.
+     */
+    DOCUMENTS("Documents: add & edit (who reads each one is set on the document)"),
     /** The categories of Admin > Documents. */
     DOCUMENT_CATEGORIES("Document categories"),
     /** Rahbar-e-Banaat (the girls' Madrasa-cum-School): its dashboard. */

@@ -10,11 +10,12 @@ import { WebsiteMarkdownPipe } from './website/website-markdown.pipe';
 
 interface DocRow {
   id: number; category_id: number; title: string; effective_date: string | null; archived: boolean;
-  updated_at: string | null; updated_by_name: string | null; earlier_versions: number;
+  updated_at: string | null; updated_by_name: string | null; earlier_versions?: number; visibility?: string; readers?: string;
 }
 interface Doc {
   id: number; category_id: number; category_name: string | null; title: string; content: string; effective_date: string | null;
   archived: boolean; created_at: string | null; created_by_name: string | null; updated_at: string | null; updated_by_name: string | null;
+  visibility?: string; visible_roles?: number[]; readers?: string;
 }
 interface Category { id: number; name: string; description: string | null; display_order: number; documents: number }
 interface Revision { id: number; title: string; content: string; effective_date: string | null; created_at: string; replaced_by_name: string | null }
@@ -23,6 +24,8 @@ interface Revision { id: number; title: string; content: string; effective_date:
  * Admin > Documents: the organisation's by-laws and other documents, kept as text in categories. The text is
  * pasted in (not uploaded); line breaks are kept and Markdown is shown formatted. Every change keeps the earlier
  * version, which can be viewed and restored. Documents are archived, not deleted (only the Super Admin deletes).
+ * Who may read a document is chosen on it: everyone (every signed-in user, also in the portals) or some roles;
+ * people who edit documents see them all. The same page is the read-only Documents page of the portals.
  */
 @Component({
   selector: 'app-admin-documents',
@@ -56,7 +59,7 @@ interface Revision { id: number; title: string; content: string; effective_date:
             <option [ngValue]="null">All categories</option>
             <option *ngFor="let c of categories" [ngValue]="c.id">{{ c.name }}</option>
           </select>
-          <div class="custom-control custom-checkbox mb-2">
+          <div class="custom-control custom-checkbox mb-2" *ngIf="canEdit">
             <input type="checkbox" class="custom-control-input" id="show-archived" [(ngModel)]="showArchived">
             <label class="custom-control-label" for="show-archived">Show archived</label>
           </div>
@@ -90,6 +93,21 @@ interface Revision { id: number; title: string; content: string; effective_date:
                   <option *ngFor="let c of categories" [ngValue]="c.id">{{ c.name }}</option>
                 </select></div>
             </div>
+            <div class="form-group">
+              <span class="d-block mb-1">Who can read it *</span>
+              <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="v-public" name="visibility" class="custom-control-input" value="PUBLIC" [(ngModel)]="edit.visibility">
+                <label class="custom-control-label" for="v-public">Everyone (all signed-in users)</label></div>
+              <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="v-roles" name="visibility" class="custom-control-input" value="ROLES" [(ngModel)]="edit.visibility">
+                <label class="custom-control-label" for="v-roles">Only these roles</label></div>
+              <div *ngIf="edit.visibility === 'ROLES'" class="border rounded p-2 mt-2">
+                <div class="custom-control custom-checkbox" *ngFor="let r of roleOptions">
+                  <input type="checkbox" class="custom-control-input" [id]="'v-role-' + r.id" [checked]="edit.roles.includes(r.id)" (change)="toggleRole(r.id)">
+                  <label class="custom-control-label" [for]="'v-role-' + r.id">{{ r.name }}</label></div>
+                <small class="text-muted">People who can edit documents always see every document.</small>
+              </div>
+            </div>
             <div class="d-flex justify-content-between align-items-end mb-1">
               <label for="d-content" class="mb-0">Text *</label>
               <div class="btn-group btn-group-sm">
@@ -104,7 +122,7 @@ interface Revision { id: number; title: string; content: string; effective_date:
             <p *ngIf="edit.id" class="small text-muted mt-2 mb-0">Saving keeps the current text as an earlier version.</p>
             <div class="d-flex justify-content-end mt-3">
               <button class="btn btn-light mr-2" (click)="cancelEdit()">Cancel</button>
-              <button class="btn btn-primary" (click)="save()" [disabled]="busy || !edit.title.trim() || !edit.categoryId || !edit.content.trim()">{{ busy ? 'Saving…' : 'Save' }}</button>
+              <button class="btn btn-primary" (click)="save()" [disabled]="busy || !edit.title.trim() || !edit.categoryId || !edit.content.trim() || (edit.visibility === 'ROLES' && !edit.roles.length)">{{ busy ? 'Saving…' : 'Save' }}</button>
             </div>
           </div>
         </div>
@@ -121,6 +139,7 @@ interface Revision { id: number; title: string; content: string; effective_date:
                   <span *ngIf="current.effective_date">Effective {{ current.effective_date | date: 'd MMMM yyyy' }} · </span>
                   Last changed {{ current.updated_at | date: 'd MMM yyyy, h:mm a' }}<span *ngIf="current.updated_by_name"> by {{ current.updated_by_name }}</span>
                 </div>
+                <div *ngIf="current.readers" class="small mt-1"><i class="mdi mdi-eye-outline mr-1"></i>Can read: {{ current.readers }}</div>
               </div>
               <div class="d-flex flex-wrap">
                 <button class="btn btn-sm btn-outline-secondary mr-1 mb-1" (click)="copy()"><i class="mdi mdi-content-copy mr-1"></i>{{ copied ? 'Copied' : 'Copy text' }}</button>
@@ -225,7 +244,8 @@ export class AdminDocumentsComponent implements OnInit {
   q = '';
   categoryId: number | null = null;
   showArchived = false;
-  edit: { id: number | null; title: string; categoryId: number | null; effectiveDate: string; content: string } | null = null;
+  edit: { id: number | null; title: string; categoryId: number | null; effectiveDate: string; content: string; visibility: string; roles: number[] } | null = null;
+  roleOptions: { id: number; name: string }[] = [];
   preview = false;
   cat: { id: number | null; name: string; description: string; displayOrder: number } | null = null;
   versions: Revision[] | null = null;
@@ -262,7 +282,6 @@ export class AdminDocumentsComponent implements OnInit {
       next: (r) => {
         this.docs = r.documents;
         this.categories = r.categories;
-        if (!this.auth.can('DOCUMENTS')) this.tab = 'categories';
         if (openId) this.open(openId);
       },
       error: (e) => (this.error = errorText(e, 'Could not load the documents.'))
@@ -282,13 +301,16 @@ export class AdminDocumentsComponent implements OnInit {
   newDoc(): void {
     this.current = null;
     this.preview = false;
-    this.edit = { id: null, title: '', categoryId: this.categoryId, effectiveDate: '', content: '' };
+    this.loadRoleOptions();
+    this.edit = { id: null, title: '', categoryId: this.categoryId, effectiveDate: '', content: '', visibility: 'PUBLIC', roles: [] };
   }
 
   editDoc(): void {
     const d = this.current!;
     this.preview = false;
-    this.edit = { id: d.id, title: d.title, categoryId: d.category_id, effectiveDate: d.effective_date ?? '', content: d.content };
+    this.loadRoleOptions();
+    this.edit = { id: d.id, title: d.title, categoryId: d.category_id, effectiveDate: d.effective_date ?? '', content: d.content,
+      visibility: d.visibility ?? 'PUBLIC', roles: [...(d.visible_roles ?? [])] };
   }
 
   cancelEdit(): void {
@@ -301,13 +323,24 @@ export class AdminDocumentsComponent implements OnInit {
     const e = this.edit;
     if (!e) return;
     this.busy = true;
-    const body = { title: e.title, categoryId: e.categoryId, effectiveDate: e.effectiveDate || null, content: e.content };
+    const body = { title: e.title, categoryId: e.categoryId, effectiveDate: e.effectiveDate || null, content: e.content,
+      visibility: e.visibility, visibleRoleIds: e.visibility === 'ROLES' ? e.roles : [] };
     const req = e.id ? this.api.put<{ message: string; id: number }>(`/admin/documents/${e.id}`, body)
       : this.api.post<{ message: string; id: number }>('/admin/documents', body);
     req.subscribe({
       next: (r) => { this.busy = false; this.edit = null; this.message = r.message; this.load(r.id); },
       error: (err) => { this.busy = false; this.error = errorText(err, 'Could not save the document.'); }
     });
+  }
+
+  private loadRoleOptions(): void {
+    if (this.roleOptions.length) return;
+    this.api.get<{ id: number; name: string }[]>('/admin/documents/role-options').subscribe({ next: (r) => (this.roleOptions = r) });
+  }
+
+  toggleRole(id: number): void {
+    if (!this.edit) return;
+    this.edit.roles = this.edit.roles.includes(id) ? this.edit.roles.filter((x) => x !== id) : [...this.edit.roles, id];
   }
 
   archive(archived: boolean): void {

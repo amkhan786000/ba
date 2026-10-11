@@ -228,7 +228,7 @@ export class AdminDataQualityComponent implements OnInit {
   /** The admin screen where a check's records are fixed, if this user may open it. */
   screen(c: Check): { path: string; label: string } | null {
     const link = ADMIN_LINKS.find((l) => l.path === c.link);
-    return link && this.auth.can(link.section) ? { path: link.path, label: link.label } : null;
+    return link && (!link.section || this.auth.can(link.section)) ? { path: link.path, label: link.label } : null;
   }
 
   toggle(c: Check): void { if (c.count) this.open = this.open === c.key ? '' : c.key; }
