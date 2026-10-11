@@ -63,6 +63,7 @@ import { WebsiteGalleryComponent } from './admin/website/website-gallery.compone
 import { WebsitePagesComponent } from './admin/website/website-pages.component';
 import { WebsiteBlogComponent } from './admin/website/website-blog.component';
 import { AdminVolunteerOptionsComponent } from './admin/admin-volunteer-options.component';
+import { AdminDocumentsComponent } from './admin/admin-documents.component';
 import { RebDashboardComponent } from './admin/reb/reb-dashboard.component';
 import { RebStudentsComponent } from './admin/reb/reb-students.component';
 import { RebStudentComponent } from './admin/reb/reb-student.component';
@@ -142,6 +143,7 @@ export const routes: Routes = [
       { path: 'rcc-students', component: AdminRccStudentsComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'volunteers', component: AdminVolunteersComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEERS' } },
       { path: 'volunteer-options', component: AdminVolunteerOptionsComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEER_OPTIONS' } },
+      { path: 'documents', component: AdminDocumentsComponent, canActivate: [permissionGuard], data: { permission: 'DOCUMENTS' } },
       // Rahbar-e-Banaat
       { path: 'reb/dashboard', component: RebDashboardComponent, canActivate: [permissionGuard], data: { permission: 'REB_DASHBOARD' } },
       { path: 'reb/students', component: RebStudentsComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
