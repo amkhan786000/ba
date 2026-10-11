@@ -83,6 +83,14 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("DELETE /api/admin/reb/documents/[0-9]+", "Removed a REB document");
         label("POST /api/admin/reb/students/import", "Imported REB girls from a file");
         label("POST /api/admin/reb/promotion", "Promoted REB girls to the next session");
+        label("POST /api/public/website/reb/enquiries", "Sent a Rahbar-e-Banaat admission enquiry through the website");
+        label("POST /api/admin/reb/enquiries", "Added a REB admission enquiry");
+        label("PUT /api/admin/reb/enquiries/[0-9]+", "Updated a REB admission enquiry");
+        label("POST /api/admin/reb/enquiries/[0-9]+/admit", "Admitted a girl from a REB enquiry");
+        label("POST /api/admin/reb/quran", "Recorded a REB Quran lesson");
+        label("DELETE /api/admin/reb/quran/[0-9]+", "Removed a REB Quran lesson");
+        label("POST /api/admin/reb/hostel-leaves", "Gave a REB hostel gate pass");
+        label("POST /api/admin/reb/hostel-leaves/[0-9]+/return", "Marked a REB girl back from leave");
         label("PUT /api/admin/reb/attendance", "Marked REB attendance");
         label("POST /api/admin/reb/calendar", "Added a REB holiday or event");
         label("PUT /api/admin/reb/calendar/[0-9]+", "Changed a REB holiday or event");

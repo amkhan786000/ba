@@ -28,7 +28,7 @@ export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTER
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
   | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES'
   | 'REB_DASHBOARD' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS'
-  | 'REB_FEES' | 'REB_FEE_APPROVALS' | 'REB_SPONSORSHIPS' | 'REB_ATTENDANCE' | 'REB_EXAMS';
+  | 'REB_FEES' | 'REB_FEE_APPROVALS' | 'REB_SPONSORSHIPS' | 'REB_ATTENDANCE' | 'REB_EXAMS' | 'REB_ENQUIRIES' | 'REB_QURAN' | 'REB_HOSTEL';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
 export const PORTAL_ROLES = [3, 4, 5, 6];
@@ -70,6 +70,9 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
 
   { path: '/admin/reb/dashboard', label: 'REB Dashboard', icon: 'mdi-view-dashboard-outline', section: 'REB_DASHBOARD', group: 'reb' },
   { path: '/admin/reb/students', label: 'Girls', icon: 'mdi-human-female', section: 'REB_STUDENTS', group: 'reb' },
+  { path: '/admin/reb/enquiries', label: 'Admission Enquiries', icon: 'mdi-account-question', section: 'REB_ENQUIRIES', group: 'reb' },
+  { path: '/admin/reb/quran', label: 'Quran / Hifz', icon: 'mdi-book-open-variant', section: 'REB_QURAN', group: 'reb' },
+  { path: '/admin/reb/hostel', label: 'Hostel Leave', icon: 'mdi-exit-run', section: 'REB_HOSTEL', group: 'reb' },
   { path: '/admin/reb/attendance', label: 'Attendance', icon: 'mdi-calendar-check', section: 'REB_ATTENDANCE', group: 'reb' },
   { path: '/admin/reb/exams', label: 'Exams & Results', icon: 'mdi-clipboard-text', section: 'REB_EXAMS', group: 'reb' },
   { path: '/admin/reb/fees', label: 'REB Fees', icon: 'mdi-cash-multiple', section: 'REB_FEES', group: 'reb' },
