@@ -96,11 +96,12 @@ final class WebsiteAdminPostsController {
 
         @GetMapping
         @Transactional(readOnly = true)
-        public Map<String, Object> list() {
+        public Map<String, Object> list(@RequestParam(required = false) String q, @RequestParam(required = false) Integer page,
+                                        @RequestParam(required = false) Integer size, @RequestParam(required = false) String suggest) {
             WebsiteSupport.require(Section.WEBSITE_BLOG, Section.Level.VIEW);
             List<WebBlogPost> rows = seesAll() ? posts.findAll(Sort.by(Sort.Direction.DESC, "id"))
                     : posts.findByCreatedByOrderByIdDesc(WebsiteSupport.me().getId());
-            return Map.of("data", rows, "names", names(users, rows));
+            return WebsiteSupport.list(rows, q, page, size, suggest, r -> names(users, r));
         }
 
         @GetMapping("/{id}")
@@ -233,10 +234,11 @@ final class WebsiteAdminPostsController {
 
         @GetMapping
         @Transactional(readOnly = true)
-        public Map<String, Object> list() {
+        public Map<String, Object> list(@RequestParam(required = false) String q, @RequestParam(required = false) Integer page,
+                                        @RequestParam(required = false) Integer size, @RequestParam(required = false) String suggest) {
             WebsiteSupport.require(Section.WEBSITE_STORIES, Section.Level.VIEW);
             List<WebStory> rows = stories.findAll(Sort.by(Sort.Direction.DESC, "id")).stream().filter(Stories::inScope).toList();
-            return Map.of("data", rows, "names", names(users, rows));
+            return WebsiteSupport.list(rows, q, page, size, suggest, r -> names(users, r));
         }
 
         @GetMapping("/{id}")

@@ -1,11 +1,12 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Subject, Subscription, debounceTime, switchMap, of } from 'rxjs';
+import { Subject, Subscription, debounceTime, switchMap, of, tap } from 'rxjs';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
-import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { PagerComponent } from '../shared/pager/pager.component';
+import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { RoleOption } from './admin-users.component';
 import { uploadUrl } from '../shared/format';
 import { CardTableDirective } from '../shared/card-table.directive';
@@ -36,7 +37,7 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,
 @Component({
   selector: 'app-admin-broadcasts',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   styles: [`
     .chip { display: inline-flex; align-items: center; background: #eef2f7; border-radius: 1rem; padding: .15rem .6rem; margin: 0 .35rem .35rem 0; font-size: .85rem; }
     .chip button { border: 0; background: none; margin-left: .35rem; line-height: 1; padding: 0; color: #6c757d; }
@@ -176,8 +177,8 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,
           <table class="table table-sm table-striped mb-0">
             <thead><tr><th>Date</th><th>Subject</th><th>To</th><th>Delivery</th><th>By</th></tr></thead>
             <tbody>
-              <tr *ngIf="!history.length"><td colspan="5" class="text-center text-muted">No messages yet.</td></tr>
-              <tr *ngFor="let b of history | paginate: pg.page : pg.size">
+              <tr *ngIf="!historyTable.loading && !historyTable.rows.length"><td colspan="5" class="text-center text-muted">No messages yet.</td></tr>
+              <tr *ngFor="let b of historyTable.rows">
                 <td class="text-nowrap">
                   {{ when(b.scheduled_for || b.created_at) }}
                   <div *ngIf="b.scheduled_for" class="small text-muted">scheduled</div>
@@ -210,13 +211,12 @@ const ACCEPT = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx,.xls,.xlsx,.csv,.ppt,
             </tbody>
           </table>
         </div>
-        <app-pager [state]="pg" [total]="history.length"></app-pager>
+        <app-pager [state]="historyTable.pg" [total]="historyTable.total" (pageChange)="historyTable.load()"></app-pager>
       </div>
     </div>
   `
 })
 export class AdminBroadcastsComponent implements OnInit, OnDestroy {
-  readonly pg = new PageState(10);
   type: AudienceType = 'USERS';
   roles: RoleOption[] = [];
   roleIds = new Set<number>();
@@ -236,7 +236,9 @@ export class AdminBroadcastsComponent implements OnInit, OnDestroy {
   scheduledAt = '';
   templates: Template[] = [];
   templateId: number | null = null;
-  history: Broadcast[] = [];
+  readonly historyTable = new ServerTable<Broadcast, PagedResult<Broadcast> & { sending: boolean }>(
+    (p) => this.api.get<PagedResult<Broadcast> & { sending: boolean }>('/admin/broadcasts', p).pipe(tap((r) => this.watch(r.sending))),
+    (e) => (this.error = errorText(e, 'Could not load sent messages.')), 10);
   message = '';
   error = '';
   private subs: Subscription[] = [];
@@ -264,6 +266,7 @@ export class AdminBroadcastsComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.subs.forEach((s) => s.unsubscribe());
     if (this.poll) clearInterval(this.poll);
+    this.historyTable.destroy();
   }
 
   private get audience(): Record<string, unknown> {
@@ -408,17 +411,13 @@ export class AdminBroadcastsComponent implements OnInit, OnDestroy {
     });
   }
 
-  /** Reloads the history; keeps checking every few seconds while a message is still being sent. */
-  private loadHistory(): void {
-    this.api.get<Broadcast[]>('/admin/broadcasts').subscribe({
-      next: (h) => {
-        this.history = h;
-        const sending = h.some((b) => b.status === 'SENDING');
-        if (sending && !this.poll) this.poll = setInterval(() => this.loadHistory(), 4000);
-        if (!sending && this.poll) { clearInterval(this.poll); this.poll = undefined; }
-      },
-      error: (e) => (this.error = errorText(e, 'Could not load sent messages.'))
-    });
+  /** Reloads the current page of the history; keeps checking every few seconds while a message is still being sent. */
+  private loadHistory(): void { this.historyTable.load(); }
+
+  /** Keeps checking every few seconds while any message is still being sent. */
+  private watch(sending: boolean): void {
+    if (sending && !this.poll) this.poll = setInterval(() => this.loadHistory(), 4000);
+    if (!sending && this.poll) { clearInterval(this.poll); this.poll = undefined; }
   }
 
   when(v: string | null): string {

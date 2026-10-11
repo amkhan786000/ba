@@ -10,6 +10,7 @@ import com.rahbar.repository.RccCenterRepository;
 import com.rahbar.repository.RoleRepository;
 import com.rahbar.repository.VolunteerApplicationRepository;
 import com.rahbar.security.Section;
+import com.rahbar.util.Paging;
 import com.rahbar.util.Rows;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -186,30 +187,50 @@ public class VolunteerService {
 
     // ---------------------------------------------------------------- Admin > Volunteers
 
-    /** Every sign-up, newest first, with chapter / center names, plus counts by status. */
+    /**
+     * One page of sign-ups, newest first, with chapter / center names, filtered by status, offer (mentor, tutor,
+     * sponsor, chapter, other) and text (name, email, phone, city, country, district, profession), plus the counts by
+     * status of all sign-ups.
+     */
     @Transactional(readOnly = true)
-    public Map<String, Object> list() {
+    public Map<String, Object> list(String q, String status, String offer, Integer page, Integer size) {
         Map<Long, String> chapterNames = new HashMap<>();
         for (Chapter c : chapters.findAll()) chapterNames.put(c.getChapterId(), c.getChapterName());
         Map<Long, String> centerNames = new HashMap<>();
         for (RccCenter c : centers.findAll()) centerNames.put(c.getRccCenterId(), c.getCenterName());
 
-        List<Map<String, Object>> rows = new ArrayList<>();
+        List<VolunteerApplication> matching = new ArrayList<>();
         Map<String, Long> byStatus = new LinkedHashMap<>();
         VolunteerApplication.STATUSES.keySet().forEach(k -> byStatus.put(k, 0L));
         for (VolunteerApplication v : volunteers.findAllByOrderByCreatedAtDesc()) {
+            byStatus.merge(v.getStatus(), 1L, Long::sum);
+            if (status != null && !status.isBlank() && !status.equals(v.getStatus())) continue;
+            if (!offers(v, offer)) continue;
+            if (!Paging.matches(q, v.getFullName(), v.getEmail(), v.getPhone(), v.getCity(), v.getCountry(), v.getHomeDistrict(), v.getProfession())) continue;
+            matching.add(v);
+        }
+        Map<String, Object> body = Paging.of(matching, page, size, slice -> slice.stream().map(v -> {
             Map<String, Object> row = Rows.of(v);
             row.put("chapter_name", chapterNames.get(v.getChapterId()));
             row.put("rcc_center_name", centerNames.get(v.getRccCenterId()));
-            rows.add(row);
-            byStatus.merge(v.getStatus(), 1L, Long::sum);
-        }
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("data", rows);
+            return row;
+        }).toList());
         body.put("counts", byStatus);
         body.put("statuses", VolunteerApplication.STATUSES);
         body.put("tutorModes", VolunteerApplication.TUTOR_MODES);
         return body;
+    }
+
+    private static boolean offers(VolunteerApplication v, String offer) {
+        if (offer == null || offer.isBlank()) return true;
+        return switch (offer) {
+            case "mentor" -> v.isWantsMentor();
+            case "tutor" -> v.isWantsTutor();
+            case "sponsor" -> v.isWantsSponsor();
+            case "chapter" -> v.isWantsChapter();
+            case "other" -> v.getOtherOffers() != null && !v.getOtherOffers().isBlank();
+            default -> true;
+        };
     }
 
     /** Body: { status, notes }. */

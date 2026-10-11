@@ -86,10 +86,11 @@ public abstract class WebsiteCrud<T extends Modifiable> {
 
     @GetMapping
     @Transactional(readOnly = true)
-    public Map<String, Object> list() {
+    public Map<String, Object> list(@RequestParam(required = false) String q, @RequestParam(required = false) Integer page,
+                                    @RequestParam(required = false) Integer size, @RequestParam(required = false) String suggest) {
         WebsiteSupport.require(section, Section.Level.VIEW);
         List<T> rows = repository.findAll(listOrder()).stream().filter(this::inScope).toList();
-        return Map.of("data", rows, "names", names(rows));
+        return WebsiteSupport.list(rows, q, page, size, suggest, this::names);
     }
 
     @GetMapping("/{id}")
