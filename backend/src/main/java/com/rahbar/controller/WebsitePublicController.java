@@ -136,8 +136,12 @@ public class WebsitePublicController {
         }
     }
 
-    public record Stats(long chapters, long projects, long coachingCenters, Long students, long members) {
+    /** rebGirls: girls studying at Rahbar-e-Banaat now (status ACTIVE in REB > Girls). */
+    public record Stats(long chapters, long projects, long coachingCenters, Long students, long members, long rebGirls) {
     }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.RebStudentRepository rebStudents;
 
     public record MenuItem(String slug, String title) {
     }
@@ -221,7 +225,7 @@ public class WebsitePublicController {
     @GetMapping("/stats")
     public Stats stats() {
         return new Stats(directory.chapters().size(), projects.countByActiveTrue(), directory.centers().size(),
-                directory.stats().students(), members.countByApprovedTrue());
+                directory.stats().students(), members.countByApprovedTrue(), rebStudents.countByStatus("ACTIVE"));
     }
 
     // ---- projects and news ---------------------------------------------------------------------------------
