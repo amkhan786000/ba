@@ -14,6 +14,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
+import com.rahbar.dto.PublicCenter;
 
 /** The public lists share names, descriptions / locations and lead names only; students only as a count. */
 class PublicDirectoryServiceTest {
@@ -77,7 +78,7 @@ class PublicDirectoryServiceTest {
     void centersSortedByNameWithoutPhoneNumbers() throws Exception {
         var svc = service(List.of(), List.of(center(2, "Jamshedpur"), center(1, "hazaribagh")));
         var list = svc.centers();
-        assertEquals(List.of("hazaribagh", "Jamshedpur"), list.stream().map(PublicDirectoryService.PublicCenter::name).toList());
+        assertEquals(List.of("hazaribagh", "Jamshedpur"), list.stream().map(PublicCenter::name).toList());
         assertEquals("Incharge hazaribagh", list.get(0).inchargeName());
         assertEquals("hazaribagh, Jharkhand", list.get(0).location());
         assertFalse(new ObjectMapper().writeValueAsString(list).contains("9999999999"));

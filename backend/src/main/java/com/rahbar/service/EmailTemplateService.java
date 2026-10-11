@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import com.rahbar.dto.RenderedEmail;
 
 /**
  * Admin > Email Templates: the subject and text of every kind of email (EmailType). A saved template replaces the
@@ -23,9 +24,6 @@ public class EmailTemplateService {
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{\\{\\s*([a-z_]+)\\s*}}");
 
-    /** A ready-to-send email. */
-    public record Rendered(String subject, String body) {}
-
     private final EmailTemplateRepository templateRepository;
     private final UserRepository userRepository;
 
@@ -35,11 +33,11 @@ public class EmailTemplateService {
     }
 
     /** The email of this kind with the values filled in (the custom template if there is one, else the default). */
-    public Rendered render(EmailType type, Map<String, ?> values) {
+    public RenderedEmail render(EmailType type, Map<String, ?> values) {
         EmailTemplate custom = templateRepository.findById(type.name()).orElse(null);
         String subject = custom == null ? type.defaultSubject : custom.getSubject();
         String body = custom == null ? type.defaultBody : custom.getBody();
-        return new Rendered(fill(subject, values).replaceAll("\\s+", " ").trim(), fill(body, values));
+        return new RenderedEmail(fill(subject, values).replaceAll("\\s+", " ").trim(), fill(body, values));
     }
 
     /** Replaces {{name}} with values.get("name"); unknown placeholders become empty. */

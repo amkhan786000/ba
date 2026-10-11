@@ -28,6 +28,8 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import com.rahbar.dto.WebsiteContactRequest;
+import com.rahbar.dto.WebsiteDirectoryRequest;
 
 /** The website's public forms: checks, bot traps, limits per visitor and staff notifications. */
 class WebsiteFormsTest {
@@ -49,8 +51,8 @@ class WebsiteFormsTest {
         return r;
     }
 
-    private static WebsiteFormsController.ContactRequest contact(String trap) {
-        return new WebsiteFormsController.ContactRequest(" Sana ", "sana@example.com", null, null, "Sponsoring", "Hello", trap);
+    private static WebsiteContactRequest contact(String trap) {
+        return new WebsiteContactRequest(" Sana ", "sana@example.com", null, null, "Sponsoring", "Hello", trap);
     }
 
     @Test
@@ -77,9 +79,9 @@ class WebsiteFormsTest {
 
     @Test
     void contactNeedsAValidEmailAndMessage() {
-        var bad = new WebsiteFormsController.ContactRequest("Sana", "not-an-email", null, null, "Hi", "Hello", null);
+        var bad = new WebsiteContactRequest("Sana", "not-an-email", null, null, "Hi", "Hello", null);
         assertThrows(ApiException.class, () -> forms.contact(bad, from("5.5.5.5")));
-        var empty = new WebsiteFormsController.ContactRequest("Sana", "sana@example.com", null, null, "Hi", " ", null);
+        var empty = new WebsiteContactRequest("Sana", "sana@example.com", null, null, "Hi", " ", null);
         assertThrows(ApiException.class, () -> forms.contact(empty, from("5.5.5.5")));
         verify(messages, never()).save(any());
     }
@@ -87,7 +89,7 @@ class WebsiteFormsTest {
     @Test
     void directorySignUpsWaitForApprovalAndEmailsAreUnique() {
         when(chapters.existsById(3L)).thenReturn(true);
-        var r = new WebsiteFormsController.DirectoryRequest("Imran Khan", WebMember.HomeState.BIHAR, "Darbhanga", "Saudi Arabia",
+        var r = new WebsiteDirectoryRequest("Imran Khan", WebMember.HomeState.BIHAR, "Darbhanga", "Saudi Arabia",
                 "Riyadh", null, null, "imran@example.com", null, 3L, true, null);
         forms.register(r, from("6.6.6.6"));
         ArgumentCaptor<WebMember> saved = ArgumentCaptor.forClass(WebMember.class);

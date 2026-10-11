@@ -26,6 +26,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import com.rahbar.dto.ReportFile;
 
 /**
  * Rahbar-e-Banaat (the girls' Madrasa-cum-School), phase 1: setup, staff, the girls, promotion, reports and the
@@ -380,7 +381,7 @@ public class RebController {
     public ResponseEntity<ByteArrayResource> report(@PathVariable String key, @RequestParam(defaultValue = "csv") String format,
                                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                                     @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        ReportService.Report r = reports.build(key, format, from, to);
+        ReportFile r = reports.build(key, format, from, to);
         return file(r.bytes(), r.contentType(), r.filename());
     }
 

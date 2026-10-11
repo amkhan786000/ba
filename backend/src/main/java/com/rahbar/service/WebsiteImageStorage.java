@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.UUID;
 import java.util.regex.Pattern;
+import com.rahbar.dto.StoredImage;
 
 /**
  * Website photos and PDFs, kept in {@code <upload-dir>/website/} apart from application documents (which are
@@ -23,9 +24,6 @@ import java.util.regex.Pattern;
  */
 @Component
 public class WebsiteImageStorage {
-
-    public record Stored(String fileName, String contentType, long size) {
-    }
 
     private static final Pattern SAFE_NAME = Pattern.compile("[a-f0-9]{32}\\.(jpg|png|gif|webp|pdf)");
 
@@ -40,16 +38,16 @@ public class WebsiteImageStorage {
         }
     }
 
-    public Stored store(MultipartFile file, long maxBytes) {
+    public StoredImage store(MultipartFile file, long maxBytes) {
         return store(file, maxBytes, false);
     }
 
     /** A PDF to download (research paper, report). */
-    public Stored storeDocument(MultipartFile file, long maxBytes) {
+    public StoredImage storeDocument(MultipartFile file, long maxBytes) {
         return store(file, maxBytes, true);
     }
 
-    private Stored store(MultipartFile file, long maxBytes, boolean pdf) {
+    private StoredImage store(MultipartFile file, long maxBytes, boolean pdf) {
         if (file == null || file.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, pdf ? "Please choose a PDF file." : "Please choose an image file.");
         if (file.getSize() > maxBytes) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "The image is too large (maximum " + maxBytes / (1024 * 1024) + " MB).");
@@ -70,7 +68,7 @@ public class WebsiteImageStorage {
         } catch (IOException e) {
             throw new UncheckedIOException("Could not save the image", e);
         }
-        return new Stored(name, contentTypeOf(name), file.getSize());
+        return new StoredImage(name, contentTypeOf(name), file.getSize());
     }
 
     /** The stored file, or null if the name is not one we could have generated. */

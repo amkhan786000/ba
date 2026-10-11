@@ -13,6 +13,8 @@ import java.time.YearMonth;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import com.rahbar.dto.ReportFile;
+import com.rahbar.dto.ReportDefinition;
 
 /**
  * Every report on the admin Reports page. Each report is a list of rows with a fixed column order,
@@ -22,66 +24,63 @@ import java.util.stream.Collectors;
 @Service
 public class ReportCatalogService {
 
-    /** One entry of the catalog shown on the Reports page. */
-    public record Definition(String key, String category, String title, String description, boolean dateRange) {}
-
-    private static final List<Definition> CATALOG = List.of(
-            new Definition("applications", "Applications", "All applications",
+    private static final List<ReportDefinition> CATALOG = List.of(
+            new ReportDefinition("applications", "Applications", "All applications",
                     "Every application with contact numbers, latest status, interview and the sponsor of the student.", true),
-            new Definition("applications_by_status", "Applications", "Applications by status",
+            new ReportDefinition("applications_by_status", "Applications", "Applications by status",
                     "How many applications are in each status (latest status of each application).", true),
-            new Definition("interviews", "Applications", "Interview schedule",
+            new ReportDefinition("interviews", "Applications", "Interview schedule",
                     "Applications with a scheduled interview, soonest first.", true),
 
-            new Definition("grantees", "Students", "Student directory",
+            new ReportDefinition("grantees", "Students", "Student directory",
                     "Every student with sponsor, institution, course and whether bank details are on file.", false),
-            new Definition("students_without_sponsor", "Students", "Students without a sponsor",
+            new ReportDefinition("students_without_sponsor", "Students", "Students without a sponsor",
                     "Active students who are not mapped to a sponsor (or parked on the unassigned account).", false),
-            new Definition("students_without_bank", "Students", "Students without bank details",
+            new ReportDefinition("students_without_bank", "Students", "Students without bank details",
                     "Active students who have no bank details on file yet.", false),
-            new Definition("student_progress", "Students", "Progress reports",
+            new ReportDefinition("student_progress", "Students", "Progress reports",
                     "Marks uploaded by students with the review status and reviewer comments.", true),
 
-            new Definition("students_by_institution", "Student breakdowns", "Students by institution",
+            new ReportDefinition("students_by_institution", "Student breakdowns", "Students by institution",
                     "Number of students at each college: active, inactive, with and without a sponsor.", false),
-            new Definition("students_by_course", "Student breakdowns", "Students by course",
+            new ReportDefinition("students_by_course", "Student breakdowns", "Students by course",
                     "Number of students in each course (with its college, length and fees), including empty courses.", false),
-            new Definition("students_by_chapter", "Student breakdowns", "Students by chapter",
+            new ReportDefinition("students_by_chapter", "Student breakdowns", "Students by chapter",
                     "Number of students in each chapter.", false),
-            new Definition("students_by_year", "Student breakdowns", "Students by academic year",
+            new ReportDefinition("students_by_year", "Student breakdowns", "Students by academic year",
                     "Number of students in each academic year.", false),
-            new Definition("students_by_study_status", "Student breakdowns", "Students by study status",
+            new ReportDefinition("students_by_study_status", "Student breakdowns", "Students by study status",
                     "Number of students studying, on hold, graduated and dropped out.", false),
-            new Definition("applications_by_course", "Student breakdowns", "Applications by course applied",
+            new ReportDefinition("applications_by_course", "Student breakdowns", "Applications by course applied",
                     "Demand before admission: applications per course applied for, with accepted / admitted and rejected counts.", true),
-            new Definition("applications_by_rcc", "Student breakdowns", "Applications by RCC center",
+            new ReportDefinition("applications_by_rcc", "Student breakdowns", "Applications by RCC center",
                     "Applications per RCC center, with accepted / admitted and rejected counts.", true),
 
-            new Definition("sponsors_convenors", "Sponsors", "Sponsors & convenors",
+            new ReportDefinition("sponsors_convenors", "Sponsors", "Sponsors & convenors",
                     "Every sponsor and convenor with number of students and total paid.", false),
-            new Definition("sponsors_by_chapter", "Sponsors", "Sponsors by chapter",
+            new ReportDefinition("sponsors_by_chapter", "Sponsors", "Sponsors by chapter",
                     "Number of sponsors, students and total paid per chapter.", false),
 
-            new Definition("payments", "Payments", "All payments",
+            new ReportDefinition("payments", "Payments", "All payments",
                     "Every payment with student, sponsor, amount, status and date.", true),
-            new Definition("payments_by_month", "Payments", "Payments by month",
+            new ReportDefinition("payments_by_month", "Payments", "Payments by month",
                     "Number and total of paid payments per month.", true),
-            new Definition("payments_by_sponsor", "Payments", "Payments by sponsor",
+            new ReportDefinition("payments_by_sponsor", "Payments", "Payments by sponsor",
                     "Number and total of paid payments per sponsor.", true),
-            new Definition("pending_payments", "Payments", "Payments awaiting approval",
+            new ReportDefinition("pending_payments", "Payments", "Payments awaiting approval",
                     "Payments recorded with a pending status.", true),
-            new Definition("payment_dues", "Payments", "Payment dues",
+            new ReportDefinition("payment_dues", "Payments", "Payment dues",
                     "Installments due vs paid for every sponsored student, with overdue counts and next due date.", false),
-            new Definition("payment_schedules", "Payments", "Payment amount by year",
+            new ReportDefinition("payment_schedules", "Payments", "Payment amount by year",
                     "The configured scholarship amount for each academic year.", false),
 
-            new Definition("institutions_courses", "Setup", "Institutions & courses",
+            new ReportDefinition("institutions_courses", "Setup", "Institutions & courses",
                     "Every course with its institution, fees, length and number of students enrolled.", false),
-            new Definition("rcc_centers", "Setup", "RCC centers", "All RCC centers with incharge and contact.", false),
-            new Definition("users_by_role", "Setup", "Users by role",
+            new ReportDefinition("rcc_centers", "Setup", "RCC centers", "All RCC centers with incharge and contact.", false),
+            new ReportDefinition("users_by_role", "Setup", "Users by role",
                     "Number of active and inactive users in each role.", false),
 
-            new Definition("activity_log", "System", "Activity log",
+            new ReportDefinition("activity_log", "System", "Activity log",
                     "Who did what and when (last 30 days unless a date range is chosen).", true)
     );
 
@@ -137,7 +136,7 @@ public class ReportCatalogService {
     }
 
     /** The reports the signed-in user may open: chapter / RCC-scoped users get the ones filtered to their students. */
-    public List<Definition> catalog() {
+    public List<ReportDefinition> catalog() {
         if (studentScope.current().all()) return CATALOG;
         return CATALOG.stream().filter(d -> !ORGANISATION_WIDE.contains(d.key())).toList();
     }
@@ -187,8 +186,8 @@ public class ReportCatalogService {
     }
 
     /** Builds a report download. from / to are optional inclusive days (ignored by reports without a date). */
-    public ReportService.Report build(String key, String format, LocalDate from, LocalDate to) {
-        Definition def = definition(key);
+    public ReportFile build(String key, String format, LocalDate from, LocalDate to) {
+        ReportDefinition def = definition(key);
         String name = key + "_report" + (def.dateRange() && (from != null || to != null)
                 ? "_" + (from == null ? "start" : from) + "_to_" + (to == null ? "today" : to) : "");
         return reportService.build(privateRows(key, from, to), name, format, def.title());
@@ -196,7 +195,7 @@ public class ReportCatalogService {
 
     /** The report's rows for viewing on screen: { title, columns, rows } (an empty report has no columns). */
     public Map<String, Object> data(String key, LocalDate from, LocalDate to) {
-        Definition def = definition(key);
+        ReportDefinition def = definition(key);
         List<Map<String, Object>> rows = privateRows(key, from, to);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("key", key);
@@ -206,8 +205,8 @@ public class ReportCatalogService {
         return body;
     }
 
-    private Definition definition(String key) {
-        Definition def = CATALOG.stream().filter(d -> d.key().equals(key)).findFirst()
+    private ReportDefinition definition(String key) {
+        ReportDefinition def = CATALOG.stream().filter(d -> d.key().equals(key)).findFirst()
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Invalid report type selected."));
         if (ORGANISATION_WIDE.contains(key) && !studentScope.current().all()) {
             throw com.rahbar.security.Access.forbidden("This report covers the whole organisation and isn't available for your role.");

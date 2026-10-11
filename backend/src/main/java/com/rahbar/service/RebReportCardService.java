@@ -19,6 +19,7 @@ import java.util.List;
 
 import static com.rahbar.util.RebSupport.bad;
 import static com.rahbar.util.RebSupport.notFound;
+import com.rahbar.dto.RebScaleBand;
 
 /**
  * Report cards of a published REB exam: one page per girl, with the Madrasa subjects and the School subjects in two
@@ -92,7 +93,7 @@ public class RebReportCardService {
         Map<String, String> settings = setup.settingValues();
         String school = blankTo(settings.get("school_name"), "Rahbar-e-Banaat School-cum-Madarsa");
         String sessionName = sessions.findById(e.getSessionId()).map(RebSession::getName).orElse("");
-        List<RebExamService.Band> scale = examService.bands(e.getSessionId());
+        List<RebScaleBand> scale = examService.bands(e.getSessionId());
         try {
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             Document doc = new Document(PageSize.A4, 40, 40, 36, 36);
@@ -149,7 +150,7 @@ public class RebReportCardService {
                         cell(t, String.valueOf(mx), text);
                         cell(t, String.valueOf(x.get("pass_marks")), text);
                         cell(t, absent ? "Absent" : m == null ? "-" : plain(m), m != null && m.compareTo(BigDecimal.valueOf((Integer) x.get("pass_marks"))) < 0 ? bold : text);
-                        RebExamService.Band b = m == null || mx == 0 ? null
+                        RebScaleBand b = m == null || mx == 0 ? null
                                 : RebExamService.grade(scale, m.multiply(BigDecimal.valueOf(100)).divide(BigDecimal.valueOf(mx), 2, RoundingMode.HALF_UP));
                         cell(t, b == null ? "-" : b.grade(), text);
                         if (m != null) got = got.add(m);
@@ -185,7 +186,7 @@ public class RebReportCardService {
                 }
                 doc.add(sign);
                 StringBuilder key = new StringBuilder("Grades: ");
-                for (RebExamService.Band b : scale) key.append(b.grade()).append(" from ").append(plain(b.min())).append("%  ");
+                for (RebScaleBand b : scale) key.append(b.grade()).append(" from ").append(plain(b.min())).append("%  ");
                 p = new Paragraph(key.toString().strip(), sub);
                 p.setSpacingBefore(14);
                 doc.add(p);

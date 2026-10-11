@@ -10,6 +10,10 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
+import com.rahbar.dto.WebsitePostView;
+import com.rahbar.dto.WebsiteCategoryRef;
+import com.rahbar.dto.WebsiteStoryView;
+import com.rahbar.dto.WebsiteDirectoryEntry;
 
 /** What the website may show: privacy rules on stories and the directory, no visitor emails on blog posts. */
 class WebsitePublicTest {
@@ -22,13 +26,13 @@ class WebsitePublicTest {
         s.setPersonName("Sana Parveen Khatoon");
         s.setPhotoUrl("/api/images/abc.jpg");
         s.setShowPhoto(false);
-        var view = WebsitePublicController.StoryView.of(s);
+        var view = WebsiteStoryView.of(s);
         assertEquals("Sana K.", view.name());
         assertNull(view.photoUrl());
 
         s.setShowFullName(true);
         s.setShowPhoto(true);
-        view = WebsitePublicController.StoryView.of(s);
+        view = WebsiteStoryView.of(s);
         assertEquals("Sana Parveen Khatoon", view.name());
         assertEquals("/api/images/abc.jpg", view.photoUrl());
     }
@@ -39,11 +43,11 @@ class WebsitePublicTest {
         m.setFullName("Imran Khan");
         m.setEmail("imran@example.com");
         m.setPhone("+966500000000");
-        var entry = WebsitePublicController.DirectoryEntry.of(m);
+        var entry = WebsiteDirectoryEntry.of(m);
         assertNull(entry.email());
         assertNull(entry.phone());
         m.setShowContact(true);
-        assertEquals("imran@example.com", WebsitePublicController.DirectoryEntry.of(m).email());
+        assertEquals("imran@example.com", WebsiteDirectoryEntry.of(m).email());
     }
 
     @Test
@@ -51,7 +55,7 @@ class WebsitePublicTest {
         WebBlogPost p = new WebBlogPost();
         p.setTitle("Hello");
         p.setAuthorEmail("visitor@example.com");
-        String out = json.writeValueAsString(WebsitePublicController.PostView.of(p));
+        String out = json.writeValueAsString(WebsitePostView.of(p));
         assertFalse(out.contains("visitor@example.com"), out);
         assertFalse(out.contains("createdBy"), out);
     }
@@ -68,11 +72,11 @@ class WebsitePublicTest {
         WebBlogPost p = new WebBlogPost();
         p.setCategoryId(2L);
         p.setMediaUrl("https://www.youtube.com/watch?v=abc");
-        var view = WebsitePublicController.PostView.of(p, java.util.Map.of(2L, new WebsitePublicController.CategoryRef("research", "Research")));
+        var view = WebsitePostView.of(p, java.util.Map.of(2L, new WebsiteCategoryRef("research", "Research")));
         assertEquals("research", view.category().slug());
         assertEquals("https://www.youtube.com/watch?v=abc", view.mediaUrl());
         p.setCategoryId(null);
-        assertNull(WebsitePublicController.PostView.of(p, java.util.Map.of()).category());
+        assertNull(WebsitePostView.of(p, java.util.Map.of()).category());
     }
 
     @Test

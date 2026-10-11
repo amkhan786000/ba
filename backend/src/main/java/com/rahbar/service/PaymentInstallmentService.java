@@ -22,6 +22,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
+import com.rahbar.dto.InstallmentPlan;
 
 /**
  * Installments between a sponsor and a student. They are built when a student is mapped to a sponsor, from:
@@ -78,15 +79,10 @@ public class PaymentInstallmentService {
         this.tx = new TransactionTemplate(transactionManager);
     }
 
-    /** What a student's installments are built from, or why they can't be built. */
-    public record Plan(Long sponsorId, int count, LocalDate start, int frequencyMonths, BigDecimal amount, String problem) {
-        boolean ok() { return problem == null; }
-    }
-
     // ------------------------------------------------------------------------------------ building
 
     /** Works out the student's schedule; {@code problem} says what is missing when there is none. */
-    public Plan plan(User student) {
+    public InstallmentPlan plan(User student) {
         Long sponsorId = currentSponsor(student.getId());
         if (sponsorId == null) return problem("The student is not mapped to a sponsor.");
         if ("Inactive".equalsIgnoreCase(student.getStatus())) return problem("The student's account is inactive.");
@@ -103,11 +99,11 @@ public class PaymentInstallmentService {
         int frequency = config.getFrequencyMonths() == null || config.getFrequencyMonths() <= 0 ? 3 : config.getFrequencyMonths();
         // Each semester is 6 months: 8 semesters every 4 months -> 48 / 4 = 12 installments.
         int count = (int) Math.ceil(semesters * 6.0 / frequency);
-        return new Plan(sponsorId, count, student.getPaymentStartDate(), frequency, config.getAmount(), null);
+        return new InstallmentPlan(sponsorId, count, student.getPaymentStartDate(), frequency, config.getAmount(), null);
     }
 
-    private static Plan problem(String text) {
-        return new Plan(null, 0, null, 0, null, text);
+    private static InstallmentPlan problem(String text) {
+        return new InstallmentPlan(null, 0, null, 0, null, text);
     }
 
     /** The student's sponsor (users.id), or null when not mapped (or mapped to the "unassigned" grantor). */
@@ -136,7 +132,7 @@ public class PaymentInstallmentService {
             if (r.getPaymentId() != null && !isPaid(payments.get(r.getPaymentId()))) r.setPaymentId(null);
         }
 
-        Plan plan = plan(student);
+        InstallmentPlan plan = plan(student);
         List<PaymentInstallment> remove = new ArrayList<>();
         if (!plan.ok()) {
             rows.stream().filter(r -> r.getPaymentId() == null).forEach(remove::add);

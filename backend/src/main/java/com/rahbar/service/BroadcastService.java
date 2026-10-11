@@ -28,6 +28,8 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import com.rahbar.dto.BroadcastRecipient;
+import com.rahbar.dto.EmailAttachment;
 
 /**
  * Admin > Broadcast Messages: email one or more people, every user of some roles, or every chapter lead.
@@ -47,9 +49,6 @@ public class BroadcastService {
     static final long MAX_ATTACHMENT_BYTES = 15L * 1024 * 1024;
     static final Set<String> ATTACHMENT_TYPES = Set.of("pdf", "jpg", "jpeg", "png", "webp", "gif", "doc", "docx",
             "xls", "xlsx", "csv", "ppt", "pptx", "txt");
-
-    /** One addressee: a user (userId set) or a chapter lead's own email address. */
-    public record Recipient(Long userId, String name, String email) {}
 
     private final BroadcastMessageRepository broadcastRepository;
     private final BroadcastAttachmentRepository attachmentRepository;
@@ -137,7 +136,7 @@ public class BroadcastService {
 
     /** How many people an audience reaches, and how many of them can actually get an email. */
     public Map<String, Object> preview(Map<String, Object> audience) {
-        List<Recipient> recipients = recipients(audience);
+        List<BroadcastRecipient> recipients = recipients(audience);
         long withEmail = recipients.stream().filter(r -> usable(r.email())).count();
         return Map.of("recipients", recipients.size(), "withEmail", withEmail,
                 "withoutEmail", recipients.size() - withEmail, "audience", describe(audience));
@@ -168,7 +167,7 @@ public class BroadcastService {
         if (s.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a subject.");
         if (s.length() > 200) throw new ApiException(HttpStatus.BAD_REQUEST, "The subject can be at most 200 characters.");
         if (b.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter the message.");
-        List<Recipient> recipients = recipients(audience);
+        List<BroadcastRecipient> recipients = recipients(audience);
         if (recipients.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Nobody matches the chosen recipients.");
 
         BroadcastMessage message = new BroadcastMessage();
@@ -182,7 +181,7 @@ public class BroadcastService {
         BroadcastMessage saved = broadcastRepository.save(message); // created_by = the signed-in sender
 
         // Store the files now: the upload is gone once this request ends, but sending happens later.
-        List<EmailService.Attachment> mailFiles = new ArrayList<>();
+        List<EmailAttachment> mailFiles = new ArrayList<>();
         for (MultipartFile f : attachments) {
             String original = f.getOriginalFilename() == null ? "attachment" : Paths.get(f.getOriginalFilename()).getFileName().toString();
             String stored = fileStorageService.store(f, "broadcast_" + saved.getBroadcastId() + "_"
@@ -193,7 +192,7 @@ public class BroadcastService {
             a.setFilePath(stored);
             a.setSizeBytes(f.getSize());
             attachmentRepository.save(a);
-            mailFiles.add(new EmailService.Attachment(original, fileStorageService.resolve(stored)));
+            mailFiles.add(new EmailAttachment(original, fileStorageService.resolve(stored)));
         }
         if (!later) sender.submit(() -> deliver(saved.getBroadcastId(), s, b, recipients, mailFiles));
         return Rows.of(saved);
@@ -214,20 +213,20 @@ public class BroadcastService {
     @Scheduled(fixedDelay = 60_000, initialDelay = 30_000)
     public void sendScheduled() {
         for (BroadcastMessage m : broadcastRepository.findByStatusAndScheduledAtLessThanEqual(BroadcastMessage.SCHEDULED, LocalDateTime.now())) {
-            List<Recipient> recipients;
+            List<BroadcastRecipient> recipients;
             try {
                 recipients = recipients(fromJson(m.getAudienceJson()));
             } catch (Exception e) {
                 recipients = List.of(); // e.g. the chosen people or roles no longer exist
             }
-            List<EmailService.Attachment> files = new ArrayList<>();
+            List<EmailAttachment> files = new ArrayList<>();
             for (BroadcastAttachment a : attachmentRepository.findByBroadcastIdOrderByAttachmentIdAsc(m.getBroadcastId())) {
-                files.add(new EmailService.Attachment(a.getFileName(), fileStorageService.resolve(a.getFilePath())));
+                files.add(new EmailAttachment(a.getFileName(), fileStorageService.resolve(a.getFilePath())));
             }
             m.setRecipients(recipients.size());
             m.setStatus(BroadcastMessage.SENDING);
             broadcastRepository.save(m);
-            List<Recipient> to = recipients;
+            List<BroadcastRecipient> to = recipients;
             sender.submit(() -> deliver(m.getBroadcastId(), m.getSubject(), m.getBody(), to, files));
             log.info("Scheduled broadcast {} is going out to {} recipient(s)", m.getBroadcastId(), recipients.size());
         }
@@ -292,10 +291,10 @@ public class BroadcastService {
     }
 
     /** Runs on the sender thread: email (and notify) each recipient, then store the counts. */
-    private void deliver(Long broadcastId, String subject, String body, List<Recipient> recipients,
-                         List<EmailService.Attachment> attachments) {
+    private void deliver(Long broadcastId, String subject, String body, List<BroadcastRecipient> recipients,
+                         List<EmailAttachment> attachments) {
         int sent = 0, skipped = 0, failed = 0;
-        for (Recipient r : recipients) {
+        for (BroadcastRecipient r : recipients) {
             try {
                 if (r.userId() != null) {
                     notificationService.notify(r.userId(), subject,
@@ -325,20 +324,20 @@ public class BroadcastService {
     }
 
     /** Recipients of an audience: active users only, each email address once. */
-    private List<Recipient> recipients(Map<String, Object> audience) {
+    private List<BroadcastRecipient> recipients(Map<String, Object> audience) {
         String type = audience == null ? "" : String.valueOf(audience.get("type"));
-        List<Recipient> list = new ArrayList<>();
+        List<BroadcastRecipient> list = new ArrayList<>();
         switch (type) {
             case USERS -> {
                 List<Long> ids = Ids.toLongs(audience.get("userIds"));
                 if (ids.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Please choose at least one person.");
-                for (User u : userRepository.findAllById(ids)) list.add(new Recipient(u.getId(), u.getName(), u.getEmail()));
+                for (User u : userRepository.findAllById(ids)) list.add(new BroadcastRecipient(u.getId(), u.getName(), u.getEmail()));
             }
             case ROLES -> {
                 List<Integer> roleIds = Ids.toLongs(audience.get("roleIds")).stream().map(Long::intValue).toList();
                 if (roleIds.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Please choose at least one role.");
                 for (User u : userRepository.findByRoleIdIn(roleIds)) {
-                    if (!"Inactive".equalsIgnoreCase(u.getStatus())) list.add(new Recipient(u.getId(), u.getName(), u.getEmail()));
+                    if (!"Inactive".equalsIgnoreCase(u.getStatus())) list.add(new BroadcastRecipient(u.getId(), u.getName(), u.getEmail()));
                 }
             }
             case CHAPTER_LEADS -> {
@@ -346,16 +345,16 @@ public class BroadcastService {
                     if (Boolean.FALSE.equals(c.getActive())) continue;
                     String name = c.getLeadName() != null ? c.getLeadName() : c.getChapterName() + " chapter lead";
                     List<String> emails = c.leadEmails(); // several addresses, separated by "|": each gets the message
-                    if (emails.isEmpty()) list.add(new Recipient(null, name, null));
-                    for (String email : emails) list.add(new Recipient(null, name, email));
+                    if (emails.isEmpty()) list.add(new BroadcastRecipient(null, name, null));
+                    for (String email : emails) list.add(new BroadcastRecipient(null, name, email));
                 }
             }
             default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Please choose who should receive the message.");
         }
         // The same email address only gets the message once (people without email are all kept, to be counted).
         Set<String> seen = new HashSet<>();
-        List<Recipient> unique = new ArrayList<>();
-        for (Recipient r : list) {
+        List<BroadcastRecipient> unique = new ArrayList<>();
+        for (BroadcastRecipient r : list) {
             String key = r.email() == null ? null : r.email().trim().toLowerCase(Locale.ROOT);
             if (key == null || key.isEmpty() || seen.add(key)) unique.add(r);
         }
