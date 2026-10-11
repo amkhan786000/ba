@@ -93,7 +93,13 @@ public enum Section {
     /** The girls' documents, photo, Aadhaar (last 4 digits) and family income; EDIT uploads and removes documents. */
     REB_STUDENT_PRIVATE("REB: private details & documents"),
     /** REB reports. */
-    REB_REPORTS("REB: reports");
+    REB_REPORTS("REB: reports"),
+    /** REB fees: fee heads and amounts, bills, collecting payments, receipts, dues. */
+    REB_FEES("REB: fees"),
+    /** REB concessions, waiving or cancelling bills and cancelling receipts. */
+    REB_FEE_APPROVALS("REB: fee concessions & cancellations"),
+    /** REB sponsorships: which Rahbar sponsor supports which girl. */
+    REB_SPONSORSHIPS("REB: sponsorships");
 
     public enum Level { VIEW, EDIT }
 
