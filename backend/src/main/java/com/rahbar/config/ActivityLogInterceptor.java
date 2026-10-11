@@ -51,6 +51,16 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
             label("PUT " + path + "/[0-9]+", "Updated a " + r[1]);
             label("DELETE " + path + "/[0-9]+", "Deleted a " + r[1]);
         }
+        label("POST /api/admin/sponsor-followup/notes", "Recorded a sponsor follow-up call or note");
+        label("POST /api/admin/sponsor-followup/emails", "Sent sponsor follow-up emails");
+        label("POST /api/admin/finance/categories", "Added an income / expense category");
+        label("PUT /api/admin/finance/categories/[0-9]+", "Changed an income / expense category");
+        label("DELETE /api/admin/finance/categories/[0-9]+", "Deleted an income / expense category");
+        label("POST /api/admin/finance/entries", "Recorded income or an expense");
+        label("PUT /api/admin/finance/entries/[0-9]+", "Changed an income / expense entry");
+        label("DELETE /api/admin/finance/entries/[0-9]+", "Deleted an income / expense entry");
+        label("POST /api/admin/finance/published", "Published a year's income & expenses on the website");
+        label("DELETE /api/admin/finance/published/[0-9]+", "Took a year's income & expenses off the website");
         label("POST /api/admin/documents", "Added a document");
         label("PUT /api/admin/documents/[0-9]+", "Edited a document");
         label("POST /api/admin/documents/[0-9]+/archive", "Archived or un-archived a document");

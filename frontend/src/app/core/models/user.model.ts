@@ -26,7 +26,7 @@ export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTER
   | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'RCC_STUDENTS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
-  | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES'
+  | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES' | 'FINANCE'
   | 'REB_DASHBOARD' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS'
   | 'REB_FEES' | 'REB_FEE_APPROVALS' | 'REB_SPONSORSHIPS' | 'REB_ATTENDANCE' | 'REB_EXAMS' | 'REB_ENQUIRIES' | 'REB_QURAN' | 'REB_HOSTEL';
 
@@ -58,6 +58,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES', group: 'students' },
 
   { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS', group: 'sponsors' },
+  { path: '/admin/sponsor-followup', label: 'Sponsor Follow-up', icon: 'mdi-account-heart', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/payment-records', label: 'Payment Records', icon: 'mdi-receipt', section: 'PAYMENT_RECORDS', group: 'sponsors' },
   { path: '/admin/payment-dues', label: 'Payment Dues', icon: 'mdi-alarm', section: 'PAYMENT_DUES', group: 'sponsors' },
   { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings', section: 'PAYMENT_CONFIG', group: 'sponsors' },
@@ -97,6 +98,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS', group: 'administration' },
   { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES', group: 'administration' },
   { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS', group: 'administration' },
+  { path: '/admin/finance', label: 'Income & Expenses', icon: 'mdi-scale-balance', section: 'FINANCE', group: 'administration' },
   { path: '/admin/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline', group: 'administration' },
   { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY', group: 'administration' },
   { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY', group: 'administration' }
