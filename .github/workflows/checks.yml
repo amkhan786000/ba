@@ -1,0 +1,104 @@
+# Checks every pull request before it can be merged (and can be run by hand from the Actions tab):
+#   - Backend: compiles and runs all tests.
+#   - Database: starts the real backend on an empty MySQL 8, so every Flyway migration (V1, V2, ...) runs in order
+#     exactly as on a new server, then Hibernate checks the entities; the job fails if the app doesn't come up or a
+#     migration didn't apply.
+#   - Frontend: production build of the Angular admin app.
+# Nothing here touches the production server or its database.
+
+name: Checks
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build and test
+        working-directory: backend
+        run: mvn -B -ntp clean package
+
+  database:
+    name: Database migrations (MySQL 8)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci-only-password
+          MYSQL_DATABASE: rahbar
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pci-only-password"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Build the backend
+        working-directory: backend
+        run: mvn -B -ntp -DskipTests clean package
+      - name: Start it on an empty database (runs every migration)
+        working-directory: backend
+        env:
+          DATABASE_URL: jdbc:mysql://127.0.0.1:3306/rahbar?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+          DB_USER: root
+          DB_PASSWORD: ci-only-password
+          JWT_SECRET: ci-only-secret-ci-only-secret-ci-only-secret-ci-only-secret
+          UPLOAD_DIR: /tmp/rahbar-uploads
+          ADMIN_EMAIL: ci-admin@example.com
+          REMINDERS_CRON: "0 0 0 1 1 *"
+        run: |
+          nohup java -jar target/*.jar > app.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fs http://localhost:8080/api/public/website/stats > /dev/null; then
+              echo "The backend is up after ~$((i * 3)) seconds."; exit 0
+            fi
+            if ! pgrep -f 'target/.*\.jar' > /dev/null; then echo "The backend stopped:"; tail -n 120 app.log; exit 1; fi
+            sleep 3
+          done
+          echo "The backend did not come up in 3 minutes:"; tail -n 120 app.log; exit 1
+      - name: Every migration applied
+        run: |
+          expected=$(ls backend/src/main/resources/db/migration/V*__*.sql | wc -l)
+          applied=$(mysql -h 127.0.0.1 -uroot -pci-only-password -N -e \
+            "select count(*) from rahbar.flyway_schema_history where success = 1 and version is not null")
+          echo "Migrations: $expected in the code, $applied applied."
+          test "$expected" = "$applied"
+      - name: Backend log
+        if: always()
+        run: tail -n 60 backend/app.log || true
+
+  frontend:
+    name: Frontend build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+      - name: Production build
+        working-directory: frontend
+        run: npx ng build
