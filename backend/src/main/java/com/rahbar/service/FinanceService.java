@@ -3,6 +3,7 @@ package com.rahbar.service;
 import com.rahbar.entity.*;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.*;
+import com.rahbar.util.Paging;
 import com.rahbar.util.Rows;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -84,8 +85,12 @@ public class FinanceService {
 
     // ---------------------------------------------------------------- entries
 
-    /** Entries between two days (default: this year), filtered by kind, category and project. */
-    public Map<String, Object> entries(LocalDate from, LocalDate to, String kind, Long categoryId, Long projectId) {
+    /**
+     * One page of the entries between two days (default: this year), filtered by kind, category, project and text
+     * (party, description, reference, category, project), with the income and expense totals of all that match.
+     */
+    public Map<String, Object> entries(LocalDate from, LocalDate to, String kind, Long categoryId, Long projectId,
+                                       String q, Integer page, Integer size) {
         LocalDate start = from != null ? from : LocalDate.now().withDayOfYear(1);
         LocalDate end = to != null ? to : LocalDate.now().withMonth(12).withDayOfMonth(31);
         if (end.isBefore(start)) throw bad("The end date is before the start date.");
@@ -93,23 +98,34 @@ public class FinanceService {
         categories.findAll().forEach(c -> catNames.put(c.getId(), c.getName()));
         Map<Long, String> projectNames = new HashMap<>();
         projects.findAll().forEach(p -> projectNames.put(p.getId(), p.getName()));
-        List<FinEntry> list = entries.findByEntryDateBetweenOrderByEntryDateDescIdDesc(start, end);
-        Map<Long, String> who = new HashMap<>();
-        users.findAllById(list.stream().map(FinEntry::getCreatedBy).filter(Objects::nonNull).distinct().toList()).forEach(u -> who.put(u.getId(), u.getName()));
-        List<Map<String, Object>> rows = new ArrayList<>();
+        List<FinEntry> filtered = new ArrayList<>();
         BigDecimal income = BigDecimal.ZERO, expense = BigDecimal.ZERO;
-        for (FinEntry e : list) {
+        for (FinEntry e : entries.findByEntryDateBetweenOrderByEntryDateDescIdDesc(start, end)) {
             if (kind != null && !kind.isBlank() && !kind.equalsIgnoreCase(e.getKind())) continue;
             if (categoryId != null && !categoryId.equals(e.getCategoryId())) continue;
             if (projectId != null && !projectId.equals(e.getProjectId())) continue;
-            Map<String, Object> r = Rows.of(e);
-            r.put("category_name", catNames.get(e.getCategoryId()));
-            r.put("project_name", projectNames.get(e.getProjectId()));
-            r.put("entered_by", who.get(e.getCreatedBy()));
-            rows.add(r);
+            if (!Paging.matches(q, e.getParty(), e.getDescription(), e.getReference(), catNames.get(e.getCategoryId()), projectNames.get(e.getProjectId()))) continue;
+            filtered.add(e);
             if ("INCOME".equals(e.getKind())) income = income.add(e.getAmount()); else expense = expense.add(e.getAmount());
         }
-        return Map.of("from", start, "to", end, "entries", rows, "income", income, "expense", expense);
+        Map<String, Object> body = Paging.of(filtered, page, size, slice -> {
+            Map<Long, String> who = new HashMap<>();
+            users.findAllById(slice.stream().map(FinEntry::getCreatedBy).filter(Objects::nonNull).distinct().toList()).forEach(u -> who.put(u.getId(), u.getName()));
+            List<Map<String, Object>> rows = new ArrayList<>();
+            for (FinEntry e : slice) {
+                Map<String, Object> r = Rows.of(e);
+                r.put("category_name", catNames.get(e.getCategoryId()));
+                r.put("project_name", projectNames.get(e.getProjectId()));
+                r.put("entered_by", who.get(e.getCreatedBy()));
+                rows.add(r);
+            }
+            return rows;
+        });
+        body.put("from", start);
+        body.put("to", end);
+        body.put("income", income);
+        body.put("expense", expense);
+        return body;
     }
 
     /** Body: { entryDate, kind, categoryId, projectId, amount, party, description, method, reference }. */

@@ -1,11 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
-import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { PagerComponent } from '../shared/pager/pager.component';
+import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { isoDate } from '../shared/format';
 
 interface Category { id: number; name: string; kind: string; active: boolean }
@@ -29,7 +30,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
 @Component({
   selector: 'app-admin-finance',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective, PagerComponent, PaginatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective, PagerComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Income &amp; Expenses</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -43,22 +44,23 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
     <!-- entries -->
     <div class="card" *ngIf="tab === 'entries'"><div class="card-body">
       <div class="row align-items-end">
-        <div class="col-6 col-md-2 form-group"><label for="f-from">From</label><input id="f-from" type="date" class="form-control" [(ngModel)]="from" (ngModelChange)="load()"></div>
-        <div class="col-6 col-md-2 form-group"><label for="f-to">To</label><input id="f-to" type="date" class="form-control" [(ngModel)]="to" (ngModelChange)="load()"></div>
+        <div class="col-6 col-md-2 form-group"><label for="f-from">From</label><input id="f-from" type="date" class="form-control" [(ngModel)]="from" (ngModelChange)="table.filter()"></div>
+        <div class="col-6 col-md-2 form-group"><label for="f-to">To</label><input id="f-to" type="date" class="form-control" [(ngModel)]="to" (ngModelChange)="table.filter()"></div>
         <div class="col-6 col-md-2 form-group"><label for="f-kind">Kind</label>
-          <select id="f-kind" class="form-control" [(ngModel)]="kind" (ngModelChange)="load()"><option value="">Both</option><option value="INCOME">Income</option><option value="EXPENSE">Expenses</option></select></div>
+          <select id="f-kind" class="form-control" [(ngModel)]="kind" (ngModelChange)="table.filter()"><option value="">Both</option><option value="INCOME">Income</option><option value="EXPENSE">Expenses</option></select></div>
         <div class="col-6 col-md-3 form-group"><label for="f-cat">Category</label>
-          <select id="f-cat" class="form-control" [(ngModel)]="categoryId" (ngModelChange)="load()"><option [ngValue]="null">All</option>
+          <select id="f-cat" class="form-control" [(ngModel)]="categoryId" (ngModelChange)="table.filter()"><option [ngValue]="null">All</option>
             <option *ngFor="let c of categories" [ngValue]="c.id">{{ c.name }} ({{ c.kind === 'INCOME' ? 'in' : 'out' }})</option></select></div>
-        <div class="col-12 col-md-3 form-group text-md-right"><button *ngIf="canEdit" class="btn btn-primary" (click)="openEntry()"><i class="mdi mdi-plus mr-1"></i>Add entry</button></div>
+        <div class="col-12 col-md-3 form-group"><label for="f-q">Search</label><input id="f-q" class="form-control" placeholder="Party, description, reference" [(ngModel)]="q" (ngModelChange)="table.search()"></div>
+        <div class="col-12 form-group text-md-right"><button *ngIf="canEdit" class="btn btn-primary" (click)="openEntry()"><i class="mdi mdi-plus mr-1"></i>Add entry</button></div>
       </div>
       <p class="mb-2">Income <strong class="text-success">₹{{ totals.income | number: '1.0-2' }}</strong> · Expenses <strong class="text-danger">₹{{ totals.expense | number: '1.0-2' }}</strong>
         · Balance <strong>₹{{ totals.income - totals.expense | number: '1.0-2' }}</strong></p>
       <div class="table-responsive"><table class="table table-sm table-centered mb-0">
         <thead><tr><th>Date</th><th>Category</th><th>Project</th><th>Paid to / from</th><th class="text-right">Amount</th><th></th></tr></thead>
         <tbody>
-          <tr *ngIf="!rows.length"><td colspan="6" class="text-center text-muted">No entries.</td></tr>
-          <tr *ngFor="let e of rows | paginate: pg.page : pg.size">
+          <tr *ngIf="!table.loading && !table.rows.length"><td colspan="6" class="text-center text-muted">No entries.</td></tr>
+          <tr *ngFor="let e of table.rows">
             <td class="text-nowrap">{{ e.entry_date | date: 'd MMM yyyy' }}</td>
             <td>{{ e.category_name }}<div class="small text-muted">{{ e.description }}</div></td>
             <td>{{ e.project_name || '--' }}</td>
@@ -69,7 +71,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
           </tr>
         </tbody>
       </table></div>
-      <app-pager [state]="pg" [total]="rows.length"></app-pager>
+      <app-pager [state]="table.pg" [total]="table.total" (pageChange)="table.load()"></app-pager>
     </div></div>
 
     <!-- summary -->
@@ -183,8 +185,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
     </div>
   `
 })
-export class AdminFinanceComponent implements OnInit {
-  readonly pg = new PageState(25);
+export class AdminFinanceComponent implements OnInit, OnDestroy {
   readonly methods = METHODS;
   readonly methodKeys = Object.keys(METHODS);
   readonly today = isoDate(new Date());
@@ -192,12 +193,14 @@ export class AdminFinanceComponent implements OnInit {
   tab: 'entries' | 'summary' | 'categories' = 'entries';
   categories: Category[] = [];
   projects: { id: number; name: string }[] = [];
-  rows: Entry[] = [];
-  totals = { income: 0, expense: 0 };
   from = `${new Date().getFullYear()}-01-01`;
   to = `${new Date().getFullYear()}-12-31`;
   kind = '';
   categoryId: number | null = null;
+  q = '';
+  readonly table = new ServerTable<Entry, PagedResult<Entry> & { income: number; expense: number }>(
+    (p) => this.api.get('/admin/finance/entries', { from: this.from, to: this.to, kind: this.kind, categoryId: this.categoryId, q: this.q, ...p }),
+    (e) => (this.error = errorText(e, 'Could not load the entries.')));
   year = new Date().getFullYear();
   summary: Summary | null = null;
   entry: { id: number | null; entryDate: string; categoryId: number | null; projectId: number | null; amount: number | null; party: string;
@@ -225,13 +228,14 @@ export class AdminFinanceComponent implements OnInit {
     this.api.get<Category[]>('/admin/finance/categories').subscribe({ next: (r) => (this.categories = r), error: (e) => (this.error = errorText(e, 'Could not load the categories.')) });
   }
 
-  load(): void {
-    this.api.get<{ entries: Entry[]; income: number; expense: number }>('/admin/finance/entries',
-      { from: this.from, to: this.to, kind: this.kind, categoryId: this.categoryId }).subscribe({
-      next: (r) => { this.rows = r.entries; this.totals = { income: Number(r.income), expense: Number(r.expense) }; this.pg.reset(); },
-      error: (e) => (this.error = errorText(e, 'Could not load the entries.'))
-    });
+  ngOnDestroy(): void { this.table.destroy(); }
+
+  /** Income and expense of every entry that matches the filters (all pages). */
+  get totals(): { income: number; expense: number } {
+    return { income: Number(this.table.last?.income ?? 0), expense: Number(this.table.last?.expense ?? 0) };
   }
+
+  load(): void { this.table.load(); }
 
   loadSummary(): void {
     this.api.get<Summary>('/admin/finance/summary', { year: this.year }).subscribe({ next: (r) => (this.summary = r), error: (e) => (this.error = errorText(e, 'Could not load the summary.')) });

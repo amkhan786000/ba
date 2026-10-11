@@ -56,8 +56,9 @@ public class FinanceController {
     public Map<String, Object> entries(@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
                                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
                                        @RequestParam(required = false) String kind, @RequestParam(required = false) Long categoryId,
-                                       @RequestParam(required = false) Long projectId) {
-        return finance.entries(from, to, kind, categoryId, projectId);
+                                       @RequestParam(required = false) Long projectId, @RequestParam(required = false) String q,
+                                       @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
+        return finance.entries(from, to, kind, categoryId, projectId, q, page, size);
     }
 
     /** Body: { entryDate, categoryId, projectId, amount, party, description, method, reference }. */
