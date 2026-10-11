@@ -38,11 +38,11 @@ public class VolunteerService {
     private final RccCenterRepository centers;
     private final RoleRepository roles;
     private final NotificationService notifications;
-    private final com.rahbar.website.WebVolunteerOptionRepository options;
+    private final com.rahbar.repository.WebVolunteerOptionRepository options;
 
     public VolunteerService(VolunteerApplicationRepository volunteers, ChapterRepository chapters,
                             RccCenterRepository centers, RoleRepository roles, NotificationService notifications,
-                            com.rahbar.website.WebVolunteerOptionRepository options) {
+                            com.rahbar.repository.WebVolunteerOptionRepository options) {
         this.options = options;
         this.volunteers = volunteers;
         this.chapters = chapters;
@@ -158,9 +158,9 @@ public class VolunteerService {
         for (Object item : list) {
             if (!(item instanceof Map<?, ?> m)) throw bad("Invalid way to help.");
             String key = ServiceSupport.str(m.get("key"));
-            com.rahbar.website.WebVolunteerOption o = (key == null ? Optional.<com.rahbar.website.WebVolunteerOption>empty() : options.findByOptionKey(key))
-                    .filter(com.rahbar.website.WebVolunteerOption::isActive)
-                    .filter(x -> x.getKind() == com.rahbar.website.WebVolunteerOption.Kind.OTHER)
+            com.rahbar.entity.WebVolunteerOption o = (key == null ? Optional.<com.rahbar.entity.WebVolunteerOption>empty() : options.findByOptionKey(key))
+                    .filter(com.rahbar.entity.WebVolunteerOption::isActive)
+                    .filter(x -> x.getKind() == com.rahbar.entity.WebVolunteerOption.Kind.OTHER)
                     .orElseThrow(() -> bad("This way to help is no longer offered. Please reload the page."));
             if (!seen.add(o.getOptionKey())) continue;
             List<String> picked = new ArrayList<>();

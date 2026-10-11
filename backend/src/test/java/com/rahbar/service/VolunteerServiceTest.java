@@ -27,7 +27,7 @@ class VolunteerServiceTest {
     private final RccCenterRepository centers = mock(RccCenterRepository.class);
     private final RoleRepository roles = mock(RoleRepository.class);
     private final NotificationService notifications = mock(NotificationService.class);
-    private final com.rahbar.website.WebVolunteerOptionRepository options = mock(com.rahbar.website.WebVolunteerOptionRepository.class);
+    private final com.rahbar.repository.WebVolunteerOptionRepository options = mock(com.rahbar.repository.WebVolunteerOptionRepository.class);
     private final VolunteerService service = new VolunteerService(volunteers, chapters, centers, roles, notifications, options);
 
     private static Role role(int id, String permissions) {
@@ -155,8 +155,8 @@ class VolunteerServiceTest {
         assertThrows(ApiException.class, () -> service.update(6L, Map.of("status", "NEW")));
     }
 
-    private static com.rahbar.website.WebVolunteerOption option(String key, com.rahbar.website.WebVolunteerOption.Kind kind, boolean active) {
-        var o = new com.rahbar.website.WebVolunteerOption();
+    private static com.rahbar.entity.WebVolunteerOption option(String key, com.rahbar.entity.WebVolunteerOption.Kind kind, boolean active) {
+        var o = new com.rahbar.entity.WebVolunteerOption();
         o.setOptionKey(key);
         o.setKind(kind);
         o.setTitle("Organise events");
@@ -167,7 +167,7 @@ class VolunteerServiceTest {
 
     @Test
     void anOptionAddedByTheOfficeIsEnoughAndIsKeptAsText() {
-        when(options.findByOptionKey("events")).thenReturn(Optional.of(option("events", com.rahbar.website.WebVolunteerOption.Kind.OTHER, true)));
+        when(options.findByOptionKey("events")).thenReturn(Optional.of(option("events", com.rahbar.entity.WebVolunteerOption.Kind.OTHER, true)));
         Map<String, Object> f = new HashMap<>();
         f.put("fullName", "Sana");
         f.put("phone", "9876543210");
@@ -178,7 +178,7 @@ class VolunteerServiceTest {
 
     @Test
     void hiddenOrUnknownOptionsAreRefused() {
-        when(options.findByOptionKey("events")).thenReturn(Optional.of(option("events", com.rahbar.website.WebVolunteerOption.Kind.OTHER, false)));
+        when(options.findByOptionKey("events")).thenReturn(Optional.of(option("events", com.rahbar.entity.WebVolunteerOption.Kind.OTHER, false)));
         when(options.findByOptionKey("nope")).thenReturn(Optional.empty());
         for (String key : List.of("events", "nope")) {
             Map<String, Object> f = new HashMap<>();
