@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { PagedResult } from '../../shared/pager/server-table';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { isoDate } from '../../shared/format';
@@ -109,7 +110,6 @@ export class RebSponsorshipsComponent implements OnInit {
   sponsorQ = '';
   girlOptions: RebStudentRow[] = [];
   sponsorOptions: { id: number; name: string; user_id: string }[] = [];
-  private girls: RebStudentRow[] | null = null;
   busy = false;
   message = '';
   error = '';
@@ -153,9 +153,8 @@ export class RebSponsorshipsComponent implements OnInit {
   findGirls(): void {
     const q = this.girlQ.trim().toLowerCase();
     if (q.length < 2) { this.girlOptions = []; return; }
-    const filter = () => (this.girlOptions = (this.girls ?? []).filter((g) => g.name.toLowerCase().includes(q) || g.admission_no.toLowerCase().includes(q)).slice(0, 10));
-    if (this.girls) { filter(); return; }
-    this.api.get<{ students: RebStudentRow[] }>('/admin/reb/students', { status: 'ACTIVE' }).subscribe({ next: (r) => { this.girls = r.students; filter(); } });
+    this.api.get<PagedResult<RebStudentRow>>('/admin/reb/students', { status: 'ACTIVE', q, page: 0, size: 10 }).subscribe({
+      next: (r) => { if (this.girlQ.trim().toLowerCase() === q) this.girlOptions = r.rows; } });
   }
 
   findSponsors(): void {

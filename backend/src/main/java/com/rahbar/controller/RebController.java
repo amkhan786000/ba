@@ -255,7 +255,10 @@ public class RebController {
     public Map<String, Object> students(@RequestParam(required = false) Long sessionId, @RequestParam(required = false) Long classId,
                                         @RequestParam(required = false) Long sectionId, @RequestParam(required = false) String status,
                                         @RequestParam(required = false) Boolean residential, @RequestParam(required = false) String feePlan,
-                                        @RequestParam(required = false) String q) {
+                                        @RequestParam(required = false) String q, @RequestParam(required = false) Integer page,
+                                        @RequestParam(required = false) Integer size) {
+        // With page / size: one page ({ total, rows, ... }); without: every match ({ session, students }).
+        if (page != null || size != null) return students.page(sessionId, classId, sectionId, status, residential, feePlan, q, page, size);
         return students.list(sessionId, classId, sectionId, status, residential, feePlan, q);
     }
 
