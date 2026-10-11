@@ -35,6 +35,11 @@ public final class Access {
         return Role.SCOPE_RCC.equals(current().getScope());
     }
 
+    /** True when the user's REB access only covers the classes they teach. */
+    public static boolean rebClassesScoped() {
+        return Role.SCOPE_REB_CLASSES.equals(current().getScope());
+    }
+
     public static ApiException forbidden(String message) {
         return new ApiException(HttpStatus.FORBIDDEN, message);
     }

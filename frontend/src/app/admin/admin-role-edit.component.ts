@@ -58,8 +58,10 @@ interface SectionOption { key: string; label: string }
                     <option value="ALL">All records</option>
                     <option value="CHAPTER">Only the user's own chapter</option>
                     <option value="RCC">Only the user's own RCC center</option>
+                    <option value="REB_CLASSES">Only the Rahbar-e-Banaat classes the user teaches</option>
                   </select>
                   <small class="text-muted" *ngIf="scope === 'CHAPTER'">Users edit only the chapter set on their account (Manage Users &gt; Chapter) and can't add or delete chapters.</small>
+                  <small class="text-muted" *ngIf="scope === 'REB_CLASSES'">For REB teachers: they see and mark only the classes and subjects set for them in REB &gt; Teachers &amp; Staff (link their login there), and can't set up or publish exams.</small>
                   <small class="text-muted" *ngIf="scope === 'RCC'">Users see and edit only the RCC center set on their account (Manage Users &gt; RCC Center) and can't add or delete centers.</small>
                 </div>
 

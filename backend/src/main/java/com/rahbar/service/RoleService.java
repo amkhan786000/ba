@@ -59,7 +59,7 @@ public class RoleService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "The Super Admin always has every permission.");
         }
         String s = scope == null || scope.isBlank() ? Role.SCOPE_ALL : scope.trim().toUpperCase();
-        if (!List.of(Role.SCOPE_ALL, Role.SCOPE_CHAPTER, Role.SCOPE_RCC).contains(s)) {
+        if (!List.of(Role.SCOPE_ALL, Role.SCOPE_CHAPTER, Role.SCOPE_RCC, Role.SCOPE_REB_CLASSES).contains(s)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Unknown scope: " + scope);
         }
         role.setPermissions(String.join(",", Section.normalize(permissions == null ? List.of() : permissions)));

@@ -150,6 +150,19 @@ interface Profile {
           </div>
         </div>
 
+        <div class="card" *ngIf="att || results.length"><div class="card-body">
+          <h4 class="header-title">Attendance and results</h4>
+          <p *ngIf="att" class="mb-2">This session: <strong>{{ att['percent'] ?? '–' }}{{ att['percent'] != null ? '%' : '' }}</strong> attendance
+            <span class="small text-muted">({{ att['PRESENT'] }} present, {{ att['ABSENT'] }} absent, {{ att['LATE'] }} late, {{ att['LEAVE'] }} leave)</span></p>
+          <table class="table table-sm mb-0" *ngIf="results.length">
+            <thead><tr><th>Exam</th><th class="text-right">%</th><th>Grade</th><th>Rank</th><th></th></tr></thead>
+            <tbody><tr *ngFor="let r of results">
+              <td>{{ r['exam_name'] }}</td><td class="text-right">{{ r['percent'] }}</td><td>{{ r['grade'] }}</td><td>{{ r['rank_in_section'] }}</td>
+              <td class="text-right"><a href="" (click)="$event.preventDefault(); reportCard($any(r['exam_id']))">Report card</a></td>
+            </tr></tbody>
+          </table>
+        </div></div>
+
         <app-reb-student-fees *ngIf="canFees" [studentId]="$any(s['id'])"></app-reb-student-fees>
 
         <div class="card" *ngIf="p.private">
@@ -263,6 +276,19 @@ export class RebStudentComponent implements OnChanges {
   get canPrivate(): boolean { return this.auth.can('REB_STUDENT_PRIVATE', 'EDIT'); }
   get canPrivateEdit(): boolean { return this.auth.can('REB_STUDENT_PRIVATE', 'EDIT'); }
   get canFees(): boolean { return this.auth.can('REB_FEES'); }
+  att: Record<string, number | null> | null = null;
+  results: Record<string, unknown>[] = [];
+
+  private loadAcademics(): void {
+    this.api.get<Record<string, number | null>>(`/admin/reb/students/${this.id}/attendance`).subscribe({ next: (r) => (this.att = r), error: () => (this.att = null) });
+    this.api.get<Record<string, unknown>[]>(`/admin/reb/students/${this.id}/results`).subscribe({ next: (r) => (this.results = r), error: () => (this.results = []) });
+  }
+
+  reportCard(examId: number): void {
+    this.api.download(`/admin/reb/students/${this.id}/report-card`, { examId }, 'report_card.pdf').subscribe({
+      error: (e) => (this.error = errorText(e, 'Could not create the report card.'))
+    });
+  }
 
   str(v: unknown): string { return v == null ? '' : String(v); }
   link(path: string): string | null { return uploadUrl(path); }
@@ -270,6 +296,7 @@ export class RebStudentComponent implements OnChanges {
 
   ngOnChanges(): void {
     this.load();
+    this.loadAcademics();
     if (!this.sessions.length) {
       this.api.get<RebSession[]>('/admin/reb/sessions').subscribe({ next: (r) => (this.sessions = r), error: () => (this.sessions = []) });
     }

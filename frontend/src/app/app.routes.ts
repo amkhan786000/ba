@@ -71,6 +71,8 @@ import { RebPromotionComponent } from './admin/reb/reb-promotion.component';
 import { RebStaffComponent } from './admin/reb/reb-staff.component';
 import { RebSetupComponent } from './admin/reb/reb-setup.component';
 import { RebFeesComponent } from './admin/reb/reb-fees.component';
+import { RebAttendanceComponent } from './admin/reb/reb-attendance.component';
+import { RebExamsComponent } from './admin/reb/reb-exams.component';
 import { RebSponsorshipsComponent } from './admin/reb/reb-sponsorships.component';
 import { StudentAlumniComponent } from './student/student-alumni.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
@@ -151,6 +153,8 @@ export const routes: Routes = [
       { path: 'reb/students', component: RebStudentsComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
       { path: 'reb/students/:id', component: RebStudentComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
       { path: 'reb/promotion', component: RebPromotionComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
+      { path: 'reb/attendance', component: RebAttendanceComponent, canActivate: [permissionGuard], data: { permission: 'REB_ATTENDANCE' } },
+      { path: 'reb/exams', component: RebExamsComponent, canActivate: [permissionGuard], data: { permission: 'REB_EXAMS' } },
       { path: 'reb/fees', component: RebFeesComponent, canActivate: [permissionGuard], data: { permission: 'REB_FEES' } },
       { path: 'reb/sponsorships', component: RebSponsorshipsComponent, canActivate: [permissionGuard], data: { permission: 'REB_SPONSORSHIPS' } },
       { path: 'reb/staff', component: RebStaffComponent, canActivate: [permissionGuard], data: { permission: 'REB_STAFF' } },
