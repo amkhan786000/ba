@@ -3,7 +3,7 @@ package com.rahbar.controller;
 import com.rahbar.dto.*;
 import com.rahbar.entity.User;
 import com.rahbar.service.AuthService;
-import com.rahbar.web.ActivityLogInterceptor;
+import com.rahbar.config.ActivityLogInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.*;
 

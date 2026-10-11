@@ -1,6 +1,6 @@
 package com.rahbar.config;
 
-import com.rahbar.web.ActivityLogInterceptor;
+import com.rahbar.config.ActivityLogInterceptor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
