@@ -49,6 +49,21 @@ feasible in one pass. The backend API for every one of them already exists
 the template." I'd suggest tackling them role by role, starting with
 whichever your users touch most.
 
+## Public API for biharanjuman.com
+
+The Bihar Anjuman website reads and sends these (open to everyone, `/api/public/**`):
+
+| Method | Path | |
+|---|---|---|
+| GET | `/api/public/chapters` | active chapters: name, description, lead name (no phone / email) |
+| GET | `/api/public/rcc-centers` | RCC centers: name, location, in-charge name |
+| GET | `/api/public/stats` | `{"students": n}` (merged duplicate accounts not counted) |
+| POST | `/api/public/volunteer-applications` | "Volunteer with us" sign-ups (mentor, tutor, sponsor, join a chapter) |
+
+Volunteer sign-ups are followed up in **Admin → Volunteers** (permission *Volunteers*; Application
+Administrator and Office Coordinator by default, change it on *Roles & permissions*). Everyone with that
+permission is notified of each new sign-up. More than 3 a day from one email / phone are refused.
+
 ## Database
 
 Flyway migration `backend/src/main/resources/db/migration/V1__baseline.sql`

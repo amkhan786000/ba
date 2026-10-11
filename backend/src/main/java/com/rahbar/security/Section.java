@@ -47,7 +47,12 @@ public enum Section {
      * Students studying at an RCC / coaching center: their personal and family details. With "own RCC center"
      * scope (coaching center lead) only their center's students; EDIT adds and updates them.
      */
-    RCC_STUDENTS("Coaching center students");
+    RCC_STUDENTS("Coaching center students"),
+    /**
+     * People who offered to mentor, tutor, sponsor or join a chapter through the public website. VIEW lists them
+     * (and notifies of new ones); EDIT sets their follow-up status and notes, or deletes a sign-up.
+     */
+    VOLUNTEERS("Volunteers");
 
     public enum Level { VIEW, EDIT }
 
