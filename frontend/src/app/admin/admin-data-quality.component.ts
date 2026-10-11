@@ -25,7 +25,7 @@ interface Group { key: string; label: string; icon: string; checks: Check[]; pro
 const GROUP_ORDER = ['students', 'sponsors', 'community', 'website', 'administration'];
 
 /** Columns that only help the server; not shown. */
-const HIDDEN = new Set(['role_id']);
+const HIDDEN = new Set(['role_id', 'group']);
 
 /**
  * Admin > Data Quality: records that need fixing, grouped like the admin menu (Students, Sponsors & Payments,
@@ -163,10 +163,9 @@ export class AdminDataQualityComponent implements OnInit {
   /** Possible duplicates can be merged by the Super Admin. */
   mergeable(c: Check): boolean { return c.key === 'possible_duplicate_students' && this.auth.currentUser()?.roleId === 1; }
 
-  /** The other students with the same name are the candidates to keep. */
+  /** The other students of the same duplicate group are the candidates to keep. */
   startMerge(c: Check, row: Record<string, unknown>): void {
-    const key = (v: unknown) => String(v ?? '').trim().replace(/\s+/g, ' ').toLowerCase();
-    const candidates = c.rows.filter((r) => r['id'] !== row['id'] && key(r['name']) === key(row['name']));
+    const candidates = c.rows.filter((r) => r['id'] !== row['id'] && r['group'] === row['group']);
     this.merge = { remove: row, candidates, keepId: candidates.length === 1 ? (candidates[0]['id'] as number) : null, preview: null, busy: false, error: '' };
     if (this.merge.keepId) this.previewMerge();
   }

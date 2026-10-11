@@ -36,6 +36,7 @@ public class DataQualityService {
     private final WebBlogPostRepository webPosts;
     private final WebStoryRepository webStories;
     private final WebProjectRepository webProjects;
+    private final PaymentScheduleRepository paymentScheduleRepository;
 
     public DataQualityService(UserRepository userRepository, GrantorGranteeRepository grantorGranteeRepository,
                               BankDetailsRepository bankDetailsRepository,
@@ -44,7 +45,8 @@ public class DataQualityService {
                               ChapterRepository chapterRepository, RoleRepository roleRepository,
                               RccCenterRepository rccCenterRepository, VolunteerApplicationRepository volunteerRepository,
                               WebMessageRepository webMessages, WebMemberRepository webMembers, WebBlogPostRepository webPosts,
-                              WebStoryRepository webStories, WebProjectRepository webProjects) {
+                              WebStoryRepository webStories, WebProjectRepository webProjects, PaymentScheduleRepository paymentScheduleRepository) {
+        this.paymentScheduleRepository = paymentScheduleRepository;
         this.userRepository = userRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
         this.bankDetailsRepository = bankDetailsRepository;
@@ -114,8 +116,9 @@ public class DataQualityService {
                 "They can't get emails (no address, or a placeholder ...@rahbar.com).", students,
                 u -> !usableEmail(u.getEmail()))));
         // Duplicates are checked across every active student account, whatever the study status.
-        checks.add(in(STUDENTS, "/admin/students", duplicateNames(userRepository.findByRoleId(6).stream()
-                .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus())).toList())));
+        checks.add(in(STUDENTS, "/admin/students", duplicateStudents(userRepository.findByRoleId(6).stream()
+                .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && u.getMergedIntoId() == null).toList())));
+        checks.add(in(SPONSORS, "/admin/sponsorships", duplicateSponsors(sponsors)));
         checks.add(in(SPONSORS, "/admin/users", userCheck("sponsors_without_email", "Sponsors without a real email address",
                 "They can't get payment reminders or broadcast emails.", sponsors, u -> !usableEmail(u.getEmail()))));
         checks.add(in(SPONSORS, "/admin/sponsorships", userCheck("sponsors_without_students", "Sponsors without students",
@@ -153,6 +156,7 @@ public class DataQualityService {
                 "Active chapters that broadcasts to 'all chapter leads' can't reach.", noLead)));
 
         checks.addAll(coachingCenterChecks());
+        checks.addAll(paymentSetupChecks(students, sponsored, unassigned));
         checks.addAll(leadChecks());
         checks.addAll(followUpChecks(LocalDateTime.now().minusDays(WAITING_DAYS)));
         checks.addAll(websiteContentChecks());
@@ -182,6 +186,100 @@ public class DataQualityService {
                         "Added by a coaching center; the office gives them a reference ID after their application.", noRef)),
                 in(COMMUNITY, "/admin/rcc-centers", check("rcc_centers_without_incharge", "RCC centers without an in-charge or contact number",
                         "The website shows the in-charge's name; the office needs a number to reach the center.", noIncharge)));
+    }
+
+    // ---------------------------------------------------------------- payment set-up and records
+
+    private static final java.util.regex.Pattern IFSC = java.util.regex.Pattern.compile("[A-Z]{4}0[A-Z0-9]{6}");
+
+    /**
+     * Things that stop installments or payments from working: missing session year / start date, years without a
+     * payment config, finished students still mapped, inactive sponsors, bad bank details, wrong RCC names and
+     * students' phone numbers that aren't Indian mobiles.
+     */
+    private List<Map<String, Object>> paymentSetupChecks(List<User> students, Set<Long> sponsored, Long unassigned) {
+        Map<Long, User> users = new HashMap<>();
+        userRepository.findAll().forEach(u -> users.put(u.getId(), u));
+
+        List<Map<String, Object>> noStart = new ArrayList<>(), badPhone = new ArrayList<>();
+        Map<Integer, Integer> studentsByYear = new TreeMap<>();
+        for (User u : students) {
+            if (sponsored.contains(u.getId()) && (u.getYear() == null || u.getPaymentStartDate() == null)) {
+                noStart.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "chapter", u.getChapterName(),
+                        "session_year", u.getYear(), "payment_start_date", u.getPaymentStartDate()));
+            }
+            if (u.getYear() != null) studentsByYear.merge(u.getYear(), 1, Integer::sum);
+            String digits = u.getPhone() == null ? "" : u.getPhone().replaceAll("\\D", "");
+            if (digits.length() == 12 && digits.startsWith("91")) digits = digits.substring(2);
+            if (!blank(u.getPhone()) && !digits.matches("[6-9]\\d{9}")) {
+                badPhone.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "phone", u.getPhone(),
+                        "chapter", u.getChapterName()));
+            }
+        }
+
+        List<Map<String, Object>> noConfig = new ArrayList<>();
+        studentsByYear.forEach((year, count) -> {
+            if (paymentScheduleRepository.findFirstByYearAndStatus(year, 1).isEmpty()) {
+                noConfig.add(row("session_year", year, "current_students", count));
+            }
+        });
+
+        List<Map<String, Object>> finishedMapped = new ArrayList<>(), inactiveSponsor = new ArrayList<>();
+        for (GrantorGrantee gg : grantorGranteeRepository.findAll()) {
+            if (gg.getGrantorId() == null || gg.getGrantorId().equals(unassigned)) continue;
+            User st = users.get(gg.getGranteeId()), sp = users.get(gg.getGrantorId());
+            if (st == null || sp == null || "Inactive".equalsIgnoreCase(st.getStatus())) continue;
+            String study = StudyStatus.of(st.getStudyStatus());
+            Map<String, Object> r = row("id", st.getId(), "user_id", st.getUserId(), "name", st.getName(),
+                    "study_status", StudyStatus.label(study), "sponsor", sp.getName() + " (" + ServiceSupport.refOf(sp) + ")");
+            if (StudyStatus.GRADUATED.equals(study) || StudyStatus.DROPPED_OUT.equals(study)) finishedMapped.add(r);
+            else if ("Inactive".equalsIgnoreCase(sp.getStatus())) inactiveSponsor.add(r);
+        }
+
+        Set<Long> current = new HashSet<>();
+        students.forEach(u -> current.add(u.getId()));
+        List<Map<String, Object>> badBank = new ArrayList<>();
+        for (BankDetails b : bankDetailsRepository.findAll()) {
+            if (!current.contains(b.getUserId())) continue;
+            String ifsc = b.getIfscCode() == null ? "" : b.getIfscCode().trim().toUpperCase(Locale.ROOT);
+            String account = b.getAccountNumber() == null ? "" : b.getAccountNumber().replaceAll("\\s", "");
+            String problem = account.isEmpty() ? "No account number" : !account.matches("\\d{9,18}") ? "Account number isn't 9-18 digits"
+                    : ifsc.isEmpty() ? "No IFSC code" : !IFSC.matcher(ifsc).matches() ? "IFSC code isn't valid" : null;
+            if (problem == null) continue;
+            User u = users.get(b.getUserId());
+            badBank.add(row("id", b.getUserId(), "user_id", u == null ? null : u.getUserId(), "name", u == null ? null : u.getName(),
+                    "bank", b.getBankName(), "ifsc_code", b.getIfscCode(), "problem", problem));
+        }
+
+        // RCC names that match no RCC center: the coaching center lead can't see these students.
+        Set<String> centerNames = new HashSet<>();
+        rccCenterRepository.findAll().forEach(c -> centerNames.add(com.rahbar.security.StudentScope.normalize(c.getCenterName())));
+        List<Map<String, Object>> unknownRcc = new ArrayList<>();
+        Set<Long> reported = new HashSet<>();
+        for (GranteeDetails g : granteeDetailsRepository.findAll()) {
+            if (g.getUserId() == null || blank(g.getRccName()) || !current.contains(g.getUserId()) || !reported.add(g.getUserId())) continue;
+            String rcc = com.rahbar.security.StudentScope.normalize(g.getRccName());
+            if (centerNames.contains(rcc) || rcc.equals("non-rcc") || rcc.equals("non rcc") || rcc.equals("rcc")) continue;
+            User u = users.get(g.getUserId());
+            unknownRcc.add(row("id", g.getUserId(), "user_id", u == null ? null : u.getUserId(), "name", g.getName(),
+                    "rcc_name", g.getRccName()));
+        }
+
+        return List.of(
+                in(SPONSORS, "/admin/students", check("sponsored_students_without_start", "Sponsored students without a session year or payment start date",
+                        "Their fee schedule can't be generated until both are set (Student Directory > BA Details).", noStart)),
+                in(ADMINISTRATION, "/admin/system-configuration", check("session_years_without_payment_config", "Session years without a payment config",
+                        "Students of these years get no installments until a Payment Config is added for the year.", noConfig)),
+                in(SPONSORS, "/admin/sponsorships", check("finished_students_still_mapped", "Graduated or dropped-out students still mapped to a sponsor",
+                        "The sponsor still sees them as current; unmap them so the sponsor can take a new student.", finishedMapped)),
+                in(SPONSORS, "/admin/sponsorships", check("students_with_inactive_sponsor", "Current students mapped to an inactive sponsor",
+                        "Their sponsor's account is inactive, so nobody is paying for them.", inactiveSponsor)),
+                in(SPONSORS, "/admin/students", check("students_with_bad_bank_details", "Students with incomplete or invalid bank details",
+                        "Missing account number, or an account number / IFSC code that doesn't look right (IFSC: 4 letters, 0, 6 letters or digits).", badBank)),
+                in(STUDENTS, "/admin/students", check("students_with_invalid_phone", "Students with an invalid phone number",
+                        "Not a 10-digit Indian mobile number (starting 6-9), so OTPs and calls may not reach them.", badPhone)),
+                in(STUDENTS, "/admin/students", check("students_with_unknown_rcc", "Students whose RCC name matches no RCC center",
+                        "Their coaching center lead can't see them. Correct the RCC name in Student Directory > BA Details.", unknownRcc)));
     }
 
     // ---------------------------------------------------------------- leads and access
@@ -301,20 +399,158 @@ public class DataQualityService {
         return check(key, title, description, rows);
     }
 
-    /** Students sharing the same name (ignoring case and spaces): possibly entered twice. */
-    private Map<String, Object> duplicateNames(List<User> students) {
-        Map<String, List<User>> byName = new LinkedHashMap<>();
+    /**
+     * Possible duplicate students. A matching name alone is not enough: two accounts are flagged when the name matches
+     * and at least one of father's name, phone (account or application mobile) or email also matches, or when two of
+     * those match even though the names differ (a misspelt name). Rows of one person share a "group".
+     */
+    private Map<String, Object> duplicateStudents(List<User> students) {
+        Map<Long, GranteeDetails> applications = new HashMap<>();
+        granteeDetailsRepository.findAll().stream()
+                .filter(g -> g.getUserId() != null)
+                .sorted(Comparator.comparing(GranteeDetails::getGranteeDetailId))
+                .forEach(g -> applications.putIfAbsent(g.getUserId(), g));
+        List<Person> people = new ArrayList<>();
         for (User u : students) {
-            if (u.getName() == null) continue;
-            byName.computeIfAbsent(u.getName().trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT), k -> new ArrayList<>()).add(u);
+            GranteeDetails g = applications.get(u.getId());
+            Person p = new Person(u);
+            p.add("father's name", text(g == null ? null : g.getFatherName()));
+            p.add("phone", phone(u.getPhone()));
+            p.add("phone", phone(g == null ? null : g.getStudentMobile()));
+            p.add("email", email(u.getEmail()));
+            people.add(p);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
-        byName.values().stream().filter(l -> l.size() > 1).forEach(l -> l.forEach(u ->
-                rows.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "phone", u.getPhone(),
-                        "study_status", StudyStatus.label(u.getStudyStatus()),
-                        "chapter", u.getChapterName(), "joined", u.getCreatedAt()))));
+        for (Duplicate d : duplicates(people)) {
+            User u = d.person().user;
+            GranteeDetails g = applications.get(u.getId());
+            rows.add(row("group", d.group(), "id", u.getId(), "user_id", u.getUserId(), "name", u.getName(),
+                    "father_name", g == null ? null : g.getFatherName(), "phone", u.getPhone(), "email", u.getEmail(),
+                    "matched_on", d.matchedOn(), "study_status", StudyStatus.label(u.getStudyStatus()),
+                    "chapter", u.getChapterName(), "joined", u.getCreatedAt()));
+        }
         return check("possible_duplicate_students", "Possible duplicate students",
-                "Active student accounts with the same name; check whether they were entered twice.", rows);
+                "Active students with the same name and the same father's name, phone or email (or two of those with a "
+                        + "different spelling of the name); check whether they were entered twice.", rows);
+    }
+
+    /** Possible duplicate sponsors: the same rule on full name, email, phone and chapter. */
+    private Map<String, Object> duplicateSponsors(List<User> sponsors) {
+        List<Person> people = new ArrayList<>();
+        for (User u : sponsors) {
+            Person p = new Person(u);
+            p.add("email", email(u.getEmail()));
+            p.add("phone", phone(u.getPhone()));
+            p.add("chapter", u.getChapterId() == null ? null : String.valueOf(u.getChapterId()));
+            people.add(p);
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Duplicate d : duplicates(people)) {
+            User u = d.person().user;
+            rows.add(row("group", d.group(), "id", u.getId(), "user_id", u.getUserId(), "name", u.getName(),
+                    "email", u.getEmail(), "phone", u.getPhone(), "chapter", u.getChapterName(),
+                    "matched_on", d.matchedOn(), "joined", u.getCreatedAt()));
+        }
+        return check("possible_duplicate_sponsors", "Possible duplicate sponsors",
+                "Active sponsors with the same name and the same email, phone or chapter (or two of those with a different "
+                        + "spelling of the name); check whether they were entered twice.", rows);
+    }
+
+    /** A user and the values compared (field -> normalized values; a field can have several, e.g. two phones). */
+    private static final class Person {
+        final User user;
+        final String name;
+        final Map<String, Set<String>> values = new LinkedHashMap<>();
+
+        Person(User user) {
+            this.user = user;
+            this.name = text(user.getName());
+        }
+
+        void add(String field, String value) {
+            if (value != null) values.computeIfAbsent(field, k -> new LinkedHashSet<>()).add(value);
+        }
+    }
+
+    private record Duplicate(int group, Person person, String matchedOn) {}
+
+    /**
+     * Pairs that match on name plus at least one other field, or on two other fields; grouped (a ~ b, b ~ c: one
+     * group). Each person's "matched on" lists every field they share with someone in their group.
+     */
+    private static List<Duplicate> duplicates(List<Person> people) {
+        // Candidate pairs: people sharing at least one value of any field (name included).
+        Map<String, List<Integer>> buckets = new HashMap<>();
+        for (int i = 0; i < people.size(); i++) {
+            Person p = people.get(i);
+            if (p.name != null) buckets.computeIfAbsent("name\u0000" + p.name, k -> new ArrayList<>()).add(i);
+            for (Map.Entry<String, Set<String>> e : p.values.entrySet()) {
+                for (String v : e.getValue()) buckets.computeIfAbsent(e.getKey() + "\u0000" + v, k -> new ArrayList<>()).add(i);
+            }
+        }
+        int[] parent = new int[people.size()];
+        for (int i = 0; i < parent.length; i++) parent[i] = i;
+        Map<Integer, Set<String>> matched = new HashMap<>();
+        Set<Long> seen = new HashSet<>();
+        for (List<Integer> bucket : buckets.values()) {
+            if (bucket.size() < 2 || bucket.size() > 50) continue; // a value shared by very many (e.g. a chapter) only counts with others
+            for (int x = 0; x < bucket.size(); x++) {
+                for (int y = x + 1; y < bucket.size(); y++) {
+                    int a = bucket.get(x), b = bucket.get(y);
+                    if (!seen.add((long) Math.min(a, b) * people.size() + Math.max(a, b))) continue;
+                    List<String> same = sameFields(people.get(a), people.get(b));
+                    if (same.size() < 2) continue; // name + one more, or two others
+                    parent[find(parent, a)] = find(parent, b);
+                    matched.computeIfAbsent(a, k -> new LinkedHashSet<>()).addAll(same);
+                    matched.computeIfAbsent(b, k -> new LinkedHashSet<>()).addAll(same);
+                }
+            }
+        }
+        Map<Integer, Integer> groupNo = new LinkedHashMap<>();
+        List<Duplicate> result = new ArrayList<>();
+        List<Integer> flagged = new ArrayList<>(matched.keySet());
+        flagged.sort(Comparator.comparing((Integer i) -> find(parent, i)).thenComparing(i -> people.get(i).name, Comparator.nullsLast(Comparator.naturalOrder())));
+        for (int i : flagged) {
+            int group = groupNo.computeIfAbsent(find(parent, i), k -> groupNo.size() + 1);
+            result.add(new Duplicate(group, people.get(i), String.join(", ", matched.get(i))));
+        }
+        result.sort(Comparator.comparingInt(Duplicate::group));
+        return result;
+    }
+
+    /** The fields two people share: "name" and any other field with a value in common. */
+    private static List<String> sameFields(Person a, Person b) {
+        List<String> same = new ArrayList<>();
+        if (a.name != null && a.name.equals(b.name)) same.add("name");
+        for (Map.Entry<String, Set<String>> e : a.values.entrySet()) {
+            Set<String> other = b.values.get(e.getKey());
+            if (other != null && !Collections.disjoint(e.getValue(), other)) same.add(e.getKey());
+        }
+        return same;
+    }
+
+    private static int find(int[] parent, int i) {
+        while (parent[i] != i) i = parent[i] = parent[parent[i]];
+        return i;
+    }
+
+    /** Lower case, single spaces, no dots (so "Md. Imran" = "md imran"); null when blank. */
+    private static String text(String s) {
+        if (s == null) return null;
+        String t = s.replace('.', ' ').trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+        return t.isEmpty() ? null : t;
+    }
+
+    /** The last 10 digits of a phone number (ignores +91, spaces, dashes); null when too short to be real. */
+    private static String phone(String s) {
+        if (s == null) return null;
+        String d = s.replaceAll("\\D", "");
+        return d.length() < 7 ? null : d.length() > 10 ? d.substring(d.length() - 10) : d;
+    }
+
+    /** A real email in lower case; null for blanks and generated @rahbar.com placeholders. */
+    private static String email(String s) {
+        return usableEmail(s) ? s.trim().toLowerCase(Locale.ROOT) : null;
     }
 
     private static Map<String, Object> check(String key, String title, String description, List<Map<String, Object>> rows) {
