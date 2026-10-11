@@ -85,6 +85,8 @@ public enum Section {
     DOCUMENTS("Documents: add & edit (who reads each one is set on the document)"),
     /** The categories of Admin > Documents. */
     DOCUMENT_CATEGORIES("Document categories"),
+    /** Administration > Income & Expenses: the books, categories and what is published on the website. */
+    FINANCE("Income & expenses"),
     /** Rahbar-e-Banaat (the girls' Madrasa-cum-School): its dashboard. */
     REB_DASHBOARD("REB: dashboard"),
     /** Sessions, classes, sections, subjects, curriculum and settings. EDIT changes them. */
