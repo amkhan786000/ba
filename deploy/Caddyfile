@@ -1,36 +1,30 @@
-# Front door of the server (only used with COMPOSE_PROFILES=https): Caddy holds ports 80 / 443, sends each visitor
-# to the right app by the name they opened, and gets and renews HTTPS certificates by itself.
+# Front door of the server (only used with COMPOSE_PROFILES=https): Caddy holds port 80 and sends each visitor to
+# the right app by the name they opened. Plain HTTP for now.
 #
-#   http://<server-ip> (any name without a site below)  -> Rahbar, plain HTTP as before
-#   https://{$DOMAIN}  (Rahbar's own domain, optional)   -> Rahbar
-#   https://biharanjuman.com, www.biharanjuman.com       -> the Bihar Anjuman website (container
-#                                                          biharanjuman-frontend, which joins this network
-#                                                          with CADDY_NETWORK=rahbar_default)
-# The website's names come from WEBSITE_DOMAINS in /opt/rahbar/.env (comma separated).
+#   http://biharanjuman.com, http://www.biharanjuman.com  -> the Bihar Anjuman website (container
+#                                                            biharanjuman-frontend, which joins this network
+#                                                            with CADDY_NETWORK=rahbar_default)
+#   anything else (the server's IP, rahbar.biharanjuman.com) -> Rahbar
+#
+# HTTPS later: delete "auto_https off", change "http://" to "https://" below and open port 443
+# (sudo ufw allow 443/tcp). Caddy then gets and renews free Let's Encrypt certificates by itself.
 {
+	auto_https off
 	# Keep the visitor's address (X-Forwarded-For) when the request comes from inside this server: the website's
 	# nginx calls Rahbar's API through here and passes the visitor on. Visitors on the internet can't fake it.
 	servers {
 		trusted_proxies static private_ranges
 	}
-	# without DOMAIN the Rahbar block below is for "localhost" only: no certificate to install anywhere
-	skip_install_trust
-}
-
-# Rahbar on the server's IP address (and any other name), plain HTTP.
-:80 {
-	encode gzip
-	reverse_proxy frontend:80
-}
-
-# Rahbar's own domain, once DOMAIN is set in /opt/rahbar/.env.
-{$DOMAIN:localhost} {
-	encode gzip
-	reverse_proxy frontend:80
 }
 
 # The Bihar Anjuman website (biharanjuman.com repository).
-{$WEBSITE_DOMAINS:biharanjuman.com, www.biharanjuman.com} {
+http://biharanjuman.com, http://www.biharanjuman.com {
 	encode gzip
 	reverse_proxy biharanjuman-frontend:80
+}
+
+# Rahbar: the server's IP address, rahbar.biharanjuman.com and any other name.
+:80 {
+	encode gzip
+	reverse_proxy frontend:80
 }
