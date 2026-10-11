@@ -42,6 +42,8 @@ public class RebController {
     private final RebImportService importer;
     private final RebCertificateService certificates;
     private final RebReportService reports;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.service.RebBillingService billing;
 
     public RebController(RebSetupService setup, RebStaffService staff, RebStudentService students, RebImportService importer,
                          RebCertificateService certificates, RebReportService reports) {
@@ -62,7 +64,9 @@ public class RebController {
     @GetMapping("/dashboard")
     @PreAuthorize("hasAuthority('REB_DASHBOARD:VIEW')")
     public Map<String, Object> dashboard() {
-        return students.dashboard();
+        Map<String, Object> out = new java.util.LinkedHashMap<>(students.dashboard());
+        out.put("fees", billing.monthSummary()); // null without "REB: fees"
+        return out;
     }
 
     // ---------------------------------------------------------------- setup (sessions, classes, sections, subjects, curriculum, settings)

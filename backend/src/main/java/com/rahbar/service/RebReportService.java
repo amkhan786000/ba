@@ -45,7 +45,18 @@ public class RebReportService {
             new RebReportDefinition("reb_board_candidates", "Students", "Board exam candidates",
                     "Girls in the Bihar Board exam class(es) with their board registration details.", false),
             new RebReportDefinition("reb_staff", "Staff", "Teachers and subjects",
-                    "Every staff member with the sections and subjects they teach in the current session.", false));
+                    "Every staff member with the sections and subjects they teach in the current session.", false),
+            new RebReportDefinition("reb_fee_collection", "Fees", "Fee collection",
+                    "Every payment in the date range (default: this month): receipt, girl, family or sponsor, mode and amount.", true),
+            new RebReportDefinition("reb_outstanding", "Fees", "Outstanding fees",
+                    "Girls with unpaid bills: family and sponsor shares, number of bills and the oldest unpaid month.", false),
+            new RebReportDefinition("reb_concessions", "Fees", "Concessions",
+                    "Fee concessions of the current session: who, how much, why and who approved them.", false),
+            new RebReportDefinition("reb_sponsorship_coverage", "Fees", "Sponsorship coverage",
+                    "Every girl studying now with her fee plan and sponsor (name and ID only), and girls without a sponsor.", false));
+
+    /** Reports with money in them: only for people who may see REB fees. */
+    static final Set<String> FEE_REPORTS = Set.of("reb_fee_collection", "reb_outstanding", "reb_concessions", "reb_sponsorship_coverage");
 
     private final RebStudentRepository students;
     private final RebGuardianRepository guardians;
@@ -77,11 +88,16 @@ public class RebReportService {
     }
 
     public List<RebReportDefinition> catalog() {
-        return CATALOG;
+        boolean fees = com.rahbar.security.Access.can(com.rahbar.security.Section.REB_FEES, com.rahbar.security.Section.Level.VIEW);
+        return CATALOG.stream().filter(d -> fees || !FEE_REPORTS.contains(d.key())).toList();
     }
 
     private static RebReportDefinition definition(String key) {
-        return CATALOG.stream().filter(d -> d.key().equals(key)).findFirst().orElseThrow(() -> bad("Unknown report."));
+        RebReportDefinition d = CATALOG.stream().filter(x -> x.key().equals(key)).findFirst().orElseThrow(() -> bad("Unknown report."));
+        if (FEE_REPORTS.contains(key) && !com.rahbar.security.Access.can(com.rahbar.security.Section.REB_FEES, com.rahbar.security.Section.Level.VIEW)) {
+            throw com.rahbar.security.Access.forbidden("This report needs the \"REB: fees\" permission.");
+        }
+        return d;
     }
 
     public Map<String, Object> data(String key, LocalDate from, LocalDate to) {
@@ -151,6 +167,10 @@ public class RebReportService {
             case "reb_guardian_contacts" -> contacts();
             case "reb_board_candidates" -> boardCandidates();
             case "reb_staff" -> staffRows();
+            case "reb_fee_collection" -> feeCollection(from, to);
+            case "reb_outstanding" -> outstanding();
+            case "reb_concessions" -> concessionRows();
+            case "reb_sponsorship_coverage" -> sponsorshipCoverage();
             default -> throw bad("Unknown report.");
         };
     }
@@ -298,6 +318,102 @@ public class RebReportService {
             List<String> list = teaches.getOrDefault(s.getId(), new ArrayList<>());
             Collections.sort(list);
             r.put("teaches", String.join("; ", list));
+            rows.add(r);
+        }
+        return rows;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private RebBillingService billing;
+    @org.springframework.beans.factory.annotation.Autowired
+    private RebSponsorshipService sponsorships;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.RebConcessionRepository concessions;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.RebFeeHeadRepository feeHeads;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.UserRepository users;
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> feeCollection(LocalDate from, LocalDate to) {
+        LocalDate start = from != null ? from : java.time.YearMonth.now().atDay(1);
+        LocalDate end = to != null ? to : LocalDate.now();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> p : (List<Map<String, Object>>) billing.payments(start, end).get("payments")) {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("date", p.get("paid_on"));
+            r.put("receipt_no", p.get("receipt_no"));
+            r.put("admission_no", p.get("admission_no"));
+            r.put("name", p.get("student_name"));
+            r.put("paid_by", "SPONSOR".equals(p.get("payer")) ? "Sponsor: " + p.get("sponsor_name") : "Family");
+            r.put("mode", p.get("method"));
+            r.put("reference", p.get("reference"));
+            r.put("amount", "VALID".equals(p.get("status")) ? p.get("amount") : java.math.BigDecimal.ZERO);
+            r.put("status", "VALID".equals(p.get("status")) ? "" : "Cancelled: " + p.get("cancel_reason"));
+            r.put("received_by", p.get("received_by"));
+            rows.add(r);
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> outstanding() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> d : billing.dues(null, true)) {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("admission_no", d.get("admission_no"));
+            r.put("name", d.get("name"));
+            r.put("class", d.get("section"));
+            r.put("unpaid_bills", d.get("bills"));
+            r.put("oldest_unpaid", d.get("oldest_label"));
+            r.put("family_owes", d.get("family_outstanding"));
+            r.put("sponsor_owes", d.get("sponsor_outstanding"));
+            r.put("total", d.get("total"));
+            rows.add(r);
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> concessionRows() {
+        RebSession session = setup.currentSession();
+        Map<Long, RebStudent> girls = new HashMap<>();
+        students.findAll().forEach(s -> girls.put(s.getId(), s));
+        Map<Long, String> headNames = new HashMap<>();
+        feeHeads.findAll().forEach(h -> headNames.put(h.getId(), h.getName()));
+        List<com.rahbar.entity.RebConcession> list = concessions.findBySessionId(session.getId());
+        Map<Long, String> who = new HashMap<>();
+        users.findAllById(list.stream().map(com.rahbar.entity.RebConcession::getCreatedBy).filter(Objects::nonNull).distinct().toList())
+                .forEach(u -> who.put(u.getId(), u.getName()));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (com.rahbar.entity.RebConcession c : list) {
+            RebStudent g = girls.get(c.getStudentId());
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("admission_no", g == null ? null : g.getAdmissionNo());
+            r.put("name", g == null ? null : g.getName());
+            r.put("on", c.getFeeHeadId() == null ? "All fees" : headNames.get(c.getFeeHeadId()));
+            r.put("concession", "PERCENT".equals(c.getKind()) ? c.getValue().stripTrailingZeros().toPlainString() + "%" : "Rs. " + c.getValue().toPlainString());
+            r.put("reason", relation(c.getReason()).replace('_', ' '));
+            r.put("months", (c.getFromPeriod() == null ? "start" : c.getFromPeriod()) + " to " + (c.getToPeriod() == null ? "end" : c.getToPeriod()));
+            r.put("note", c.getNote());
+            r.put("approved_by", who.get(c.getCreatedBy()));
+            rows.add(r);
+        }
+        return rows;
+    }
+
+    private List<Map<String, Object>> sponsorshipCoverage() {
+        String now = java.time.YearMonth.now().toString();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Seat x : seats()) {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("class", x.label());
+            r.put("admission_no", x.student().getAdmissionNo());
+            r.put("name", x.student().getName());
+            r.put("fee_plan", plan(x.student().getFeePlan()));
+            var sp = sponsorships.covering(x.student().getId(), now);
+            var sponsor = sp.flatMap(s -> users.findById(s.getSponsorUserId()));
+            r.put("sponsor", sponsor.map(u -> u.getName() + (u.getUserId() == null ? "" : " (" + u.getUserId() + ")")).orElse(""));
+            r.put("per_month", sp.map(com.rahbar.entity.RebSponsorship::getMonthlyAmount).orElse(null));
+            r.put("since", sp.map(com.rahbar.entity.RebSponsorship::getStartPeriod).orElse(null));
             rows.add(r);
         }
         return rows;

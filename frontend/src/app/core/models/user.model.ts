@@ -27,7 +27,8 @@ export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTER
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
   | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES'
-  | 'REB_DASHBOARD' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS';
+  | 'REB_DASHBOARD' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS'
+  | 'REB_FEES' | 'REB_FEE_APPROVALS' | 'REB_SPONSORSHIPS';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
 export const PORTAL_ROLES = [3, 4, 5, 6];
@@ -68,6 +69,8 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
 
   { path: '/admin/reb/dashboard', label: 'REB Dashboard', icon: 'mdi-view-dashboard-outline', section: 'REB_DASHBOARD', group: 'reb' },
   { path: '/admin/reb/students', label: 'Girls', icon: 'mdi-human-female', section: 'REB_STUDENTS', group: 'reb' },
+  { path: '/admin/reb/fees', label: 'REB Fees', icon: 'mdi-cash-multiple', section: 'REB_FEES', group: 'reb' },
+  { path: '/admin/reb/sponsorships', label: 'REB Sponsorships', icon: 'mdi-hand-heart', section: 'REB_SPONSORSHIPS', group: 'reb' },
   { path: '/admin/reb/staff', label: 'Teachers & Staff', icon: 'mdi-teach', section: 'REB_STAFF', group: 'reb' },
   { path: '/admin/reb/reports', label: 'REB Reports', icon: 'mdi-chart-bar', section: 'REB_REPORTS', group: 'reb' },
   { path: '/admin/reb/setup', label: 'REB Setup', icon: 'mdi-settings', section: 'REB_SETUP', group: 'reb' },

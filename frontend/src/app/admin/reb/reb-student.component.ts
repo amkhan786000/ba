@@ -6,6 +6,7 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { CardTableDirective } from '../../shared/card-table.directive';
+import { RebStudentFeesComponent } from './reb-student-fees.component';
 import { isoDate, uploadUrl } from '../../shared/format';
 import {
   CATEGORIES, DOCUMENT_KINDS, ENROLLMENT_STATUSES, FEE_PLANS, RELATIONS, RebGuardian, RebSectionRow, RebSession, STATUSES,
@@ -28,7 +29,7 @@ interface Profile {
 @Component({
   selector: 'app-reb-student',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective, RebStudentFeesComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box d-flex flex-wrap align-items-center justify-content-between">
       <h4 class="page-title mb-2">
@@ -149,6 +150,8 @@ interface Profile {
           </div>
         </div>
 
+        <app-reb-student-fees *ngIf="canFees" [studentId]="$any(s['id'])"></app-reb-student-fees>
+
         <div class="card" *ngIf="p.private">
           <div class="card-body">
             <h4 class="header-title">Documents</h4>
@@ -259,6 +262,7 @@ export class RebStudentComponent implements OnChanges {
   get canEdit(): boolean { return this.auth.can('REB_STUDENTS', 'EDIT'); }
   get canPrivate(): boolean { return this.auth.can('REB_STUDENT_PRIVATE', 'EDIT'); }
   get canPrivateEdit(): boolean { return this.auth.can('REB_STUDENT_PRIVATE', 'EDIT'); }
+  get canFees(): boolean { return this.auth.can('REB_FEES'); }
 
   str(v: unknown): string { return v == null ? '' : String(v); }
   link(path: string): string | null { return uploadUrl(path); }

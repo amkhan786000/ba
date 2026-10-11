@@ -43,6 +43,10 @@ public class RebSetupService {
         SETTINGS.put("principal_name", "Principal / Nazima");
         SETTINGS.put("admission_prefix", "Admission number prefix");
         SETTINGS.put("board_name", "Board");
+        SETTINGS.put("invoice_prefix", "Bill number prefix");
+        SETTINGS.put("receipt_prefix", "Receipt number prefix");
+        SETTINGS.put("due_day", "Bills are due on day (1-28) of the month");
+        SETTINGS.put("sponsorship_amount", "Default sponsorship per month (Rs.)");
     }
 
     private final RebSessionRepository sessions;
@@ -358,9 +362,11 @@ public class RebSetupService {
         for (Map.Entry<String, Object> e : body.entrySet()) {
             if (!SETTINGS.containsKey(e.getKey())) continue;
             String value = text(e.getValue(), SETTINGS.get(e.getKey()), 1000, false);
-            if ("admission_prefix".equals(e.getKey()) && value != null && !value.matches("[A-Za-z0-9-]{1,10}")) {
-                throw bad("Admission number prefix: up to 10 letters, digits or dashes.");
+            if (Set.of("admission_prefix", "invoice_prefix", "receipt_prefix").contains(e.getKey()) && value != null && !value.matches("[A-Za-z0-9-]{1,10}")) {
+                throw bad(SETTINGS.get(e.getKey()) + ": up to 10 letters, digits or dashes.");
             }
+            if ("due_day".equals(e.getKey()) && value != null) number(value, "Due day", 1, 28);
+            if ("sponsorship_amount".equals(e.getKey()) && value != null) money(value, "Default sponsorship");
             RebSetting s = settings.findById(e.getKey()).orElseGet(() -> {
                 RebSetting n = new RebSetting();
                 n.setKey(e.getKey());

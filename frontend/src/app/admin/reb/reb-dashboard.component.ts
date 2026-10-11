@@ -13,6 +13,7 @@ interface Dashboard {
   admitted_this_session?: number; left_this_session?: number; not_enrolled?: number; sections_without_teacher?: number;
   without_guardian_phone: number; without_birth_certificate?: number;
   sections?: { id: number; label: string; girls: number; capacity: number; class_teacher: string }[];
+  fees?: { label: string; billed: number; bills_made: boolean; collected: number; overdue: number; girls_overdue: number } | null;
 }
 
 /** Rahbar-e-Banaat > REB Dashboard: the current session at a glance, and what needs attention. */
@@ -35,6 +36,15 @@ interface Dashboard {
           <small class="text-muted">{{ d.residential }} in the hostel, {{ d.active - d.residential }} day scholars</small></div></div>
         <div class="col-6 col-xl-3" *ngFor="let k of planKeys"><div class="card-box"><h4 class="header-title mt-0">{{ plans[k] }}</h4><h2>{{ d.fee_plans[k] || 0 }}</h2>
           <small class="text-muted">fee plan</small></div></div>
+      </div>
+
+      <div class="row" *ngIf="d.fees as f">
+        <div class="col-6 col-xl-3"><div class="card-box"><h4 class="header-title mt-0">Billed for {{ f.label }}</h4>
+          <h2>₹{{ f.billed | number: '1.0-0' }}</h2><small class="text-muted"><a routerLink="/admin/reb/fees" [queryParams]="{ tab: 'bills' }">{{ f.bills_made ? 'See the bills' : 'Bills not made yet' }}</a></small></div></div>
+        <div class="col-6 col-xl-3"><div class="card-box"><h4 class="header-title mt-0">Collected this month</h4>
+          <h2>₹{{ f.collected | number: '1.0-0' }}</h2><small class="text-muted"><a routerLink="/admin/reb/fees" [queryParams]="{ tab: 'daybook' }">Day book</a></small></div></div>
+        <div class="col-6 col-xl-3"><div class="card-box"><h4 class="header-title mt-0">Overdue</h4>
+          <h2 [class.text-danger]="f.overdue > 0">₹{{ f.overdue | number: '1.0-0' }}</h2><small class="text-muted"><a routerLink="/admin/reb/fees" [queryParams]="{ tab: 'dues' }">{{ f.girls_overdue }} girls</a></small></div></div>
       </div>
 
       <div class="row">
