@@ -1,0 +1,83 @@
+# Actions -> "Deploy Latest Tag" -> Run workflow: deploys the newest release (e.g. v4.2.0), with nothing to choose.
+#
+# It looks up the latest published release, takes the commit its tag points to, and starts "Build & deploy" for
+# that commit's images (built when it was merged into main). It then follows that run and ends with its result, so
+# this run turns red if the deploy fails (the deploy itself rolls back to the previous version).
+# Leave "Use workflow from" on main.
+
+name: Deploy Latest Tag
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: deploy-latest-tag
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy the latest release
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Find the latest release
+        id: release
+        run: |
+          set -euo pipefail
+          tag="$(gh release view --repo "$REPO" --json tagName -q .tagName 2>/dev/null || true)"
+          if [ -z "$tag" ]; then
+            echo "::error title=No release yet::There is no published release to deploy. Merge a pull request (a release is made automatically) or create one."
+            exit 1
+          fi
+          sha="$(gh api "repos/$REPO/commits/$tag" -q .sha)"
+          name="$(gh release view "$tag" --repo "$REPO" --json name -q .name)"
+          echo "Latest release: ${name:-$tag} (tag $tag, commit $sha)"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "name=${name:-$tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Start "Build & deploy" for that release
+        id: start
+        env:
+          SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          since="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          gh workflow run deploy.yml --repo "$REPO" --ref main -f tag="$SHA"
+          # find the run that was just started
+          for i in $(seq 1 30); do
+            sleep 5
+            id="$(gh run list --repo "$REPO" --workflow deploy.yml --event workflow_dispatch --limit 5 \
+                  --json databaseId,createdAt -q "[.[] | select(.createdAt >= \"$since\")] | last | .databaseId // empty")"
+            [ -n "$id" ] && break
+          done
+          if [ -z "${id:-}" ]; then
+            echo "::error::The deploy was started but its run could not be found. Look under Actions -> Build & deploy."
+            exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "Deploy run: ${{ github.server_url }}/$REPO/actions/runs/$id"
+
+      - name: Follow the deploy
+        env:
+          RUN_ID: ${{ steps.start.outputs.id }}
+          NAME: ${{ steps.release.outputs.name }}
+          SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -uo pipefail
+          url="${{ github.server_url }}/$REPO/actions/runs/$RUN_ID"
+          if gh run watch "$RUN_ID" --repo "$REPO" --exit-status --interval 15 > /dev/null; then
+            echo "### Deployed $NAME" >> "$GITHUB_STEP_SUMMARY"
+            echo "Commit \`${SHA:0:7}\` - [deploy run]($url)" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "### Deploy of $NAME failed" >> "$GITHUB_STEP_SUMMARY"
+            echo "See the [deploy run]($url). The server keeps (or went back to) the previous version." >> "$GITHUB_STEP_SUMMARY"
+            echo "::error title=Deploy failed::Deploying $NAME failed - see $url"
+            exit 1
+          fi
