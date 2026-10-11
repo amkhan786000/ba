@@ -23,37 +23,63 @@ export interface AuthUser {
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
 export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG'
   | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
-  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'RCC_STUDENTS' | 'VOLUNTEERS';
+  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'RCC_STUDENTS' | 'VOLUNTEERS'
+  | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
+  | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
 export const PORTAL_ROLES = [3, 4, 5, 6];
 
-/** Admin menu, in order; each entry needs VIEW on its section. */
-export const ADMIN_LINKS: { path: string; label: string; icon: string; section: Section }[] = [
+/** Groups of the admin menu (a group shows when the user may open at least one of its entries). */
+export const NAV_GROUPS: Record<string, { label: string; icon: string }> = {
+  students: { label: 'Students', icon: 'mdi-school' },
+  sponsors: { label: 'Sponsors & Payments', icon: 'mdi-cash-multiple' },
+  community: { label: 'Community', icon: 'mdi-account-group' },
+  website: { label: 'Website', icon: 'mdi-web' },
+  communication: { label: 'Communication', icon: 'mdi-bullhorn' },
+  administration: { label: 'Administration', icon: 'mdi-shield-account' }
+};
+
+/** Admin menu, in order; each entry needs VIEW on its section. Entries of a group stay together. */
+export const ADMIN_LINKS: { path: string; label: string; icon: string; section: Section; group?: string }[] = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard', section: 'DASHBOARD' },
-  { path: '/admin/chapter-dashboard', label: 'Chapter Dashboard', icon: 'mdi-view-quilt', section: 'CHAPTER_DASHBOARD' },
-  { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS' },
-  { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES' },
-  { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings', section: 'PAYMENT_CONFIG' },
-  { path: '/admin/payment-dues', label: 'Payment Dues', icon: 'mdi-alarm', section: 'PAYMENT_DUES' },
-  { path: '/admin/payment-records', label: 'Payment Records', icon: 'mdi-receipt', section: 'PAYMENT_RECORDS' },
-  { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS' },
-  { path: '/admin/application-period', label: 'App Period', icon: 'mdi-calendar', section: 'APPLICATION_PERIOD' },
-  { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS' },
-  { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank', section: 'RCC_CENTERS' },
-  { path: '/admin/chapters', label: 'Chapters', icon: 'mdi-map-marker-multiple', section: 'CHAPTERS' },
-  { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES' },
-  { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS' },
-  { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS' },
-  { path: '/admin/rcc-students', label: 'Coaching Center Students', icon: 'mdi-account-group', section: 'RCC_STUDENTS' },
-  { path: '/admin/alumni', label: 'Alumni', icon: 'mdi-school', section: 'ALUMNI' },
-  { path: '/admin/volunteers', label: 'Volunteers', icon: 'mdi-hand-heart', section: 'VOLUNTEERS' },
-  { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES' },
-  { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY' },
-  { path: '/admin/broadcasts', label: 'Broadcast Messages', icon: 'mdi-bullhorn', section: 'MESSAGES' },
-  { path: '/admin/email-templates', label: 'Email Templates', icon: 'mdi-email-edit-outline', section: 'EMAIL_TEMPLATES' },
-  { path: '/admin/email-log', label: 'Email Log', icon: 'mdi-email-search-outline', section: 'EMAIL_LOG' },
-  { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY' }
+
+  { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS', group: 'students' },
+  { path: '/admin/application-period', label: 'Application Period', icon: 'mdi-calendar', section: 'APPLICATION_PERIOD', group: 'students' },
+  { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS', group: 'students' },
+  { path: '/admin/rcc-students', label: 'Coaching Center Students', icon: 'mdi-account-group', section: 'RCC_STUDENTS', group: 'students' },
+  { path: '/admin/alumni', label: 'Alumni', icon: 'mdi-school', section: 'ALUMNI', group: 'students' },
+  { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES', group: 'students' },
+  { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES', group: 'students' },
+
+  { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS', group: 'sponsors' },
+  { path: '/admin/payment-records', label: 'Payment Records', icon: 'mdi-receipt', section: 'PAYMENT_RECORDS', group: 'sponsors' },
+  { path: '/admin/payment-dues', label: 'Payment Dues', icon: 'mdi-alarm', section: 'PAYMENT_DUES', group: 'sponsors' },
+  { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings', section: 'PAYMENT_CONFIG', group: 'sponsors' },
+
+  { path: '/admin/chapter-dashboard', label: 'Chapter Dashboard', icon: 'mdi-view-quilt', section: 'CHAPTER_DASHBOARD', group: 'community' },
+  { path: '/admin/chapters', label: 'Chapters', icon: 'mdi-map-marker-multiple', section: 'CHAPTERS', group: 'community' },
+  { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank', section: 'RCC_CENTERS', group: 'community' },
+  { path: '/admin/volunteers', label: 'Volunteers', icon: 'mdi-hand-heart', section: 'VOLUNTEERS', group: 'community' },
+
+  { path: '/admin/website/blog', label: 'Blog', icon: 'mdi-post-outline', section: 'WEBSITE_BLOG', group: 'website' },
+  { path: '/admin/website/stories', label: 'Success Stories', icon: 'mdi-star-outline', section: 'WEBSITE_STORIES', group: 'website' },
+  { path: '/admin/website/gallery', label: 'Gallery', icon: 'mdi-image-multiple', section: 'WEBSITE_GALLERY', group: 'website' },
+  { path: '/admin/website/directory', label: 'Directory', icon: 'mdi-earth', section: 'WEBSITE_DIRECTORY', group: 'website' },
+  { path: '/admin/website/projects', label: 'Projects', icon: 'mdi-briefcase-outline', section: 'WEBSITE_PROJECTS', group: 'website' },
+  { path: '/admin/website/news', label: 'News & Events', icon: 'mdi-newspaper', section: 'WEBSITE_NEWS', group: 'website' },
+  { path: '/admin/website/messages', label: 'Messages', icon: 'mdi-email-outline', section: 'WEBSITE_MESSAGES', group: 'website' },
+  { path: '/admin/website/pages', label: 'Pages', icon: 'mdi-file-document-edit-outline', section: 'WEBSITE_PAGES', group: 'website' },
+
+  { path: '/admin/broadcasts', label: 'Broadcast Messages', icon: 'mdi-bullhorn', section: 'MESSAGES', group: 'communication' },
+  { path: '/admin/email-templates', label: 'Email Templates', icon: 'mdi-email-edit-outline', section: 'EMAIL_TEMPLATES', group: 'communication' },
+  { path: '/admin/email-log', label: 'Email Log', icon: 'mdi-email-search-outline', section: 'EMAIL_LOG', group: 'communication' },
+
+  { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS', group: 'administration' },
+  { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES', group: 'administration' },
+  { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS', group: 'administration' },
+  { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY', group: 'administration' },
+  { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY', group: 'administration' }
 ];
 
 /** True when the user may use the section: EDIT implies VIEW; the Super Admin may do everything. */

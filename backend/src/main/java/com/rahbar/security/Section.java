@@ -52,7 +52,28 @@ public enum Section {
      * People who offered to mentor, tutor, sponsor or join a chapter through the public website. VIEW lists them
      * (and notifies of new ones); EDIT sets their follow-up status and notes, or deletes a sign-up.
      */
-    VOLUNTEERS("Volunteers");
+    VOLUNTEERS("Volunteers"),
+
+    // ---- Admin > Website: the Bihar Anjuman website (biharanjuman.com) ----
+    /**
+     * Blog. VIEW: write posts and see / edit one's own drafts. EDIT: see and edit every post (publishing needs
+     * WEBSITE_BLOG_PUBLISH).
+     */
+    WEBSITE_BLOG("Website: blog"),
+    WEBSITE_BLOG_PUBLISH("Website: publish blog posts"),
+    /** Success stories; chapter / RCC-scoped users only their own chapter's / center's. Publishing needs WEBSITE_STORIES_PUBLISH. */
+    WEBSITE_STORIES("Website: success stories"),
+    WEBSITE_STORIES_PUBLISH("Website: publish success stories"),
+    WEBSITE_GALLERY("Website: gallery"),
+    /** Worldwide directory (approve sign-ups); chapter-scoped users only their chapter's members. */
+    WEBSITE_DIRECTORY("Website: directory"),
+    WEBSITE_PROJECTS("Website: projects"),
+    /** News & events; chapter-scoped users only their chapter's. */
+    WEBSITE_NEWS("Website: news & events"),
+    /** Contact-form messages. */
+    WEBSITE_MESSAGES("Website: messages"),
+    /** Custom pages, the text of the fixed pages and its Urdu / Hindi versions. */
+    WEBSITE_PAGES("Website: pages & page text");
 
     public enum Level { VIEW, EDIT }
 

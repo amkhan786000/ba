@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
-import { ROLE_LABELS, Section } from '../../core/models/user.model';
+import { NAV_GROUPS, ROLE_LABELS, Section } from '../../core/models/user.model';
 import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 export interface NavLink {
@@ -12,7 +12,12 @@ export interface NavLink {
   icon?: string;
   /** Admin screens: shown only when the user may view this section. */
   section?: Section;
+  /** Key of a NAV_GROUPS entry: the link is shown under that group's heading, which opens and closes. */
+  group?: string;
 }
+
+/** One line of the sidebar: a link, or a group of links. */
+type NavEntry = { link: NavLink; group?: undefined } | { group: { key: string; label: string; icon: string; links: NavLink[] }; link?: undefined };
 
 /**
  * App layout: dark brand sidebar + sticky top bar + content area.
@@ -31,11 +36,27 @@ export interface NavLink {
         </a>
         <nav class="app-nav">
           <div class="nav-section">{{ title }}</div>
-          <a *ngFor="let link of links" class="nav-item" [routerLink]="link.path" routerLinkActive="active"
-             [title]="collapsed ? link.label : ''" (click)="mobileOpen = false">
-            <i class="mdi" [ngClass]="link.icon || 'mdi-circle-outline'"></i>
-            <span>{{ link.label }}</span>
-          </a>
+          <ng-container *ngFor="let e of entries; trackBy: entryKey">
+            <a *ngIf="e.link as link" class="nav-item" [routerLink]="link.path" routerLinkActive="active"
+               [title]="collapsed ? link.label : ''" (click)="mobileOpen = false">
+              <i class="mdi" [ngClass]="link.icon || 'mdi-circle-outline'"></i>
+              <span>{{ link.label }}</span>
+            </a>
+            <ng-container *ngIf="e.group as g">
+              <button type="button" class="nav-item nav-group" [class.open]="isOpen(g.key)" [class.has-active]="groupActive(g.key)"
+                      [attr.aria-expanded]="isOpen(g.key)" [title]="collapsed ? g.label : ''" (click)="toggleGroup(g.key)">
+                <i class="mdi" [ngClass]="g.icon"></i>
+                <span>{{ g.label }}</span>
+                <i class="mdi mdi-chevron-down nav-caret"></i>
+              </button>
+              <div class="nav-sub" *ngIf="isOpen(g.key) && !collapsed">
+                <a *ngFor="let link of g.links; trackBy: linkKey" class="nav-item" [routerLink]="link.path" routerLinkActive="active" (click)="mobileOpen = false">
+                  <i class="mdi" [ngClass]="link.icon || 'mdi-circle-outline'"></i>
+                  <span>{{ link.label }}</span>
+                </a>
+              </div>
+            </ng-container>
+          </ng-container>
         </nav>
         <div class="sidebar-foot">Connecting people to serve humanity</div>
       </aside>
@@ -96,9 +117,55 @@ export interface NavLink {
 })
 export class ShellComponent implements OnDestroy {
   @Input() title = '';
-  @Input() set links(v: NavLink[] | undefined) { this._links = v ?? []; this.updateLabel(); }
+  @Input() set links(v: NavLink[] | undefined) { this._links = v ?? []; this.updateLabel(); this.openActiveGroup(); }
   /** Menu entries the user may open (admin entries carry the section they need VIEW on). */
   get links(): NavLink[] { return this._links.filter((l) => !l.section || this.auth.can(l.section)); }
+
+  /** The sidebar: plain links, and groups (in the order of their first link) holding the links the user may open. */
+  get entries(): NavEntry[] {
+    const out: NavEntry[] = [];
+    const groups = new Map<string, NavLink[]>();
+    for (const link of this.links) {
+      const def = link.group ? NAV_GROUPS[link.group] : undefined;
+      if (!link.group || !def) { out.push({ link }); continue; }
+      let list = groups.get(link.group);
+      if (!list) {
+        list = [];
+        groups.set(link.group, list);
+        out.push({ group: { key: link.group, label: def.label, icon: def.icon, links: list } });
+      }
+      list.push(link);
+    }
+    return out;
+  }
+
+  entryKey(_: number, e: NavEntry): string { return e.link ? e.link.path : 'group:' + e.group!.key; }
+
+  linkKey(_: number, l: NavLink): string { return l.path; }
+
+  /** Groups the user opened; the group of the current page opens by itself. */
+  private openGroups = new Set<string>();
+
+  isOpen(key: string): boolean { return this.openGroups.has(key); }
+
+  groupActive(key: string): boolean {
+    const url = this.router.url.split(/[?#]/)[0];
+    return this.links.some((l) => l.group === key && (url === l.path || url.startsWith(l.path + '/')));
+  }
+
+  toggleGroup(key: string): void {
+    if (this.collapsed) {
+      // icons-only sidebar: widen it and show the group
+      this.collapsed = false;
+      this.openGroups.add(key);
+      return;
+    }
+    if (this.openGroups.has(key)) this.openGroups.delete(key); else this.openGroups.add(key);
+  }
+
+  private openActiveGroup(): void {
+    for (const e of this.entries) if (e.group && this.groupActive(e.group.key)) this.openGroups.add(e.group.key);
+  }
   private _links: NavLink[] = [];
 
   @ViewChild(NotificationBellComponent) private bell?: NotificationBellComponent;
@@ -117,6 +184,7 @@ export class ShellComponent implements OnDestroy {
     if (this.auth.currentUser()) this.auth.refreshAccess().subscribe({ next: () => this.updateLabel(), error: () => {} });
     this.sub = this.router.events.pipe(filter((e) => e instanceof NavigationEnd)).subscribe(() => {
       this.updateLabel();
+      this.openActiveGroup();
       this.menuOpen = false;
     });
   }

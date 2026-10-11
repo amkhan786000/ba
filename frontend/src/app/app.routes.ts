@@ -58,6 +58,9 @@ import { AdminInterviewRankingComponent } from './admin/admin-interview-ranking.
 import { AdminAlumniComponent } from './admin/admin-alumni.component';
 import { AdminRccStudentsComponent } from './admin/admin-rcc-students.component';
 import { AdminVolunteersComponent } from './admin/admin-volunteers.component';
+import { WebsiteRecordsComponent } from './admin/website/website-records.component';
+import { WebsiteGalleryComponent } from './admin/website/website-gallery.component';
+import { WebsitePagesComponent } from './admin/website/website-pages.component';
 import { StudentAlumniComponent } from './student/student-alumni.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
 import { TrackApplicationComponent } from './public/track.component';
@@ -130,6 +133,15 @@ export const routes: Routes = [
       { path: 'alumni', component: AdminAlumniComponent, canActivate: [permissionGuard], data: { permission: 'ALUMNI' } },
       { path: 'rcc-students', component: AdminRccStudentsComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'volunteers', component: AdminVolunteersComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEERS' } },
+      // Admin > Website: the Bihar Anjuman website (biharanjuman.com)
+      { path: 'website/blog', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_BLOG', resource: 'blog' } },
+      { path: 'website/stories', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_STORIES', resource: 'stories' } },
+      { path: 'website/gallery', component: WebsiteGalleryComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_GALLERY' } },
+      { path: 'website/directory', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_DIRECTORY', resource: 'directory' } },
+      { path: 'website/projects', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_PROJECTS', resource: 'projects' } },
+      { path: 'website/news', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_NEWS', resource: 'news' } },
+      { path: 'website/messages', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_MESSAGES', resource: 'messages' } },
+      { path: 'website/pages', component: WebsitePagesComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_PAGES' } },
       { path: 'applications/:id', component: AdminApplicationDetailsComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } }
     ]
   },
