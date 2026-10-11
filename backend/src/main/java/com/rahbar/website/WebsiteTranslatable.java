@@ -12,7 +12,8 @@ public enum WebsiteTranslatable {
     NEWS(Section.WEBSITE_NEWS, List.of("title", "summary", "content", "location")),
     PAGE(Section.WEBSITE_PAGES, List.of("title", "body")),
     STORY(Section.WEBSITE_STORIES, List.of("title", "summary", "story", "nowWhere")),
-    CATEGORY(Section.WEBSITE_BLOG_CATEGORIES, List.of("name", "description"));
+    CATEGORY(Section.WEBSITE_BLOG_CATEGORIES, List.of("name", "description")),
+    VOLUNTEER_OPTION(Section.VOLUNTEER_OPTIONS, List.of("title", "description", "choicesLabel", "choices", "extraLabel", "extraChoices"));
 
     private final Section section;
     private final List<String> fields;

@@ -27,6 +27,10 @@ public class WebsiteTranslations {
             "title", WebPage::setTitle, "body", WebPage::setBody);
     static final Map<String, BiConsumer<WebBlogCategory, String>> CATEGORY = Map.of(
             "name", WebBlogCategory::setName, "description", WebBlogCategory::setDescription);
+    static final Map<String, BiConsumer<WebVolunteerOption, String>> VOLUNTEER_OPTION = Map.of(
+            "title", WebVolunteerOption::setTitle, "description", WebVolunteerOption::setDescription,
+            "choicesLabel", WebVolunteerOption::setChoicesLabel, "choices", WebVolunteerOption::setChoices,
+            "extraLabel", WebVolunteerOption::setExtraLabel, "extraChoices", WebVolunteerOption::setExtraChoices);
 
     private final WebTranslationRepository repo;
 

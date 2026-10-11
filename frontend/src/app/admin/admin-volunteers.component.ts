@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
@@ -13,17 +14,18 @@ interface Volunteer {
   wants_mentor: boolean; wants_tutor: boolean; wants_sponsor: boolean; wants_chapter: boolean;
   mentor_fields: string | null; tutor_subjects: string | null; tutor_grades: string | null; tutor_mode: string | null;
   rcc_center_id: number | null; rcc_center_name: string | null; hours_per_month: number | null;
-  sponsor_students: number | null; chapter_id: number | null; chapter_name: string | null;
+  sponsor_students: number | null; chapter_id: number | null; chapter_name: string | null; other_offers: string | null;
   message: string | null; source: string | null; status: string; notes: string | null; created_at: string;
 }
 
-type Offer = 'mentor' | 'tutor' | 'sponsor' | 'chapter';
+type Offer = 'mentor' | 'tutor' | 'sponsor' | 'chapter' | 'other';
 
 const OFFERS: { key: Offer; label: string; field: keyof Volunteer }[] = [
   { key: 'mentor', label: 'Mentor', field: 'wants_mentor' },
   { key: 'tutor', label: 'Tutor', field: 'wants_tutor' },
   { key: 'sponsor', label: 'Sponsor', field: 'wants_sponsor' },
   { key: 'chapter', label: 'Join a chapter', field: 'wants_chapter' },
+  { key: 'other', label: 'Other ways to help', field: 'other_offers' },
 ];
 
 const STATUS_BADGE: Record<string, string> = {
@@ -37,7 +39,7 @@ const STATUS_BADGE: Record<string, string> = {
 @Component({
   selector: 'app-admin-volunteers',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Volunteers</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -57,6 +59,7 @@ const STATUS_BADGE: Record<string, string> = {
       <div class="card-body">
         <p class="text-muted">
           People who offered to help through the website. Contact them, then record how it went; notes are internal.
+          <a *ngIf="canOptions" routerLink="/admin/volunteer-options">Change the ways to help on the form</a>
         </p>
         <div class="row mb-3">
           <div class="col-12 col-md-5 mb-2 mb-md-0">
@@ -142,6 +145,10 @@ const STATUS_BADGE: Record<string, string> = {
               <h5 class="mt-3">Chapter</h5>
               <p class="mb-0">{{ v.chapter_name || 'No chapter in their district yet: would like to help start one.' }}</p>
             </ng-container>
+            <ng-container *ngIf="v.other_offers">
+              <h5 class="mt-3">Other ways to help</h5>
+              <p class="mb-0" style="white-space: pre-line">{{ v.other_offers }}</p>
+            </ng-container>
             <ng-container *ngIf="v.message">
               <h5 class="mt-3">Message</h5>
               <p class="mb-0" style="white-space: pre-line">{{ v.message }}</p>
@@ -194,6 +201,7 @@ export class AdminVolunteersComponent implements OnInit {
   constructor(private api: ApiService, private auth: AuthService) {}
 
   get canEdit(): boolean { return this.auth.can('VOLUNTEERS', 'EDIT'); }
+  get canOptions(): boolean { return this.auth.can('VOLUNTEER_OPTIONS'); }
 
   ngOnInit(): void { this.load(); }
 
@@ -222,7 +230,9 @@ export class AdminVolunteersComponent implements OnInit {
   }
 
   offersOf(r: Volunteer): string[] {
-    return OFFERS.filter((o) => r[o.field]).map((o) => o.label);
+    // other ways to help: the option titles, e.g. "Organise events: Patna, Online" -> "Organise events"
+    const other = (r.other_offers ?? '').split('\n').map((l) => l.split(':')[0].trim()).filter(Boolean);
+    return [...OFFERS.filter((o) => o.key !== 'other' && r[o.field]).map((o) => o.label), ...other];
   }
 
   place(r: Volunteer): string {

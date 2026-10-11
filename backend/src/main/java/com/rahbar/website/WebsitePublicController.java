@@ -165,6 +165,25 @@ public class WebsitePublicController {
                 .orElseThrow(() -> WebsiteSupport.notFound("Chapter"));
     }
 
+    /** A way to help on the volunteer form, with its lists split into items (in the visitor's language). */
+    public record VolunteerOptionView(String key, String kind, String title, String description,
+                                      String choicesLabel, List<String> choices, String extraLabel, List<String> extraChoices) {
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private WebVolunteerOptionRepository volunteerOptions;
+
+    /** The active ways to help on "Volunteer with us", in their order (Admin > Volunteers > Form options). */
+    @GetMapping("/volunteer-options")
+    public List<VolunteerOptionView> volunteerOptions(@RequestParam(required = false) String lang) {
+        return i18n.apply(WebsiteTranslatable.VOLUNTEER_OPTION, WebsiteLang.of(lang),
+                        volunteerOptions.findByActiveTrueOrderByDisplayOrderAscIdAsc(), WebVolunteerOption::getId, WebsiteTranslations.VOLUNTEER_OPTION)
+                .stream()
+                .map(o -> new VolunteerOptionView(o.getOptionKey(), o.getKind().name(), o.getTitle(), o.getDescription(),
+                        o.getChoicesLabel(), WebVolunteerOption.lines(o.getChoices()), o.getExtraLabel(), WebVolunteerOption.lines(o.getExtraChoices())))
+                .toList();
+    }
+
     @GetMapping("/coaching-centers")
     public List<PublicCenter> coachingCenters() {
         return directory.centers();

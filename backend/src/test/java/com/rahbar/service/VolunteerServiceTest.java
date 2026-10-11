@@ -27,7 +27,8 @@ class VolunteerServiceTest {
     private final RccCenterRepository centers = mock(RccCenterRepository.class);
     private final RoleRepository roles = mock(RoleRepository.class);
     private final NotificationService notifications = mock(NotificationService.class);
-    private final VolunteerService service = new VolunteerService(volunteers, chapters, centers, roles, notifications);
+    private final com.rahbar.website.WebVolunteerOptionRepository options = mock(com.rahbar.website.WebVolunteerOptionRepository.class);
+    private final VolunteerService service = new VolunteerService(volunteers, chapters, centers, roles, notifications, options);
 
     private static Role role(int id, String permissions) {
         Role r = new Role();
@@ -152,5 +153,40 @@ class VolunteerServiceTest {
         assertEquals("Called on Sunday", v.getNotes());
         assertThrows(ApiException.class, () -> service.update(5L, Map.of("status", "MAYBE")));
         assertThrows(ApiException.class, () -> service.update(6L, Map.of("status", "NEW")));
+    }
+
+    private static com.rahbar.website.WebVolunteerOption option(String key, com.rahbar.website.WebVolunteerOption.Kind kind, boolean active) {
+        var o = new com.rahbar.website.WebVolunteerOption();
+        o.setOptionKey(key);
+        o.setKind(kind);
+        o.setTitle("Organise events");
+        o.setChoices("Patna\nOnline");
+        o.setActive(active);
+        return o;
+    }
+
+    @Test
+    void anOptionAddedByTheOfficeIsEnoughAndIsKeptAsText() {
+        when(options.findByOptionKey("events")).thenReturn(Optional.of(option("events", com.rahbar.website.WebVolunteerOption.Kind.OTHER, true)));
+        Map<String, Object> f = new HashMap<>();
+        f.put("fullName", "Sana");
+        f.put("phone", "9876543210");
+        f.put("otherOffers", List.of(Map.of("key", "events", "choices", List.of("Patna", "Online"))));
+        service.submit(f);
+        assertEquals("Organise events: Patna, Online", saved().getOtherOffers());
+    }
+
+    @Test
+    void hiddenOrUnknownOptionsAreRefused() {
+        when(options.findByOptionKey("events")).thenReturn(Optional.of(option("events", com.rahbar.website.WebVolunteerOption.Kind.OTHER, false)));
+        when(options.findByOptionKey("nope")).thenReturn(Optional.empty());
+        for (String key : List.of("events", "nope")) {
+            Map<String, Object> f = new HashMap<>();
+            f.put("fullName", "Sana");
+            f.put("phone", "9876543210");
+            f.put("otherOffers", List.of(Map.of("key", key)));
+            ApiException e = assertThrows(ApiException.class, () -> service.submit(f));
+            assertEquals(HttpStatus.BAD_REQUEST, e.getStatus());
+        }
     }
 }

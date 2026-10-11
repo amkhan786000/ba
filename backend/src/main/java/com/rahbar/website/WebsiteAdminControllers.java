@@ -172,6 +172,63 @@ final class WebsiteAdminControllers {
         }
     }
 
+    /**
+     * The ways to help on the website's volunteer form (Admin > Volunteers > Form options). There is at most one
+     * option of each built-in kind (mentor, tutor, sponsor, chapter); any number of OTHER ones.
+     */
+    @RestController
+    @RequestMapping("/api/admin/website/volunteer-options")
+    static class VolunteerOptions extends WebsiteCrud<WebVolunteerOption> {
+        private final WebVolunteerOptionRepository options;
+
+        VolunteerOptions(WebVolunteerOptionRepository r) {
+            super(r, Section.VOLUNTEER_OPTIONS, "Volunteer option", WebVolunteerOption::getId);
+            this.options = r;
+        }
+
+        @Override
+        protected void validate(WebVolunteerOption o) {
+            o.setTitle(WebsiteSupport.text(o.getTitle(), "Title", 120, true));
+            if (o.getOptionKey() == null || o.getOptionKey().isBlank()) o.setOptionKey(WebsiteSupport.slugify(o.getTitle()));
+            o.setOptionKey(WebsiteSupport.slug(o.getOptionKey()));
+            if (o.getOptionKey().length() > 60) throw WebsiteSupport.bad("Key is too long (at most 60 characters).");
+            options.findByOptionKey(o.getOptionKey()).filter(other -> !other.getId().equals(o.getId()))
+                    .ifPresent(other -> { throw WebsiteSupport.bad("Another option already uses the key \"" + o.getOptionKey() + "\"."); });
+            if (o.getKind() == null) o.setKind(WebVolunteerOption.Kind.OTHER);
+            if (o.getKind() != WebVolunteerOption.Kind.OTHER
+                    && (o.getId() == null ? options.existsByKind(o.getKind()) : options.existsByKindAndIdNot(o.getKind(), o.getId()))) {
+                throw WebsiteSupport.bad("There is already a " + o.getKind().name().toLowerCase(java.util.Locale.ROOT)
+                        + " option; edit that one, or choose the kind OTHER.");
+            }
+            o.setDescription(WebsiteSupport.text(o.getDescription(), "Description", 400, false));
+            o.setChoicesLabel(WebsiteSupport.text(o.getChoicesLabel(), "First list heading", 120, false));
+            o.setChoices(lines(o.getChoices(), "First list"));
+            o.setExtraLabel(WebsiteSupport.text(o.getExtraLabel(), "Second list heading", 120, false));
+            o.setExtraChoices(lines(o.getExtraChoices(), "Second list"));
+        }
+
+        /** Tidies a list: one item per line, no blanks or repeats; each item at most 100 characters. */
+        private static String lines(String text, String label) {
+            java.util.List<String> items = WebVolunteerOption.lines(text);
+            for (String item : items) {
+                if (item.length() > 100) throw WebsiteSupport.bad(label + ": \"" + item.substring(0, 30) + "…\" is too long (at most 100 characters).");
+                if (item.contains(",")) throw WebsiteSupport.bad(label + ": items can't contain a comma (\"" + item + "\").");
+            }
+            return items.isEmpty() ? null : String.join("\n", items);
+        }
+
+        @Override
+        protected WebsiteTranslatable type() {
+            return WebsiteTranslatable.VOLUNTEER_OPTION;
+        }
+
+        /** As on the website. */
+        @Override
+        protected org.springframework.data.domain.Sort listOrder() {
+            return org.springframework.data.domain.Sort.by("displayOrder", "id");
+        }
+    }
+
     /** Custom pages of the website (shown at /p/<slug>, optionally in its menu). */
     @RestController
     @RequestMapping("/api/admin/website/pages")

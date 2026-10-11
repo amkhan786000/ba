@@ -44,7 +44,7 @@ export interface WebsiteResource {
   /** A yes / no field with a one-click button in the list (publish, approve, handled ...). */
   toggle?: { key: string; on: string; off: string; requires?: Section };
   /** Urdu / Hindi versions of these fields (record type for /api/admin/website/translations). */
-  translate?: { type: 'PROJECT' | 'NEWS' | 'STORY' | 'PAGE' | 'CATEGORY'; fields: string[] };
+  translate?: { type: 'PROJECT' | 'NEWS' | 'STORY' | 'PAGE' | 'CATEGORY' | 'VOLUNTEER_OPTION'; fields: string[] };
 }
 
 const STATES = ['BIHAR', 'JHARKHAND', 'OTHER'];
@@ -82,6 +82,27 @@ export const WEBSITE_RESOURCES: WebsiteResource[] = [
       { key: 'attachmentUrl', label: 'PDF to download (optional)', type: 'file', nameField: 'attachmentName',
         hint: 'A research paper or report, up to 20 MB, shown as a Download button.' },
       { key: 'attachmentName', label: 'Download button text', type: 'text', hint: 'e.g. “Full report (PDF)”. Filled in from the file name.' }
+    ]
+  },
+  {
+    path: 'volunteer-options', section: 'VOLUNTEER_OPTIONS', label: 'Ways to help', canCreate: true,
+    intro: 'The ways to help that visitors tick on the website’s “Volunteer with us” form, in this order. Hidden ones are not shown; sign-ups already received keep their answers.',
+    translate: { type: 'VOLUNTEER_OPTION', fields: ['title', 'description', 'choicesLabel', 'choices', 'extraLabel', 'extraChoices'] },
+    defaults: { active: true, displayOrder: 10, kind: 'OTHER' },
+    toggle: { key: 'active', on: 'Hide', off: 'Show' },
+    fields: [
+      { key: 'title', label: 'Title', type: 'text', required: true, column: true, hint: 'e.g. “Organise events”.' },
+      { key: 'description', label: 'Description', type: 'textarea', hint: 'One sentence shown under the title.' },
+      { key: 'kind', label: 'Kind', type: 'select', required: true, column: true, options: ['OTHER', 'MENTOR', 'TUTOR', 'SPONSOR', 'CHAPTER'],
+        hint: 'OTHER for new ways to help. MENTOR, TUTOR, SPONSOR and CHAPTER (one of each) keep their own questions on the website: tutors are asked online / in person and the coaching centre, sponsors how many students, chapter members which chapter.' },
+      { key: 'optionKey', label: 'Key', type: 'text', column: true,
+        hint: 'Short name for links, e.g. /volunteer?role=tutor. Lower-case letters, numbers and dashes; filled in from the title when empty.' },
+      { key: 'choicesLabel', label: 'First list: heading', type: 'text', hint: 'e.g. “Fields you can guide in” (mentor), “Subjects” (tutor). Leave empty for no list.' },
+      { key: 'choices', label: 'First list: items (one per line)', type: 'textarea', hint: 'Visitors tick the ones that apply. No commas inside an item.' },
+      { key: 'extraLabel', label: 'Second list: heading (optional)', type: 'text', hint: 'e.g. “Grades” (tutor).' },
+      { key: 'extraChoices', label: 'Second list: items (one per line)', type: 'textarea', hint: 'For tutors the website shows each item as “Grade …”.' },
+      { key: 'displayOrder', label: 'Order', type: 'number', column: true, hint: 'Lower numbers show first.' },
+      { key: 'active', label: 'Shown on the website', type: 'bool', column: true }
     ]
   },
   {

@@ -38,9 +38,12 @@ public class VolunteerService {
     private final RccCenterRepository centers;
     private final RoleRepository roles;
     private final NotificationService notifications;
+    private final com.rahbar.website.WebVolunteerOptionRepository options;
 
     public VolunteerService(VolunteerApplicationRepository volunteers, ChapterRepository chapters,
-                            RccCenterRepository centers, RoleRepository roles, NotificationService notifications) {
+                            RccCenterRepository centers, RoleRepository roles, NotificationService notifications,
+                            com.rahbar.website.WebVolunteerOptionRepository options) {
+        this.options = options;
         this.volunteers = volunteers;
         this.chapters = chapters;
         this.centers = centers;
@@ -53,7 +56,8 @@ public class VolunteerService {
     /**
      * Saves a sign-up. Body: fullName, email, phone (one of the two), city, country, homeDistrict, profession,
      * wantsMentor / wantsTutor / wantsSponsor / wantsChapter (at least one), mentorFields, tutorSubjects,
-     * tutorGrades, tutorMode, rccCenterId, hoursPerMonth, sponsorStudents, chapterId, message, source.
+     * tutorGrades, tutorMode, rccCenterId, hoursPerMonth, sponsorStudents, chapterId, message, source, and
+     * otherOffers: [{ key, choices: [...], extra: [...] }] for options of kind OTHER (Admin > Volunteers > Form options).
      * A filled-in "website" field (a trap for bots) is accepted but not saved.
      */
     @Transactional
@@ -77,7 +81,8 @@ public class VolunteerService {
         v.setWantsTutor(flag(body, "wantsTutor"));
         v.setWantsSponsor(flag(body, "wantsSponsor"));
         v.setWantsChapter(flag(body, "wantsChapter"));
-        if (!v.isWantsMentor() && !v.isWantsTutor() && !v.isWantsSponsor() && !v.isWantsChapter()) {
+        v.setOtherOffers(otherOffers(body.get("otherOffers")));
+        if (!v.isWantsMentor() && !v.isWantsTutor() && !v.isWantsSponsor() && !v.isWantsChapter() && v.getOtherOffers() == null) {
             throw bad("Please choose at least one way to help.");
         }
         if (v.isWantsMentor()) v.setMentorFields(text(body, "mentorFields", "Fields of expertise", 500));
@@ -136,7 +141,47 @@ public class VolunteerService {
         if (v.isWantsTutor()) out.add("tutor");
         if (v.isWantsSponsor()) out.add("sponsor students");
         if (v.isWantsChapter()) out.add("join a chapter");
+        if (v.getOtherOffers() != null) {
+            for (String line : v.getOtherOffers().split("\n")) out.add(line.split(":")[0].strip());
+        }
         return out;
+    }
+
+    /**
+     * The ticked options of kind OTHER as readable lines ("Title: a, b") with the option's English title at the time.
+     * Unknown or hidden options are refused.
+     */
+    private String otherOffers(Object value) {
+        if (!(value instanceof Collection<?> list) || list.isEmpty()) return null;
+        List<String> lines = new ArrayList<>();
+        Set<String> seen = new HashSet<>();
+        for (Object item : list) {
+            if (!(item instanceof Map<?, ?> m)) throw bad("Invalid way to help.");
+            String key = ServiceSupport.str(m.get("key"));
+            com.rahbar.website.WebVolunteerOption o = (key == null ? Optional.<com.rahbar.website.WebVolunteerOption>empty() : options.findByOptionKey(key))
+                    .filter(com.rahbar.website.WebVolunteerOption::isActive)
+                    .filter(x -> x.getKind() == com.rahbar.website.WebVolunteerOption.Kind.OTHER)
+                    .orElseThrow(() -> bad("This way to help is no longer offered. Please reload the page."));
+            if (!seen.add(o.getOptionKey())) continue;
+            List<String> picked = new ArrayList<>();
+            picked.addAll(picked(m.get("choices")));
+            picked.addAll(picked(m.get("extra")));
+            lines.add(o.getTitle() + (picked.isEmpty() ? "" : ": " + String.join(", ", picked)));
+        }
+        String text = String.join("\n", lines);
+        if (text.length() > 2000) throw bad("Too many choices.");
+        return text.isEmpty() ? null : text;
+    }
+
+    /** The items picked, as the visitor saw them (they may be the Urdu / Hindi version of the list). */
+    private static List<String> picked(Object sent) {
+        if (!(sent instanceof Collection<?> items)) return List.of();
+        List<String> out = new ArrayList<>();
+        for (Object i : items) {
+            String s = i == null ? "" : String.valueOf(i).strip();
+            if (!s.isEmpty() && s.length() <= 100 && !out.contains(s)) out.add(s.replace(",", " "));
+        }
+        return out.size() > 30 ? out.subList(0, 30) : out;
     }
 
     // ---------------------------------------------------------------- Admin > Volunteers
