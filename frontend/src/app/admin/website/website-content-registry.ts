@@ -121,16 +121,16 @@ export const SLOT_GROUPS: SlotGroup[] = [
     ],
   },
   {
-    id: 'blog', label: 'Knowledge Hub: all posts (/blog)', slots: [
+    id: 'blog', label: 'Knowledge Hub: all posts and Write for us', slots: [
       ...head('blog', 'Knowledge Hub', 'Stories, ideas & *reflections*', 'Writing from members and volunteers on education, community and Islamic values.'),
       { key: 'blog.write.button', label: 'Button: write a post', type: 'inline', default: 'Write for us' },
-      { key: 'blog.write.title', label: 'Write page: title', type: 'inline', default: 'Write for the *blog*' },
+      { key: 'blog.write.title', label: 'Write page: title', type: 'inline', default: 'Write for the *Knowledge Hub*' },
       {
         key: 'blog.write.lead', label: 'Write page: introduction', type: 'markdown',
         default: 'Share a story about a project, a student, an event or an idea. Every post is read by an admin before it appears on the site.',
       },
       { key: 'blog.write.thanks', label: 'Write page: thank-you message', type: 'text', default: 'Thank you! Your post has been sent. An admin will review it before it appears on the site.' },
-      { key: 'blog.onProject.title', label: 'Project pages: blog section title', type: 'inline', default: 'From the *blog*' },
+      { key: 'blog.onProject.title', label: 'Project pages: Knowledge Hub section title', type: 'inline', default: 'From the *Knowledge Hub*' },
     ],
   },
   {
