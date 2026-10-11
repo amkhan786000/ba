@@ -77,7 +77,19 @@ public enum Section {
     /** Contact-form messages. */
     WEBSITE_MESSAGES("Website: messages"),
     /** Custom pages, the text of the fixed pages and its Urdu / Hindi versions. */
-    WEBSITE_PAGES("Website: pages & page text");
+    WEBSITE_PAGES("Website: pages & page text"),
+    /** Rahbar-e-Banaat (the girls' Madrasa-cum-School): its dashboard. */
+    REB_DASHBOARD("REB: dashboard"),
+    /** Sessions, classes, sections, subjects, curriculum and settings. EDIT changes them. */
+    REB_SETUP("REB: setup"),
+    /** Teachers and staff, and who teaches what. */
+    REB_STAFF("REB: staff"),
+    /** The girls, their guardians and enrollment; EDIT admits, edits, promotes and marks girls as left. */
+    REB_STUDENTS("REB: students"),
+    /** The girls' documents, photo, Aadhaar (last 4 digits) and family income; EDIT uploads and removes documents. */
+    REB_STUDENT_PRIVATE("REB: private details & documents"),
+    /** REB reports. */
+    REB_REPORTS("REB: reports");
 
     public enum Level { VIEW, EDIT }
 

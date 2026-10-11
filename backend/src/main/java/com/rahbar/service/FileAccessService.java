@@ -19,7 +19,8 @@ import java.util.List;
 
 /**
  * Who may open an uploaded file. Staff (every signed-in role other than sponsor and student) may open any file,
- * except chapter / RCC-scoped staff, who may only open their own students' files.
+ * except chapter / RCC-scoped staff, who may only open their own students' files. Rahbar-e-Banaat documents
+ * (files named reb_...) need "REB: private details & documents", whatever the role.
  * A student may open receipts / proofs of their own payments, their own progress reports and their own
  * application documents. A sponsor may open receipts / proofs of payments they made and the progress reports
  * of the students mapped to them.
@@ -57,6 +58,10 @@ public class FileAccessService {
         Integer role = me.getRoleId();
         // Stored paths may carry a folder (legacy rows): match on the file name at the end.
         String like = "%/" + file, likeWin = "%\\\\" + file;
+        // Rahbar-e-Banaat documents and photos (minors): only people with "REB: private details & documents".
+        if (file.startsWith("reb_") || exists("select 1 from reb_student_documents where file_path = ?", file)) {
+            return Access.can(com.rahbar.security.Section.REB_STUDENT_PRIVATE, com.rahbar.security.Section.Level.VIEW);
+        }
         if (role == null || (role != SPONSOR && role != STUDENT)) return staffMayRead(file, like, likeWin);
         Long id = me.getId();
         if (role == STUDENT) {
