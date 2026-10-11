@@ -30,10 +30,11 @@ class DataQualityServiceTest {
     private final WebMessageRepository messages = mock(WebMessageRepository.class);
     private final WebBlogPostRepository posts = mock(WebBlogPostRepository.class);
     private final WebProjectRepository projects = mock(WebProjectRepository.class);
+    private final GranteeDetailsRepository applications = mock(GranteeDetailsRepository.class);
     private final DataQualityService service = new DataQualityService(users, mock(GrantorGranteeRepository.class),
-            mock(BankDetailsRepository.class), mock(StudentInstitutionCourseRepository.class), mock(GranteeDetailsRepository.class),
+            mock(BankDetailsRepository.class), mock(StudentInstitutionCourseRepository.class), applications,
             mock(PaymentRepository.class), mock(ChapterRepository.class), roles, centers, volunteers, messages,
-            mock(WebMemberRepository.class), posts, mock(WebStoryRepository.class), projects);
+            mock(WebMemberRepository.class), posts, mock(WebStoryRepository.class), projects, mock(PaymentScheduleRepository.class));
 
     private static User user(long id, int role, String ref) {
         User u = new User();
@@ -74,7 +75,7 @@ class DataQualityServiceTest {
     void everyCheckHasAMenuGroupAndAScreen() {
         Set<String> groups = Set.of("students", "sponsors", "community", "website", "administration");
         var checks = service.checks();
-        assertEquals(23, checks.size()); // 11 before, 12 new
+        assertEquals(31, checks.size()); // 23 before, duplicate sponsors, 7 payment set-up checks
         for (var c : checks) {
             assertTrue(groups.contains((String) c.get("group")), c.get("key") + " has group " + c.get("group"));
             assertTrue(String.valueOf(c.get("link")).startsWith("/admin/"), c.get("key") + " has link " + c.get("link"));
@@ -158,5 +159,52 @@ class DataQualityServiceTest {
         assertEquals(1, checks.get("projects_without_image").get("count"));
         assertEquals(1, checks.get("blog_posts_waiting_review").get("count"));
         assertEquals(1, checks.get("blog_posts_without_summary").get("count"));
+    }
+
+    private static com.rahbar.entity.GranteeDetails application(long userId, String father, String mobile) {
+        var g = new com.rahbar.entity.GranteeDetails();
+        g.setGranteeDetailId(userId);
+        g.setUserId(userId);
+        g.setFatherName(father);
+        g.setStudentMobile(mobile);
+        return g;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> rows(Map<String, Object> check) {
+        return (List<Map<String, Object>>) check.get("rows");
+    }
+
+    @Test
+    void aSameNameAloneIsNotADuplicate() {
+        User a = user(30, 6, "S-30"); a.setName("Ayesha Khan"); a.setPhone("9876543210");
+        User b = user(31, 6, "S-31"); b.setName("ayesha  khan"); b.setPhone("+91 98765 43210"); // same name and phone
+        User c = user(32, 6, "S-32"); c.setName("Ayesha Khan"); // same name only, different father
+        User d = user(33, 6, "S-33"); d.setName("Aysha Khan"); // different spelling, same father and mobile as e
+        User e = user(34, 6, "S-34"); e.setName("Ayesha Begum");
+        when(users.findByRoleId(6)).thenReturn(List.of(a, b, c, d, e));
+        when(applications.findAll()).thenReturn(List.of(application(30, "Imran", null), application(32, "Salim", null),
+                application(33, "Md. Rafiq", "9000000001"), application(34, "md rafiq", "9000000001")));
+
+        var check = byKey().get("possible_duplicate_students");
+        assertEquals(4, check.get("count")); // a+b (name, phone), d+e (father, phone); c is not flagged
+        var r = rows(check);
+        assertEquals(Set.of(30L, 31L, 33L, 34L), new HashSet<>(r.stream().map(x -> (Long) x.get("id")).toList()));
+        assertEquals(r.get(0).get("group"), r.get(1).get("group"));
+        assertNotEquals(r.get(0).get("group"), r.get(2).get("group"));
+        assertEquals("name, phone", r.get(0).get("matched_on"));
+    }
+
+    @Test
+    void sponsorsMatchOnNamePlusEmailPhoneOrChapter() {
+        User a = user(40, 5, "SP-40"); a.setName("Abdul Rahman"); a.setChapterId(2L);
+        User b = user(41, 5, "SP-41"); b.setName("Abdul Rahman"); b.setChapterId(2L); // same name and chapter
+        User c = user(42, 5, "SP-42"); c.setName("Abdul Rahman"); c.setChapterId(3L); // same name, other chapter
+        User d = user(43, 5, "SP-43"); d.setName("Zaid"); d.setEmail("zaid@example.com"); d.setChapterId(5L);
+        User e = user(44, 5, "SP-44"); e.setName("Zaid"); e.setEmail("ZAID@example.com "); e.setChapterId(6L); // same name and email
+        when(users.findByRoleId(5)).thenReturn(List.of(a, b, c, d, e));
+
+        var check = byKey().get("possible_duplicate_sponsors");
+        assertEquals(Set.of(40L, 41L, 43L, 44L), new HashSet<>(rows(check).stream().map(x -> (Long) x.get("id")).toList()));
     }
 }
