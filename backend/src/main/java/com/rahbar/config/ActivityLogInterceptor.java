@@ -53,6 +53,8 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         }
         label("POST /api/admin/sponsor-followup/notes", "Recorded a sponsor follow-up call or note");
         label("POST /api/admin/sponsor-followup/emails", "Sent sponsor follow-up emails");
+        label("POST /api/admin/mentoring", "Paired a mentor with a student");
+        label("PUT /api/admin/mentoring/[0-9]+", "Changed a mentoring pair");
         label("POST /api/admin/finance/categories", "Added an income / expense category");
         label("PUT /api/admin/finance/categories/[0-9]+", "Changed an income / expense category");
         label("DELETE /api/admin/finance/categories/[0-9]+", "Deleted an income / expense category");

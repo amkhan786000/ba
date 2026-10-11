@@ -55,6 +55,11 @@ public enum Section {
     VOLUNTEERS("Volunteers"),
     /** The ways to help on the website's volunteer form (Admin > Volunteers > Form options). EDIT adds / changes them. */
     VOLUNTEER_OPTIONS("Volunteer form options"),
+    /**
+     * Volunteers and graduates paired with scholarship students as mentors / tutors (Students > Mentoring). VIEW lists
+     * the pairs and the suggested matches; EDIT pairs, ends a pairing and keeps notes.
+     */
+    MENTORING("Mentoring"),
 
     // ---- Admin > Website: the Bihar Anjuman website (biharanjuman.com) ----
     /**
