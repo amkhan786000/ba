@@ -344,8 +344,10 @@ public class BroadcastService {
             case CHAPTER_LEADS -> {
                 for (Chapter c : chapterRepository.findAllByOrderByChapterNameAsc()) {
                     if (Boolean.FALSE.equals(c.getActive())) continue;
-                    list.add(new Recipient(null, c.getLeadName() != null ? c.getLeadName() : c.getChapterName() + " chapter lead",
-                            c.getLeadEmail()));
+                    String name = c.getLeadName() != null ? c.getLeadName() : c.getChapterName() + " chapter lead";
+                    List<String> emails = c.leadEmails(); // several addresses, separated by "|": each gets the message
+                    if (emails.isEmpty()) list.add(new Recipient(null, name, null));
+                    for (String email : emails) list.add(new Recipient(null, name, email));
                 }
             }
             default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Please choose who should receive the message.");

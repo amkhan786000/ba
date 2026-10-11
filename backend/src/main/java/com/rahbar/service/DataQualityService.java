@@ -159,7 +159,7 @@ public class DataQualityService {
 
         List<Map<String, Object>> noLead = new ArrayList<>();
         for (Chapter c : chapterRepository.findAllByOrderByChapterNameAsc()) {
-            if (Boolean.FALSE.equals(c.getActive()) || usableEmail(c.getLeadEmail())) continue;
+            if (Boolean.FALSE.equals(c.getActive()) || c.leadEmails().stream().anyMatch(DataQualityService::usableEmail)) continue;
             noLead.add(row("chapter_id", c.getChapterId(), "chapter", c.getChapterName(), "lead", c.getLeadName()));
         }
         checks.add(in(COMMUNITY, "/admin/chapters", check("chapters_without_lead_email", "Chapters without a lead email",

@@ -45,10 +45,9 @@ public class ChapterService {
         Chapter target = chapter.getChapterId() == null ? new Chapter()
                 : chapterRepository.findById(chapter.getChapterId())
                     .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chapter not found."));
+        // One or more addresses separated by "|" (not checked: the field is free text); tidied to "a@x.com | b@y.com".
         String email = trimToNull(chapter.getLeadEmail());
-        if (email != null && !email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a valid email address for the chapter lead.");
-        }
+        if (email != null) email = trimToNull(String.join(" | ", java.util.Arrays.stream(email.split("\\|")).map(String::trim).filter(e -> !e.isEmpty()).toList()));
         target.setChapterName(name);
         target.setDescription(trimToNull(chapter.getDescription()));
         target.setLeadName(trimToNull(chapter.getLeadName()));
