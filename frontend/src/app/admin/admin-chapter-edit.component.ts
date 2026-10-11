@@ -39,7 +39,9 @@ import { Chapter } from './admin-chapters.component';
                 </div>
                 <div class="col-md-6 form-group">
                   <label for="lead_email">Lead Email</label>
-                  <input type="email" class="form-control" id="lead_email" name="leadEmail" maxlength="255" email [(ngModel)]="chapter.leadEmail" />
+                  <input type="text" class="form-control" id="lead_email" name="leadEmail" maxlength="255" [(ngModel)]="chapter.leadEmail"
+                         placeholder="lead@example.com | co-lead@example.com" />
+                  <small class="text-muted">Several addresses: separate them with | (each one gets the chapter leads' broadcasts).</small>
                 </div>
               </div>
               <div class="form-group">

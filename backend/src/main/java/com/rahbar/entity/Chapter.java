@@ -34,4 +34,10 @@ public class Chapter extends Modifiable {
     @org.hibernate.annotations.ColumnDefault("1") // existing rows become active when the column is added
     private Boolean active = true;
 
+
+    /** The lead's email addresses: the field may hold several, separated by "|" (blanks dropped). */
+    public java.util.List<String> leadEmails() {
+        if (leadEmail == null || leadEmail.isBlank()) return java.util.List.of();
+        return java.util.Arrays.stream(leadEmail.split("\\|")).map(String::trim).filter(e -> !e.isEmpty()).toList();
+    }
 }
