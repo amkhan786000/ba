@@ -69,6 +69,21 @@ public enum EmailType {
             "Dear {{name}},\n\n{{sponsor_name}} is now your sponsor. You can see your payment schedule on your Payments page."
                     + "\n\nRegards,\nRahbar - Bihar Anjuman",
             List.of("name", "sponsor_name"), List.of()),
+    SPONSOR_FOLLOWUP_OVERDUE("Sponsorship", "Follow-up: sponsor's payments overdue",
+            "Sent from Sponsor Follow-up to a sponsor whose installments are overdue (a personal note, besides the automatic reminders).",
+            "Rahbar: a gentle reminder about your student",
+            "Dear {{name}},\n\nWe hope you are well. We noticed that {{overdue_count}} installment(s) for your sponsored "
+                    + "student(s) are still unpaid (oldest due on {{oldest_due}}, Rs. {{overdue_amount}} in all).\n\n{{message}}\n\n"
+                    + "If you have already paid, please let us know so we can update our records. If anything has changed for you, "
+                    + "just reply to this email.\n\nThank you for supporting education,\nRahbar - Bihar Anjuman",
+            List.of("name", "overdue_count", "oldest_due", "overdue_amount", "message"), List.of()),
+    SPONSOR_INVITE_ANOTHER("Sponsorship", "Follow-up: would you sponsor another student?",
+            "Sent from Sponsor Follow-up to a sponsor who has no student at the moment.",
+            "Rahbar: would you sponsor another student?",
+            "Dear {{name}},\n\nThank you for sponsoring {{last_student}} through Rahbar. Your support made a real difference.\n\n"
+                    + "Many students are waiting for a sponsor this year. Would you like to support another student? Reply to this "
+                    + "email and our team will suggest a student for you.\n\n{{message}}\n\nWith gratitude,\nRahbar - Bihar Anjuman",
+            List.of("name", "last_student", "message"), List.of()),
     SPONSOR_STUDENT_UNMAPPED("Sponsorship", "To previous sponsor: student moved on",
             "Sent to a sponsor when a student is no longer mapped to them.",
             "Rahbar: Student no longer mapped to you",
