@@ -1,0 +1,80 @@
+# Creates a release every time a pull request is merged into main.
+#
+#   - The new version is the latest tag plus one, by the PR's label:
+#       major  -> 5.0.0     minor (or no label) -> 4.2.0     patch -> 4.1.1
+#   - The tag (e.g. 4.2.0) is put on the merge commit on main, and a release "v4.2.0" is published with the
+#     PR's title and description, followed by GitHub's list of changes since the previous release.
+#   - If that commit already has a version tag (e.g. a release made by hand), nothing is done.
+# Deploying is separate (deploy.yml). Labels "major", "minor" and "patch" exist in this repository.
+
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Tag and release
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+
+      - name: Work out the version
+        id: version
+        env:
+          SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ' ') }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force --quiet
+          existing="$(git tag --points-at "$SHA" | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | head -n1 || true)"
+          if [ -n "$existing" ]; then
+            echo "This commit already has version $existing - nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          last="$(git tag --list | grep -E '^v?[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -t. -k1,1n -k2,2n -k3,3n | tail -n1 || true)"
+          last="${last:-0.0.0}"
+          IFS=. read -r major minor patch <<< "$last"
+          labels=" $(echo "$LABELS" | tr '[:upper:]' '[:lower:]') "
+          if [[ "$labels" == *" major "* ]]; then bump=major; major=$((major + 1)); minor=0; patch=0
+          elif [[ "$labels" == *" patch "* ]]; then bump=patch; patch=$((patch + 1))
+          else bump=minor; minor=$((minor + 1)); patch=0; fi
+          version="$major.$minor.$patch"
+          echo "Previous version $last, $bump release -> $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        if: steps.version.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          # The PR text comes in through environment variables, never pasted into the script.
+          {
+            printf '## %s\n\n' "$PR_TITLE"
+            printf 'Pull request: %s (#%s)\n\n' "$PR_URL" "$PR_NUMBER"
+            printf '%s\n' "${PR_BODY:-}"
+          } > notes.md
+          gh release create "$VERSION" --target "$SHA" --title "v$VERSION" --notes-file notes.md --generate-notes
+          echo "### Released v$VERSION" >> "$GITHUB_STEP_SUMMARY"
