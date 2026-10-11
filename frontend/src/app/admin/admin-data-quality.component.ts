@@ -1,7 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/services/auth.service';
+import { ADMIN_LINKS, NAV_GROUPS } from '../core/models/user.model';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { asDate } from '../shared/format';
@@ -12,23 +14,34 @@ interface MergePreview {
   moves: { applications: number; payments: number; progressReports: number; notifications: number; statusHistory: number };
   notes: string[];
 }
-interface Check { key: string; title: string; description: string; count: number; rows: Record<string, unknown>[] }
+interface Check {
+  key: string; title: string; description: string; count: number; rows: Record<string, unknown>[];
+  /** Menu group (NAV_GROUPS key) and the admin screen where it is fixed. */
+  group: string; link: string;
+}
+interface Group { key: string; label: string; icon: string; checks: Check[]; problems: number }
+
+/** Same order as the admin menu. */
+const GROUP_ORDER = ['students', 'sponsors', 'community', 'website', 'administration'];
 
 /** Columns that only help the server; not shown. */
 const HIDDEN = new Set(['role_id']);
 
 /**
- * Admin > Data Quality: records that need fixing (students without a sponsor, bank details or course,
- * possible duplicates, sponsors without email, ...). Each check shows a count; open it to see the records.
+ * Admin > Data Quality: records that need fixing, grouped like the admin menu (Students, Sponsors & Payments,
+ * Community, Website, Administration). Each check shows a count; open it to see the records, and "Open ..." goes to
+ * the screen where they are fixed. Groups with nothing to fix are folded.
  */
 @Component({
   selector: 'app-admin-data-quality',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective],
   styles: [`
     .check-head { cursor: pointer; }
     .check-head:hover { background: rgba(0, 0, 0, .02); }
     .check-table td, .check-table th { white-space: nowrap; }
+    .group-head { cursor: pointer; user-select: none; }
+    .group-chip { cursor: pointer; }
   `],
   template: `
     <div class="row">
@@ -44,11 +57,26 @@ const HIDDEN = new Set(['role_id']);
     <div *ngIf="loading" class="text-center my-5"><span class="spinner-border"></span></div>
 
     <ng-container *ngIf="!loading && checks.length">
-      <p class="text-muted">
+      <p class="text-muted mb-2">
         <ng-container *ngIf="problems; else allGood">{{ problems }} of {{ checks.length }} checks found records to look at.</ng-container>
         <ng-template #allGood><i class="mdi mdi-check-circle text-success mr-1"></i>All {{ checks.length }} checks passed.</ng-template>
       </p>
-      <div class="card mb-2" *ngFor="let c of checks">
+      <div class="mb-3">
+        <span *ngFor="let g of groups" class="badge badge-pill mr-2 mb-1 p-2 group-chip" [ngClass]="g.problems ? 'badge-warning' : 'badge-light border'"
+              (click)="openGroup(g)" [title]="g.problems ? g.problems + ' check(s) to look at' : 'Nothing to fix'">
+          <i class="mdi mr-1" [ngClass]="g.icon"></i>{{ g.label }}: {{ g.problems }}
+        </span>
+      </div>
+
+      <div *ngFor="let g of groups" class="mb-3" [id]="'dq-' + g.key">
+        <h5 class="group-head d-flex align-items-center py-2 mb-2 border-bottom" (click)="toggleGroup(g)" [attr.aria-expanded]="isOpen(g)">
+          <i class="mdi mr-2" [ngClass]="g.icon"></i>
+          <span class="flex-fill">{{ g.label }}</span>
+          <span class="badge badge-pill mr-2" [ngClass]="g.problems ? 'badge-warning' : 'badge-light'">{{ g.problems ? g.problems + ' to look at' : 'all good' }}</span>
+          <i class="mdi" [ngClass]="isOpen(g) ? 'mdi-chevron-up' : 'mdi-chevron-down'"></i>
+        </h5>
+        <ng-container *ngIf="isOpen(g)">
+      <div class="card mb-2" *ngFor="let c of g.checks">
         <div class="card-body py-3 check-head d-flex align-items-center" (click)="toggle(c)">
           <i class="mdi mr-3 font-20" [ngClass]="c.count ? 'mdi-alert-circle text-warning' : 'mdi-check-circle text-success'"></i>
           <div class="flex-fill">
@@ -57,6 +85,9 @@ const HIDDEN = new Set(['role_id']);
           </div>
           <span class="badge badge-pill mr-3" [ngClass]="c.count ? 'badge-warning' : 'badge-light'">{{ c.count }}</span>
           <i *ngIf="c.count" class="mdi" [ngClass]="open === c.key ? 'mdi-chevron-up' : 'mdi-chevron-down'"></i>
+        </div>
+        <div class="px-3 pb-2" *ngIf="open === c.key && c.count && screen(c) as s">
+          <a class="btn btn-sm btn-outline-primary" [routerLink]="s.path"><i class="mdi mdi-arrow-right mr-1"></i>Open {{ s.label }}</a>
         </div>
         <div class="card-body pt-0" *ngIf="open === c.key && c.count">
           <div class="table-responsive">
@@ -72,6 +103,8 @@ const HIDDEN = new Set(['role_id']);
           </div>
           <small *ngIf="c.count > c.rows.length" class="text-muted">Showing the first {{ c.rows.length }} of {{ c.count }}.</small>
         </div>
+      </div>
+        </ng-container>
       </div>
     </ng-container>
 
@@ -112,7 +145,10 @@ const HIDDEN = new Set(['role_id']);
 })
 export class AdminDataQualityComponent implements OnInit {
   checks: Check[] = [];
+  groups: Group[] = [];
   open = '';
+  /** Groups opened or closed by hand (otherwise: open when something needs fixing). */
+  private groupState: Record<string, boolean> = {};
   loading = false;
   error = '';
   message = '';
@@ -163,12 +199,38 @@ export class AdminDataQualityComponent implements OnInit {
     this.loading = true;
     this.error = '';
     this.api.get<Check[]>('/admin/data-quality').subscribe({
-      next: (c) => { this.loading = false; this.checks = c; },
+      next: (c) => { this.loading = false; this.checks = c; this.groups = this.group(c); },
       error: (e) => { this.loading = false; this.error = errorText(e, 'Could not run the data checks.'); }
     });
   }
 
   get problems(): number { return this.checks.filter((c) => c.count).length; }
+
+  /** Checks by menu group, in menu order; within a group, those with records to look at come first. */
+  private group(checks: Check[]): Group[] {
+    const keys = [...GROUP_ORDER, ...checks.map((c) => c.group).filter((g) => !GROUP_ORDER.includes(g))];
+    return [...new Set(keys)].map((key) => {
+      const list = checks.filter((c) => (c.group || 'administration') === key);
+      const def = NAV_GROUPS[key] ?? { label: key, icon: 'mdi-folder-outline' };
+      return { key, label: def.label, icon: def.icon, checks: [...list].sort((a, b) => Number(!!b.count) - Number(!!a.count)),
+        problems: list.filter((c) => c.count).length };
+    }).filter((g) => g.checks.length);
+  }
+
+  isOpen(g: Group): boolean { return this.groupState[g.key] ?? g.problems > 0; }
+
+  toggleGroup(g: Group): void { this.groupState[g.key] = !this.isOpen(g); }
+
+  openGroup(g: Group): void {
+    this.groupState[g.key] = true;
+    setTimeout(() => document.getElementById('dq-' + g.key)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  /** The admin screen where a check's records are fixed, if this user may open it. */
+  screen(c: Check): { path: string; label: string } | null {
+    const link = ADMIN_LINKS.find((l) => l.path === c.link);
+    return link && this.auth.can(link.section) ? { path: link.path, label: link.label } : null;
+  }
 
   toggle(c: Check): void { if (c.count) this.open = this.open === c.key ? '' : c.key; }
 
