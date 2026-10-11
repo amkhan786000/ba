@@ -211,12 +211,17 @@ public class DataQualityService {
         Map<Long, User> users = new HashMap<>();
         userRepository.findAll().forEach(u -> users.put(u.getId(), u));
 
-        List<Map<String, Object>> noStart = new ArrayList<>(), badPhone = new ArrayList<>();
+        List<Map<String, Object>> noYear = new ArrayList<>(), noStart = new ArrayList<>(), badPhone = new ArrayList<>();
         Map<Integer, Integer> studentsByYear = new TreeMap<>();
         for (User u : students) {
-            if (sponsored.contains(u.getId()) && (u.getYear() == null || u.getPaymentStartDate() == null)) {
+            if (sponsored.contains(u.getId()) && u.getYear() == null) {
+                noYear.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "chapter", u.getChapterName(),
+                        "payment_start_date", u.getPaymentStartDate()));
+            }
+            // every current scholarship student, sponsored or not: the first installment's due date
+            if (u.getPaymentStartDate() == null) {
                 noStart.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "chapter", u.getChapterName(),
-                        "session_year", u.getYear(), "payment_start_date", u.getPaymentStartDate()));
+                        "session_year", u.getYear(), "sponsored", sponsored.contains(u.getId()) ? "Yes" : "No"));
             }
             if (u.getYear() != null) studentsByYear.merge(u.getYear(), 1, Integer::sum);
             String digits = u.getPhone() == null ? "" : u.getPhone().replaceAll("\\D", "");
@@ -276,8 +281,10 @@ public class DataQualityService {
         }
 
         return List.of(
-                in(SPONSORS, "/admin/students", check("sponsored_students_without_start", "Sponsored students without a session year or payment start date",
-                        "Their fee schedule can't be generated until both are set (Student Directory > BA Details).", noStart)),
+                in(SPONSORS, "/admin/students", check("students_without_payment_start", "Students without a payment start date",
+                        "No date for the first installment, so no fee schedule can be made once they are sponsored (Student Directory > BA Details).", noStart)),
+                in(SPONSORS, "/admin/students", check("sponsored_students_without_session_year", "Sponsored students without a session year",
+                        "The session year picks their Payment Config (amount and frequency); no fee schedule until it is set (Student Directory > BA Details).", noYear)),
                 in(ADMINISTRATION, "/admin/system-configuration", check("session_years_without_payment_config", "Session years without a payment config",
                         "Students of these years get no installments until a Payment Config is added for the year.", noConfig)),
                 in(SPONSORS, "/admin/sponsorships", check("finished_students_still_mapped", "Graduated or dropped-out students still mapped to a sponsor",
