@@ -25,7 +25,8 @@ export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTER
   | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
   | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'RCC_STUDENTS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
-  | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES';
+  | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
+  | 'REB_DASHBOARD' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
 export const PORTAL_ROLES = [3, 4, 5, 6];
@@ -35,6 +36,7 @@ export const NAV_GROUPS: Record<string, { label: string; icon: string }> = {
   students: { label: 'Students', icon: 'mdi-school' },
   sponsors: { label: 'Sponsors & Payments', icon: 'mdi-cash-multiple' },
   community: { label: 'Community', icon: 'mdi-account-group' },
+  reb: { label: 'Rahbar-e-Banaat', icon: 'mdi-human-female-girl' },
   website: { label: 'Website', icon: 'mdi-web' },
   communication: { label: 'Communication', icon: 'mdi-bullhorn' },
   administration: { label: 'Administration', icon: 'mdi-shield-account' }
@@ -62,6 +64,12 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
   { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank', section: 'RCC_CENTERS', group: 'community' },
   { path: '/admin/volunteers', label: 'Volunteers', icon: 'mdi-hand-heart', section: 'VOLUNTEERS', group: 'community' },
   { path: '/admin/volunteer-options', label: 'Volunteer Form Options', icon: 'mdi-format-list-checks', section: 'VOLUNTEER_OPTIONS', group: 'community' },
+
+  { path: '/admin/reb/dashboard', label: 'REB Dashboard', icon: 'mdi-view-dashboard-outline', section: 'REB_DASHBOARD', group: 'reb' },
+  { path: '/admin/reb/students', label: 'Girls', icon: 'mdi-human-female', section: 'REB_STUDENTS', group: 'reb' },
+  { path: '/admin/reb/staff', label: 'Teachers & Staff', icon: 'mdi-teach', section: 'REB_STAFF', group: 'reb' },
+  { path: '/admin/reb/reports', label: 'REB Reports', icon: 'mdi-chart-bar', section: 'REB_REPORTS', group: 'reb' },
+  { path: '/admin/reb/setup', label: 'REB Setup', icon: 'mdi-settings', section: 'REB_SETUP', group: 'reb' },
 
   { path: '/admin/website/blog', label: 'Knowledge Hub', icon: 'mdi-post-outline', section: 'WEBSITE_BLOG', group: 'website' },
   { path: '/admin/website/stories', label: 'Success Stories', icon: 'mdi-star-outline', section: 'WEBSITE_STORIES', group: 'website' },

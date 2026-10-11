@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
@@ -18,12 +19,14 @@ const CATEGORY_ICONS: Record<string, string> = {
   Sponsors: 'mdi-hand-heart',
   Payments: 'mdi-cash-multiple',
   Setup: 'mdi-cog-outline',
+  Staff: 'mdi-teach',
   System: 'mdi-history'
 };
 
 /**
  * Admin > Reports: every report as a card. "View" shows the report on screen (search, sort, pages);
- * CSV / Excel / PDF download it. The optional date range applies to both.
+ * CSV / Excel / PDF download it. The optional date range applies to both. Also used for Rahbar-e-Banaat > REB
+ * Reports (route data: { reportsBase: '/admin/reb/reports', title: 'REB Reports' }).
  */
 @Component({
   selector: 'app-admin-reports',
@@ -36,7 +39,7 @@ const CATEGORY_ICONS: Record<string, string> = {
     .modal-body { min-height: 300px; }
   `],
   template: `
-    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Reports</h4></div></div></div>
+    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">{{ title }}</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
 
     <div class="card report-toolbar">
@@ -171,10 +174,17 @@ export class AdminReportsComponent implements OnInit {
   sort = '';
   desc = false;
 
-  constructor(private api: ApiService) {}
+  /** API path of the report catalog (the REB reports have their own). */
+  readonly base: string;
+  readonly title: string;
+
+  constructor(private api: ApiService, route: ActivatedRoute) {
+    this.base = route.snapshot.data['reportsBase'] ?? '/admin/reports';
+    this.title = route.snapshot.data['title'] ?? 'Reports';
+  }
 
   ngOnInit(): void {
-    this.api.get<ReportDef[]>('/admin/reports').subscribe({
+    this.api.get<ReportDef[]>(this.base).subscribe({
       next: (r) => (this.reports = r),
       error: (e) => (this.error = errorText(e, 'Could not load the list of reports.'))
     });
@@ -201,7 +211,7 @@ export class AdminReportsComponent implements OnInit {
   view(r: ReportDef): void {
     this.loading = r.key;
     this.error = '';
-    this.api.get<ReportData>(`/admin/reports/${r.key}/data`, this.params(r)).subscribe({
+    this.api.get<ReportData>(`${this.base}/${r.key}/data`, this.params(r)).subscribe({
       next: (d) => {
         this.loading = '';
         this.viewing = r;
@@ -220,7 +230,7 @@ export class AdminReportsComponent implements OnInit {
   download(r: ReportDef, format: Format): void {
     this.busy = r.key + format;
     this.error = '';
-    this.api.download(`/admin/reports/${r.key}`, { format, ...this.params(r) }, `${r.key}_report`).subscribe({
+    this.api.download(`${this.base}/${r.key}`, { format, ...this.params(r) }, `${r.key}_report`).subscribe({
       next: () => (this.busy = ''),
       error: (e) => { this.busy = ''; this.error = errorText(e, 'Could not generate the report.'); }
     });

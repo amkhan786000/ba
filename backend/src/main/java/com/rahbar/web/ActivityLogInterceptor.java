@@ -51,6 +51,30 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
             label("PUT " + path + "/[0-9]+", "Updated a " + r[1]);
             label("DELETE " + path + "/[0-9]+", "Deleted a " + r[1]);
         }
+        // Rahbar-e-Banaat
+        for (String[] r : new String[][]{{"sessions", "REB session"}, {"classes", "REB class"}, {"sections", "REB section"},
+                {"subjects", "REB subject"}, {"staff", "REB staff member"}}) {
+            String path = "/api/admin/reb/" + r[0];
+            label("POST " + path, "Added a " + r[1]);
+            label("PUT " + path + "/[0-9]+", "Updated a " + r[1]);
+            label("DELETE " + path + "/[0-9]+", "Deleted a " + r[1]);
+        }
+        label("POST /api/admin/reb/sessions/[0-9]+/current", "Changed the current REB session");
+        label("PUT /api/admin/reb/class-subjects", "Changed the subjects of a REB class");
+        label("POST /api/admin/reb/class-subjects/copy", "Copied REB class subjects to another session");
+        label("PUT /api/admin/reb/settings", "Changed REB settings");
+        label("PUT /api/admin/reb/assignments", "Changed who teaches what at REB");
+        label("POST /api/admin/reb/students", "Admitted a girl at REB");
+        label("PUT /api/admin/reb/students/[0-9]+", "Updated a REB girl's details");
+        label("POST /api/admin/reb/students/[0-9]+/status", "Changed a REB girl's status (left / passed out / back)");
+        label("PUT /api/admin/reb/students/[0-9]+/enrollment", "Moved a REB girl to another section");
+        label("POST /api/admin/reb/students/[0-9]+/guardians", "Added a REB guardian");
+        label("PUT /api/admin/reb/guardians/[0-9]+", "Updated a REB guardian");
+        label("DELETE /api/admin/reb/guardians/[0-9]+", "Removed a REB guardian");
+        label("POST /api/admin/reb/students/[0-9]+/documents", "Uploaded a REB document");
+        label("DELETE /api/admin/reb/documents/[0-9]+", "Removed a REB document");
+        label("POST /api/admin/reb/students/import", "Imported REB girls from a file");
+        label("POST /api/admin/reb/promotion", "Promoted REB girls to the next session");
         label("POST /api/account/change-password", "Changed own password");
         label("PUT /api/account/profile", "Updated own profile");
         label("POST /api/public/apply", "Submitted a scholarship application");

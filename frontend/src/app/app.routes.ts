@@ -63,6 +63,12 @@ import { WebsiteGalleryComponent } from './admin/website/website-gallery.compone
 import { WebsitePagesComponent } from './admin/website/website-pages.component';
 import { WebsiteBlogComponent } from './admin/website/website-blog.component';
 import { AdminVolunteerOptionsComponent } from './admin/admin-volunteer-options.component';
+import { RebDashboardComponent } from './admin/reb/reb-dashboard.component';
+import { RebStudentsComponent } from './admin/reb/reb-students.component';
+import { RebStudentComponent } from './admin/reb/reb-student.component';
+import { RebPromotionComponent } from './admin/reb/reb-promotion.component';
+import { RebStaffComponent } from './admin/reb/reb-staff.component';
+import { RebSetupComponent } from './admin/reb/reb-setup.component';
 import { StudentAlumniComponent } from './student/student-alumni.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
 import { TrackApplicationComponent } from './public/track.component';
@@ -136,6 +142,15 @@ export const routes: Routes = [
       { path: 'rcc-students', component: AdminRccStudentsComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'volunteers', component: AdminVolunteersComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEERS' } },
       { path: 'volunteer-options', component: AdminVolunteerOptionsComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEER_OPTIONS' } },
+      // Rahbar-e-Banaat
+      { path: 'reb/dashboard', component: RebDashboardComponent, canActivate: [permissionGuard], data: { permission: 'REB_DASHBOARD' } },
+      { path: 'reb/students', component: RebStudentsComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
+      { path: 'reb/students/:id', component: RebStudentComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
+      { path: 'reb/promotion', component: RebPromotionComponent, canActivate: [permissionGuard], data: { permission: 'REB_STUDENTS' } },
+      { path: 'reb/staff', component: RebStaffComponent, canActivate: [permissionGuard], data: { permission: 'REB_STAFF' } },
+      { path: 'reb/setup', component: RebSetupComponent, canActivate: [permissionGuard], data: { permission: 'REB_SETUP' } },
+      { path: 'reb/reports', component: AdminReportsComponent, canActivate: [permissionGuard],
+        data: { permission: 'REB_REPORTS', reportsBase: '/admin/reb/reports', title: 'REB Reports' } },
       // Admin > Website: the Bihar Anjuman website (biharanjuman.com)
       { path: 'website/blog', component: WebsiteBlogComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_BLOG' } },
       { path: 'website/stories', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_STORIES', resource: 'stories' } },
