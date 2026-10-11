@@ -53,6 +53,8 @@ public enum Section {
      * (and notifies of new ones); EDIT sets their follow-up status and notes, or deletes a sign-up.
      */
     VOLUNTEERS("Volunteers"),
+    /** The ways to help on the website's volunteer form (Admin > Volunteers > Form options). EDIT adds / changes them. */
+    VOLUNTEER_OPTIONS("Volunteer form options"),
 
     // ---- Admin > Website: the Bihar Anjuman website (biharanjuman.com) ----
     /**

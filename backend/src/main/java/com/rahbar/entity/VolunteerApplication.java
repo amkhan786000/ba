@@ -102,6 +102,10 @@ public class VolunteerApplication extends Modifiable {
     @Column(name = "chapter_id")
     private Long chapterId;
 
+    /** Answers to options added in Admin > Volunteers > Form options, e.g. "Organise events: Patna, Online". */
+    @Column(name = "other_offers", length = 2000)
+    private String otherOffers;
+
     @Column(name = "message", length = 2000)
     private String message;
 
