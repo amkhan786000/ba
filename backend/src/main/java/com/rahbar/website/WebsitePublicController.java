@@ -296,7 +296,7 @@ public class WebsitePublicController {
     }
 
     private WebBlogPost findPost(String slug) {
-        return posts.findBySlugAndPublishedTrue(slug).orElseThrow(() -> WebsiteSupport.notFound("Blog post"));
+        return posts.findBySlugAndPublishedTrue(slug).orElseThrow(() -> WebsiteSupport.notFound("Post"));
     }
 
     // ---- success stories -----------------------------------------------------------------------------------

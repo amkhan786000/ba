@@ -43,7 +43,6 @@ export const SLOT_GROUPS: SlotGroup[] = [
       { key: 'nav.chapters', label: 'Menu: Chapters', type: 'inline', default: 'Chapters' },
       { key: 'nav.projects', label: 'Menu: Projects', type: 'inline', default: 'Projects' },
       { key: 'nav.news', label: 'Menu: News', type: 'inline', default: 'News' },
-      { key: 'nav.blog', label: 'Menu: Blog', type: 'inline', default: 'Blog' },
       { key: 'nav.hub', label: 'Menu: Knowledge Hub', type: 'inline', default: 'Knowledge Hub' },
       { key: 'nav.gallery', label: 'Menu: Gallery', type: 'inline', default: 'Gallery' },
       { key: 'nav.directory', label: 'Menu: Directory', type: 'inline', default: 'Directory' },
@@ -80,8 +79,8 @@ export const SLOT_GROUPS: SlotGroup[] = [
       { key: 'home.purpose.eyebrow', label: 'Purpose section: label', type: 'inline', default: 'Find your purpose' },
       { key: 'home.purpose.title', label: 'Purpose section: title', type: 'inline', default: 'Don’t take your gifts *to the grave*' },
       { key: 'home.purpose.body', label: 'Purpose section: text', type: 'markdown', default: PURPOSE_PARAGRAPHS.join('\n\n') },
-      { key: 'home.blog.eyebrow', label: 'Blog section: label', type: 'inline', default: 'From the blog' },
-      { key: 'home.blog.title', label: 'Blog section: title', type: 'inline', default: 'Stories & *reflections*' },
+      { key: 'home.blog.eyebrow', label: 'Knowledge Hub section: label', type: 'inline', default: 'From the Knowledge Hub' },
+      { key: 'home.blog.title', label: 'Knowledge Hub section: title', type: 'inline', default: 'Stories & *reflections*' },
       { key: 'home.gallery.eyebrow', label: 'Gallery section: label', type: 'inline', default: 'Gallery' },
       { key: 'home.gallery.title', label: 'Gallery section: title', type: 'inline', default: 'Moments from the *field*' },
       { key: 'home.news.eyebrow', label: 'News section: label', type: 'inline', default: 'News & updates' },
@@ -122,8 +121,8 @@ export const SLOT_GROUPS: SlotGroup[] = [
     ],
   },
   {
-    id: 'blog', label: 'Blog page', slots: [
-      ...head('blog', 'Blog', 'Stories, ideas & *reflections*', 'Writing from members and volunteers on education, community and Islamic values.'),
+    id: 'blog', label: 'Knowledge Hub: all posts (/blog)', slots: [
+      ...head('blog', 'Knowledge Hub', 'Stories, ideas & *reflections*', 'Writing from members and volunteers on education, community and Islamic values.'),
       { key: 'blog.write.button', label: 'Button: write a post', type: 'inline', default: 'Write for us' },
       { key: 'blog.write.title', label: 'Write page: title', type: 'inline', default: 'Write for the *blog*' },
       {

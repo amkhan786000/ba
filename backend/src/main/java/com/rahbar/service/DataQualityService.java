@@ -341,7 +341,7 @@ public class DataQualityService {
                         "Contact-form messages still open after " + days + ".", messages)),
                 in(WEBSITE, "/admin/website/directory", check("directory_signups_waiting", "Directory sign-ups waiting",
                         "Not approved (or hidden) " + days + " after signing up.", signUps)),
-                in(WEBSITE, "/admin/website/blog", check("blog_posts_waiting_review", "Blog posts waiting for review",
+                in(WEBSITE, "/admin/website/blog", check("blog_posts_waiting_review", "Knowledge Hub posts waiting for review",
                         "Ready for review for more than " + days + ".", posts)),
                 in(WEBSITE, "/admin/website/stories", check("stories_waiting_review", "Success stories waiting for review",
                         "Ready for review for more than " + days + ".", stories)));
@@ -371,8 +371,8 @@ public class DataQualityService {
                         "The website's chapter pages show these; they look empty without them.", chapters)),
                 in(WEBSITE, "/admin/website/projects", check("projects_without_image", "Projects without an image",
                         "Active projects shown on the website without a picture.", projects)),
-                in(WEBSITE, "/admin/website/blog", check("blog_posts_without_summary", "Published blog posts without a summary",
-                        "The blog list shows a summary under each title.", posts)));
+                in(WEBSITE, "/admin/website/blog", check("blog_posts_without_summary", "Published Knowledge Hub posts without a summary",
+                        "The Knowledge Hub lists show a summary under each title.", posts)));
     }
 
     /** Tags a check with its menu group and the admin screen where it is fixed. */

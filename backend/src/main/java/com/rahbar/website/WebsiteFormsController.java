@@ -164,8 +164,8 @@ public class WebsiteFormsController {
         if (photo != null && !photo.isEmpty()) {
             var stored = storage.store(photo, MAX_PHOTO);
             WebGalleryImage img = new WebGalleryImage();
-            img.setTitle(("Blog: " + p.getTitle()).substring(0, Math.min(200, p.getTitle().length() + 6)));
-            img.setAlbum("Blog submissions");
+            img.setTitle(("Knowledge Hub: " + p.getTitle()).substring(0, Math.min(200, p.getTitle().length() + 15)));
+            img.setAlbum("Knowledge Hub submissions");
             img.setPublished(false); // not in the public gallery; an admin decides
             img.setFileName(stored.fileName());
             img.setContentType(stored.contentType());
@@ -174,7 +174,7 @@ public class WebsiteFormsController {
             p.setCoverImageUrl(img.getUrl());
         }
         posts.save(p);
-        notifier.notify(Section.WEBSITE_BLOG_PUBLISH, null, null, "Blog post to review: " + p.getTitle(),
+        notifier.notify(Section.WEBSITE_BLOG_PUBLISH, null, null, "Knowledge Hub post to review: " + p.getTitle(),
                 p.getAuthor() + " sent a post through \"Write for us\".", "/admin/website/blog");
         return Map.of("message", thanks);
     }

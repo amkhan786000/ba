@@ -173,7 +173,7 @@ final class WebsiteAdminPostsController {
 
         private void askForReview(WebBlogPost p, boolean wasWaiting) {
             if (p.isReviewRequested() && !wasWaiting && !p.isPublished()) {
-                notifier.notify(Section.WEBSITE_BLOG_PUBLISH, null, null, "Blog post to review: " + p.getTitle(),
+                notifier.notify(Section.WEBSITE_BLOG_PUBLISH, null, null, "Knowledge Hub post to review: " + p.getTitle(),
                         WebsiteSupport.me().getName() + " asked for a review.", "/admin/website/blog");
             }
         }
@@ -181,7 +181,7 @@ final class WebsiteAdminPostsController {
         private WebBlogPost visible(Long id) {
             return posts.findById(id)
                     .filter(p -> seesAll() || Objects.equals(p.getCreatedBy(), WebsiteSupport.me().getId()))
-                    .orElseThrow(() -> WebsiteSupport.notFound("Blog post"));
+                    .orElseThrow(() -> WebsiteSupport.notFound("Post"));
         }
     }
 

@@ -52,19 +52,19 @@ whichever your users touch most.
 ## Admin > Website (biharanjuman.com)
 
 The Bihar Anjuman website has no backend of its own: its nginx forwards `/api/...` to
-`/api/public/website/...` here, and all its content is managed in **Admin → Website**: Blog, Success Stories,
+`/api/public/website/...` here, and all its content is managed in **Admin → Website**: Knowledge Hub, Success Stories,
 Gallery, Directory, Projects, News & Events, Messages and Pages (page text in English, Urdu and Hindi, plus custom
 pages). Code: `backend/.../website/` (tables `web_*`, migration V26) and `frontend/src/app/admin/website/`.
 
-* Permissions: the *Website: ...* sections on Roles & Permissions. Writing blog posts needs *Website: blog* (view);
-  editing everyone's posts needs edit; publishing needs *publish blog posts* (the same for success stories).
+* Permissions: the *Website: ...* sections on Roles & Permissions. Writing Knowledge Hub posts needs *Website: Knowledge Hub posts* (view);
+  editing everyone's posts needs edit; publishing needs *publish Knowledge Hub posts* (the same for success stories).
   Chapter leads / RCC coordinators only see their own chapter's / center's news, directory members and stories.
   V26 gives everything to Application Administrator, the content (no publishing, no pages) to Office Coordinator,
   news / directory / stories to Chapter Lead, stories to RCC Coordinator.
 * The website's forms (contact, directory sign-up, "Write for us", volunteer) are at
   `/api/public/website/...`, each with a bot trap and a limit per visitor; staff with the section get a notification.
 * The blog is the website's **Media & Knowledge Hub**: every post has a category (Articles, Research, Case Studies,
-  Community Reports, Interview Series, V27), managed on Blog → Categories with *Website: blog categories*
+  Community Reports, Interview Series, V27), managed on Knowledge Hub → Categories with *Website: Knowledge Hub categories*
   (Application Administrator by default). Posts can have a PDF (`/api/documents/<file>`), a video / audio link and
   an interviewee / subject.
 * Photos and PDFs are stored in `<upload-dir>/website/` and served at `/api/images/<file>` and

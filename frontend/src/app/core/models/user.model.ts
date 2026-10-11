@@ -62,7 +62,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section: 
   { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank', section: 'RCC_CENTERS', group: 'community' },
   { path: '/admin/volunteers', label: 'Volunteers', icon: 'mdi-hand-heart', section: 'VOLUNTEERS', group: 'community' },
 
-  { path: '/admin/website/blog', label: 'Blog', icon: 'mdi-post-outline', section: 'WEBSITE_BLOG', group: 'website' },
+  { path: '/admin/website/blog', label: 'Knowledge Hub', icon: 'mdi-post-outline', section: 'WEBSITE_BLOG', group: 'website' },
   { path: '/admin/website/stories', label: 'Success Stories', icon: 'mdi-star-outline', section: 'WEBSITE_STORIES', group: 'website' },
   { path: '/admin/website/gallery', label: 'Gallery', icon: 'mdi-image-multiple', section: 'WEBSITE_GALLERY', group: 'website' },
   { path: '/admin/website/directory', label: 'Directory', icon: 'mdi-earth', section: 'WEBSITE_DIRECTORY', group: 'website' },
