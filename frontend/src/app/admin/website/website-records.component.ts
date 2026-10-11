@@ -1,11 +1,12 @@
-import { Component, Input, OnChanges, OnInit } from '@angular/core';
+import { Component, Input, OnChanges, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
-import { PagerComponent, PageState, PaginatePipe } from '../../shared/pager/pager.component';
+import { PagerComponent } from '../../shared/pager/pager.component';
+import { PagedResult, ServerTable } from '../../shared/pager/server-table';
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { WebsiteMarkdownPipe } from './website-markdown.pipe';
 import { WebsiteRevisionsComponent } from './website-revisions.component';
@@ -28,7 +29,7 @@ const MAX_PHOTO = 10 * 1024 * 1024;
 @Component({
   selector: 'app-website-records',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective, WebsiteMarkdownPipe,
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective, WebsiteMarkdownPipe,
     WebsiteRevisionsComponent, WebsiteTranslationsComponent],
   template: `
     <div class="row" *ngIf="!embedded"><div class="col-12"><div class="page-title-box"><h4 class="page-title">{{ res.label }}</h4></div></div></div>
@@ -149,7 +150,7 @@ const MAX_PHOTO = 10 * 1024 * 1024;
           <p class="text-muted">{{ res.intro }}<span *ngIf="!canEdit"> You can view but not change them.</span></p>
           <div class="row mb-3">
             <div class="col-12 col-md-6 mb-2 mb-md-0">
-              <input class="form-control" placeholder="Search" aria-label="Search" [(ngModel)]="q" (ngModelChange)="pg.reset()">
+              <input class="form-control" placeholder="Search" aria-label="Search" [(ngModel)]="q" (ngModelChange)="table.search()">
             </div>
             <div class="col-12 col-md-6 text-md-right" *ngIf="res.canCreate && canEdit">
               <button type="button" class="btn btn-primary btn-responsive" (click)="startNew()"><i class="mdi mdi-plus mr-1"></i>New</button>
@@ -159,9 +160,9 @@ const MAX_PHOTO = 10 * 1024 * 1024;
             <table class="table table-sm table-centered mb-0">
               <thead><tr><th *ngFor="let f of columns">{{ f.label }}</th><th></th></tr></thead>
               <tbody>
-                <tr *ngIf="loading"><td [attr.colspan]="columns.length + 1" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
-                <tr *ngIf="!loading && !visible.length"><td [attr.colspan]="columns.length + 1" class="text-center text-muted">Nothing here yet.</td></tr>
-                <tr *ngFor="let row of visible | paginate: pg.page : pg.size">
+                <tr *ngIf="table.loading && !table.rows.length"><td [attr.colspan]="columns.length + 1" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
+                <tr *ngIf="!table.loading && !table.rows.length"><td [attr.colspan]="columns.length + 1" class="text-center text-muted">Nothing here yet.</td></tr>
+                <tr *ngFor="let row of table.rows">
                   <td *ngFor="let f of columns">
                     <span *ngIf="f.key === 'status'; else plain" class="badge" [ngClass]="statusBadge(row[f.key])">{{ display(f, row[f.key]) }}</span>
                     <ng-template #plain>{{ display(f, row[f.key]) }}</ng-template>
@@ -175,25 +176,21 @@ const MAX_PHOTO = 10 * 1024 * 1024;
               </tbody>
             </table>
           </div>
-          <app-pager [state]="pg" [total]="visible.length"></app-pager>
+          <app-pager [state]="table.pg" [total]="table.total" (pageChange)="table.load()"></app-pager>
         </div>
       </div>
     </ng-template>
   `
 })
-export class WebsiteRecordsComponent implements OnInit, OnChanges {
+export class WebsiteRecordsComponent implements OnInit, OnChanges, OnDestroy {
   /** Set when embedded (Pages > Custom pages); otherwise taken from the route's data.resource. */
   @Input() resource?: string;
   @Input() embedded = false;
 
-  readonly pg = new PageState(25);
   res: WebsiteResource = websiteResource('blog');
-  rows: Row[] = [];
-  names: Record<string, string> = {};
   lookups: Lookups = { projects: [], chapters: [], centers: [], categories: [], images: [] };
   draft: Row | null = null;
   q = '';
-  loading = false;
   saving = false;
   uploading = false;
   message = '';
@@ -221,7 +218,7 @@ export class WebsiteRecordsComponent implements OnInit, OnChanges {
     this.q = '';
     this.message = '';
     this.error = '';
-    this.load();
+    this.table.filter();
     this.api.get<Lookups>('/admin/website/lookups').subscribe({ next: (l) => (this.lookups = l), error: () => {} });
   }
 
@@ -245,20 +242,18 @@ export class WebsiteRecordsComponent implements OnInit, OnChanges {
   /** Fields with Urdu / Hindi versions; built once per resource (a new array on every check would reload the panel). */
   translatable: TranslatableField[] = [];
 
-  get visible(): Row[] {
-    const t = this.q.trim().toLowerCase();
-    if (!t) return this.rows;
-    return this.rows.filter((r) => this.columns.some((f) => this.display(f, r[f.key]).toLowerCase().includes(t))
-      || this.res.fields.some((f) => typeof r[f.key] === 'string' && (r[f.key] as string).toLowerCase().includes(t)));
-  }
+  /** One page of records from the server (search across all of them there), plus the suggestions for the form. */
+  readonly table = new ServerTable<Row, PagedResult<Row> & { names: Record<string, string>; suggestions?: Record<string, string[]> }>(
+    (p) => this.api.get(`/admin/website/${this.res.path}`, {
+      q: this.q, suggest: this.res.fields.filter((f) => f.suggest).map((f) => f.key).join(',') || null, ...p }),
+    (e) => (this.error = errorText(e, 'Could not load the list.')));
 
-  private load(): void {
-    this.loading = true;
-    this.api.get<{ data: Row[]; names: Record<string, string> }>(`/admin/website/${this.res.path}`).subscribe({
-      next: (r) => { this.loading = false; this.rows = r.data; this.names = r.names ?? {}; },
-      error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load the list.'); }
-    });
-  }
+  ngOnDestroy(): void { this.table.destroy(); }
+
+  /** Names of the people who made changes to the records on this page. */
+  get names(): Record<string, string> { return this.table.last?.names ?? {}; }
+
+  private load(): void { this.table.load(); }
 
   options(f: WebsiteField): Option[] {
     return f.ref ? this.lookups[f.ref as RefList] : [];
@@ -284,7 +279,7 @@ export class WebsiteRecordsComponent implements OnInit, OnChanges {
   when(v: unknown): string { return v ? new Date(String(v)).toLocaleString() : '—'; }
 
   suggestions(key: string): string[] {
-    return [...new Set(this.rows.map((r) => r[key]).filter((v): v is string => typeof v === 'string' && !!v))].sort();
+    return this.table.last?.suggestions?.[key] ?? [];
   }
 
   autoSlug(d: Row, f: WebsiteField): void {

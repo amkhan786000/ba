@@ -86,7 +86,7 @@ class WebsiteAdminRulesTest {
     void writersSeeOnlyTheirOwnPostsAndCannotChangePublishedOnes() {
         WebsiteTestUsers.signIn(7, "WEBSITE_BLOG:VIEW");
         when(posts.findByCreatedByOrderByIdDesc(7L)).thenReturn(List.of());
-        blog.list();
+        blog.list(null, null, null, null);
         verify(posts).findByCreatedByOrderByIdDesc(7L);
         verify(posts, never()).findAll(any(Sort.class));
 
@@ -104,8 +104,8 @@ class WebsiteAdminRulesTest {
     @Test
     void withoutThePermissionNothingIsShown() {
         WebsiteTestUsers.signIn(9, "DASHBOARD:VIEW");
-        assertThrows(ApiException.class, blog::list);
-        assertThrows(ApiException.class, storyAdmin::list);
+        assertThrows(ApiException.class, () -> blog.list(null, null, null, null));
+        assertThrows(ApiException.class, () -> storyAdmin.list(null, null, null, null));
     }
 
     private static WebStory story(Long chapterId) {
@@ -133,7 +133,7 @@ class WebsiteAdminRulesTest {
 
         when(stories.findAll(any(Sort.class))).thenReturn(List.of(story(3L), story(4L)));
         @SuppressWarnings("unchecked")
-        List<WebStory> visible = (List<WebStory>) storyAdmin.list().get("data");
+        List<WebStory> visible = (List<WebStory>) storyAdmin.list(null, null, null, null).get("data");
         assertEquals(1, visible.size());
         assertEquals(3L, visible.get(0).getChapterId());
     }

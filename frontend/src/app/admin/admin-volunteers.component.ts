@@ -1,11 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
-import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { PagerComponent } from '../shared/pager/pager.component';
+import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Volunteer {
@@ -39,14 +40,14 @@ const STATUS_BADGE: Record<string, string> = {
 @Component({
   selector: 'app-admin-volunteers',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Volunteers</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
 
     <div class="row">
       <div class="col-6 col-md-3" *ngFor="let s of statusKeys">
-        <div class="card mb-3" role="button" [class.border-primary]="status === s" (click)="status = status === s ? '' : s; pg.reset()">
+        <div class="card mb-3" role="button" [class.border-primary]="status === s" (click)="status = status === s ? '' : s; table.filter()">
           <div class="card-body py-2">
             <h3 class="my-1">{{ counts[s] || 0 }}</h3>
             <span class="text-muted">{{ statuses[s] }}</span>
@@ -63,16 +64,16 @@ const STATUS_BADGE: Record<string, string> = {
         </p>
         <div class="row mb-3">
           <div class="col-12 col-md-5 mb-2 mb-md-0">
-            <input class="form-control" placeholder="Search name, email, phone, city, district, profession" [(ngModel)]="q" (ngModelChange)="pg.reset()">
+            <input class="form-control" placeholder="Search name, email, phone, city, district, profession" [(ngModel)]="q" (ngModelChange)="table.search()">
           </div>
           <div class="col-6 col-md-3">
-            <select class="form-control" [(ngModel)]="offer" (ngModelChange)="pg.reset()" aria-label="Offer">
+            <select class="form-control" [(ngModel)]="offer" (ngModelChange)="table.filter()" aria-label="Offer">
               <option value="">Any offer</option>
               <option *ngFor="let o of offers" [value]="o.key">{{ o.label }}</option>
             </select>
           </div>
           <div class="col-6 col-md-3">
-            <select class="form-control" [(ngModel)]="status" (ngModelChange)="pg.reset()" aria-label="Status">
+            <select class="form-control" [(ngModel)]="status" (ngModelChange)="table.filter()" aria-label="Status">
               <option value="">Any status</option>
               <option *ngFor="let s of statusKeys" [value]="s">{{ statuses[s] }}</option>
             </select>
@@ -82,9 +83,9 @@ const STATUS_BADGE: Record<string, string> = {
           <table class="table table-sm table-centered mb-0">
             <thead><tr><th>Volunteer</th><th>Offers</th><th>Lives in</th><th>Signed up</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              <tr *ngIf="loading"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
-              <tr *ngIf="!loading && !visible.length"><td colspan="6" class="text-center text-muted">No volunteers found.</td></tr>
-              <tr *ngFor="let r of visible | paginate: pg.page : pg.size">
+              <tr *ngIf="table.loading && !table.rows.length"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
+              <tr *ngIf="!table.loading && !table.rows.length"><td colspan="6" class="text-center text-muted">No volunteers found.</td></tr>
+              <tr *ngFor="let r of table.rows">
                 <td><strong>{{ r.full_name }}</strong>
                   <div class="small text-muted">{{ r.email }}<span *ngIf="r.email && r.phone"> · </span>{{ r.phone }}</div></td>
                 <td><span *ngFor="let o of offersOf(r)" class="badge badge-light border mr-1">{{ o }}</span></td>
@@ -96,7 +97,7 @@ const STATUS_BADGE: Record<string, string> = {
             </tbody>
           </table>
         </div>
-        <app-pager [state]="pg" [total]="visible.length"></app-pager>
+        <app-pager [state]="table.pg" [total]="table.total" (pageChange)="table.load()"></app-pager>
       </div>
     </div>
 
@@ -179,18 +180,14 @@ const STATUS_BADGE: Record<string, string> = {
     </div>
   `
 })
-export class AdminVolunteersComponent implements OnInit {
-  readonly pg = new PageState(25);
+export class AdminVolunteersComponent implements OnInit, OnDestroy {
   readonly offers = OFFERS;
-  rows: Volunteer[] = [];
-  counts: Record<string, number> = {};
-  statuses: Record<string, string> = {};
-  statusKeys: string[] = [];
-  modes: Record<string, string> = {};
   q = '';
   offer: Offer | '' = '';
   status = '';
-  loading = false;
+  readonly table = new ServerTable<Volunteer, PagedResult<Volunteer> & { counts: Record<string, number>; statuses: Record<string, string>; tutorModes: Record<string, string> }>(
+    (p) => this.api.get('/admin/volunteers', { q: this.q, status: this.status, offer: this.offer, ...p }),
+    (e) => (this.error = errorText(e, 'Could not load the volunteers.')));
   saving = false;
   message = '';
   error = '';
@@ -204,30 +201,15 @@ export class AdminVolunteersComponent implements OnInit {
   get canOptions(): boolean { return this.auth.can('VOLUNTEER_OPTIONS'); }
 
   ngOnInit(): void { this.load(); }
+  ngOnDestroy(): void { this.table.destroy(); }
 
-  load(): void {
-    this.loading = true;
-    this.api.get<{ data: Volunteer[]; counts: Record<string, number>; statuses: Record<string, string>; tutorModes: Record<string, string> }>('/admin/volunteers').subscribe({
-      next: (r) => {
-        this.loading = false;
-        this.rows = r.data;
-        this.counts = r.counts;
-        this.statuses = r.statuses;
-        this.statusKeys = Object.keys(r.statuses);
-        this.modes = r.tutorModes;
-      },
-      error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load the volunteers.'); }
-    });
-  }
+  load(): void { this.table.load(); }
 
-  get visible(): Volunteer[] {
-    const q = this.q.trim().toLowerCase();
-    const offer = OFFERS.find((o) => o.key === this.offer);
-    return this.rows.filter((r) => (!this.status || r.status === this.status)
-      && (!offer || r[offer.field])
-      && (!q || [r.full_name, r.email, r.phone, r.city, r.country, r.home_district, r.profession]
-        .some((v) => (v ?? '').toLowerCase().includes(q))));
-  }
+  /** Counts by status (all sign-ups), the status names and the tutoring modes, from the last answer. */
+  get counts(): Record<string, number> { return this.table.last?.counts ?? {}; }
+  get statuses(): Record<string, string> { return this.table.last?.statuses ?? {}; }
+  get statusKeys(): string[] { return Object.keys(this.statuses); }
+  get modes(): Record<string, string> { return this.table.last?.tutorModes ?? {}; }
 
   offersOf(r: Volunteer): string[] {
     // other ways to help: the option titles, e.g. "Organise events: Patna, Online" -> "Organise events"

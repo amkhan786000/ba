@@ -29,8 +29,8 @@ public class BroadcastController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('MESSAGES:VIEW')")
-    public List<Map<String, Object>> history() {
-        return broadcastService.history();
+    public Map<String, Object> history(@RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
+        return broadcastService.history(page, size);
     }
 
     @GetMapping("/recipients")

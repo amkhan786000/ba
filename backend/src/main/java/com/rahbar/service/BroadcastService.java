@@ -90,10 +90,18 @@ public class BroadcastService {
         sender.shutdown();
     }
 
-    /** The latest 100 broadcasts, newest first. */
-    public List<Map<String, Object>> history() {
+    /** One page of the broadcasts, newest first (all of them, not just the latest 100), and whether any is still going out. */
+    public Map<String, Object> history(Integer page, Integer size) {
+        org.springframework.data.domain.Page<BroadcastMessage> result = broadcastRepository.findAllByOrderByBroadcastIdDesc(
+                PageRequest.of(com.rahbar.util.Paging.page(page), com.rahbar.util.Paging.size(size)));
+        Map<String, Object> body = com.rahbar.util.Paging.of(result, this::historyRows);
+        // While any message is still going out, the screen keeps checking.
+        body.put("sending", broadcastRepository.existsByStatus(BroadcastMessage.SENDING));
+        return body;
+    }
+
+    private List<Map<String, Object>> historyRows(List<BroadcastMessage> list) {
         Map<Long, String> names = new HashMap<>();
-        List<BroadcastMessage> list = broadcastRepository.findTop100ByOrderByBroadcastIdDesc();
         Set<Long> ids = new HashSet<>();
         list.forEach(b -> { if (b.getCreatedBy() != null) ids.add(b.getCreatedBy()); });
         userRepository.findAllById(ids).forEach(u -> names.put(u.getId(), u.getName()));

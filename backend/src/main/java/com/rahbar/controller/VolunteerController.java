@@ -30,8 +30,10 @@ public class VolunteerController {
 
     @GetMapping("/api/admin/volunteers")
     @PreAuthorize("hasAuthority('VOLUNTEERS:VIEW')")
-    public Map<String, Object> list() {
-        return volunteerService.list();
+    public Map<String, Object> list(@RequestParam(required = false) String q, @RequestParam(required = false) String status,
+                                    @RequestParam(required = false) String offer, @RequestParam(required = false) Integer page,
+                                    @RequestParam(required = false) Integer size) {
+        return volunteerService.list(q, status, offer, page, size);
     }
 
     /** Body: { status: NEW | CONTACTED | ONBOARDED | DECLINED, notes }. */

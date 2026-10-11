@@ -10,12 +10,20 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 
+import java.beans.PropertyDescriptor;
+import java.time.temporal.Temporal;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.regex.Pattern;
 
 /** Small helpers shared by the website controllers. */
@@ -103,5 +111,50 @@ public final class WebsiteSupport {
         String fwd = request.getHeader("X-Forwarded-For");
         if (fwd != null && !fwd.isBlank()) return fwd.split(",")[0].strip();
         return request.getRemoteAddr();
+    }
+
+    /**
+     * The list of one kind of website record. Without page / size: every record ({ data, names }), as before.
+     * With them: { total, page, size, rows, names } for one page, after keeping the records where every word of q
+     * appears in one of their text / number / date fields. suggest (comma-separated field names) adds the distinct
+     * values of those fields over all the records, for the form's suggestions.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static <T> Map<String, Object> list(List<T> records, String q, Integer page, Integer size, String suggest,
+                                                         Function<List<T>, Map<Long, String>> names) {
+        if (page == null && size == null) return Map.of("data", records, "names", names.apply(records));
+        List<T> matching = q == null || q.isBlank() ? records
+                : records.stream().filter(r -> Paging.matches(q, searchable(r).toArray())).toList();
+        // The records go out as entities (same JSON as the full list); only the page is kept.
+        Map<String, Object> body = Paging.of(matching, page, size, slice -> (List) slice);
+        body.put("names", names.apply((List<T>) body.get("rows")));
+        if (suggest != null && !suggest.isBlank()) {
+            Map<String, List<String>> values = new LinkedHashMap<>();
+            for (String field : suggest.split(",")) {
+                TreeSet<String> distinct = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+                for (T r : records) {
+                    BeanWrapperImpl w = new BeanWrapperImpl(r);
+                    if (w.isReadableProperty(field.strip()) && w.getPropertyValue(field.strip()) instanceof String v && !v.isBlank()) distinct.add(v.strip());
+                }
+                values.put(field.strip(), new ArrayList<>(distinct));
+            }
+            body.put("suggestions", values);
+        }
+        return body;
+    }
+
+    /** Text, number, date and enum fields of a record (what the list's search looks in). */
+    private static List<Object> searchable(Object record) {
+        List<Object> out = new ArrayList<>();
+        BeanWrapperImpl w = new BeanWrapperImpl(record);
+        for (PropertyDescriptor d : w.getPropertyDescriptors()) {
+            if (d.getReadMethod() == null || "class".equals(d.getName())) continue;
+            Class<?> t = d.getPropertyType();
+            if (t == String.class || Number.class.isAssignableFrom(t) || t.isEnum() || Temporal.class.isAssignableFrom(t)) {
+                Object v = w.getPropertyValue(d.getName());
+                if (v != null) out.add(v);
+            }
+        }
+        return out;
     }
 }
