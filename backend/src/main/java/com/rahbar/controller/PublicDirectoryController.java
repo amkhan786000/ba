@@ -1,9 +1,6 @@
 package com.rahbar.controller;
 
 import com.rahbar.service.PublicDirectoryService;
-import com.rahbar.service.PublicDirectoryService.PublicCenter;
-import com.rahbar.service.PublicDirectoryService.PublicChapter;
-import com.rahbar.service.PublicDirectoryService.PublicStats;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +9,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
 import java.util.List;
+import com.rahbar.dto.PublicChapter;
+import com.rahbar.dto.PublicCenter;
+import com.rahbar.dto.PublicStats;
 
 /**
  * Read-only lists for public websites such as biharanjuman.com, which show Rahbar's chapters and

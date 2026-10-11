@@ -11,6 +11,7 @@ import java.time.Year;
 import java.util.*;
 
 import static com.rahbar.service.ServiceSupport.*;
+import com.rahbar.dto.ReportFile;
 
 /** Coordinator (role 3) screens. */
 @Service
@@ -202,7 +203,7 @@ public class CoordinatorService {
                 "data", new ArrayList<>(rows.subList(from, to)));
     }
 
-    public ReportService.Report report(String reportType, String format) {
+    public ReportFile report(String reportType, String format) {
         List<Map<String, Object>> data = new ArrayList<>();
         switch (reportType) {
             case "applications" -> {

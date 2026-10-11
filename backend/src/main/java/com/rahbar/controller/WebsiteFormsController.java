@@ -29,6 +29,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.*;
+import com.rahbar.dto.WebsiteContactRequest;
+import com.rahbar.dto.WebsiteDirectoryRequest;
 
 /**
  * The website's public forms: contact, directory sign-up, "Write for us" (a blog post sent for review) and
@@ -82,14 +84,10 @@ public class WebsiteFormsController {
 
     // ---- contact -------------------------------------------------------------------------------------------
 
-    public record ContactRequest(String name, String email, String phone, WebMessage.Topic topic, String subject,
-                                 String message, String website) {
-    }
-
     @PostMapping("/contact")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Transactional
-    public Map<String, String> contact(@RequestBody ContactRequest r, HttpServletRequest request) {
+    public Map<String, String> contact(@RequestBody WebsiteContactRequest r, HttpServletRequest request) {
         String thanks = "Thank you for reaching out. We will get back to you soon.";
         if (bot(r.website())) return Map.of("message", thanks);
         WebMessage m = new WebMessage();
@@ -108,15 +106,10 @@ public class WebsiteFormsController {
 
     // ---- directory -----------------------------------------------------------------------------------------
 
-    public record DirectoryRequest(String fullName, WebMember.HomeState homeState, String homeDistrict, String currentCountry,
-                                   String currentCity, String profession, String organization, String email, String phone,
-                                   Long chapterId, boolean showContact, String website) {
-    }
-
     @PostMapping("/directory")
     @ResponseStatus(HttpStatus.ACCEPTED)
     @Transactional
-    public Map<String, String> register(@RequestBody DirectoryRequest r, HttpServletRequest request) {
+    public Map<String, String> register(@RequestBody WebsiteDirectoryRequest r, HttpServletRequest request) {
         String thanks = "Thank you! Your entry will appear in the directory once it is verified.";
         if (bot(r.website())) return Map.of("message", thanks);
         WebMember m = new WebMember();

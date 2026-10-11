@@ -16,31 +16,29 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import com.rahbar.dto.ReportFile;
 
 /** Builds the CSV / Excel / PDF downloads of the admin and coordinator report screens. */
 @Service
 public class ReportService {
 
-    /** A finished download: file bytes, content type and file name. */
-    public record Report(byte[] bytes, String contentType, String filename) {}
-
     /**
      * Renders rows as csv (default), excel or pdf. Column order is the key order of the first row.
      * 404 when there are no rows, like the original report screens.
      */
-    public Report build(List<Map<String, Object>> data, String baseName, String format, String label) {
+    public ReportFile build(List<Map<String, Object>> data, String baseName, String format, String label) {
         if (data.isEmpty()) {
             throw new ApiException(HttpStatus.NOT_FOUND, "No data available for " + label + " report.");
         }
         try {
             if ("pdf".equals(format)) {
-                return new Report(toPdf(data, baseName.replace('_', ' ').toUpperCase()), "application/pdf", baseName + ".pdf");
+                return new ReportFile(toPdf(data, baseName.replace('_', ' ').toUpperCase()), "application/pdf", baseName + ".pdf");
             }
             if ("excel".equals(format)) {
-                return new Report(toExcel(data),
+                return new ReportFile(toExcel(data),
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", baseName + ".xlsx");
             }
-            return new Report(toCsv(data), "text/csv", baseName + ".csv");
+            return new ReportFile(toCsv(data), "text/csv", baseName + ".csv");
         } catch (IOException e) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not build report: " + e.getMessage());
         }

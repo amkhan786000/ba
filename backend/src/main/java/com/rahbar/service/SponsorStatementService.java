@@ -22,6 +22,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.List;
+import com.rahbar.dto.EmailAttachment;
 
 /**
  * The yearly statement for a sponsor (calendar year, January-December): for each of their students the
@@ -124,7 +125,7 @@ public class SponsorStatementService {
             values.put("name", sponsor.getName());
             values.put("year", year);
             return emailService.send(EmailType.SPONSOR_STATEMENT, email, values,
-                    List.of(new EmailService.Attachment(fileName(sponsor, year), file)));
+                    List.of(new EmailAttachment(fileName(sponsor, year), file)));
         } catch (java.io.IOException e) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not prepare the statement attachment.");
         } finally {

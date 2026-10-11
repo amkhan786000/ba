@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.rahbar.dto.ReportDefinition;
 
 /** Admin Reports page: the catalog of reports, viewing a report on screen and its CSV / Excel / PDF downloads. */
 @RestController
@@ -24,7 +25,7 @@ public class ReportController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('REPORTS:VIEW')")
-    public List<ReportCatalogService.Definition> catalog() {
+    public List<ReportDefinition> catalog() {
         return reportCatalogService.catalog();
     }
 

@@ -25,6 +25,7 @@ import java.time.LocalDate;
 import java.util.*;
 
 import static com.rahbar.util.RebSupport.*;
+import com.rahbar.dto.ReportFile;
 
 /**
  * REB reports (Rahbar-e-Banaat > Reports), viewed on screen or downloaded as CSV / Excel / PDF through Rahbar's
@@ -119,7 +120,7 @@ public class RebReportService {
         return body;
     }
 
-    public ReportService.Report build(String key, String format, LocalDate from, LocalDate to) {
+    public ReportFile build(String key, String format, LocalDate from, LocalDate to) {
         RebReportDefinition def = definition(key);
         return reportService.build(rows(key, from, to), key + "_report", format, def.title());
     }

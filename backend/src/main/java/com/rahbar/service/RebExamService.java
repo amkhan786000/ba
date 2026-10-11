@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import static com.rahbar.util.RebSupport.*;
+import com.rahbar.dto.RebScaleBand;
 
 /**
  * REB exams: an exam of a session has a date sheet (one paper per subject per class, from the class's
@@ -71,23 +72,20 @@ public class RebExamService {
 
     // ---------------------------------------------------------------- grading scale
 
-    /** A grade band (also used when a session has no scale yet). */
-    public record Band(BigDecimal min, String grade, String remark, boolean pass) {}
+    static final List<RebScaleBand> DEFAULT_BANDS = List.of(
+            new RebScaleBand(new BigDecimal("90"), "A+", "Outstanding", true), new RebScaleBand(new BigDecimal("75"), "A", "Excellent", true),
+            new RebScaleBand(new BigDecimal("60"), "B", "Very good", true), new RebScaleBand(new BigDecimal("45"), "C", "Good", true),
+            new RebScaleBand(new BigDecimal("33"), "D", "Satisfactory", true), new RebScaleBand(BigDecimal.ZERO, "E", "Needs improvement", false));
 
-    static final List<Band> DEFAULT_BANDS = List.of(
-            new Band(new BigDecimal("90"), "A+", "Outstanding", true), new Band(new BigDecimal("75"), "A", "Excellent", true),
-            new Band(new BigDecimal("60"), "B", "Very good", true), new Band(new BigDecimal("45"), "C", "Good", true),
-            new Band(new BigDecimal("33"), "D", "Satisfactory", true), new Band(BigDecimal.ZERO, "E", "Needs improvement", false));
-
-    public List<Band> bands(Long sessionId) {
+    public List<RebScaleBand> bands(Long sessionId) {
         List<RebGradeBand> list = bands.findBySessionIdOrderByMinPercentDesc(sessionId);
         if (list.isEmpty()) return DEFAULT_BANDS;
-        return list.stream().map(b -> new Band(b.getMinPercent(), b.getGrade(), b.getRemark(), b.isPass())).toList();
+        return list.stream().map(b -> new RebScaleBand(b.getMinPercent(), b.getGrade(), b.getRemark(), b.isPass())).toList();
     }
 
-    static Band grade(List<Band> scale, BigDecimal percent) {
+    static RebScaleBand grade(List<RebScaleBand> scale, BigDecimal percent) {
         if (percent == null) return null;
-        for (Band b : scale) if (percent.compareTo(b.min()) >= 0) return b;
+        for (RebScaleBand b : scale) if (percent.compareTo(b.min()) >= 0) return b;
         return scale.get(scale.size() - 1);
     }
 
@@ -431,7 +429,7 @@ public class RebExamService {
         subjects.findAll().forEach(s -> subjectById.put(s.getId(), s));
         Map<String, RebMark> markOf = new HashMap<>();
         if (!ps.isEmpty()) marks.findByPaperIdIn(ps.stream().map(RebExamPaper::getId).toList()).forEach(m -> markOf.put(m.getPaperId() + ":" + m.getStudentId(), m));
-        List<Band> scale = bands(e.getSessionId());
+        List<RebScaleBand> scale = bands(e.getSessionId());
         List<RebEnrollment> roll = enrollments.findBySectionId(sectionId).stream().filter(x -> !"LEFT".equals(x.getStatus())).toList();
         RebSession session = setup.session(e.getSessionId());
         Map<Long, BigDecimal> attendancePercent = attendance.percents(roll.stream().map(RebEnrollment::getStudentId).toList(),
@@ -474,7 +472,7 @@ public class RebExamService {
             }
             BigDecimal total = mT.add(sT), max = mMax.add(sMax);
             BigDecimal percent = max.signum() == 0 ? null : total.multiply(BigDecimal.valueOf(100)).divide(max, 2, RoundingMode.HALF_UP);
-            Band band = grade(scale, percent);
+            RebScaleBand band = grade(scale, percent);
             String result = ps.isEmpty() ? null : absent == ps.size() ? "ABSENT" : missing > 0 ? null
                     : (failed || (band != null && !band.pass())) ? "FAIL" : "PASS";
             Map<String, Object> r = new LinkedHashMap<>();
@@ -566,7 +564,7 @@ public class RebExamService {
         classScope.requireSection(sectionId);
         List<RebExam> weighted = exams.findBySessionIdOrderByStartDateAscIdAsc(session.getId()).stream()
                 .filter(e -> "PUBLISHED".equals(e.getStatus()) && e.getWeightPercent().signum() > 0).toList();
-        List<Band> scale = bands(session.getId());
+        List<RebScaleBand> scale = bands(session.getId());
         Map<Long, Map<Long, RebExamResult>> byExam = new HashMap<>();
         for (RebExam e : weighted) {
             Map<Long, RebExamResult> m = new HashMap<>();
@@ -593,7 +591,7 @@ public class RebExamService {
                 }
             }
             BigDecimal percent = weights.signum() == 0 ? null : sum.divide(weights, 2, RoundingMode.HALF_UP);
-            Band band = grade(scale, percent);
+            RebScaleBand band = grade(scale, percent);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("student_id", g.getId());
             row.put("name", g.getName());

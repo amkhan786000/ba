@@ -36,6 +36,14 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
+import com.rahbar.dto.WebsiteOption;
+import com.rahbar.dto.WebsiteImageOption;
+import com.rahbar.dto.WebsiteImageDetails;
+import com.rahbar.dto.WebsiteContentRow;
+import com.rahbar.dto.WebsiteContentEdit;
+import com.rahbar.dto.WebsiteTranslationRow;
+import com.rahbar.dto.WebsiteTranslationEdit;
+import com.rahbar.dto.WebsiteContentVersion;
 
 /** Admin > Website: gallery, photo uploads, page text, translations, earlier versions and the lists for dropdowns. */
 @RestController
@@ -91,25 +99,19 @@ public class WebsiteAdminContentController {
 
     // ---- lists for dropdowns -----------------------------------------------------------------------------------
 
-    public record Option(Long id, String name) {
-    }
-
-    public record ImageOption(Long id, String title, String album, String url) {
-    }
-
     /** Projects, chapters, RCC centers and photos, for the dropdowns of every website screen. */
     @GetMapping("/lookups")
     @Transactional(readOnly = true)
     public Map<String, Object> lookups() {
         if (!anyWebsite(Section.Level.VIEW)) throw com.rahbar.security.Access.forbidden("You do not have permission for this.");
         Map<String, Object> out = new LinkedHashMap<>();
-        out.put("projects", projects.findAll(Sort.by("displayOrder", "name")).stream().map(p -> new Option(p.getId(), p.getName())).toList());
-        out.put("chapters", chapters.findAllByOrderByChapterNameAsc().stream().map(c -> new Option(c.getChapterId(), c.getChapterName())).toList());
-        out.put("centers", centers.findAll().stream().map(c -> new Option(c.getRccCenterId(), c.getCenterName()))
+        out.put("projects", projects.findAll(Sort.by("displayOrder", "name")).stream().map(p -> new WebsiteOption(p.getId(), p.getName())).toList());
+        out.put("chapters", chapters.findAllByOrderByChapterNameAsc().stream().map(c -> new WebsiteOption(c.getChapterId(), c.getChapterName())).toList());
+        out.put("centers", centers.findAll().stream().map(c -> new WebsiteOption(c.getRccCenterId(), c.getCenterName()))
                 .sorted(Comparator.comparing(o -> o.name() == null ? "" : o.name(), String.CASE_INSENSITIVE_ORDER)).toList());
         out.put("categories", categories.findAllByOrderByDisplayOrderAscNameAsc().stream()
-                .map(c -> new Option(c.getId(), c.isActive() ? c.getName() : c.getName() + " (hidden)")).toList());
-        out.put("images", images.findAll(GALLERY_ORDER).stream().map(g -> new ImageOption(g.getId(), g.getTitle(), g.getAlbum(), g.getUrl())).toList());
+                .map(c -> new WebsiteOption(c.getId(), c.isActive() ? c.getName() : c.getName() + " (hidden)")).toList());
+        out.put("images", images.findAll(GALLERY_ORDER).stream().map(g -> new WebsiteImageOption(g.getId(), g.getTitle(), g.getAlbum(), g.getUrl())).toList());
         return out;
     }
 
@@ -151,13 +153,10 @@ public class WebsiteAdminContentController {
         }
     }
 
-    public record ImageDetails(String title, String caption, String album, LocalDate takenOn, Integer displayOrder, boolean published) {
-    }
-
     /** The text and visibility; the file itself cannot be changed (upload a new one instead). */
     @PutMapping("/gallery/{id}")
     @Transactional
-    public WebGalleryImage updateImage(@PathVariable Long id, @RequestBody ImageDetails d) {
+    public WebGalleryImage updateImage(@PathVariable Long id, @RequestBody WebsiteImageDetails d) {
         WebsiteSupport.require(Section.WEBSITE_GALLERY, Section.Level.EDIT);
         WebGalleryImage img = images.findById(id).orElseThrow(() -> WebsiteSupport.notFound("Photo"));
         img.setTitle(WebsiteSupport.text(d.title(), "Title", 200, true));
@@ -214,25 +213,19 @@ public class WebsiteAdminContentController {
 
     // ---- page text -----------------------------------------------------------------------------------------------
 
-    public record ContentRow(String key, String lang, String value, String changedBy, LocalDateTime changedAt) {
-    }
-
-    public record ContentEdit(String key, String lang, String value) {
-    }
-
     @GetMapping("/content")
     @Transactional(readOnly = true)
-    public List<ContentRow> content() {
+    public List<WebsiteContentRow> content() {
         WebsiteSupport.require(Section.WEBSITE_PAGES, Section.Level.VIEW);
         List<WebContent> rows = content.findAll();
         Map<Long, String> names = names(rows);
-        return rows.stream().map(c -> new ContentRow(c.getKey(), c.getLang(), c.getValue(), names.get(c.getUpdatedBy()), c.getUpdatedAt())).toList();
+        return rows.stream().map(c -> new WebsiteContentRow(c.getKey(), c.getLang(), c.getValue(), names.get(c.getUpdatedBy()), c.getUpdatedAt())).toList();
     }
 
     /** Saves one text; an empty value removes the change, so the website's built-in text shows again. */
     @PutMapping("/content")
     @Transactional
-    public ContentRow saveContent(@RequestBody ContentEdit e) {
+    public WebsiteContentRow saveContent(@RequestBody WebsiteContentEdit e) {
         WebsiteSupport.require(Section.WEBSITE_PAGES, Section.Level.EDIT);
         String key = WebsiteSupport.text(e.key(), "Key", 100, true);
         if (!key.matches("[a-z0-9][a-z0-9._-]*")) throw WebsiteSupport.bad("Invalid key.");
@@ -243,37 +236,31 @@ public class WebsiteAdminContentController {
         revisions.saved(WebsiteRevisions.site(key), lang, existing.map(WebContent::getValue).orElse(null), value);
         if (value == null) {
             existing.ifPresent(content::delete);
-            return new ContentRow(key, lang.code(), null, null, null);
+            return new WebsiteContentRow(key, lang.code(), null, null, null);
         }
         WebContent c = existing.orElseGet(WebContent::new);
         c.setKey(key);
         c.setLang(lang.code());
         c.setValue(value);
         content.saveAndFlush(c);
-        return new ContentRow(key, lang.code(), value, WebsiteSupport.me().getName(), c.getUpdatedAt());
+        return new WebsiteContentRow(key, lang.code(), value, WebsiteSupport.me().getName(), c.getUpdatedAt());
     }
 
     // ---- translations of records -----------------------------------------------------------------------------
 
-    public record TranslationRow(String lang, String field, String value, String changedBy, LocalDateTime changedAt) {
-    }
-
-    public record TranslationEdit(String type, Long id, String lang, String field, String value) {
-    }
-
     @GetMapping("/translations")
     @Transactional(readOnly = true)
-    public List<TranslationRow> translations(@RequestParam String type, @RequestParam Long id) {
+    public List<WebsiteTranslationRow> translations(@RequestParam String type, @RequestParam Long id) {
         WebsiteTranslatable t = check(type, id, Section.Level.VIEW);
         List<WebTranslation> rows = translations.findByEntityTypeAndEntityId(t.name(), id);
         Map<Long, String> names = names(rows);
-        return rows.stream().map(x -> new TranslationRow(x.getLang(), x.getField(), x.getValue(), names.get(x.getUpdatedBy()), x.getUpdatedAt())).toList();
+        return rows.stream().map(x -> new WebsiteTranslationRow(x.getLang(), x.getField(), x.getValue(), names.get(x.getUpdatedBy()), x.getUpdatedAt())).toList();
     }
 
     /** Saves one field in one language; an empty value removes it (English is shown again). */
     @PutMapping("/translations")
     @Transactional
-    public TranslationRow saveTranslation(@RequestBody TranslationEdit e) {
+    public WebsiteTranslationRow saveTranslation(@RequestBody WebsiteTranslationEdit e) {
         WebsiteTranslatable t = check(e.type(), e.id(), Section.Level.EDIT);
         WebsiteLang lang = WebsiteLang.require(e.lang());
         if (lang == WebsiteLang.EN) throw WebsiteSupport.bad("English is edited on the record itself.");
@@ -284,7 +271,7 @@ public class WebsiteAdminContentController {
         revisions.saved(WebsiteRevisions.translation(t, e.id(), e.field()), lang, existing.map(WebTranslation::getValue).orElse(null), value);
         if (value == null) {
             existing.ifPresent(translations::delete);
-            return new TranslationRow(lang.code(), e.field(), null, null, null);
+            return new WebsiteTranslationRow(lang.code(), e.field(), null, null, null);
         }
         WebTranslation x = existing.orElseGet(WebTranslation::new);
         x.setEntityType(t.name());
@@ -293,7 +280,7 @@ public class WebsiteAdminContentController {
         x.setField(e.field());
         x.setValue(value);
         translations.saveAndFlush(x);
-        return new TranslationRow(lang.code(), e.field(), value, WebsiteSupport.me().getName(), x.getUpdatedAt());
+        return new WebsiteTranslationRow(lang.code(), e.field(), value, WebsiteSupport.me().getName(), x.getUpdatedAt());
     }
 
     /** The record's section decides; chapter / RCC-scoped users only reach their own news and stories. */
@@ -314,17 +301,14 @@ public class WebsiteAdminContentController {
 
     // ---- earlier versions ----------------------------------------------------------------------------------------
 
-    public record Version(Long id, String value, String savedBy, LocalDateTime savedAt) {
-    }
-
     /** Newest first. To restore one, the screen puts it back in the editor and saves it (a new version). */
     @GetMapping("/revisions")
     @Transactional(readOnly = true)
-    public List<Version> revisions(@RequestParam String target, @RequestParam(defaultValue = "en") String lang) {
+    public List<WebsiteContentVersion> revisions(@RequestParam String target, @RequestParam(defaultValue = "en") String lang) {
         WebsiteSupport.require(sectionOf(target), Section.Level.VIEW);
         List<WebRevision> rows = revisionRepo.findTop30ByTargetAndLangOrderByIdDesc(target, WebsiteLang.require(lang).code());
         Map<Long, String> names = names(rows);
-        return rows.stream().map(r -> new Version(r.getId(), r.getValue(), names.get(r.getCreatedBy()), r.getCreatedAt())).toList();
+        return rows.stream().map(r -> new WebsiteContentVersion(r.getId(), r.getValue(), names.get(r.getCreatedBy()), r.getCreatedAt())).toList();
     }
 
     /** site:... is page text; rec:TYPE:... and tr:TYPE:... belong to that record type's section. */

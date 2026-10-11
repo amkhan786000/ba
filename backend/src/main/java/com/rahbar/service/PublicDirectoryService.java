@@ -1,5 +1,8 @@
 package com.rahbar.service;
 
+import com.rahbar.dto.PublicCenter;
+import com.rahbar.dto.PublicChapter;
+import com.rahbar.dto.PublicStats;
 import com.rahbar.entity.Chapter;
 import com.rahbar.entity.RccCenter;
 import com.rahbar.repository.ChapterRepository;
@@ -19,24 +22,6 @@ import java.util.List;
 @Service
 @Transactional(readOnly = true)
 public class PublicDirectoryService {
-
-    public record PublicChapter(Long id, String name, String description, String leadName) {
-        static PublicChapter of(Chapter c) {
-            return new PublicChapter(c.getChapterId(), c.getChapterName(), blankToNull(c.getDescription()),
-                    blankToNull(c.getLeadName()));
-        }
-    }
-
-    public record PublicCenter(Long id, String name, String location, String inchargeName) {
-        static PublicCenter of(RccCenter c) {
-            return new PublicCenter(c.getRccCenterId(), c.getCenterName(), blankToNull(c.getLocation()),
-                    blankToNull(c.getInchargeName()));
-        }
-    }
-
-    /** Aggregate numbers for the public site's home page. */
-    public record PublicStats(long students) {
-    }
 
     private final ChapterRepository chapters;
     private final RccCenterRepository centers;
