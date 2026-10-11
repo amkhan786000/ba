@@ -28,12 +28,14 @@ public class PaymentRecordsController {
         this.emailLogService = emailLogService;
     }
 
-    /** Installments of every student the user may see; status is Paid, Due or Not Due. */
+    /** One page of the installments of every student the user may see; status is Paid, Overdue, Due or Not Due. */
     @GetMapping("/payment-records")
     @PreAuthorize("hasAuthority('PAYMENT_RECORDS:VIEW')")
-    public List<Map<String, Object>> paymentRecords(@RequestParam(required = false) String q,
-                                                    @RequestParam(required = false) String status) {
-        return installmentService.search(q, status);
+    public Map<String, Object> paymentRecords(@RequestParam(required = false) String q,
+                                              @RequestParam(required = false) String status,
+                                              @RequestParam(required = false) Integer page,
+                                              @RequestParam(required = false) Integer size) {
+        return installmentService.search(q, status, page, size);
     }
 
     /** One student's installments (all sponsors), and why there are none when there are none. */

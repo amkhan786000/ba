@@ -364,21 +364,50 @@ public class PaymentInstallmentService {
 
     /**
      * Admin > Payment Records: installments of every student the user may see (chapter-scoped users: their
-     * chapter's students), filtered by text (student / sponsor name or code) and status.
+     * chapter's students), filtered by text (student / sponsor name or code) and status, one page at a time, with
+     * the count and amount of each status for the cards above the table.
      */
     @Transactional(readOnly = true)
-    public List<Map<String, Object>> search(String q, String status) {
+    public Map<String, Object> search(String q, String status, Integer page, Integer size) {
         com.rahbar.security.StudentScope.Scope scope = studentScope.current(); // chapter / RCC-scoped: own students only
-        Map<Long, User> users = scope.all() ? Map.of() : studentScope.usersById();
-        List<Map<String, Object>> rows = rows(installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc(), true);
-        String text = q == null ? "" : q.trim().toLowerCase(Locale.ROOT);
-        return rows.stream()
-                .filter(r -> scope.includesId((Long) r.get("student_id"), users))
-                .filter(r -> status == null || status.isBlank() || status.equalsIgnoreCase((String) r.get("status")))
-                .filter(r -> text.isEmpty() || java.util.stream.Stream.of("student_name", "student_code", "sponsor_name", "sponsor_code")
-                        .anyMatch(k -> String.valueOf(r.get(k)).toLowerCase(Locale.ROOT).contains(text)))
-                .peek(r -> r.remove("student_chapter_id"))
-                .toList();
+        Map<Long, User> scopeUsers = scope.all() ? Map.of() : studentScope.usersById();
+        List<PaymentInstallment> all = installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc().stream()
+                .filter(i -> scope.includesId(i.getGranteeId(), scopeUsers)).toList();
+        LocalDate today = LocalDate.now();
+        Map<Long, Integer> notice = noticeDays(all.stream().map(PaymentInstallment::getGranteeId).collect(java.util.stream.Collectors.toSet()));
+        Map<Long, User> users = new HashMap<>();
+        userRepository.findAllById(all.stream().flatMap(i -> java.util.stream.Stream.of(i.getGranteeId(), i.getGrantorId()))
+                .filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet())).forEach(u -> users.put(u.getId(), u));
+        Map<Long, Payment> payments = new HashMap<>();
+        paymentRepository.findAllById(all.stream().map(PaymentInstallment::getPaymentId).filter(Objects::nonNull).toList())
+                .forEach(p -> payments.put(p.getPaymentId(), p));
+
+        // Cards above the table: every status of the installments the user may see (search and status filter aside).
+        Map<String, long[]> counts = new LinkedHashMap<>();
+        Map<String, BigDecimal> amounts = new LinkedHashMap<>();
+        for (String st : List.of(OVERDUE, DUE, NOT_DUE, PAID)) { counts.put(st, new long[1]); amounts.put(st, BigDecimal.ZERO); }
+        List<PaymentInstallment> filtered = new ArrayList<>();
+        for (PaymentInstallment i : all) {
+            String st = status(i, today, notice.getOrDefault(i.getGranteeId(), DEFAULT_NOTICE_DAYS));
+            Payment p = i.getPaymentId() == null ? null : payments.get(i.getPaymentId());
+            BigDecimal amount = PAID.equals(st) ? (p == null || p.getAmount() == null ? BigDecimal.ZERO : p.getAmount()) : i.getAmount() == null ? BigDecimal.ZERO : i.getAmount();
+            counts.computeIfAbsent(st, k -> new long[1])[0]++;
+            amounts.merge(st, amount, BigDecimal::add);
+            if (status != null && !status.isBlank() && !status.equalsIgnoreCase(st)) continue;
+            User s = users.get(i.getGranteeId()), sp = users.get(i.getGrantorId());
+            if (!com.rahbar.util.Paging.matches(q, s == null ? null : s.getName(), s == null ? null : s.getUserId(),
+                    sp == null ? null : sp.getName(), sp == null ? null : sp.getUserId())) continue;
+            filtered.add(i);
+        }
+        Map<String, Object> body = com.rahbar.util.Paging.of(filtered, page, size, slice -> {
+            List<Map<String, Object>> rows = rows(slice, true);
+            rows.forEach(r -> r.remove("student_chapter_id"));
+            return rows;
+        });
+        List<Map<String, Object>> summary = new ArrayList<>();
+        counts.forEach((st, c) -> summary.add(Map.of("status", st, "count", c[0], "amount", amounts.get(st))));
+        body.put("summary", summary);
+        return body;
     }
 
     private List<Map<String, Object>> rows(List<PaymentInstallment> installments, boolean withNames) {

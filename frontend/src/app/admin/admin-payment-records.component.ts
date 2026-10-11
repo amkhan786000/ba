@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
-import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { PagerComponent } from '../shared/pager/pager.component';
+import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { isoDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
@@ -17,14 +18,14 @@ import { CardTableDirective } from '../shared/card-table.directive';
 @Component({
   selector: 'app-admin-payment-records',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Payment Records</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
 
     <div class="row">
       <div class="col-6 col-xl-3" *ngFor="let s of summary">
-        <div class="card-box clickable" [class.selected]="status === s.status" (click)="status = status === s.status ? '' : s.status; pg.reset()">
+        <div class="card-box clickable" [class.selected]="status === s.status" (click)="status = status === s.status ? '' : s.status; table.filter()">
           <h4 class="header-title mt-0"><span class="badge mr-1" [ngClass]="badge(s.status)">&nbsp;</span>{{ s.status }}</h4>
           <h2>{{ s.count }}</h2>
           <small class="text-muted">₹{{ s.amount | number: '1.0-2' }}</small>
@@ -39,15 +40,15 @@ import { CardTableDirective } from '../shared/card-table.directive';
             Installments are created when a student is mapped to a sponsor, from the course's semesters, the Payment Config
             of the student's session year and the student's payment start date. <strong>Due</strong> = due soon (see "Show as due" in Payment Config), <strong>Overdue</strong> = the date has passed and it isn't paid.
           </p>
-          <input class="form-control" style="max-width: 280px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="pg.reset()">
+          <input class="form-control" style="max-width: 280px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-centered mb-0">
             <thead><tr><th>Student</th><th>Sponsor</th><th>#</th><th>Due date</th><th>Amount</th><th>Status</th><th>Paid</th><th class="tablet-hide">Receipt</th><th *ngIf="canEdit"></th></tr></thead>
             <tbody>
-              <tr *ngIf="loading"><td colspan="9" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
-              <tr *ngIf="!loading && !visible.length"><td colspan="9" class="text-center text-muted">No installments.</td></tr>
-              <tr *ngFor="let r of visible | paginate: pg.page : pg.size">
+              <tr *ngIf="table.loading && !table.rows.length"><td colspan="9" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
+              <tr *ngIf="!table.loading && !table.rows.length"><td colspan="9" class="text-center text-muted">No installments.</td></tr>
+              <tr *ngFor="let r of table.rows">
                 <td><strong>{{ r.student_name }}</strong><div class="small text-muted">{{ r.student_code }}</div></td>
                 <td>{{ r.sponsor_name || '--' }}<div class="small text-muted">{{ r.sponsor_code }}</div></td>
                 <td>{{ r.installment_no }}</td>
@@ -67,7 +68,7 @@ import { CardTableDirective } from '../shared/card-table.directive';
           </table>
           <ng-template #dash>--</ng-template>
         </div>
-        <app-pager [state]="pg" [total]="visible.length"></app-pager>
+        <app-pager [state]="table.pg" [total]="table.total" (pageChange)="table.load()"></app-pager>
       </div>
     </div>
 
@@ -95,12 +96,12 @@ import { CardTableDirective } from '../shared/card-table.directive';
     </div>
   `
 })
-export class AdminPaymentRecordsComponent implements OnInit {
-  readonly pg = new PageState(25);
-  rows: InstallmentRow[] = [];
+export class AdminPaymentRecordsComponent implements OnInit, OnDestroy {
   q = '';
   status = '';
-  loading = false;
+  readonly table = new ServerTable<InstallmentRow, PagedResult<InstallmentRow> & { summary: { status: string; count: number; amount: number }[] }>(
+    (p) => this.api.get('/admin/payment-records', { q: this.q, status: this.status, ...p }),
+    (e) => (this.error = errorText(e, 'Could not load payment records.')));
   saving = false;
   message = '';
   error = '';
@@ -110,28 +111,11 @@ export class AdminPaymentRecordsComponent implements OnInit {
 
   get canEdit(): boolean { return this.auth.can('PAYMENT_RECORDS', 'EDIT'); }
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void { this.table.load(); }
+  ngOnDestroy(): void { this.table.destroy(); }
 
-  load(): void {
-    this.loading = true;
-    this.api.get<InstallmentRow[]>('/admin/payment-records').subscribe({
-      next: (r) => { this.loading = false; this.rows = r; },
-      error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load payment records.'); }
-    });
-  }
-
-  get summary(): { status: string; count: number; amount: number }[] {
-    return ['Overdue', 'Due', 'Not Due', 'Paid'].map((status) => {
-      const rows = this.rows.filter((r) => r.status === status);
-      return { status, count: rows.length, amount: rows.reduce((sum, r) => sum + Number(status === 'Paid' ? r.paid_amount ?? 0 : r.amount), 0) };
-    });
-  }
-
-  get visible(): InstallmentRow[] {
-    const q = this.q.trim().toLowerCase();
-    return this.rows.filter((r) => (!this.status || r.status === this.status)
-      && (!q || [r.student_name, r.student_code, r.sponsor_name, r.sponsor_code].some((v) => (v ?? '').toLowerCase().includes(q))));
-  }
+  /** Count and amount of each status (of everything the user may see; search and status filter aside). */
+  get summary(): { status: string; count: number; amount: number }[] { return this.table.last?.summary ?? []; }
 
   badge(status: string): string { return installmentBadge(status); }
   link(path: string | null): string | null { return uploadUrl(path); }
@@ -153,7 +137,7 @@ export class AdminPaymentRecordsComponent implements OnInit {
     if (this.pay.receipt) f.append('receipt', this.pay.receipt);
     this.saving = true;
     this.api.post<{ message: string }>('/admin/payments/record', f).subscribe({
-      next: (r) => { this.saving = false; this.pay = null; this.message = r.message; this.load(); },
+      next: (r) => { this.saving = false; this.pay = null; this.message = r.message; this.table.load(); },
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not record the payment.'); }
     });
   }
