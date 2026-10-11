@@ -1,9 +1,11 @@
 package com.rahbar.controller;
 
 import com.rahbar.service.PaymentReminderService;
+import com.rahbar.util.Paging;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -22,15 +24,28 @@ public class PaymentDuesController {
         this.paymentReminderService = paymentReminderService;
     }
 
+    /** One page of dues (one row per sponsored student), filtered by status and text, with the count of each status. */
     @GetMapping("/dues")
     @PreAuthorize("hasAuthority('PAYMENT_DUES:VIEW')")
-    public List<Map<String, Object>> dues() {
+    public Map<String, Object> dues(@RequestParam(required = false) String q,
+                                    @RequestParam(required = false) String status,
+                                    @RequestParam(required = false) Integer page,
+                                    @RequestParam(required = false) Integer size) {
         // Chapter / RCC-scoped users: only their own students' dues.
         com.rahbar.security.StudentScope.Scope scope = studentScope.current();
-        if (scope.all()) return paymentReminderService.dues();
-        Map<Long, com.rahbar.entity.User> users = studentScope.usersById();
-        return paymentReminderService.dues().stream()
+        Map<Long, com.rahbar.entity.User> users = scope.all() ? Map.of() : studentScope.usersById();
+        List<Map<String, Object>> all = paymentReminderService.dues().stream()
                 .filter(d -> scope.includesId(((Number) d.get("student_id")).longValue(), users)).toList();
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (String s : List.of("Overdue", "Due soon", "On schedule", "Completed", "On hold")) counts.put(s, 0L);
+        all.forEach(d -> counts.merge(String.valueOf(d.get("status")), 1L, Long::sum));
+        List<Map<String, Object>> filtered = all.stream()
+                .filter(d -> status == null || status.isBlank() || status.equals(d.get("status")))
+                .filter(d -> Paging.matches(q, d.get("student_name"), d.get("student_code"), d.get("sponsor_name"), d.get("sponsor_code")))
+                .toList();
+        Map<String, Object> body = Paging.of(filtered, page, size);
+        body.put("summary", counts);
+        return body;
     }
 
     /** Sends any reminders that haven't gone out yet (the same job runs automatically every morning). */
