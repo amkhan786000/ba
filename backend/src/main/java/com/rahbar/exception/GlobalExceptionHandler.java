@@ -10,6 +10,12 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private final com.rahbar.service.ErrorAlertService alerts;
+
+    public GlobalExceptionHandler(com.rahbar.service.ErrorAlertService alerts) {
+        this.alerts = alerts;
+    }
+
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<Map<String, Object>> handleApi(ApiException ex) {
         return ResponseEntity.status(ex.getStatus()).body(Map.of("error", ex.getMessage()));
@@ -34,9 +40,50 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", message));
     }
 
+    /**
+     * Anything unexpected: the user sees a short reference instead of the technical message (which could show SQL
+     * or other internals); the full error goes to the log and to the alert email (ErrorAlertService).
+     */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex) {
+    public ResponseEntity<Map<String, Object>> handleGeneric(Exception ex, jakarta.servlet.http.HttpServletRequest request) {
+        ResponseEntity<Map<String, Object>> client = clientError(ex);
+        if (client != null) return client;
+        if (clientGone(ex)) return null; // the browser closed the connection (e.g. a cancelled download): nothing to answer
+        String ref = alerts.record(ex, request.getMethod() + " " + request.getRequestURI());
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(Map.of("error", ex.getMessage() == null ? "Unexpected error" : ex.getMessage()));
+                .body(Map.of("error", "Something went wrong on our side. Please try again; if it keeps happening, tell the office (reference " + ref + ")."));
+    }
+
+    /**
+     * Mistakes in the request itself (unknown address, wrong method, unreadable JSON, missing or wrong parameter,
+     * file too large): answered with their own status and a plain message, and not reported as server errors.
+     */
+    static ResponseEntity<Map<String, Object>> clientError(Exception ex) {
+        if (ex instanceof org.springframework.web.multipart.MaxUploadSizeExceededException) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(Map.of("error", "The file is too large."));
+        }
+        if (ex instanceof org.springframework.http.converter.HttpMessageNotReadableException
+                || ex instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException
+                || ex instanceof org.springframework.web.bind.MissingServletRequestParameterException
+                || ex instanceof org.springframework.web.multipart.support.MissingServletRequestPartException) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "The request is incomplete or not in the expected format."));
+        }
+        if (ex instanceof org.springframework.web.ErrorResponse er && er.getStatusCode().is4xxClientError()) {
+            String message = er.getStatusCode().value() == 404 ? "Not found." : er.getStatusCode().value() == 405 ? "This action isn't allowed here."
+                    : "The request could not be handled.";
+            return ResponseEntity.status(er.getStatusCode()).body(Map.of("error", message));
+        }
+        return null;
+    }
+
+    /** The client hung up while we were answering (closed tab, cancelled download). */
+    static boolean clientGone(Throwable ex) {
+        for (Throwable t = ex; t != null; t = t.getCause() == t ? null : t.getCause()) {
+            String name = t.getClass().getSimpleName();
+            String msg = t.getMessage() == null ? "" : t.getMessage();
+            if (name.equals("ClientAbortException") || name.equals("AsyncRequestNotUsableException") || msg.contains("Broken pipe")
+                    || msg.contains("Connection reset by peer")) return true;
+        }
+        return false;
     }
 }

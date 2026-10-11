@@ -90,6 +90,34 @@ gunzip -c rahbar.sql.gz | docker exec -i rahbar-mysql sh -c 'mysql -uroot -p"$MY
 
 ---
 
+## Being told when something breaks
+
+**Error emails (built in).** When Rahbar hits an unexpected error, users see "Something went wrong ... (reference
+K7Q2ZP)" and the people below get an email listing what failed, how often and the reference (at most one email
+every 15 minutes; nothing when all is well). Background jobs that crash (reminders, scheduled broadcasts) are
+reported the same way. Search the backend log for the reference to see the full details:
+`docker compose -f docker-compose.prod.yml logs backend | grep K7Q2ZP`.
+
+Who gets them: every active Super Admin with a real email address, or, to choose, add a line to `/opt/rahbar/.env`
+and redeploy (or `docker compose -f docker-compose.prod.yml --env-file .env up -d`):
+
+```
+ALERT_EMAILS=you@example.com,colleague@example.com
+```
+
+Emails need the `MAIL_*` settings (step 4); without them the errors are only in the log.
+
+**Uptime check (free, outside the server).** Errors can't be emailed when the whole server is down, so let an outside
+service watch it. With [UptimeRobot](https://uptimerobot.com) (free plan, checks every 5 minutes):
+
+1. Sign up and add your email as an alert contact.
+2. *Add New Monitor* → type **Keyword**, URL `http://YOUR_SERVER_IP/api/public/health` (or `https://your-domain/...`),
+   keyword **UP**, alert when the keyword is **not** found. This is red when the backend or the database is down
+   (`/api/public/health` answers `{"status":"UP"}` only when the database answers too).
+3. *Add New Monitor* → type **HTTP(s)**, URL `http://YOUR_SERVER_IP:8090/` for the Bihar Anjuman website.
+
+You get an email when either goes down and when it is back.
+
 ## HTTPS later (when a domain points to the server)
 
 1. Create a DNS `A` record for your domain pointing to the server IP.
