@@ -43,8 +43,8 @@ public class RccStudentService {
         this.passwordEncoder = passwordEncoder;
     }
 
-    /** The students the signed-in user may see (optionally of one center), and the centers they may pick. */
-    public Map<String, Object> list(Long centerId) {
+    /** One page of the students the signed-in user may see (optionally of one center, matching q), and the centers they may pick. */
+    public Map<String, Object> list(Long centerId, String q, Integer page, Integer size) {
         StudentScope.Scope scope = studentScope.current();
         List<RccCenter> centers = centers(scope);
         Map<String, RccCenter> centerByName = new HashMap<>();
@@ -63,11 +63,15 @@ public class RccStudentService {
             RccCenter center = centerOf(u, g, centerByName);
             if (center == null) continue; // not at a coaching center (or one this user can't see)
             if (centerId != null && !centerId.equals(center.getRccCenterId())) continue;
-            rows.add(row(u, g, center));
+            Map<String, Object> r = row(u, g, center);
+            if (!com.rahbar.util.Paging.matches(q, r.get("name"), r.get("user_id"), r.get("phone"), r.get("email"), r.get("father_name"))) continue;
+            rows.add(r);
         }
         rows.sort(Comparator.comparing(r -> String.valueOf(r.get("name")), String.CASE_INSENSITIVE_ORDER));
-        return Map.of("students", rows, "centers", centers.stream().map(RccStudentService::center).toList(),
-                "scoped", !scope.all());
+        Map<String, Object> body = com.rahbar.util.Paging.of(rows, page, size);
+        body.put("centers", centers.stream().map(RccStudentService::center).toList());
+        body.put("scoped", !scope.all());
+        return body;
     }
 
     /** One student's personal and family details (404 when not one of the user's coaching center students). */

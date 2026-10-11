@@ -1,4 +1,4 @@
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -8,7 +8,8 @@ import { ChapterService } from '../core/services/chapter.service';
 import { Chapter } from './admin-chapters.component';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { BulkReport, BulkReportComponent } from '../shared/bulk-report.component';
-import { PagerComponent, pageOf } from '../shared/pager/pager.component';
+import { PagerComponent } from '../shared/pager/pager.component';
+import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { CardTableDirective } from '../shared/card-table.directive';
 
 interface SponsorRow {
@@ -63,12 +64,12 @@ interface FeeRow {
             <div class="row dt-toolbar mb-2">
               <div class="col-sm-6">
                 <label>Show
-                  <select class="form-control form-control-sm" [(ngModel)]="pageSize" (ngModelChange)="page = 1">
-                    <option [ngValue]="10">10</option><option [ngValue]="25">25</option><option [ngValue]="50">50</option><option [ngValue]="100000">All</option>
+                  <select class="form-control form-control-sm" [(ngModel)]="table.pg.size" (ngModelChange)="table.filter()">
+                    <option [ngValue]="10">10</option><option [ngValue]="25">25</option><option [ngValue]="50">50</option><option [ngValue]="100">100</option>
                   </select> entries</label>
               </div>
               <div class="col-sm-6 text-sm-right">
-                <label>Search:<input type="search" class="form-control form-control-sm" [(ngModel)]="search" (ngModelChange)="page = 1"></label>
+                <label>Search:<input type="search" class="form-control form-control-sm" [(ngModel)]="search" (ngModelChange)="table.search()"></label>
               </div>
             </div>
 
@@ -76,8 +77,8 @@ interface FeeRow {
               <table class="table table-bordered table-striped nowrap" style="width:100%">
                 <thead><tr><th>Sponsor Name</th><th>Students</th><th *ngIf="showDetails">Contact Info</th><th *ngIf="showDetails">Chapter</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="!filtered.length"><td [attr.colspan]="showDetails ? 5 : 3" class="text-center text-muted">No matching records found</td></tr>
-                  <tr *ngFor="let s of rows">
+                  <tr *ngIf="!table.loading && !table.rows.length"><td [attr.colspan]="showDetails ? 5 : 3" class="text-center text-muted">No matching records found</td></tr>
+                  <tr *ngFor="let s of table.rows">
                     <td><strong>{{ s.name }}</strong><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
                     <td><span class="badge badge-light border">{{ s.student_count }}</span></td>
                     <td *ngIf="showDetails">
@@ -103,7 +104,7 @@ interface FeeRow {
                 </tbody>
               </table>
             </div>
-            <app-pager [total]="filtered.length" [page]="page" [pageSize]="pageSize" (pageChange)="page = $event"></app-pager>
+            <app-pager [state]="table.pg" [total]="table.total" [sizes]="[]" (pageChange)="table.load()"></app-pager>
           </div>
         </div>
       </div>
@@ -266,7 +267,7 @@ interface FeeRow {
     </div>
   `
 })
-export class AdminSponsorshipsComponent implements OnInit {
+export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
   /** Area this page is shown in ('admin' or 'office'); set from route data, defaults to admin. */
   @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
   get section(): string { return this._section; }
@@ -279,10 +280,10 @@ export class AdminSponsorshipsComponent implements OnInit {
   get showDetails(): boolean { return this.auth.can('SPONSOR_DETAILS'); }
   /** Edit Profile: Manage on Sponsor details. */
   get canEditProfile(): boolean { return this.auth.can('SPONSOR_DETAILS', 'EDIT'); }
-  sponsors: SponsorRow[] = [];
   search = '';
-  page = 1;
-  pageSize = 10;
+  readonly table = new ServerTable<SponsorRow>(
+    (p) => this.api.get<PagedResult<SponsorRow>>('/admin/sponsorships', { q: this.search, ...p }),
+    (e) => (this.error = errorText(e, 'Could not load sponsors.')), 10);
   message = '';
   error = '';
 
@@ -365,21 +366,9 @@ export class AdminSponsorshipsComponent implements OnInit {
     if (this.canEditProfile) this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
   }
 
-  load(): void {
-    this.api.get<SponsorRow[]>('/admin/sponsorships').subscribe({
-      next: (s) => (this.sponsors = s),
-      error: (e) => (this.error = errorText(e, 'Could not load sponsors.'))
-    });
-  }
+  load(): void { this.table.load(); }
 
-  /** Same as the DataTable's global search: any cell containing the text. */
-  get filtered(): SponsorRow[] {
-    const f = this.search.trim().toLowerCase();
-    if (!f) return this.sponsors;
-    return this.sponsors.filter((s) =>
-      [s.name, s.user_id, s.email, s.phone, s.chapter_name].some((v) => (v ?? '').toLowerCase().includes(f)));
-  }
-  get rows(): SponsorRow[] { return pageOf(this.filtered, this.page, this.pageSize); }
+  ngOnDestroy(): void { this.table.destroy(); }
 
   /** Result of the last bulk upload (shown in a results window). */
   report: BulkReport | null = null;

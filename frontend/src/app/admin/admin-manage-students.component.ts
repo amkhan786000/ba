@@ -1,11 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CourseRow } from './admin-courses.component';
 import { Institution } from './admin-course-edit.component';
-import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { PagerComponent } from '../shared/pager/pager.component';
+import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { CardTableDirective } from '../shared/card-table.directive';
 
 interface ManagedStudent {
@@ -18,7 +19,7 @@ interface ManagedStudent {
 @Component({
   selector: 'app-admin-manage-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   styles: [`.btn-xs { padding: .15rem .45rem; font-size: .75rem; } .filter-btns { margin-right: 4px; }`],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Students</h4></div></div></div>
@@ -32,7 +33,7 @@ interface ManagedStudent {
             <div class="row">
               <div class="col-12 col-md-3">
                 <div class="form-group"><label>Search (Any Field)</label>
-                  <input type="text" class="form-control" placeholder="Name, Email, Phone..." [(ngModel)]="search" (ngModelChange)="applyFilters()">
+                  <input type="text" class="form-control" placeholder="Name, Email, Phone..." [(ngModel)]="search" (ngModelChange)="table.search()">
                 </div>
               </div>
               <div class="col-12 col-md-3">
@@ -71,7 +72,8 @@ interface ManagedStudent {
               <table class="table table-centered table-striped mb-0">
                 <thead><tr><th>Student Name</th><th>Email</th><th>Student Phone</th><th>Chapter</th><th>Sponsor</th><th>Institution</th><th>Course</th><th>Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngFor="let s of shown | paginate: pg.page : pg.size">
+                  <tr *ngIf="!table.loading && !table.rows.length"><td colspan="8" class="text-center text-muted">No students found.</td></tr>
+                  <tr *ngFor="let s of table.rows">
                     <td><strong>{{ s.student_name }}</strong></td>
                     <td>{{ s.student_email }}</td>
                     <td>{{ s.student_phone }}</td>
@@ -84,7 +86,7 @@ interface ManagedStudent {
                 </tbody>
               </table>
             </div>
-            <app-pager [state]="pg" [total]="shown.length"></app-pager>
+            <app-pager [state]="table.pg" [total]="table.total" (pageChange)="table.load()"></app-pager>
           </div>
         </div>
       </div>
@@ -122,15 +124,15 @@ interface ManagedStudent {
     </div>
   `
 })
-export class AdminManageStudentsComponent implements OnInit {
-  readonly pg = new PageState();
-  students: ManagedStudent[] = [];
-  shown: ManagedStudent[] = [];
+export class AdminManageStudentsComponent implements OnInit, OnDestroy {
   institutions: Institution[] = [];
   courses: CourseRow[] = [];
   search = '';
   fInst = '';
   fCourse = '';
+  readonly table = new ServerTable<ManagedStudent>(
+    (p) => this.api.get<PagedResult<ManagedStudent>>('/admin/manage-students', { q: this.search, institutionId: this.fInst, courseId: this.fCourse, ...p }),
+    (e) => (this.error = errorText(e, 'Could not load students.')), 10);
   /** id: the student's users.id. */
   assign: { id: number; institutionId: string; courseId: string } | null = null;
   saving = false;
@@ -145,26 +147,14 @@ export class AdminManageStudentsComponent implements OnInit {
     this.load();
   }
 
-  load(): void {
-    this.api.get<ManagedStudent[]>('/admin/manage-students').subscribe({
-      next: (s) => { this.students = s; this.applyFilters(); },
-      error: (e) => (this.error = errorText(e, 'Could not load students.'))
-    });
-  }
+  ngOnDestroy(): void { this.table.destroy(); }
 
-  /** Same as the page script: institution + course dropdowns, plus text search across the row. */
-  applyFilters(): void {
-    const term = this.search.trim().toLowerCase();
-    this.shown = this.students.filter((s) => {
-      const text = [s.student_name, s.student_email, s.student_phone, s.chapter_name, s.sponsor_name ?? 'Unassigned',
-        s.institution_name ?? 'Unassigned', s.course_name ?? 'Unassigned'].join(' ').toLowerCase();
-      return (!this.fInst || String(s.institution_id) === this.fInst)
-        && (!this.fCourse || String(s.course_id) === this.fCourse)
-        && (!term || text.includes(term));
-    });
-  }
+  load(): void { this.table.load(); }
 
-  reset(): void { this.search = ''; this.fInst = ''; this.fCourse = ''; this.shown = [...this.students]; }
+  /** Institution + course dropdowns, plus text search across the row (on the server). */
+  applyFilters(): void { this.table.filter(); }
+
+  reset(): void { this.search = ''; this.fInst = ''; this.fCourse = ''; this.table.filter(); }
 
   coursesFor(instId: string): CourseRow[] {
     return instId ? this.courses.filter((c) => String(c.institution_id) === String(instId)) : [];

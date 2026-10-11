@@ -1,10 +1,12 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { tap } from 'rxjs';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
-import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
+import { PagerComponent } from '../shared/pager/pager.component';
+import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { CardTableDirective } from '../shared/card-table.directive';
 
 interface RccStudent {
@@ -30,7 +32,7 @@ interface StudentForm {
 @Component({
   selector: 'app-admin-rcc-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Coaching Center Students</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -49,10 +51,10 @@ interface StudentForm {
         </p>
         <div class="row mb-3">
           <div class="col-12 col-md-5 mb-2 mb-md-0">
-            <input class="form-control" placeholder="Search name, reference ID, phone, father's name" [(ngModel)]="q" (ngModelChange)="pg.reset()">
+            <input class="form-control" placeholder="Search name, reference ID, phone, father's name" [(ngModel)]="q" (ngModelChange)="table.search()">
           </div>
           <div class="col-12 col-md-4" *ngIf="!scoped">
-            <select class="form-control" [(ngModel)]="centerId" (ngModelChange)="pg.reset()">
+            <select class="form-control" [(ngModel)]="centerId" (ngModelChange)="table.filter()">
               <option [ngValue]="null">All centers</option>
               <option *ngFor="let c of centers" [ngValue]="c.rcc_center_id">{{ c.center_name }}</option>
             </select>
@@ -62,9 +64,9 @@ interface StudentForm {
           <table class="table table-sm table-centered mb-0">
             <thead><tr><th>Student</th><th>Reference ID</th><th>Phone</th><th>Father</th><th *ngIf="!scoped">Center</th><th></th></tr></thead>
             <tbody>
-              <tr *ngIf="loading"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
-              <tr *ngIf="!loading && !visible.length"><td colspan="6" class="text-center text-muted">No students found.</td></tr>
-              <tr *ngFor="let r of visible | paginate: pg.page : pg.size">
+              <tr *ngIf="table.loading && !table.rows.length"><td colspan="6" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
+              <tr *ngIf="!table.loading && !table.rows.length"><td colspan="6" class="text-center text-muted">No students found.</td></tr>
+              <tr *ngFor="let r of table.rows">
                 <td><strong>{{ r.name }}</strong><div class="small text-muted">{{ r.email }}</div></td>
                 <td><span *ngIf="r.user_id; else pending">{{ r.user_id }}</span><ng-template #pending><span class="badge badge-light border">Not assigned</span></ng-template></td>
                 <td>{{ r.phone || '--' }}</td>
@@ -75,7 +77,7 @@ interface StudentForm {
             </tbody>
           </table>
         </div>
-        <app-pager [state]="pg" [total]="visible.length"></app-pager>
+        <app-pager [state]="table.pg" [total]="table.total" (pageChange)="table.load()"></app-pager>
       </div>
     </div>
 
@@ -130,14 +132,13 @@ interface StudentForm {
     </div>
   `
 })
-export class AdminRccStudentsComponent implements OnInit {
-  readonly pg = new PageState(25);
-  rows: RccStudent[] = [];
-  centers: Center[] = [];
-  scoped = false;
+export class AdminRccStudentsComponent implements OnInit, OnDestroy {
   q = '';
   centerId: number | null = null;
-  loading = false;
+  readonly table = new ServerTable<RccStudent, PagedResult<RccStudent> & { centers: Center[]; scoped: boolean }>(
+    (p) => this.api.get<PagedResult<RccStudent> & { centers: Center[]; scoped: boolean }>('/admin/rcc-students', { q: this.q, centerId: this.centerId, ...p })
+      .pipe(tap((r) => { if (r.scoped && !r.centers.length) this.error = 'Your account is not linked to an RCC center. Ask the office to set it.'; })),
+    (e) => (this.error = errorText(e, 'Could not load the students.')));
   saving = false;
   message = '';
   error = '';
@@ -150,25 +151,13 @@ export class AdminRccStudentsComponent implements OnInit {
 
   ngOnInit(): void { this.load(); }
 
-  load(): void {
-    this.loading = true;
-    this.api.get<{ students: RccStudent[]; centers: Center[]; scoped: boolean }>('/admin/rcc-students').subscribe({
-      next: (r) => {
-        this.loading = false;
-        this.rows = r.students;
-        this.centers = r.centers;
-        this.scoped = r.scoped;
-        if (this.scoped && !this.centers.length) this.error = 'Your account is not linked to an RCC center. Ask the office to set it.';
-      },
-      error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load the students.'); }
-    });
-  }
+  ngOnDestroy(): void { this.table.destroy(); }
 
-  get visible(): RccStudent[] {
-    const q = this.q.trim().toLowerCase();
-    return this.rows.filter((r) => (this.centerId === null || r.rcc_center_id === this.centerId)
-      && (!q || [r.name, r.user_id, r.phone, r.email, r.father_name].some((v) => (v ?? '').toLowerCase().includes(q))));
-  }
+  load(): void { this.table.load(); }
+
+  /** The centers this user may pick, and whether they are tied to their own center (from the last answer). */
+  get centers(): Center[] { return this.table.last?.centers ?? []; }
+  get scoped(): boolean { return this.table.last?.scoped ?? false; }
 
   openNew(): void {
     this.editId = null;

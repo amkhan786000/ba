@@ -20,8 +20,9 @@ public class RccStudentController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('RCC_STUDENTS:VIEW')")
-    public Map<String, Object> list(@RequestParam(required = false) Long centerId) {
-        return rccStudentService.list(centerId);
+    public Map<String, Object> list(@RequestParam(required = false) Long centerId, @RequestParam(required = false) String q,
+                                    @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
+        return rccStudentService.list(centerId, q, page, size);
     }
 
     @GetMapping("/{id}")

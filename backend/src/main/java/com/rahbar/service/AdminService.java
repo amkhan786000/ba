@@ -584,8 +584,17 @@ public class AdminService {
 
     // ------------------------------------------------------------------ manage students
 
-    public List<Map<String, Object>> manageStudents() {
-        return visibleStudentRows(userRepository.findStudentOverview());
+    /** One page of students with their sponsor, institution and course, filtered by institution, course and text. */
+    public Map<String, Object> manageStudents(String q, String institutionId, Long courseId, Integer page, Integer size) {
+        List<Map<String, Object>> rows = visibleStudentRows(userRepository.findStudentOverview()).stream()
+                .filter(r -> institutionId == null || institutionId.isBlank() || institutionId.equals(String.valueOf(r.get("institution_id"))))
+                .filter(r -> courseId == null || courseId.equals(toLong(r.get("course_id"))))
+                .filter(r -> com.rahbar.util.Paging.matches(q, r.get("student_name"), r.get("student_email"), r.get("student_phone"),
+                        r.get("chapter_name"), r.get("sponsor_name") == null ? "Unassigned" : r.get("sponsor_name"),
+                        r.get("institution_name") == null ? "Unassigned" : r.get("institution_name"),
+                        r.get("course_name") == null ? "Unassigned" : r.get("course_name")))
+                .toList();
+        return com.rahbar.util.Paging.of(rows, page, size);
     }
 
     public void assignStudentCourse(Long userId, String institutionId, Long courseId) {
