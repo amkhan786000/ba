@@ -61,6 +61,8 @@ public enum Section {
      */
     WEBSITE_BLOG("Website: blog"),
     WEBSITE_BLOG_PUBLISH("Website: publish blog posts"),
+    /** The Knowledge Hub categories every post belongs to (Articles, Research, ...): add, rename, order, hide. */
+    WEBSITE_BLOG_CATEGORIES("Website: blog categories"),
     /** Success stories; chapter / RCC-scoped users only their own chapter's / center's. Publishing needs WEBSITE_STORIES_PUBLISH. */
     WEBSITE_STORIES("Website: success stories"),
     WEBSITE_STORIES_PUBLISH("Website: publish success stories"),

@@ -24,8 +24,9 @@ class WebsiteAdminRulesTest {
     private final WebBlogPostRepository posts = mock(WebBlogPostRepository.class);
     private final WebProjectRepository projects = mock(WebProjectRepository.class);
     private final WebsiteNotifier notifier = mock(WebsiteNotifier.class);
+    private final WebBlogCategoryRepository categories = mock(WebBlogCategoryRepository.class);
     private final WebsiteAdminPostsController.Blog blog =
-            new WebsiteAdminPostsController.Blog(posts, projects, mock(UserRepository.class), notifier);
+            new WebsiteAdminPostsController.Blog(posts, projects, mock(UserRepository.class), notifier, categories);
 
     private final WebStoryRepository stories = mock(WebStoryRepository.class);
     private final WebsiteAdminPostsController.Stories storyAdmin = new WebsiteAdminPostsController.Stories(stories, projects,

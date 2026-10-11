@@ -5,8 +5,8 @@ import { Section } from '../../core/models/user.model';
  * edit them all. Keys are the JSON fields of the records (/api/admin/website/<path>).
  */
 
-export type FieldType = 'text' | 'textarea' | 'markdown' | 'number' | 'date' | 'datetime' | 'bool' | 'select' | 'ref' | 'image' | 'info';
-export type RefList = 'projects' | 'chapters' | 'centers';
+export type FieldType = 'text' | 'textarea' | 'markdown' | 'number' | 'date' | 'datetime' | 'bool' | 'select' | 'ref' | 'image' | 'file' | 'info';
+export type RefList = 'projects' | 'chapters' | 'centers' | 'categories';
 
 export interface WebsiteField {
   key: string;
@@ -26,6 +26,8 @@ export interface WebsiteField {
   emptyLabel?: string;
   /** Only shown to (and sent by) users with EDIT on this section, e.g. "Published" for publishers. */
   requires?: Section;
+  /** File field: the field that gets the uploaded file's name (shown on the website's download button). */
+  nameField?: string;
 }
 
 export interface WebsiteResource {
@@ -42,7 +44,7 @@ export interface WebsiteResource {
   /** A yes / no field with a one-click button in the list (publish, approve, handled ...). */
   toggle?: { key: string; on: string; off: string; requires?: Section };
   /** Urdu / Hindi versions of these fields (record type for /api/admin/website/translations). */
-  translate?: { type: 'PROJECT' | 'NEWS' | 'STORY' | 'PAGE'; fields: string[] };
+  translate?: { type: 'PROJECT' | 'NEWS' | 'STORY' | 'PAGE' | 'CATEGORY'; fields: string[] };
 }
 
 const STATES = ['BIHAR', 'JHARKHAND', 'OTHER'];
@@ -51,12 +53,14 @@ const MARKDOWN = 'Markdown: ## Heading, **bold**, *italic*, - list, [link](https
 export const WEBSITE_RESOURCES: WebsiteResource[] = [
   {
     path: 'blog', section: 'WEBSITE_BLOG', label: 'Blog', canCreate: true,
-    intro: 'Posts on the website’s blog. Everyone with blog access can write; publishers check and publish them.',
-    defaults: { published: false, reviewRequested: false, topic: 'Community', projectId: null },
+    intro: 'Posts of the website’s Media & Knowledge Hub (articles, research, case studies, reports, interviews). Everyone with blog access can write; publishers check and publish them.',
+    defaults: { published: false, reviewRequested: false, topic: 'Community', projectId: null, categoryId: null },
     toggle: { key: 'published', on: 'Unpublish', off: 'Publish', requires: 'WEBSITE_BLOG_PUBLISH' },
     fields: [
       { key: 'title', label: 'Title', type: 'text', required: true, column: true },
       { key: 'status', label: 'Status', type: 'info', column: true },
+      { key: 'categoryId', label: 'Category', type: 'ref', ref: 'categories', column: true, required: true,
+        hint: 'The Knowledge Hub section the post appears in. Categories are on the Categories tab.' },
       { key: 'slug', label: 'Slug (address)', type: 'text', required: true, hint: 'Filled in from the title. The post opens at /blog/<slug>.' },
       { key: 'projectId', label: 'Project', type: 'ref', ref: 'projects', column: true, emptyLabel: 'Others (not about a specific project)',
         hint: 'The post is also shown on this project’s page. “Others” = only on the blog.' },
@@ -69,7 +73,29 @@ export const WEBSITE_RESOURCES: WebsiteResource[] = [
         hint: 'Leave empty to use the moment it is first published.' },
       { key: 'coverImageUrl', label: 'Cover image', type: 'image' },
       { key: 'summary', label: 'Summary', type: 'textarea', hint: 'One or two sentences shown on the blog list.' },
-      { key: 'content', label: 'Content', type: 'markdown', required: true, hint: MARKDOWN }
+      { key: 'content', label: 'Content', type: 'markdown', required: true, hint: MARKDOWN },
+      { key: 'subjectName', label: 'Interviewee / subject (optional)', type: 'text',
+        hint: 'For interviews and case studies: the person or place the post is about.' },
+      { key: 'subjectDetails', label: 'About them (optional)', type: 'textarea', hint: 'One line, e.g. “Class of 2019, now a civil engineer in Patna”.' },
+      { key: 'mediaUrl', label: 'Video / audio link (optional)', type: 'text',
+        hint: 'A YouTube, Vimeo or SoundCloud link (https://…); YouTube and Vimeo play on the page.' },
+      { key: 'attachmentUrl', label: 'PDF to download (optional)', type: 'file', nameField: 'attachmentName',
+        hint: 'A research paper or report, up to 20 MB, shown as a Download button.' },
+      { key: 'attachmentName', label: 'Download button text', type: 'text', hint: 'e.g. “Full report (PDF)”. Filled in from the file name.' }
+    ]
+  },
+  {
+    path: 'categories', section: 'WEBSITE_BLOG_CATEGORIES', label: 'Categories', canCreate: true,
+    intro: 'The sections of the website’s Media & Knowledge Hub. Every post has one; hidden categories (and their posts) are not shown on the website.',
+    translate: { type: 'CATEGORY', fields: ['name', 'description'] },
+    defaults: { active: true, displayOrder: 0 },
+    toggle: { key: 'active', on: 'Hide', off: 'Show' },
+    fields: [
+      { key: 'name', label: 'Name', type: 'text', required: true, column: true },
+      { key: 'slug', label: 'Slug (address)', type: 'text', required: true, column: true, hint: 'The section opens at /knowledge-hub/<slug>.' },
+      { key: 'description', label: 'Description', type: 'textarea', hint: 'One sentence shown under the name.' },
+      { key: 'displayOrder', label: 'Order', type: 'number', column: true, hint: 'Lower numbers show first.' },
+      { key: 'active', label: 'Shown on the website', type: 'bool', column: true }
     ]
   },
   {

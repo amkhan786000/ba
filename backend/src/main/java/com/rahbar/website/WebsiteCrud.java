@@ -67,6 +67,11 @@ public abstract class WebsiteCrud<T extends Modifiable> {
         return Map.of();
     }
 
+    /** Order of the list (default: newest first). */
+    protected Sort listOrder() {
+        return Sort.by(Sort.Direction.DESC, "id");
+    }
+
     @Autowired
     private WebTranslationRepository translations;
 
@@ -76,7 +81,7 @@ public abstract class WebsiteCrud<T extends Modifiable> {
     @Transactional(readOnly = true)
     public Map<String, Object> list() {
         WebsiteSupport.require(section, Section.Level.VIEW);
-        List<T> rows = repository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream().filter(this::inScope).toList();
+        List<T> rows = repository.findAll(listOrder()).stream().filter(this::inScope).toList();
         return Map.of("data", rows, "names", names(rows));
     }
 

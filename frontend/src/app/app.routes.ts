@@ -61,6 +61,7 @@ import { AdminVolunteersComponent } from './admin/admin-volunteers.component';
 import { WebsiteRecordsComponent } from './admin/website/website-records.component';
 import { WebsiteGalleryComponent } from './admin/website/website-gallery.component';
 import { WebsitePagesComponent } from './admin/website/website-pages.component';
+import { WebsiteBlogComponent } from './admin/website/website-blog.component';
 import { StudentAlumniComponent } from './student/student-alumni.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
 import { TrackApplicationComponent } from './public/track.component';
@@ -134,7 +135,7 @@ export const routes: Routes = [
       { path: 'rcc-students', component: AdminRccStudentsComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'volunteers', component: AdminVolunteersComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEERS' } },
       // Admin > Website: the Bihar Anjuman website (biharanjuman.com)
-      { path: 'website/blog', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_BLOG', resource: 'blog' } },
+      { path: 'website/blog', component: WebsiteBlogComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_BLOG' } },
       { path: 'website/stories', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_STORIES', resource: 'stories' } },
       { path: 'website/gallery', component: WebsiteGalleryComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_GALLERY' } },
       { path: 'website/directory', component: WebsiteRecordsComponent, canActivate: [permissionGuard], data: { permission: 'WEBSITE_DIRECTORY', resource: 'directory' } },

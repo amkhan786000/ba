@@ -21,6 +21,7 @@ import java.util.*;
 public class WebsiteAdminContentController {
 
     static final long MAX_PHOTO = 10L * 1024 * 1024;
+    static final long MAX_DOCUMENT = 20L * 1024 * 1024;
     private static final Sort GALLERY_ORDER = Sort.by(Sort.Order.asc("displayOrder"), Sort.Order.desc("id"));
     /** Sections whose screens upload photos from a form (cover image, story photo, project image ...). */
     private static final List<Section> UPLOADERS = List.of(Section.WEBSITE_GALLERY, Section.WEBSITE_BLOG, Section.WEBSITE_STORIES,
@@ -38,12 +39,13 @@ public class WebsiteAdminContentController {
     private final ChapterRepository chapters;
     private final RccCenterRepository centers;
     private final UserRepository users;
+    private final WebBlogCategoryRepository categories;
 
     public WebsiteAdminContentController(WebGalleryImageRepository images, WebsiteImageStorage storage, WebContentRepository content,
                                          WebTranslationRepository translations, WebRevisionRepository revisionRepo,
                                          WebsiteRevisions revisions, WebNewsRepository news, WebStoryRepository stories,
                                          WebProjectRepository projects, ChapterRepository chapters, RccCenterRepository centers,
-                                         UserRepository users) {
+                                         UserRepository users, WebBlogCategoryRepository categories) {
         this.images = images;
         this.storage = storage;
         this.content = content;
@@ -56,6 +58,7 @@ public class WebsiteAdminContentController {
         this.chapters = chapters;
         this.centers = centers;
         this.users = users;
+        this.categories = categories;
     }
 
     private static boolean anyWebsite(Section.Level level) {
@@ -82,6 +85,8 @@ public class WebsiteAdminContentController {
         out.put("chapters", chapters.findAllByOrderByChapterNameAsc().stream().map(c -> new Option(c.getChapterId(), c.getChapterName())).toList());
         out.put("centers", centers.findAll().stream().map(c -> new Option(c.getRccCenterId(), c.getCenterName()))
                 .sorted(Comparator.comparing(o -> o.name() == null ? "" : o.name(), String.CASE_INSENSITIVE_ORDER)).toList());
+        out.put("categories", categories.findAllByOrderByDisplayOrderAscNameAsc().stream()
+                .map(c -> new Option(c.getId(), c.isActive() ? c.getName() : c.getName() + " (hidden)")).toList());
         out.put("images", images.findAll(GALLERY_ORDER).stream().map(g -> new ImageOption(g.getId(), g.getTitle(), g.getAlbum(), g.getUrl())).toList());
         return out;
     }
@@ -173,6 +178,16 @@ public class WebsiteAdminContentController {
         img.setSizeBytes(stored.size());
         images.save(img);
         return Map.of("url", img.getUrl());
+    }
+
+    /** A PDF for a post (research paper, report): kept as a file only, returned as /api/documents/<file>. */
+    @PostMapping(value = "/document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @ResponseStatus(HttpStatus.CREATED)
+    public Map<String, String> document(@RequestParam("file") MultipartFile file) {
+        WebsiteSupport.require(Section.WEBSITE_BLOG, Section.Level.VIEW);
+        var stored = storage.storeDocument(file, MAX_DOCUMENT);
+        String name = file.getOriginalFilename() == null ? "Download" : file.getOriginalFilename().replaceAll("(?i)\\.pdf$", "").replaceAll("[\\r\\n]", " ").strip();
+        return Map.of("url", "/api/documents/" + stored.fileName(), "name", name.isEmpty() ? "Download" : name.substring(0, Math.min(200, name.length())));
     }
 
     // ---- page text -----------------------------------------------------------------------------------------------

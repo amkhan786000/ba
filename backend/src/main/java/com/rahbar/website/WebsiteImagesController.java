@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Website photos at the same URL the website uses ({@code /api/images/<file>}), so Rahbar's admin screens can show
- * the images stored in website content. Open to everyone (SecurityConfig), like on the website.
+ * Website photos and PDFs at the same URLs the website uses ({@code /api/images/<file>}, {@code /api/documents/<file>}),
+ * so Rahbar's admin screens can show what website content links to. Open to everyone (SecurityConfig), like on the website.
  */
 @RestController
 public class WebsiteImagesController {
@@ -21,6 +21,11 @@ public class WebsiteImagesController {
 
     @GetMapping("/api/images/{fileName}")
     public ResponseEntity<Resource> image(@PathVariable String fileName) {
-        return WebsitePublicController.serve(storage, fileName);
+        return WebsitePublicController.serve(storage, fileName, false);
+    }
+
+    @GetMapping("/api/documents/{fileName}")
+    public ResponseEntity<Resource> document(@PathVariable String fileName) {
+        return WebsitePublicController.serve(storage, fileName, true);
     }
 }

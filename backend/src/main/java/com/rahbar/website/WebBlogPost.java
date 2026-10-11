@@ -28,6 +28,20 @@ public class WebBlogPost extends Modifiable {
     private String slug;
     @Column(nullable = false, length = 80)
     private String topic;
+    /** Knowledge Hub section (Articles, Research, ...). */
+    private Long categoryId;
+    /** A PDF to download (research paper, report): /api/documents/<file>, and the name shown on the button. */
+    private String attachmentUrl;
+    @Column(length = 200)
+    private String attachmentName;
+    /** A video / audio link (YouTube, Vimeo, SoundCloud ...), mainly for interviews. */
+    @Column(length = 500)
+    private String mediaUrl;
+    /** The person interviewed / the subject of a case study, and a line about them. */
+    @Column(length = 200)
+    private String subjectName;
+    @Column(length = 600)
+    private String subjectDetails;
     @Column(length = 120)
     private String author;
     /** Email of a visitor who sent the post (never shown on the website). */

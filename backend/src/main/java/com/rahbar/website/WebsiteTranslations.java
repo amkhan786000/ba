@@ -25,6 +25,8 @@ public class WebsiteTranslations {
             "nowWhere", WebStory::setNowWhere);
     static final Map<String, BiConsumer<WebPage, String>> PAGE = Map.of(
             "title", WebPage::setTitle, "body", WebPage::setBody);
+    static final Map<String, BiConsumer<WebBlogCategory, String>> CATEGORY = Map.of(
+            "name", WebBlogCategory::setName, "description", WebBlogCategory::setDescription);
 
     private final WebTranslationRepository repo;
 

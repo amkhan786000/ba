@@ -29,6 +29,20 @@ final class WebsiteAdminPostsController {
     /** Rahbar Coaching Centres: the project every RCC story belongs to. */
     static final String COACHING_PROJECT = "rahbar-coaching-centres";
 
+    /** A PDF uploaded here (/api/documents/<file>), or nothing. */
+    static String document(String url) {
+        String u = WebsiteSupport.text(url, "Download", 255, false);
+        if (u != null && !u.matches("/api/documents/[a-f0-9]{32}\\.pdf")) throw WebsiteSupport.bad("Upload the PDF with the Upload button.");
+        return u;
+    }
+
+    /** A video / audio link: an https:// address. */
+    static String mediaLink(String url) {
+        String u = WebsiteSupport.text(url, "Video / audio link", 500, false);
+        if (u != null && !u.matches("(?i)https://[^\\s<>\"]+")) throw WebsiteSupport.bad("The video / audio link must start with https://");
+        return u;
+    }
+
     private static Map<Long, String> names(UserRepository users, Collection<? extends com.rahbar.entity.Modifiable> rows) {
         Set<Long> ids = new HashSet<>();
         rows.forEach(r -> {
@@ -47,12 +61,15 @@ final class WebsiteAdminPostsController {
         private final WebProjectRepository projects;
         private final UserRepository users;
         private final WebsiteNotifier notifier;
+        private final WebBlogCategoryRepository categories;
 
-        Blog(WebBlogPostRepository posts, WebProjectRepository projects, UserRepository users, WebsiteNotifier notifier) {
+        Blog(WebBlogPostRepository posts, WebProjectRepository projects, UserRepository users, WebsiteNotifier notifier,
+             WebBlogCategoryRepository categories) {
             this.posts = posts;
             this.projects = projects;
             this.users = users;
             this.notifier = notifier;
+            this.categories = categories;
         }
 
         static boolean canPublish() {
@@ -126,12 +143,27 @@ final class WebsiteAdminPostsController {
             p.setCoverImageUrl(WebsiteSupport.text(body.getCoverImageUrl(), "Cover image", 255, false));
             if (body.getProjectId() != null && !projects.existsById(body.getProjectId())) throw WebsiteSupport.bad("Unknown project.");
             p.setProjectId(body.getProjectId());
+            p.setCategoryId(category(body.getCategoryId()));
+            p.setAttachmentUrl(document(body.getAttachmentUrl()));
+            p.setAttachmentName(WebsiteSupport.text(body.getAttachmentName(), "Name of the download", 200, false));
+            p.setMediaUrl(mediaLink(body.getMediaUrl()));
+            p.setSubjectName(WebsiteSupport.text(body.getSubjectName(), "Interviewee / subject", 200, false));
+            p.setSubjectDetails(WebsiteSupport.text(body.getSubjectDetails(), "About the interviewee / subject", 600, false));
             p.setReviewRequested(body.isReviewRequested());
             if (canPublish()) {
                 p.setPublished(body.isPublished());
                 p.setPublishedAt(body.getPublishedAt());
                 if (p.isPublished()) p.setReviewRequested(false);
             }
+        }
+
+        /** The chosen category, or Articles when none is chosen. */
+        private Long category(Long id) {
+            if (id != null) {
+                if (!categories.existsById(id)) throw WebsiteSupport.bad("Unknown category.");
+                return id;
+            }
+            return categories.findBySlug("articles").map(WebBlogCategory::getId).orElse(null);
         }
 
         private void checkMayChange(WebBlogPost p) {
