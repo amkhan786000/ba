@@ -18,8 +18,17 @@ interface Check {
   key: string; title: string; description: string; count: number; rows: Record<string, unknown>[];
   /** Menu group (NAV_GROUPS key) and the admin screen where it is fixed. */
   group: string; link: string;
+  /** The check's students follow the study status filter. */
+  study_filtered?: boolean;
 }
 interface Group { key: string; label: string; icon: string; checks: Check[]; problems: number }
+
+/** Study statuses (Student Directory > Study tab), in the order of that tab. */
+const STUDY_STATUSES = [
+  { code: 'STUDYING', label: 'Studying' }, { code: 'ON_HOLD', label: 'On hold' },
+  { code: 'GRADUATED', label: 'Graduated' }, { code: 'DROPPED_OUT', label: 'Dropped out' }
+];
+const STUDY_KEY = 'dq-study-status';
 
 /** Same order as the admin menu. */
 const GROUP_ORDER = ['students', 'sponsors', 'community', 'website', 'administration'];
@@ -42,6 +51,7 @@ const HIDDEN = new Set(['role_id', 'group']);
     .check-table td, .check-table th { white-space: nowrap; }
     .group-head { cursor: pointer; user-select: none; }
     .group-chip { cursor: pointer; }
+    .study-filter label { cursor: pointer; }
   `],
   template: `
     <div class="row">
@@ -53,6 +63,18 @@ const HIDDEN = new Set(['role_id', 'group']);
       </div>
     </div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
+
+    <div class="card mb-3">
+      <div class="card-body py-2 d-flex flex-wrap align-items-center study-filter">
+        <span class="mr-3 font-weight-semibold">Check students who are:</span>
+        <div class="custom-control custom-checkbox custom-control-inline" *ngFor="let s of studyStatuses">
+          <input type="checkbox" class="custom-control-input" [id]="'dq-study-' + s.code" [checked]="study.has(s.code)"
+                 [disabled]="loading || (study.has(s.code) && study.size === 1)" (change)="toggleStudy(s.code)">
+          <label class="custom-control-label" [for]="'dq-study-' + s.code">{{ s.label }}</label>
+        </div>
+        <small class="text-muted ml-md-auto">Student checks marked <span class="badge badge-light border">{{ studyText }}</span> follow this choice.</small>
+      </div>
+    </div>
 
     <div *ngIf="loading" class="text-center my-5"><span class="spinner-border"></span></div>
 
@@ -80,7 +102,7 @@ const HIDDEN = new Set(['role_id', 'group']);
         <div class="card-body py-3 check-head d-flex align-items-center" (click)="toggle(c)">
           <i class="mdi mr-3 font-20" [ngClass]="c.count ? 'mdi-alert-circle text-warning' : 'mdi-check-circle text-success'"></i>
           <div class="flex-fill">
-            <h5 class="mb-0">{{ c.title }}</h5>
+            <h5 class="mb-0">{{ c.title }} <span *ngIf="c.study_filtered" class="badge badge-light border font-weight-normal ml-1">{{ studyText }}</span></h5>
             <small class="text-muted">{{ c.description }}</small>
           </div>
           <span class="badge badge-pill mr-3" [ngClass]="c.count ? 'badge-warning' : 'badge-light'">{{ c.count }}</span>
@@ -152,6 +174,9 @@ export class AdminDataQualityComponent implements OnInit {
   loading = false;
   error = '';
   message = '';
+  readonly studyStatuses = STUDY_STATUSES;
+  /** Study statuses of the students the checks look at; studying only unless chosen otherwise (remembered). */
+  study = new Set<string>(this.savedStudy());
 
   merge: {
     remove: Record<string, unknown>; candidates: Record<string, unknown>[]; keepId: number | null;
@@ -194,10 +219,32 @@ export class AdminDataQualityComponent implements OnInit {
 
   ngOnInit(): void { this.load(); }
 
+  /** "Studying", "Studying + On hold", or "All study statuses". */
+  get studyText(): string {
+    if (this.study.size === STUDY_STATUSES.length) return 'All study statuses';
+    return STUDY_STATUSES.filter((s) => this.study.has(s.code)).map((s) => s.label).join(' + ');
+  }
+
+  toggleStudy(code: string): void {
+    const next = new Set(this.study);
+    if (next.has(code)) next.delete(code); else next.add(code);
+    if (!next.size) return; // at least one status
+    this.study = next;
+    try { localStorage.setItem(STUDY_KEY, [...next].join(',')); } catch { /* private window: just not remembered */ }
+    this.load();
+  }
+
+  private savedStudy(): string[] {
+    let saved: string[] = [];
+    try { saved = (localStorage.getItem(STUDY_KEY) ?? '').split(',').filter((c) => STUDY_STATUSES.some((s) => s.code === c)); } catch { /* none */ }
+    return saved.length ? saved : ['STUDYING'];
+  }
+
   load(): void {
     this.loading = true;
     this.error = '';
-    this.api.get<Check[]>('/admin/data-quality').subscribe({
+    const studyStatus = STUDY_STATUSES.map((s) => s.code).filter((c) => this.study.has(c)).join(',');
+    this.api.get<Check[]>('/admin/data-quality', { studyStatus }).subscribe({
       next: (c) => { this.loading = false; this.checks = c; this.groups = this.group(c); },
       error: (e) => { this.loading = false; this.error = errorText(e, 'Could not run the data checks.'); }
     });

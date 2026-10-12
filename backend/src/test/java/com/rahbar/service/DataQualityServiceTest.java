@@ -236,4 +236,42 @@ class DataQualityServiceTest {
         assertEquals("No", rows.get(0).get("sponsored"));
         assertEquals(0, byKey().get("sponsored_students_without_session_year").get("count")); // nobody is sponsored here
     }
+
+    @Test
+    void studentChecksLookAtStudyingStudentsUnlessThePageChoosesOtherStatuses() {
+        User studying = user(50, 6, "STU-50");
+        User onHold = user(51, 6, "STU-51");
+        onHold.setStudyStatus("ON_HOLD");
+        User graduated = user(52, 6, "STU-52");
+        graduated.setStudyStatus("GRADUATED");
+        User legacy = user(53, 6, "STU-53"); // no study status yet: counts as studying
+        when(users.findByRoleId(6)).thenReturn(List.of(studying, onHold, graduated, legacy));
+
+        var byDefault = byKey().get("students_without_payment_start");
+        assertEquals(true, byDefault.get("study_filtered"));
+        assertEquals(Set.of("STU-50", "STU-53"), refs(byDefault));
+        assertEquals("Studying", rows(byDefault).get(0).get("study_status"));
+
+        Map<String, Map<String, Object>> chosen = new LinkedHashMap<>();
+        service.checks(List.of("ON_HOLD", "graduated")).forEach(c -> chosen.put((String) c.get("key"), c));
+        assertEquals(Set.of("STU-51", "STU-52"), refs(chosen.get("students_without_payment_start")));
+        assertEquals(Set.of("STU-51", "STU-52"), refs(chosen.get("students_without_chapter")));
+
+        // checks about the status itself ignore the filter
+        assertNull(chosen.get("finished_students_still_mapped").get("study_filtered"));
+        assertNull(chosen.get("possible_duplicate_students").get("study_filtered"));
+    }
+
+    @Test
+    void studyStatusFilterAcceptsCommaListsAndFallsBackToStudying() {
+        assertEquals(Set.of("STUDYING"), DataQualityService.studyStatuses(null));
+        assertEquals(Set.of("STUDYING"), DataQualityService.studyStatuses(List.of("nonsense", "")));
+        assertEquals(Set.of("ON_HOLD", "DROPPED_OUT"), DataQualityService.studyStatuses(List.of("on_hold, DROPPED_OUT")));
+    }
+
+    private static Set<Object> refs(Map<String, Object> check) {
+        Set<Object> out = new HashSet<>();
+        rows(check).forEach(r -> out.add(r.get("user_id")));
+        return out;
+    }
 }
