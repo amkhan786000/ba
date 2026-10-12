@@ -62,6 +62,9 @@ public class OnlinePayment extends Modifiable {
     @Column(length = 300)
     private String note;
 
+    /** Donations: the website project chosen (null: general donation). */
+    private Long donationProjectId;
+
     @Column(nullable = false)
     private boolean citizenDeclared;
 
