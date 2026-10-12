@@ -50,7 +50,7 @@ interface SponsorDashboard {
         <div class="card">
           <div class="card-body">
             <h4 class="header-title card-header-title">Master Profile</h4>
-            <div class="profile-img-container"><img src="assets/theme/images/users/avatar-1.jpg" alt="profile"></div>
+            <div class="profile-img-container profile-icon" aria-hidden="true"><i class="mdi mdi-account"></i></div>
             <div class="text-center">
               <h5 class="mb-1">{{ data.sponsor.name || 'Name Not Found' }}</h5>
               <p class="text-muted mb-3">{{ data.sponsor.email || 'N/A' }}</p>

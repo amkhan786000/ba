@@ -460,6 +460,8 @@ hr { border-top-color: var(--line); }
 /* Sponsor pages (sponsor/dashboard.html) */
 .profile-img-container { width: 100px; height: 100px; margin: 0 auto 15px auto; border: 3px solid var(--brand); border-radius: 50%; overflow: hidden; }
 .profile-img-container img { width: 100%; height: auto; }
+.profile-icon { display: flex; align-items: center; justify-content: center; background: var(--brand-50); color: var(--brand-700); }
+.profile-icon .mdi { font-size: 64px; line-height: 1; }
 
 .btn-responsive { white-space: nowrap; }
 @media (max-width: 575.98px) { .btn-responsive { width: 100%; } }
