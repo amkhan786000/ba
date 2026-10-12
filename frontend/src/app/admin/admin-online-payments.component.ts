@@ -6,6 +6,7 @@ import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { isoDate } from '../shared/format';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 interface Item { id: number; student_name: string; student_ref_id: string; amount: number; passed_on_at: string | null; passed_on_ref: string | null }
 interface Row {
@@ -26,7 +27,7 @@ interface Person { id: number; user_id: string; name: string }
 @Component({
   selector: 'app-admin-online-payments',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Online Payments</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -73,7 +74,7 @@ interface Person { id: number; user_id: string; name: string }
               <span *ngIf="i.passed_on_at">{{ i.passed_on_at | appDate }} · {{ i.passed_on_ref }}</span>
               <span *ngIf="!i.passed_on_at && r.status !== 'PAID'" class="text-muted">—</span>
               <div *ngIf="!i.passed_on_at && r.status === 'PAID' && canEdit" class="d-flex flex-wrap">
-                <input type="date" class="form-control form-control-sm mr-1 mb-1" style="width: 150px" [(ngModel)]="passOn[i.id].date" aria-label="Date sent">
+                <app-date-input [small]="true" class="mr-1 mb-1" style="width: 150px" [(ngModel)]="passOn[i.id].date" ariaLabel="Date sent"></app-date-input>
                 <input class="form-control form-control-sm mr-1 mb-1" style="width: 180px" placeholder="Bank reference (UTR)" [(ngModel)]="passOn[i.id].reference">
                 <button class="btn btn-sm btn-outline-primary mb-1" (click)="savePassOn(i)" [disabled]="busy || !passOn[i.id].reference.trim()">Sent</button>
               </div>

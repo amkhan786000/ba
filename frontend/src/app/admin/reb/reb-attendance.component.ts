@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { isoDate } from '../../shared/format';
 import { RebSectionRow, RebSession } from './reb.models';
+import { DateInputComponent } from '../../shared/date-input.component';
 
 interface DayRow { student_id: number; name: string; roll_no: string | null; status: string; remark: string | null }
 interface Day { section: string; date: string; marked: boolean; holiday: string | null; rows: DayRow[] }
@@ -27,7 +28,7 @@ export const ATTENDANCE: { code: string; short: string; label: string; css: stri
 @Component({
   selector: 'app-reb-attendance',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [DateInputComponent, CommonModule, FormsModule, AlertsComponent],
   styles: [`
     .reg { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; letter-spacing: .12em; white-space: nowrap; }
     .mark-row { display: flex; align-items: center; justify-content: space-between; gap: .5rem; padding: .45rem 0; border-bottom: 1px solid #eef1f0; }
@@ -48,7 +49,7 @@ export const ATTENDANCE: { code: string; short: string; label: string; css: stri
         <div class="col-12 col-md-5 form-group"><label for="a-section">Class</label>
           <select id="a-section" class="form-control" [(ngModel)]="sectionId" (ngModelChange)="reload()">
             <option [ngValue]="null">-- Choose --</option><option *ngFor="let s of sections" [ngValue]="s.id">{{ s.label }}</option></select></div>
-        <div class="col-6 col-md-3 form-group" *ngIf="tab === 'mark'"><label for="a-date">Day</label><input id="a-date" type="date" class="form-control" [max]="today" [(ngModel)]="date" (ngModelChange)="loadDay()"></div>
+        <div class="col-6 col-md-3 form-group" *ngIf="tab === 'mark'"><label for="a-date">Day</label><app-date-input id="a-date" [max]="today" [(ngModel)]="date" (ngModelChange)="loadDay()"></app-date-input></div>
         <div class="col-6 col-md-3 form-group" *ngIf="tab === 'register'"><label for="a-month">Month</label><input id="a-month" type="month" class="form-control" [(ngModel)]="month" (ngModelChange)="loadRegister()"></div>
       </div>
       <p *ngIf="!sections.length" class="text-muted">No classes{{ teacherScoped ? ' are linked to you yet (ask the office to set who teaches what)' : ' in the current session yet' }}.</p>
@@ -97,8 +98,8 @@ export const ATTENDANCE: { code: string; short: string; label: string; css: stri
     <div class="card" *ngIf="tab === 'holidays'"><div class="card-body">
       <p class="text-muted">Holidays of the current session are left out of the attendance percentage.</p>
       <div *ngIf="canEditCalendar" class="d-flex flex-wrap align-items-end border rounded p-2 mb-3">
-        <div class="form-group mb-2 mr-2"><label for="c-from">From</label><input id="c-from" type="date" class="form-control" [(ngModel)]="entry.dateFrom"></div>
-        <div class="form-group mb-2 mr-2"><label for="c-to">To</label><input id="c-to" type="date" class="form-control" [(ngModel)]="entry.dateTo"></div>
+        <div class="form-group mb-2 mr-2"><label for="c-from">From</label><app-date-input id="c-from" [(ngModel)]="entry.dateFrom"></app-date-input></div>
+        <div class="form-group mb-2 mr-2"><label for="c-to">To</label><app-date-input id="c-to" [(ngModel)]="entry.dateTo"></app-date-input></div>
         <div class="form-group mb-2 mr-2 flex-fill"><label for="c-title">What</label><input id="c-title" class="form-control" [(ngModel)]="entry.title" placeholder="e.g. Eid ul-Fitr holidays"></div>
         <div class="form-group mb-2 mr-2"><label for="c-kind">Kind</label>
           <select id="c-kind" class="form-control" [(ngModel)]="entry.kind"><option value="HOLIDAY">Holiday</option><option value="EVENT">Event</option><option value="EXAM">Exam</option></select></div>

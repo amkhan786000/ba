@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { RebSectionRow, RebSession, TRACKS } from './reb.models';
 import { AppDatePipe } from '../../shared/app-date';
+import { DateInputComponent } from '../../shared/date-input.component';
 
 interface Exam { id: number; name: string; kind: string; weight_percent: number; start_date: string | null; end_date: string | null; status: string; papers: number }
 interface SheetSubject { subject_id: number; subject_name: string; track: string; included: boolean; exam_date: string | null; max_marks: number; pass_marks: number }
@@ -30,7 +31,7 @@ const STATUS: Record<string, string> = { DRAFT: 'Draft', MARKS_ENTRY: 'Marks ent
 @Component({
   selector: 'app-reb-exams',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Exams &amp; Results</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -88,7 +89,7 @@ const STATUS: Record<string, string> = { DRAFT: 'Draft', MARKS_ENTRY: 'Marks ent
                 <tbody><tr *ngFor="let s of c.subjects">
                   <td><input type="checkbox" [(ngModel)]="s.included" [disabled]="!sheetEditable" [attr.aria-label]="'Include ' + s.subject_name"></td>
                   <td>{{ s.subject_name }} <span class="small text-muted">{{ tracks[s.track] }}</span></td>
-                  <td><input type="date" class="form-control form-control-sm" [(ngModel)]="s.exam_date" [disabled]="!sheetEditable || !s.included" [attr.aria-label]="'Date of ' + s.subject_name"></td>
+                  <td><app-date-input [small]="true" [(ngModel)]="s.exam_date" [disabled]="!sheetEditable || !s.included" [ariaLabel]="'Date of ' + s.subject_name"></app-date-input></td>
                   <td><input type="number" min="1" class="form-control form-control-sm" [(ngModel)]="s.max_marks" [disabled]="!sheetEditable || !s.included" aria-label="Maximum marks"></td>
                   <td><input type="number" min="0" class="form-control form-control-sm" [(ngModel)]="s.pass_marks" [disabled]="!sheetEditable || !s.included" aria-label="Pass marks"></td>
                 </tr></tbody>
@@ -202,8 +203,8 @@ const STATUS: Record<string, string> = { DRAFT: 'Draft', MARKS_ENTRY: 'Marks ent
             <div class="col-6 form-group"><label for="x-kind">Kind</label>
               <select id="x-kind" class="form-control" [(ngModel)]="form.kind"><option *ngFor="let k of kindKeys" [value]="k">{{ kinds[k] }}</option></select></div>
             <div class="col-6 form-group"><label for="x-weight">Weight in annual result (%)</label><input id="x-weight" type="number" min="0" max="100" class="form-control" [(ngModel)]="form.weightPercent"></div>
-            <div class="col-6 form-group"><label for="x-start">Starts</label><input id="x-start" type="date" class="form-control" [(ngModel)]="form.startDate"></div>
-            <div class="col-6 form-group"><label for="x-end">Ends</label><input id="x-end" type="date" class="form-control" [(ngModel)]="form.endDate"></div>
+            <div class="col-6 form-group"><label for="x-start">Starts</label><app-date-input id="x-start" [(ngModel)]="form.startDate"></app-date-input></div>
+            <div class="col-6 form-group"><label for="x-end">Ends</label><app-date-input id="x-end" [(ngModel)]="form.endDate"></app-date-input></div>
           </div></div>
           <div class="modal-footer">
             <button type="button" class="btn btn-light" (click)="form = null">Cancel</button>

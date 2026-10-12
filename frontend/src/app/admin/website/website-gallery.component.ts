@@ -5,6 +5,7 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { AppDatePipe } from '../../shared/app-date';
+import { DateInputComponent } from '../../shared/date-input.component';
 
 interface Photo {
   id: number; title: string; caption?: string | null; album?: string | null; takenOn?: string | null;
@@ -18,7 +19,7 @@ const ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
 @Component({
   selector: 'app-website-gallery',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Gallery</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -37,7 +38,7 @@ const ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
             <input id="g-album" class="form-control" [(ngModel)]="album" list="g-albums" maxlength="80" placeholder="e.g. Rahbar Coaching Centres">
             <datalist id="g-albums"><option *ngFor="let a of albums" [value]="a"></option></datalist>
           </div>
-          <div class="col-md-6 form-group"><label for="g-date">Date taken</label><input id="g-date" type="date" class="form-control" [(ngModel)]="takenOn"></div>
+          <div class="col-md-6 form-group"><label for="g-date">Date taken</label><app-date-input id="g-date" [(ngModel)]="takenOn"></app-date-input></div>
           <div class="col-12 form-group"><label for="g-caption">Caption</label><textarea id="g-caption" class="form-control" rows="2" [(ngModel)]="caption" maxlength="1000"></textarea></div>
           <div class="col-12 form-group">
             <div class="custom-control custom-checkbox">
@@ -67,7 +68,7 @@ const ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
                   <input class="form-control form-control-sm mb-1" [(ngModel)]="editing!.title" aria-label="Title" maxlength="200">
                   <input class="form-control form-control-sm mb-1" [(ngModel)]="editing!.album" aria-label="Album" placeholder="Album" list="g-albums">
                   <textarea class="form-control form-control-sm mb-1" rows="2" [(ngModel)]="editing!.caption" aria-label="Caption" placeholder="Caption"></textarea>
-                  <input type="date" class="form-control form-control-sm mb-1" [(ngModel)]="editing!.takenOn" aria-label="Date taken">
+                  <app-date-input [small]="true" class="mb-1" [(ngModel)]="editing!.takenOn" ariaLabel="Date taken"></app-date-input>
                   <input type="number" class="form-control form-control-sm mb-1" [(ngModel)]="editing!.displayOrder" aria-label="Display order" title="Lower numbers show first">
                   <button type="button" class="btn btn-xs btn-primary mr-1" (click)="save(editing!)">Save</button>
                   <button type="button" class="btn btn-xs btn-light" (click)="editing = null">Cancel</button>

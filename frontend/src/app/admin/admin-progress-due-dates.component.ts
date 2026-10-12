@@ -6,6 +6,7 @@ import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 interface DueDate {
   due_id: number; title: string; due_date: string; note: string | null;
@@ -22,7 +23,7 @@ interface Form { dueId: number | null; title: string; dueDate: string; note: str
 @Component({
   selector: 'app-admin-progress-due-dates',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">
@@ -49,7 +50,7 @@ interface Form { dueId: number | null; title: string; dueDate: string; note: str
           </div>
           <div class="col-md-3 form-group">
             <label for="dueDate">Due date</label>
-            <input id="dueDate" type="date" class="form-control" [(ngModel)]="form.dueDate">
+            <app-date-input id="dueDate" [(ngModel)]="form.dueDate"></app-date-input>
           </div>
           <div class="col-md-5 form-group">
             <label for="note">Note for students <span class="text-muted">(optional)</span></label>

@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 interface Period { id: number; startDate: string | null; endDate: string | null; isActive: boolean }
 
@@ -12,7 +13,7 @@ interface Period { id: number; startDate: string | null; endDate: string | null;
 @Component({
   selector: 'app-admin-application-period',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
     <div class="row"><div class="col-12"><div class="page-title-box mt-3"><h4 class="page-title">Application Period Management</h4></div></div></div>
@@ -44,12 +45,12 @@ interface Period { id: number; startDate: string | null; endDate: string | null;
             <form (ngSubmit)="submit()">
               <div class="form-group">
                 <label for="start_date">Set New Start Date</label>
-                <input type="date" class="form-control" id="start_date" name="start_date" [(ngModel)]="startDate" [disabled]="!!period?.isActive" />
+                <app-date-input id="start_date" name="start_date" [(ngModel)]="startDate" [disabled]="!!period?.isActive"></app-date-input>
                 <small class="form-text text-muted">Required to start a new period.</small>
               </div>
               <div class="form-group">
                 <label for="end_date">Set New End Date</label>
-                <input type="date" class="form-control" id="end_date" name="end_date" [(ngModel)]="endDate" [disabled]="!!period?.isActive" />
+                <app-date-input id="end_date" name="end_date" [(ngModel)]="endDate" [disabled]="!!period?.isActive"></app-date-input>
                 <small class="form-text text-muted">Required to start a new period.</small>
               </div>
               <ng-container *ngIf="canEdit">

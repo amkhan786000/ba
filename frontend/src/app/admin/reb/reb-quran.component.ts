@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { isoDate } from '../../shared/format';
 import { RebSectionRow, RebSession } from './reb.models';
+import { DateInputComponent } from '../../shared/date-input.component';
 
 interface SummaryRow { student_id: number; name: string; roll_no: string | null; current_para: number | null; paras_completed: number; last_lesson: string | null }
 interface Lesson {
@@ -23,7 +24,7 @@ const QUALITY: Record<string, string> = { EXCELLENT: 'Excellent', GOOD: 'Good', 
 @Component({
   selector: 'app-reb-quran',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [DateInputComponent, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Quran / Hifz Progress</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -50,7 +51,7 @@ const QUALITY: Record<string, string> = { EXCELLENT: 'Excellent', GOOD: 'Good', 
             <span *ngIf="detail?.completed?.length" class="small text-muted">({{ detail?.completed?.join(', ') }})</span></p>
           <div *ngIf="canEdit" class="border rounded p-2 mb-3">
             <div class="row">
-              <div class="col-6 col-md-4 form-group mb-2"><label for="l-date">Day</label><input id="l-date" type="date" class="form-control form-control-sm" [max]="today" [(ngModel)]="form.date"></div>
+              <div class="col-6 col-md-4 form-group mb-2"><label for="l-date">Day</label><app-date-input id="l-date" [small]="true" [max]="today" [(ngModel)]="form.date"></app-date-input></div>
               <div class="col-6 col-md-4 form-group mb-2"><label for="l-kind">Lesson</label>
                 <select id="l-kind" class="form-control form-control-sm" [(ngModel)]="form.kind"><option *ngFor="let k of kindKeys" [value]="k">{{ kinds[k] }}</option></select></div>
               <div class="col-4 col-md-4 form-group mb-2"><label for="l-para">Para *</label><input id="l-para" type="number" min="1" max="30" class="form-control form-control-sm" [(ngModel)]="form.para"></div>

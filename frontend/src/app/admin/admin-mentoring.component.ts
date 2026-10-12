@@ -6,6 +6,7 @@ import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 interface Pair {
   id: number; student_id: number; student_ref_id: string | null; student_name: string; chapter: string | null;
@@ -32,7 +33,7 @@ interface Overview { rows: Pair[]; active: number; waiting: number; mentors: num
 @Component({
   selector: 'app-admin-mentoring',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Mentoring</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -141,7 +142,7 @@ interface Overview { rows: Pair[]; active: number; waiting: number; mentors: num
           <div class="modal-body">
             <p class="small text-muted">As {{ (data?.help?.[pairing.help] ?? pairing.help).toLowerCase() }}. Introduce them to each other once saved.</p>
             <div class="form-group"><label for="p-focus">Focus</label><input id="p-focus" class="form-control" maxlength="200" [(ngModel)]="pairing.focus" placeholder="e.g. Career in software, or Physics for Class 12"></div>
-            <div class="form-group"><label for="p-start">Starting</label><input id="p-start" type="date" class="form-control" [(ngModel)]="pairing.startedOn"></div>
+            <div class="form-group"><label for="p-start">Starting</label><app-date-input id="p-start" [(ngModel)]="pairing.startedOn"></app-date-input></div>
             <div class="form-group mb-0"><label for="p-notes">Notes</label><textarea id="p-notes" class="form-control" rows="2" maxlength="1000" [(ngModel)]="pairing.notes"></textarea></div>
           </div>
           <div class="modal-footer">

@@ -10,6 +10,7 @@ import { PagerComponent } from '../../shared/pager/pager.component';
 import { PagedResult, ServerTable } from '../../shared/pager/server-table';
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { isoDate } from '../../shared/format';
+import { DateInputComponent } from '../../shared/date-input.component';
 import {
   CATEGORIES, FEE_PLANS, RELATIONS, RebGuardian, RebSectionRow, RebSession, RebStudentRow, STATUSES, guardianBody, newGuardian,
   planBadge, statusBadge
@@ -24,7 +25,7 @@ interface ImportResult { added: number; updated: number; skipped: number; messag
 @Component({
   selector: 'app-reb-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [DateInputComponent, CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Girls</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -109,12 +110,12 @@ interface ImportResult { added: number; updated: number; skipped: number; messag
                   <option *ngFor="let s of sections" [ngValue]="s.id">{{ s.label }}</option>
                 </select></div>
               <div class="col-6 col-md-3 form-group"><label for="a-roll">Roll number</label><input id="a-roll" class="form-control" [(ngModel)]="admit.d['rollNo']"></div>
-              <div class="col-6 col-md-3 form-group"><label for="a-date">Admitted on</label><input id="a-date" type="date" class="form-control" [(ngModel)]="admit.d['admittedOn']"></div>
+              <div class="col-6 col-md-3 form-group"><label for="a-date">Admitted on</label><app-date-input id="a-date" [(ngModel)]="admit.d['admittedOn']"></app-date-input></div>
             </div>
             <h5>The girl</h5>
             <div class="row">
               <div class="col-md-6 form-group"><label for="a-name">Full name *</label><input id="a-name" class="form-control" [(ngModel)]="admit.d['name']"></div>
-              <div class="col-6 col-md-3 form-group"><label for="a-dob">Date of birth</label><input id="a-dob" type="date" class="form-control" [(ngModel)]="admit.d['dateOfBirth']"></div>
+              <div class="col-6 col-md-3 form-group"><label for="a-dob">Date of birth</label><app-date-input id="a-dob" [(ngModel)]="admit.d['dateOfBirth']"></app-date-input></div>
               <div class="col-6 col-md-3 form-group"><label for="a-blood">Blood group</label><input id="a-blood" class="form-control" [(ngModel)]="admit.d['bloodGroup']" placeholder="e.g. B+"></div>
               <div class="col-6 col-md-3 form-group"><label for="a-plan">Fee plan</label>
                 <select id="a-plan" class="form-control" [(ngModel)]="admit.d['feePlan']"><option *ngFor="let p of planKeys" [value]="p">{{ plans[p] }}</option></select></div>

@@ -7,6 +7,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 interface EmailRow {
   email_id: number; sent_at: string; to_address: string; recipient_code: string | null; recipient_name: string | null;
@@ -21,7 +22,7 @@ interface EmailDetail extends EmailRow { body: string | null }
 @Component({
   selector: 'app-admin-email-log',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   styles: [`
     .subject { max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     @media (max-width: 991.98px) { .subject { max-width: 180px; } }
@@ -45,9 +46,9 @@ interface EmailDetail extends EmailRow { body: string | null }
           </select>
           <div class="d-flex align-items-center">
             <label class="mb-0 mr-1 small text-muted" for="from">From</label>
-            <input id="from" type="date" class="form-control mr-2" [(ngModel)]="from" (ngModelChange)="reload()">
+            <app-date-input id="from" class="mr-2" [(ngModel)]="from" (ngModelChange)="reload()"></app-date-input>
             <label class="mb-0 mr-1 small text-muted" for="to">To</label>
-            <input id="to" type="date" class="form-control" [(ngModel)]="to" (ngModelChange)="reload()">
+            <app-date-input id="to" [(ngModel)]="to" (ngModelChange)="reload()"></app-date-input>
           </div>
         </div>
         <div class="table-responsive">

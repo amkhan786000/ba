@@ -10,6 +10,7 @@ import { isoDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 /**
  * Admin > Payment Records: every installment between sponsors and students. They are created when a student is
@@ -19,7 +20,7 @@ import { AppDatePipe } from '../shared/app-date';
 @Component({
   selector: 'app-admin-payment-records',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Payment Records</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -82,7 +83,7 @@ import { AppDatePipe } from '../shared/app-date';
           </div>
           <div class="modal-body">
             <p class="text-muted small">Credited to {{ pay.row.sponsor_name }} ({{ pay.row.sponsor_code }}); due {{ pay.row.due_date | appDate }}.</p>
-            <div class="form-group"><label>Payment date</label><input type="date" class="form-control" [(ngModel)]="pay.paymentDate"></div>
+            <div class="form-group"><label>Payment date</label><app-date-input [(ngModel)]="pay.paymentDate"></app-date-input></div>
             <div class="form-group"><label>Amount (₹)</label><input type="number" step="0.01" min="0" class="form-control" [(ngModel)]="pay.amount"></div>
             <div class="form-group"><label>Receipt <span class="text-muted">(optional)</span></label>
               <input type="file" class="form-control-file" accept="image/*,application/pdf" (change)="pay.receipt = fileOf($event)">

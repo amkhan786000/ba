@@ -9,6 +9,7 @@ import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { CheckoutOrder, payWithRazorpay } from '../shared/razorpay';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 type Row = Record<string, any>;
 
@@ -39,7 +40,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
 @Component({
   selector: 'app-sponsor-payments',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   styles: [`
     .table-schedule td, .table-schedule th { vertical-align: middle; }
     .card-box.clickable { cursor: pointer; }
@@ -220,7 +221,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
                 <p class="mb-0">Account No: {{ pay.d.bankDetails?.['account_number'] || 'N/A' }}</p>
                 <p class="mb-0">IFSC: {{ pay.d.bankDetails?.['ifsc_code'] || 'N/A' }}</p>
               </div>
-              <div class="form-group"><label>Actual Date of Payment</label><input type="date" class="form-control" name="paymentDate" [(ngModel)]="pay.paymentDate" required></div>
+              <div class="form-group"><label>Actual Date of Payment</label><app-date-input name="paymentDate" [(ngModel)]="pay.paymentDate" [required]="true"></app-date-input></div>
               <div class="form-group"><label>Installment Amount (INR)</label><input type="number" step="0.01" class="form-control" name="amount" [(ngModel)]="pay.amount" required></div>
               <div class="form-group"><label>Upload Foundation Receipt</label><input type="file" class="form-control-file" (change)="pay.receipt = fileOf($event)" required></div>
             </div>

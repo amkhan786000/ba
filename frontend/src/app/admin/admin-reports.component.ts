@@ -8,6 +8,7 @@ import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.c
 import { asDate } from '../shared/format';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { formatAppDate } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 interface ReportDef { key: string; category: string; title: string; description: string; dateRange: boolean }
 interface ReportData { key: string; title: string; columns: string[]; rows: Record<string, unknown>[] }
@@ -32,7 +33,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 @Component({
   selector: 'app-admin-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [DateInputComponent, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   styles: [`
     .report-actions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
     .report-table th { white-space: nowrap; cursor: pointer; user-select: none; }
@@ -51,11 +52,11 @@ const CATEGORY_ICONS: Record<string, string> = {
         </div>
         <div class="form-group mb-lg-0 mr-lg-3">
           <label for="from">From</label>
-          <input id="from" type="date" class="form-control" [(ngModel)]="from">
+          <app-date-input id="from" [(ngModel)]="from"></app-date-input>
         </div>
         <div class="form-group mb-0">
           <label for="to">To</label>
-          <input id="to" type="date" class="form-control" [(ngModel)]="to">
+          <app-date-input id="to" [(ngModel)]="to"></app-date-input>
         </div>
       </div>
       <div class="card-body pt-0 small text-muted">

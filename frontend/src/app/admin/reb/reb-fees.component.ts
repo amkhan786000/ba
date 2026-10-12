@@ -11,6 +11,7 @@ import { PagerComponent, PageState, PaginatePipe } from '../../shared/pager/page
 import { isoDate } from '../../shared/format';
 import { RebSectionRow, RebSession, RebStudentRow } from './reb.models';
 import { AppDatePipe } from '../../shared/app-date';
+import { DateInputComponent } from '../../shared/date-input.component';
 
 type Tab = 'collect' | 'bills' | 'dues' | 'daybook' | 'setup';
 
@@ -46,7 +47,7 @@ export function billBadge(b: { status: string; overdue?: boolean }): string {
 @Component({
   selector: 'app-reb-fees',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective, PagerComponent, PaginatePipe],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">REB Fees</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -96,7 +97,7 @@ export function billBadge(b: { status: string; overdue?: boolean }): string {
               <select id="p-payer" class="form-control" [(ngModel)]="pay.payer" (ngModelChange)="pay.amount = pay.payer === 'SPONSOR' ? due.sponsor_total : due.family_total">
                 <option value="FAMILY">Family</option><option value="SPONSOR" [disabled]="!due.sponsor_total">Sponsor</option></select></div>
             <div class="col-md-6 form-group"><label for="p-amount">Amount (₹) *</label><input id="p-amount" type="number" min="1" step="0.01" class="form-control" [(ngModel)]="pay.amount"></div>
-            <div class="col-md-6 form-group"><label for="p-date">Date</label><input id="p-date" type="date" class="form-control" [(ngModel)]="pay.paidOn"></div>
+            <div class="col-md-6 form-group"><label for="p-date">Date</label><app-date-input id="p-date" [(ngModel)]="pay.paidOn"></app-date-input></div>
             <div class="col-md-6 form-group"><label for="p-method">Mode</label>
               <select id="p-method" class="form-control" [(ngModel)]="pay.method"><option *ngFor="let m of methodKeys" [value]="m">{{ methods[m] }}</option></select></div>
             <div class="col-md-6 form-group" *ngIf="pay.method !== 'CASH'"><label for="p-ref">{{ pay.method === 'CHEQUE' ? 'Cheque number' : 'Transaction reference' }} *</label>
@@ -193,8 +194,8 @@ export function billBadge(b: { status: string; overdue?: boolean }): string {
     <!-- day book -->
     <div *ngIf="current === 'daybook'" class="card"><div class="card-body">
       <div class="d-flex flex-wrap align-items-end mb-2">
-        <div class="form-group mr-2 mb-2"><label for="db-from">From</label><input id="db-from" type="date" class="form-control" [(ngModel)]="dayFrom" (ngModelChange)="loadDayBook()"></div>
-        <div class="form-group mr-2 mb-2"><label for="db-to">To</label><input id="db-to" type="date" class="form-control" [(ngModel)]="dayTo" (ngModelChange)="loadDayBook()"></div>
+        <div class="form-group mr-2 mb-2"><label for="db-from">From</label><app-date-input id="db-from" [(ngModel)]="dayFrom" (ngModelChange)="loadDayBook()"></app-date-input></div>
+        <div class="form-group mr-2 mb-2"><label for="db-to">To</label><app-date-input id="db-to" [(ngModel)]="dayTo" (ngModelChange)="loadDayBook()"></app-date-input></div>
       </div>
       <p *ngIf="dayBook" class="mb-2"><strong>₹{{ dayBook.total | number: '1.0-2' }}</strong> received
         <span class="text-muted" *ngFor="let m of methodTotals"> · {{ methods[m.key] || m.key }} ₹{{ m.value | number: '1.0-2' }}</span></p>
