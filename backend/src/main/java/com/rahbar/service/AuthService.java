@@ -63,15 +63,26 @@ public class AuthService {
         this.resetCodeRepository = resetCodeRepository;
     }
 
+    /**
+     * Looks a user up by email or phone; a blank value finds nobody. Without this, an empty value would ask the
+     * database for every user whose email (or phone) is empty: hundreds of rows, and a NonUniqueResultException.
+     */
+    private Optional<User> findByEmail(String email) {
+        return email == null || email.isBlank() ? Optional.empty() : userRepository.findByEmail(email.trim());
+    }
+
+    private Optional<User> findByPhone(String phone) {
+        return phone == null || phone.isBlank() ? Optional.empty() : userRepository.findByPhone(phone.trim());
+    }
+
     public AuthResponse login(LoginRequest req, String ip) {
-        Optional<User> userOpt = "phone".equalsIgnoreCase(req.getLoginMethod())
-                ? userRepository.findByPhone(req.getIdentifier())
-                : userRepository.findByEmail(req.getIdentifier());
+        String method = "phone".equalsIgnoreCase(req.getLoginMethod()) ? "phone" : "email";
+        Optional<User> userOpt = method.equals("phone") ? findByPhone(req.getIdentifier()) : findByEmail(req.getIdentifier());
 
         if (userOpt.isEmpty()) {
-            activityLogService.record(null, "Failed sign-in: unknown " + req.getLoginMethod() + " " + req.getIdentifier(),
+            activityLogService.record(null, "Failed sign-in: unknown " + method + " " + req.getIdentifier(),
                     "POST", "/api/auth/login", 401, ip);
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid " + req.getLoginMethod() + " or password");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid " + method + " or password");
         }
         User user = userOpt.get();
         requireNotLocked(user);
@@ -80,10 +91,10 @@ public class AuthService {
             throw new ApiException(HttpStatus.FORBIDDEN, "Your account is inactive. Please contact the administrator.");
         }
 
-        if (!passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
+        if (req.getPassword() == null || !passwordEncoder.matches(req.getPassword(), user.getPasswordHash())) {
             activityLogService.record(user, "Failed sign-in: wrong password", "POST", "/api/auth/login", 401, ip);
             registerFailure(user, ip);
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid " + req.getLoginMethod() + " or password");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid " + method + " or password");
         }
         clearFailures(user);
 
@@ -192,7 +203,10 @@ public class AuthService {
     }
 
     public void register(RegisterRequest req) {
-        if (userRepository.findByEmail(req.getEmail()).isPresent()) {
+        if (req.getEmail() == null || req.getEmail().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Email address is required");
+        }
+        if (findByEmail(req.getEmail()).isPresent()) {
             throw new ApiException(HttpStatus.CONFLICT, "Email address already exists");
         }
         // Self-registration is only for sponsors (5) and students (6); staff roles are created by an admin.
@@ -219,7 +233,7 @@ public class AuthService {
      * whether the email exists, so the page can't be used to find out who has an account.
      */
     public void requestPasswordReset(String email, String ip) {
-        Optional<User> found = email == null || email.isBlank() ? Optional.empty() : userRepository.findByEmail(email.trim());
+        Optional<User> found = findByEmail(email);
         if (found.isEmpty() || "Inactive".equalsIgnoreCase(found.get().getStatus())) {
             activityLogService.record(null, "Password reset requested for an unknown or inactive email", "POST",
                     "/api/auth/forgot-password", 200, ip);
@@ -251,8 +265,7 @@ public class AuthService {
     /** Step 2 of "Forgot password": the emailed code plus the new password. */
     public void resetPassword(ResetPasswordRequest req, String ip) {
         ApiException invalid = new ApiException(HttpStatus.BAD_REQUEST, "The code is wrong or has expired. Ask for a new code.");
-        User user = (req.getEmail() == null ? Optional.<User>empty() : userRepository.findByEmail(req.getEmail().trim()))
-                .orElseThrow(() -> invalid);
+        User user = findByEmail(req.getEmail()).orElseThrow(() -> invalid);
         com.rahbar.entity.PasswordResetCode reset = resetCodeRepository.findFirstByUserIdAndUsedFalseOrderByResetIdDesc(user.getId())
                 .filter(c -> c.getExpiresAt().isAfter(LocalDateTime.now()))
                 .orElseThrow(() -> invalid);
