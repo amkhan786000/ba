@@ -161,6 +161,8 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("PUT /api/admin/email-templates/[^/]+", "Saved an email template");
         label("POST /api/admin/students/merge", "Merged a duplicate student into another");
         label("POST /api/admin/people/merge", "Merged a person's second account into their main one");
+        label("POST /api/student/notes", "Wrote a note to their sponsor");
+        label("POST /api/admin/student-notes/[0-9]+/review", "Approved or returned a student's note to their sponsor");
         label("POST /api/admin/sponsors/[^/]+/fee-schedule", "Generated the fee schedules of a sponsor's students");
         label("PUT /api/admin/applications/[^/]+/interview-scores", "Scored an interview");
         label("DELETE /api/admin/applications/[^/]+/interview-scores", "Removed own interview scores");

@@ -43,6 +43,8 @@ public enum Section {
     EMAIL_TEMPLATES("Email templates"),
     /** Graduated students and what they do now. */
     ALUMNI("Alumni"),
+    /** Notes students write to their sponsors (Students > Notes to sponsors). VIEW reads them; EDIT approves or returns them. */
+    STUDENT_NOTES("Notes to sponsors"),
     /**
      * Students studying at an RCC / coaching center: their personal and family details. With "own RCC center"
      * scope (coaching center lead) only their center's students; EDIT adds and updates them.

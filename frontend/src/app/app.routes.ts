@@ -67,6 +67,9 @@ import { AdminDocumentsComponent } from './admin/admin-documents.component';
 import { AdminFinanceComponent } from './admin/admin-finance.component';
 import { AdminSponsorFollowupComponent } from './admin/admin-sponsor-followup.component';
 import { AdminMentoringComponent } from './admin/admin-mentoring.component';
+import { AdminStudentNotesComponent } from './admin/admin-student-notes.component';
+import { StudentNotesComponent } from './student/student-notes.component';
+import { SponsorNotesComponent } from './sponsor/sponsor-notes.component';
 import { RebDashboardComponent } from './admin/reb/reb-dashboard.component';
 import { RebStudentsComponent } from './admin/reb/reb-students.component';
 import { RebStudentComponent } from './admin/reb/reb-student.component';
@@ -156,6 +159,7 @@ export const routes: Routes = [
       { path: 'volunteer-options', component: AdminVolunteerOptionsComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEER_OPTIONS' } },
       { path: 'documents', component: AdminDocumentsComponent }, // everyone: each document says who may read it
       { path: 'sponsor-followup', component: AdminSponsorFollowupComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
+      { path: 'student-notes', component: AdminStudentNotesComponent, canActivate: [permissionGuard], data: { permission: 'STUDENT_NOTES' } },
       { path: 'mentoring', component: AdminMentoringComponent, canActivate: [permissionGuard], data: { permission: 'MENTORING' } },
       { path: 'finance', component: AdminFinanceComponent, canActivate: [permissionGuard], data: { permission: 'FINANCE' } },
       // Rahbar-e-Banaat
@@ -255,6 +259,7 @@ export const routes: Routes = [
         { path: '/sponsor/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
         { path: '/sponsor/payments', label: 'Payments', icon: 'mdi-cash-multiple' },
         { path: '/sponsor/progress', label: 'Student Progress', icon: 'mdi-chart-line' },
+        { path: '/sponsor/notes', label: 'Notes from Students', icon: 'mdi-message-text-outline' },
         { path: '/sponsor/reb', label: 'Rahbar-e-Banaat', icon: 'mdi-human-female-girl' },
         { path: '/sponsor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
       ]
@@ -266,7 +271,8 @@ export const routes: Routes = [
       { path: 'dashboard', component: SponsorDashboardComponent },
       { path: 'payments', component: SponsorPaymentsComponent },
       { path: 'progress', component: SponsorProgressComponent },
-      { path: 'reb', component: SponsorRebComponent }
+      { path: 'reb', component: SponsorRebComponent },
+      { path: 'notes', component: SponsorNotesComponent }
     ]
   },
   {
@@ -279,6 +285,7 @@ export const routes: Routes = [
         { path: '/student/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard' },
         { path: '/student/payments', label: 'Payments', icon: 'mdi-cash-multiple' },
         { path: '/student/progress', label: 'Progress', icon: 'mdi-chart-line' },
+        { path: '/student/notes', label: 'Write to my Sponsor', icon: 'mdi-message-text-outline' },
         { path: '/student/alumni', label: 'Alumni Profile', icon: 'mdi-school' },
         { path: '/student/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
       ]
@@ -290,7 +297,8 @@ export const routes: Routes = [
       { path: 'dashboard', component: StudentDashboardComponent },
       { path: 'payments', component: StudentPaymentsComponent },
       { path: 'progress', component: StudentProgressComponent },
-      { path: 'alumni', component: StudentAlumniComponent }
+      { path: 'alumni', component: StudentAlumniComponent },
+      { path: 'notes', component: StudentNotesComponent }
     ]
   },
 
