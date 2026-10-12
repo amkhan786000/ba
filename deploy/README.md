@@ -53,6 +53,9 @@ In the repository: *Settings → Secrets and variables → Actions → New repos
 | `MAIL_PASSWORD` | optional: its 16-letter Google app password |
 | `MAIL_FROM` | optional: sender address, defaults to `MAIL_USERNAME` |
 | `ADMIN_EMAIL` | optional: who becomes the first Super Admin on an empty database, defaults to `MAIL_USERNAME` |
+| `RAZORPAY_KEY_ID` | optional: online payments, the Razorpay key id (`rzp_test_...` for test payments, `rzp_live_...` for real ones) |
+| `RAZORPAY_KEY_SECRET` | optional: its key secret |
+| `RAZORPAY_WEBHOOK_SECRET` | optional: the secret you chose for the webhook in Razorpay (Settings > Webhooks), see Rahbar > Online Payments > Settings |
 
 If a deploy fails, the reason is shown at the top of the run page under *Annotations*.
 

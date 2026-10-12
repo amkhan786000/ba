@@ -17,9 +17,11 @@ import org.springframework.web.bind.annotation.*;
 public class SponsorFilesController {
 
     private final SponsorFilesService files;
+    private final com.rahbar.service.OnlinePaymentService online;
 
-    public SponsorFilesController(SponsorFilesService files) {
+    public SponsorFilesController(SponsorFilesService files, com.rahbar.service.OnlinePaymentService online) {
         this.files = files;
+        this.online = online;
     }
 
     private static Long me() {
@@ -28,6 +30,9 @@ public class SponsorFilesController {
 
     @GetMapping("/{paymentId}/receipt")
     public ResponseEntity<byte[]> receipt(@PathVariable Long paymentId) {
+        // Paid online through Rahbar: the 80G receipt of that online payment instead.
+        Long onlineId = online.onlinePaymentOf(paymentId);
+        if (onlineId != null) return StatementResponses.pdf(online.receipt(onlineId, me()), "Rahbar_80G_receipt_" + onlineId + ".pdf");
         return StatementResponses.pdf(files.receipt(me(), paymentId), "Rahbar_receipt_" + paymentId + ".pdf");
     }
 

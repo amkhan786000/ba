@@ -65,6 +65,14 @@ public class User extends Modifiable {
     @Column(name = "merged_into_id")
     private Long mergedIntoId;
 
+    /** Sponsors: pays their students' installments to Rahbar online (Razorpay) instead of to the student directly. */
+    @Column(name = "pays_through_rahbar", nullable = false)
+    private boolean paysThroughRahbar = false;
+
+    /** Sponsors / donors: PAN, printed on 80G receipts and needed for Form 10BD. */
+    @Column(name = "pan", length = 10)
+    private String pan;
+
     @Column(name = "payment_start_date")
     private java.time.LocalDate paymentStartDate;
 

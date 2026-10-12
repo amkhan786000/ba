@@ -12,6 +12,7 @@
 #   CONTABO_SSH_PORT  optional, defaults to 22
 #   MAIL_USERNAME / MAIL_PASSWORD / MAIL_FROM  optional, Gmail address + app password for e-mails
 #   ADMIN_EMAIL       optional, first Super Admin on an empty database (defaults to MAIL_USERNAME)
+#   RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET / RAZORPAY_WEBHOOK_SECRET  optional, online payments (test or live keys)
 # The server's .env (DB passwords, JWT secret) is created automatically on the first deploy.
 # Server setup: deploy/README.md
 
@@ -124,16 +125,22 @@ jobs:
           # This run's short-lived token goes over stdin (never on a command line); it is removed again below.
           printf '%s' "$GHCR_TOKEN" | ssh contabo "docker login ghcr.io -u '${{ github.actor }}' --password-stdin" >/dev/null
 
-      - name: Send the mail settings (optional secrets)
+      - name: Send the mail and payment settings (optional secrets)
         env:
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
           MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
           MAIL_FROM: ${{ secrets.MAIL_FROM }}
           ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+          RAZORPAY_KEY_ID: ${{ secrets.RAZORPAY_KEY_ID }}
+          RAZORPAY_KEY_SECRET: ${{ secrets.RAZORPAY_KEY_SECRET }}
+          RAZORPAY_WEBHOOK_SECRET: ${{ secrets.RAZORPAY_WEBHOOK_SECRET }}
         run: |
           # Goes over stdin into a private file that deploy.sh merges into .env and then deletes.
-          if [ -z "$MAIL_USERNAME$MAIL_PASSWORD$MAIL_FROM$ADMIN_EMAIL" ]; then echo "No MAIL_* / ADMIN_EMAIL secrets set - skipping."; exit 0; fi
-          printf 'MAIL_USERNAME=%s\nMAIL_PASSWORD=%s\nMAIL_FROM=%s\nADMIN_EMAIL=%s\n' "$MAIL_USERNAME" "${MAIL_PASSWORD// /}" "$MAIL_FROM" "$ADMIN_EMAIL" \
+          if [ -z "$MAIL_USERNAME$MAIL_PASSWORD$MAIL_FROM$ADMIN_EMAIL$RAZORPAY_KEY_ID$RAZORPAY_KEY_SECRET$RAZORPAY_WEBHOOK_SECRET" ]; then
+            echo "No MAIL_* / ADMIN_EMAIL / RAZORPAY_* secrets set - skipping."; exit 0
+          fi
+          printf 'MAIL_USERNAME=%s\nMAIL_PASSWORD=%s\nMAIL_FROM=%s\nADMIN_EMAIL=%s\nRAZORPAY_KEY_ID=%s\nRAZORPAY_KEY_SECRET=%s\nRAZORPAY_WEBHOOK_SECRET=%s\n' \
+            "$MAIL_USERNAME" "${MAIL_PASSWORD// /}" "$MAIL_FROM" "$ADMIN_EMAIL" "$RAZORPAY_KEY_ID" "$RAZORPAY_KEY_SECRET" "$RAZORPAY_WEBHOOK_SECRET" \
             | ssh contabo 'umask 077; cat > /opt/rahbar/.incoming-secrets'
 
       - name: Deploy ${{ env.TAG }}

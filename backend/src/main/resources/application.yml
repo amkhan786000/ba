@@ -60,6 +60,12 @@ app:
   alerts:
     # Who gets "unexpected error" emails (comma-separated). Empty: every active Super Admin.
     emails: ${ALERT_EMAILS:}
+  razorpay:
+    # Online payments (Sponsor portal and biharanjuman.com donations). Set in the server's .env, never in git.
+    # Test keys (rzp_test_...) take test payments only. Empty: online payments stay off.
+    key-id: ${RAZORPAY_KEY_ID:}
+    key-secret: ${RAZORPAY_KEY_SECRET:}
+    webhook-secret: ${RAZORPAY_WEBHOOK_SECRET:}
   reminders:
     # Payment and student (progress report / bank details) reminder jobs (sec min hour day month weekday),
     # server time. Default: every day at 08:00.

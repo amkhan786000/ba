@@ -15,6 +15,11 @@ public enum Section {
     RCC_CENTERS("RCC centers"),
     COURSES("Courses & institutions"),
     PAYMENT_CONFIG("Payment config"),
+    /**
+     * Sponsors & Payments > Online Payments (Razorpay): VIEW lists online payments and donations; EDIT records passing
+     * the money on to students, chooses which sponsors pay through Rahbar and keeps the 80G receipt details.
+     */
+    ONLINE_PAYMENTS("Online payments & donations"),
     PAYMENT_DUES("Payment dues"),
     REPORTS("Reports"),
     APPLICATION_PERIOD("Application period"),

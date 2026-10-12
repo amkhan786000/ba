@@ -141,6 +141,19 @@ public enum EmailType {
                     + "\n\nRegards,\nRahbar - Bihar Anjuman",
             List.of("name", "student_name", "student_code", "due_date"), List.of()),
 
+    ONLINE_PAYMENT_RECEIPT("Payments", "Online payment: 80G receipt",
+            "Sent with the 80G receipt (PDF) when a sponsor pays online through Rahbar or someone donates on the website.",
+            "Bihar Anjuman: receipt {{receipt_no}} for your payment of Rs. {{amount}}",
+            "Dear {{name}},\n\nThank you! We received your payment of Rs. {{amount}} on {{date}}. Your 80G receipt {{receipt_no}} "
+                    + "is attached.\n\n{{details}}\n\nWith gratitude,\nBihar Anjuman",
+            List.of("name", "amount", "date", "receipt_no", "details"), List.of()),
+    STUDENT_PAID_THROUGH_RAHBAR("Payments", "To student: money passed on by Rahbar",
+            "Sent to a student when the office sends them money their sponsor paid online through Rahbar.",
+            "Rahbar: Rs. {{amount}} sent to your bank account",
+            "Dear {{name}},\n\nYour sponsor paid Rs. {{amount}} for your studies through Rahbar. We sent it to your bank account on "
+                    + "{{date}} (reference {{reference}}).\n\nPlease upload proof of how it was spent on your Payments page.\n\n"
+                    + "Regards,\nRahbar - Bihar Anjuman",
+            List.of("name", "amount", "date", "reference"), List.of()),
     SPONSOR_STATEMENT("Payments", "To sponsor: yearly statement",
             "Sent with the sponsor's yearly statement (PDF attached) when the office emails it.",
             "Rahbar: your sponsorship statement for {{year}}",
