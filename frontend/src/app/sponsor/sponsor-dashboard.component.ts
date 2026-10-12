@@ -21,6 +21,23 @@ interface SponsorDashboard {
   pastStudents: { id: number; user_id: string; name: string; sponsored_from: string | null; sponsored_until: string | null; total_paid: number }[];
 }
 
+/** One student's study picture and latest news (GET /sponsor/overview). */
+interface StudentNews {
+  id: number; user_id: string; name: string; study_status: string; course: string | null; institution: string | null;
+  semesters: number | null; semester_now: number | null; course_start: string | null; expected_completion: string | null;
+  latest_progress: { session: string; year: string; marks: string; review_status: string; uploaded_at: string } | null;
+  last_payment: { date: string; amount: number; spent_proof: boolean } | null;
+  last_activity: string | null; quiet: boolean;
+  /** Past students only. */
+  sponsored_from?: string | null; sponsored_until?: string | null;
+  now?: { status: string; organisation: string; role: string; city: string } | null;
+}
+interface Overview {
+  impact: { total_given: number; payments: number; students_supported: number; studying_now: number; graduated: number; since_year: number | null };
+  students: StudentNews[];
+  past: StudentNews[];
+}
+
 /** Port of templates/sponsor/dashboard.html (charts use real data instead of the template's sample numbers). */
 @Component({
   selector: 'app-sponsor-dashboard',
@@ -44,6 +61,49 @@ interface SponsorDashboard {
       </div>
     </div>
     <app-alerts [(error)]="error"></app-alerts>
+
+    <!-- My impact -->
+    <div class="row" *ngIf="overview?.impact as im">
+      <div class="col-6 col-xl-3"><div class="card-box">
+        <h4 class="header-title mt-0">Given so far</h4><h2>₹{{ im.total_given | number: '1.0-0' }}</h2>
+        <small class="text-muted">{{ im.payments }} payment{{ im.payments === 1 ? '' : 's' }}{{ im.since_year ? ' since ' + im.since_year : '' }}</small></div></div>
+      <div class="col-6 col-xl-3"><div class="card-box">
+        <h4 class="header-title mt-0">Students supported</h4><h2>{{ im.students_supported }}</h2>
+        <small class="text-muted">all the years together</small></div></div>
+      <div class="col-6 col-xl-3"><div class="card-box">
+        <h4 class="header-title mt-0">Studying now</h4><h2>{{ im.studying_now }}</h2>
+        <small class="text-muted">currently sponsored by you</small></div></div>
+      <div class="col-6 col-xl-3"><div class="card-box">
+        <h4 class="header-title mt-0">Graduated</h4><h2>{{ im.graduated }}</h2>
+        <small class="text-muted">of the students you supported</small></div></div>
+    </div>
+
+    <!-- My students: study picture and latest news -->
+    <div class="row" *ngIf="overview?.students?.length">
+      <div class="col-12"><h5 class="mt-1 mb-2">My students</h5></div>
+      <div class="col-12 col-md-6 col-xl-4" *ngFor="let s of overview!.students">
+        <div class="card"><div class="card-body">
+          <div class="d-flex justify-content-between align-items-start">
+            <div><h5 class="mb-0">{{ s.name }}</h5><small class="text-muted">ID {{ s.user_id }}</small></div>
+            <span class="badge" [ngClass]="studyBadge(s.study_status)">{{ s.study_status }}</span>
+          </div>
+          <p class="mb-1 mt-2"><i class="mdi mdi-school-outline mr-1"></i>{{ s.course || 'Course not set yet' }}<span *ngIf="s.institution" class="text-muted">, {{ s.institution }}</span></p>
+          <p class="mb-1 small text-muted" *ngIf="s.semesters">
+            <ng-container *ngIf="s.semester_now">Semester {{ s.semester_now }} of {{ s.semesters }} · </ng-container>
+            <ng-container *ngIf="s.expected_completion">expected to finish {{ s.expected_completion | date: 'MMM yyyy' }}</ng-container></p>
+          <hr class="my-2">
+          <p class="mb-1 small"><strong>Latest progress:</strong>
+            <ng-container *ngIf="s.latest_progress as lp; else noProgress">{{ lp.year ? 'Year ' + lp.year : '' }}{{ lp.session && lp.session !== '0' ? ', semester ' + lp.session : '' }}
+              · marks {{ lp.marks || '—' }} · {{ lp.uploaded_at | date: 'd MMM yyyy' }}</ng-container>
+            <ng-template #noProgress><span class="text-muted">none uploaded yet</span></ng-template></p>
+          <p class="mb-1 small"><strong>Your last payment:</strong>
+            <ng-container *ngIf="s.last_payment as lpay; else noPay">₹{{ lpay.amount | number: '1.0-0' }} on {{ lpay.date | date: 'd MMM yyyy' }} ·
+              <span [class.text-success]="lpay.spent_proof" [class.text-muted]="!lpay.spent_proof">{{ lpay.spent_proof ? 'spent proof received' : 'spent proof pending' }}</span></ng-container>
+            <ng-template #noPay><span class="text-muted">none yet</span></ng-template></p>
+          <p *ngIf="s.quiet" class="mb-0 small text-warning"><i class="mdi mdi-clock-alert-outline mr-1"></i>No news for a while{{ s.last_activity ? ' (last: ' + (s.last_activity | date: 'MMM yyyy') + ')' : '' }}. The office can follow up.</p>
+        </div></div>
+      </div>
+    </div>
 
     <div class="row" *ngIf="data">
       <div class="col-12 col-lg-4">
@@ -101,11 +161,15 @@ interface SponsorDashboard {
             <p class="text-muted small">Students you sponsored before. Their payments and progress reports from your period stay visible to you.</p>
             <div class="table-responsive">
               <table class="table table-sm table-centered mb-0">
-                <thead><tr><th>Student</th><th>Sponsored</th><th class="text-right">You paid</th></tr></thead>
+                <thead><tr><th>Student</th><th>Sponsored</th><th>Now</th><th class="text-right">You paid</th></tr></thead>
                 <tbody>
                   <tr *ngFor="let p of data!.pastStudents">
                     <td><span class="font-weight-bold d-block text-dark">{{ p.name }}</span><small class="text-muted">ID: {{ p.user_id }}</small></td>
                     <td>{{ p.sponsored_from ? (p.sponsored_from | date: 'MMM yyyy') : '…' }} – {{ p.sponsored_until | date: 'MMM yyyy' }}</td>
+                    <td><ng-container *ngIf="pastNow(p.id) as n">
+                      <span class="badge" [ngClass]="studyBadge(n.study_status)">{{ n.study_status }}</span>
+                      <div *ngIf="n.now as w" class="small">{{ w.status }}{{ w.role ? ' · ' + w.role : '' }}{{ w.organisation ? ', ' + w.organisation : '' }}{{ w.city ? ' (' + w.city + ')' : '' }}</div>
+                    </ng-container></td>
                     <td class="text-right">₹{{ p.total_paid | number: '1.0-2' }}</td>
                   </tr>
                 </tbody>
@@ -136,6 +200,7 @@ interface SponsorDashboard {
 })
 export class SponsorDashboardComponent implements OnInit {
   data: SponsorDashboard | null = null;
+  overview: Overview | null = null;
   distribution: BarDatum[] = [];
   search = '';
   page = 1;
@@ -157,6 +222,7 @@ export class SponsorDashboardComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.api.get<Overview>('/sponsor/overview').subscribe({ next: (o) => (this.overview = o), error: () => (this.overview = null) });
     this.api.get<SponsorDashboard>('/sponsor/dashboard').subscribe({
       next: (d) => {
         this.data = d;
@@ -166,6 +232,18 @@ export class SponsorDashboardComponent implements OnInit {
       },
       error: (e) => (this.error = errorText(e, 'Could not load the dashboard.'))
     });
+  }
+
+  /** A past student's study status and, for graduates who agreed, what they do now. */
+  pastNow(id: number): StudentNews | undefined { return this.overview?.past.find((p) => p.id === id); }
+
+  studyBadge(label: string): string {
+    switch (label) {
+      case 'Studying': return 'badge-success';
+      case 'On hold': return 'badge-warning';
+      case 'Graduated': return 'badge-primary';
+      default: return 'badge-secondary';
+    }
   }
 
   get filtered(): Grantee[] {
