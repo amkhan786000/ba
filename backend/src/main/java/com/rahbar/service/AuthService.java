@@ -199,6 +199,7 @@ public class AuthService {
         var principal = userDetailsService.principalFor(user);
         response.setPermissions(principal.getPermissions());
         response.setScope(principal.getScope());
+        response.setRoleIds(principal.getRoleIds());
         return response;
     }
 

@@ -22,7 +22,7 @@ public final class Access {
     }
 
     public static boolean isSuperAdmin() {
-        return Integer.valueOf(Role.SUPER_ADMIN).equals(current().getUser().getRoleId());
+        return current().hasRole(Role.SUPER_ADMIN);
     }
 
     /** True when the user's permissions only cover their own chapter. */
@@ -37,7 +37,7 @@ public final class Access {
 
     /** True when the user's REB access only covers the classes they teach. */
     public static boolean rebClassesScoped() {
-        return Role.SCOPE_REB_CLASSES.equals(current().getScope());
+        return current().isRebClassesOnly();
     }
 
     public static ApiException forbidden(String message) {

@@ -34,6 +34,7 @@ public class AccountController {
         body.put("roleName", roleRepository.findById(p.getUser().getRoleId()).map(com.rahbar.entity.Role::getRoleName).orElse(null));
         body.put("permissions", p.getPermissions());
         body.put("scope", p.getScope());
+        body.put("roleIds", p.getRoleIds());
         body.put("chapterId", p.getUser().getChapterId());
         body.put("rccCenterId", p.getUser().getRccCenterId());
         // No address, or a placeholder (...@rahbar.com): the app shows a banner asking to add a real one.
