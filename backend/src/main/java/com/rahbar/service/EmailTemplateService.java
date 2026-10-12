@@ -109,7 +109,7 @@ public class EmailTemplateService {
     /** Removes the custom template so the built-in default is used again. Only the Super Admin may do this. */
     public void delete(String key) {
         EmailType type = type(key);
-        if (!Integer.valueOf(Role.SUPER_ADMIN).equals(Access.current().getUser().getRoleId())) {
+        if (!Access.isSuperAdmin()) {
             throw Access.forbidden("Only the Super Admin can delete an email template.");
         }
         templateRepository.deleteById(type.name());

@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.GrantorGrantee;
 import com.rahbar.entity.User;
 import com.rahbar.repository.GrantorGranteeRepository;
@@ -125,7 +126,7 @@ public class SponsorMappingService {
         notificationService.notify(grantorId, "New student mapped to you",
                 student.getName() + " (" + ServiceSupport.refOf(student) + ") is now one of your sponsored students."
                         + " You can see their payment schedule on your Payments page.",
-                NotificationService.MAPPING, Integer.valueOf(5).equals(sponsor.getRoleId()) ? "/sponsor/dashboard" : null,
+                NotificationService.MAPPING, UserRoles.has(sponsor, 5, userRepository) ? "/sponsor/dashboard" : null,
                 EmailType.SPONSOR_STUDENT_MAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", ServiceSupport.refOf(student)));
         notificationService.notify(granteeId, "You have a sponsor",
                 sponsor.getName() + " is now your sponsor. You can see your payment schedule on your Payments page.",
@@ -144,7 +145,7 @@ public class SponsorMappingService {
                 student.getName() + " (" + ServiceSupport.refOf(student) + ") is no longer one of your sponsored students"
                         + (moved ? "; another sponsor has taken over." : ".")
                         + " Installments you already paid stay in your payment history.",
-                NotificationService.MAPPING, Integer.valueOf(5).equals(previous.getRoleId()) ? "/sponsor/dashboard" : null,
+                NotificationService.MAPPING, UserRoles.has(previous, 5, userRepository) ? "/sponsor/dashboard" : null,
                 EmailType.SPONSOR_STUDENT_UNMAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", ServiceSupport.refOf(student)));
         if (!moved) {
             notificationService.notify(granteeId, "Sponsor changed",

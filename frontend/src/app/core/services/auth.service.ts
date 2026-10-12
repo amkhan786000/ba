@@ -2,10 +2,10 @@ import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AuthUser, Section, canAccess } from '../models/user.model';
+import { AuthUser, ROLE, Section, canAccess, hasRole } from '../models/user.model';
 
 export interface AccessInfo {
-  roleId: number; roleName: string | null; permissions: string[]; scope: string; chapterId: number | null; rccCenterId: number | null;
+  roleId: number; roleIds?: number[]; roleName: string | null; permissions: string[]; scope: string; chapterId: number | null; rccCenterId: number | null;
   emailMissing: boolean;
 }
 
@@ -18,6 +18,7 @@ interface LoginResponse {
   userId?: string;
   name?: string;
   roleId?: number;
+  roleIds?: number[];
   status?: string;
   message?: string;
   mustChangePassword?: boolean;
@@ -77,12 +78,17 @@ export class AuthService {
     if (!res.token) return;
     localStorage.setItem(TOKEN_KEY, res.token);
     const user: AuthUser = {
-      id: res.id, userId: res.userId ?? '', name: res.name ?? '', roleId: res.roleId ?? 0, status: res.status ?? '',
+      id: res.id, userId: res.userId ?? '', name: res.name ?? '', roleId: res.roleId ?? 0, roleIds: res.roleIds ?? (res.roleId ? [res.roleId] : []), status: res.status ?? '',
       mustChangePassword: !!res.mustChangePassword, permissions: res.permissions ?? [], scope: res.scope ?? 'ALL'
     };
     localStorage.setItem(USER_KEY, JSON.stringify(user));
     this.currentUser.set(user);
   }
+
+  /** Does the signed-in user have the role (main or additional)? */
+  hasRole(roleId: number): boolean { return hasRole(this.currentUser(), roleId); }
+
+  isSuperAdmin(): boolean { return this.hasRole(ROLE.SUPER_ADMIN); }
 
   /** May the signed-in user view (or manage) the admin section? */
   can(section: Section, level: 'VIEW' | 'EDIT' = 'VIEW'): boolean {
@@ -92,7 +98,7 @@ export class AuthService {
   /** Re-reads permissions from the server, so changes made in Roles apply without signing in again. */
   refreshAccess(): Observable<AccessInfo> {
     return this.http.get<AccessInfo>(`${environment.apiBaseUrl}/account/access`).pipe(tap((a) =>
-      this.updateUser({ roleName: a.roleName ?? undefined, permissions: a.permissions, scope: a.scope,
+      this.updateUser({ roleName: a.roleName ?? undefined, roleIds: a.roleIds, permissions: a.permissions, scope: a.scope,
         chapterId: a.chapterId, rccCenterId: a.rccCenterId, emailMissing: a.emailMissing })));
   }
 

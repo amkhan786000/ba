@@ -18,8 +18,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** The oldest user with this email (several users can share one, e.g. siblings). */
     Optional<User> findFirstByEmailIgnoreCaseOrderByIdAsc(String email);
     Optional<User> findByPhone(String phone);
-    List<User> findByRoleId(Integer roleId);
-    List<User> findByRoleIdIn(List<Integer> roleIds);
+    /*
+     * Role lookups include people who have the role as an additional role (user_additional_roles), e.g. a Super Admin
+     * who also sponsors a student is in findByRoleId(5).
+     */
+    @Query("select u from User u where (u.roleId = :roleId or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = :roleId))")
+    List<User> findByRoleId(@Param("roleId") Integer roleId);
+
+    @Query("select u from User u where (u.roleId in :roleIds or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in :roleIds))")
+    List<User> findByRoleIdIn(@Param("roleIds") List<Integer> roleIds);
+
+    /** True when the user has one of these roles as an additional role (their main role is users.role_id). */
+    @Query("select count(x) > 0 from UserAdditionalRole x where x.userId = :userId and x.roleId in :roleIds")
+    boolean hasAdditionalRole(@Param("userId") Long userId, @Param("roleIds") java.util.Collection<Integer> roleIds);
     /** Recipient picker: users whose name, email or user code contains the text (lower-case LIKE pattern). */
     @Query("""
         select u from User u
@@ -28,12 +39,15 @@ public interface UserRepository extends JpaRepository<User, Long> {
         """)
     List<User> searchByNameEmailOrCode(@Param("q") String q, org.springframework.data.domain.Pageable pageable);
     List<User> findAllByOrderByUserIdAsc();
-    List<User> findByRoleIdAndChapterId(Integer roleId, Long chapterId);
-    long countByRoleId(Integer roleId);
+    @Query("select u from User u where (u.roleId = :roleId or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = :roleId)) and u.chapterId = :chapterId")
+    List<User> findByRoleIdAndChapterId(@Param("roleId") Integer roleId, @Param("chapterId") Long chapterId);
+
+    @Query("select count(u) from User u where (u.roleId = :roleId or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = :roleId))")
+    long countByRoleId(@Param("roleId") Integer roleId);
     long countByChapterId(Long chapterId);
 
     /** users.id of every sponsor (role 5): their details are only shown with the SPONSOR_DETAILS permission. */
-    @Query("select u.id from User u where u.roleId = 5")
+    @Query("select u.id from User u where (u.roleId = 5 or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = 5))")
     List<Long> findSponsorIds();
 
     @Query("select u.userId from User u")
@@ -44,14 +58,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
         select u from User u
         where (:name is null or lower(u.name) like :name)
           and (:email is null or lower(u.email) like :email)
-          and (:roleId is null or u.roleId = :roleId)
+          and (:roleId is null or u.roleId = :roleId or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = :roleId))
           and (:status is null or lower(u.status) = :status)
         """,
         countQuery = """
         select count(u) from User u
         where (:name is null or lower(u.name) like :name)
           and (:email is null or lower(u.email) like :email)
-          and (:roleId is null or u.roleId = :roleId)
+          and (:roleId is null or u.roleId = :roleId or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = :roleId))
           and (:status is null or lower(u.status) = :status)
         """)
     org.springframework.data.domain.Page<User> searchUsers(@Param("name") String name, @Param("email") String email,
@@ -60,16 +74,46 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmailAndIdNot(String email, Long id);
     boolean existsByPhoneAndIdNot(String phone, Long id);
 
-    /** Number of users per role: [Integer roleId, Long count]. */
+    /** Number of users per main role: [Integer roleId, Long count]. */
     @Query("select u.roleId, count(u) from User u group by u.roleId")
     List<Object[]> countPerRole();
-    long countByRoleIdIn(List<Integer> roleIds);
-    long countByRoleIdInAndStatus(List<Integer> roleIds, String status);
 
-    // Sponsor bulk-upload merge lookups
-    Optional<User> findFirstByEmailAndRoleIdIn(String email, List<Integer> roleIds);
-    Optional<User> findFirstByPhoneAndRoleIdIn(String phone, List<Integer> roleIds);
-    Optional<User> findFirstByNameAndChapterIdAndRoleIdIn(String name, Long chapterId, List<Integer> roleIds);
+    /** Every additional role: [Long userId, Integer roleId]. */
+    @Query("select x.userId, x.roleId from UserAdditionalRole x")
+    List<Object[]> allAdditionalRoles();
+
+    /** Number of users per additional role: [Integer roleId, Long count]. */
+    @Query("select x.roleId, count(x) from UserAdditionalRole x group by x.roleId")
+    List<Object[]> countPerAdditionalRole();
+
+    @Query("select count(u) from User u where (u.roleId in :roleIds or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in :roleIds))")
+    long countByRoleIdIn(@Param("roleIds") List<Integer> roleIds);
+
+    @Query("select count(u) from User u where (u.roleId in :roleIds or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in :roleIds)) and u.status = :status")
+    long countByRoleIdInAndStatus(@Param("roleIds") List<Integer> roleIds, @Param("status") String status);
+
+    // Sponsor bulk-upload merge lookups (oldest first)
+    @Query("select u from User u where u.email = :email and (u.roleId in :roleIds or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in :roleIds)) order by u.id")
+    List<User> findAllByEmailWithRoleIn(@Param("email") String email, @Param("roleIds") List<Integer> roleIds);
+
+    @Query("select u from User u where u.phone = :phone and (u.roleId in :roleIds or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in :roleIds)) order by u.id")
+    List<User> findAllByPhoneWithRoleIn(@Param("phone") String phone, @Param("roleIds") List<Integer> roleIds);
+
+    @Query("select u from User u where u.name = :name and u.chapterId = :chapterId and (u.roleId in :roleIds or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in :roleIds)) order by u.id")
+    List<User> findAllByNameAndChapterWithRoleIn(@Param("name") String name, @Param("chapterId") Long chapterId,
+                                                 @Param("roleIds") List<Integer> roleIds);
+
+    default Optional<User> findFirstByEmailAndRoleIdIn(String email, List<Integer> roleIds) {
+        return findAllByEmailWithRoleIn(email, roleIds).stream().findFirst();
+    }
+
+    default Optional<User> findFirstByPhoneAndRoleIdIn(String phone, List<Integer> roleIds) {
+        return findAllByPhoneWithRoleIn(phone, roleIds).stream().findFirst();
+    }
+
+    default Optional<User> findFirstByNameAndChapterIdAndRoleIdIn(String name, Long chapterId, List<Integer> roleIds) {
+        return findAllByNameAndChapterWithRoleIn(name, chapterId, roleIds).stream().findFirst();
+    }
 
     /** Students (grantees) mapped to the given sponsor / convenor in grantor_grantees. */
     @Query("select u from User u where u.id in (select gg.granteeId from GrantorGrantee gg where gg.grantorId = :grantorId)")
@@ -89,20 +133,20 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select distinct extract(year from u.createdAt) from User u where u.createdAt is not null")
     List<Integer> findCreatedYears();
 
-    @Query("select distinct extract(year from u.createdAt) from User u where u.roleId in :roleIds and u.createdAt is not null")
+    @Query("select distinct extract(year from u.createdAt) from User u where (u.roleId in :roleIds or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in :roleIds)) and u.createdAt is not null")
     List<Integer> findCreatedYearsByRoleIdIn(@Param("roleIds") List<Integer> roleIds);
 
     @Query("select count(u) from User u where extract(year from u.createdAt) = :year")
     long countCreatedInYear(@Param("year") Integer year);
 
-    @Query("select count(u) from User u where u.roleId = :roleId and extract(year from u.createdAt) = :year")
+    @Query("select count(u) from User u where (u.roleId = :roleId or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = :roleId)) and extract(year from u.createdAt) = :year")
     long countByRoleIdCreatedInYear(@Param("roleId") Integer roleId, @Param("year") Integer year);
 
-    @Query("select count(u) from User u where u.roleId in :roleIds and u.status = :status and extract(year from u.createdAt) = :year")
+    @Query("select count(u) from User u where (u.roleId in :roleIds or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in :roleIds)) and u.status = :status and extract(year from u.createdAt) = :year")
     long countByRoleIdInAndStatusCreatedInYear(@Param("roleIds") List<Integer> roleIds, @Param("status") String status,
                                                @Param("year") Integer year);
 
-    @Query("select u from User u where u.roleId = :roleId and extract(year from u.createdAt) = :year")
+    @Query("select u from User u where (u.roleId = :roleId or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = :roleId)) and extract(year from u.createdAt) = :year")
     List<User> findByRoleIdCreatedInYear(@Param("roleId") Integer roleId, @Param("year") Integer year);
 
     // ---------------------------------------------------------------- admin screens
@@ -119,7 +163,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
         left join StudentInstitutionCourse sic on sic.userId = u.id
         left join Institution i on i.institutionId = sic.institutionId
         left join Course c on c.courseId = sic.courseId
-        where u.roleId = 6
+        where (u.roleId = 6 or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = 6))
         """)
     List<Map<String, Object>> findStudentOverview();
 
@@ -132,7 +176,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
         left join Chapter ch on ch.chapterId = u.chapterId
         join Role r on r.roleId = u.roleId
         left join GrantorGrantee gg on gg.grantorId = u.id
-        where u.roleId in (3, 4, 5) and u.status = 'active'
+        where (u.roleId in (3, 4, 5) or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in (3, 4, 5)))
+          and u.status = 'active'
         group by u.id, u.userId, u.name, u.email, u.phone, u.status, u.chapterId, ch.chapterName, r.roleName
         order by u.name asc
         """)
@@ -147,7 +192,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
         left join Chapter ch on ch.chapterId = u.chapterId
         left join GrantorGrantee gg on gg.granteeId = u.id
         left join User cs on cs.id = gg.grantorId
-        where u.roleId = 6 and u.status = 'active' and (gg.grantorId is null or gg.grantorId <> :sponsorId)
+        where (u.roleId = 6 or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = 6)) and u.status = 'active' and (gg.grantorId is null or gg.grantorId <> :sponsorId)
         order by u.name asc
         """)
     List<Map<String, Object>> findStudentsAvailableFor(@Param("sponsorId") Long sponsorId);
@@ -164,7 +209,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
         left join StudentInstitutionCourse sic on sic.userId = u.id
         left join Institution i on i.institutionId = sic.institutionId
         left join Course c on c.courseId = sic.courseId
-        where u.roleId = 6
+        where (u.roleId = 6 or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = 6))
           and (:institutionId is null or sic.institutionId = :institutionId)
           and (:courseId is null or sic.courseId = :courseId)
           and (:search is null or u.name like :search or u.email like :search or u.userId like :search

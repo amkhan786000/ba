@@ -22,6 +22,9 @@ export interface UserRow {
   phone?: string | null;
   role_id: number;
   role_name: string;
+  /** Roles besides the main one. */
+  additional_role_ids?: number[];
+  additional_role_names?: string[];
   status: string;
   chapter_id?: number | null;
   rcc_center_id?: number | null;
@@ -102,7 +105,7 @@ export interface RoleOption {
                     <td>{{ u.user_id }}</td>
                     <td>{{ u.name }}</td>
                     <td>{{ u.email ?? 'None' }}</td>
-                    <td><span class="badge badge-light-secondary">{{ u.role_name }}</span></td>
+                    <td><span class="badge badge-light-secondary">{{ u.role_name }}</span><span *ngFor="let n of u.additional_role_names" class="badge badge-light ml-1" title="Additional role">+ {{ n }}</span></td>
                     <td><span class="badge" [ngClass]="u.status === 'Active' ? 'badge-success' : 'badge-danger'">{{ u.status }}</span></td>
                     <td class="text-nowrap">
                       <a *ngIf="canEdit" [routerLink]="['/admin/users', u.id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
@@ -180,9 +183,19 @@ export interface RoleOption {
                 </div>
                 <div class="form-group">
                   <label>Role</label>
-                  <select class="form-control" name="roleId" [(ngModel)]="newUser.roleId" required>
+                  <select class="form-control" name="roleId" [(ngModel)]="newUser.roleId" required
+                          (ngModelChange)="mainChanged(newUser, $event)">
                     <option *ngFor="let r of assignableRoles" [ngValue]="r.roleId">{{ r.roleName }}</option>
                   </select>
+                </div>
+                <div class="form-group" *ngIf="newUser.roleId">
+                  <label class="d-block mb-1">Also has these roles <span class="text-muted small">(optional)</span></label>
+                  <div class="custom-control custom-checkbox custom-control-inline" *ngFor="let r of extraRoleChoices(newUser.roleId)">
+                    <input type="checkbox" class="custom-control-input" [id]="'new-extra-' + r.roleId" [checked]="newUser.additionalRoleIds.includes(r.roleId)"
+                           (change)="toggleExtra(newUser, r.roleId)">
+                    <label class="custom-control-label" [for]="'new-extra-' + r.roleId">{{ r.roleName }}</label>
+                  </div>
+                  <small class="form-text text-muted">One person, one account: e.g. a Super Admin who also sponsors a student gets the Sponsor role here, not a second account.</small>
                 </div>
                 <div class="form-row" *ngIf="newUser.roleId === 6">
                   <div class="form-group col-md-6">
@@ -258,7 +271,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
 
   /** Only a Super Admin may reset a Super Admin's password. */
   mayReset(u: UserRow): boolean {
-    return u.role_id !== ROLE.SUPER_ADMIN || this.auth.currentUser()?.roleId === ROLE.SUPER_ADMIN;
+    return u.role_id !== ROLE.SUPER_ADMIN || this.auth.isSuperAdmin();
   }
 
   resetPassword(u: UserRow): void {
@@ -285,7 +298,7 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
 
   /** Only a Super Admin may give someone the Super Admin role. */
   get assignableRoles(): RoleOption[] {
-    return this.auth.currentUser()?.roleId === ROLE.SUPER_ADMIN ? this.roles : this.roles.filter((r) => r.roleId !== ROLE.SUPER_ADMIN);
+    return this.auth.isSuperAdmin() ? this.roles : this.roles.filter((r) => r.roleId !== ROLE.SUPER_ADMIN);
   }
 
   chapterOptions(currentId: number | null | undefined): Chapter[] {
@@ -354,8 +367,18 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
     });
   }
 
+  /** Roles that can be added besides the main one. */
+  extraRoleChoices(main: number | null): RoleOption[] { return this.assignableRoles.filter((r) => r.roleId !== main); }
+
+  /** The new main role is not also an additional one. */
+  mainChanged(f: { additionalRoleIds: number[] }, main: number): void { f.additionalRoleIds = f.additionalRoleIds.filter((r) => r !== main); }
+
+  toggleExtra(f: { additionalRoleIds: number[] }, roleId: number): void {
+    f.additionalRoleIds = f.additionalRoleIds.includes(roleId) ? f.additionalRoleIds.filter((r) => r !== roleId) : [...f.additionalRoleIds, roleId];
+  }
+
   private blankUser() {
-    return { userId: '', name: '', contact: '', email: '', chapterId: null as number | null, rccCenterId: null as number | null, roleId: null as number | null, status: 'Active',
+    return { userId: '', name: '', contact: '', email: '', chapterId: null as number | null, rccCenterId: null as number | null, roleId: null as number | null, additionalRoleIds: [] as number[], status: 'Active',
       year: new Date().getFullYear() as number | null, paymentStartDate: '' };
   }
 }

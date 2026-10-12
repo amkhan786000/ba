@@ -86,7 +86,7 @@ export class AdminEmailTemplatesComponent implements OnInit {
 
   get canEdit(): boolean { return this.auth.can('EMAIL_TEMPLATES', 'EDIT'); }
   /** Only the Super Admin may delete a custom template. */
-  get isSuperAdmin(): boolean { return this.auth.currentUser()?.roleId === 1; }
+  get isSuperAdmin(): boolean { return this.auth.isSuperAdmin(); }
 
   ngOnInit(): void { this.load(); }
 

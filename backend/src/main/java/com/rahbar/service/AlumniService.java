@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.AlumniProfile;
 import com.rahbar.entity.User;
 import com.rahbar.exception.ApiException;
@@ -150,7 +151,7 @@ public class AlumniService {
 
     private User requireStudent(Long userId) {
         User u = userRepository.findById(userId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Student not found."));
-        if (!Integer.valueOf(ServiceSupport.STUDENT_ROLE).equals(u.getRoleId())) throw new ApiException(HttpStatus.BAD_REQUEST, "Only students have an alumni profile.");
+        if (!UserRoles.has(u, ServiceSupport.STUDENT_ROLE, userRepository)) throw new ApiException(HttpStatus.BAD_REQUEST, "Only students have an alumni profile.");
         return u;
     }
 

@@ -4,7 +4,10 @@ export interface AuthUser {
   /** The user's code (users.user_id), for display only. */
   userId: string;
   name: string;
+  /** The main role (home screen). */
   roleId: number;
+  /** The main role and any additional ones (a person can be e.g. Super Admin and Sponsor). */
+  roleIds?: number[];
   status: string;
   /** True until the user replaces the password an admin / bulk upload gave them. */
   mustChangePassword?: boolean;
@@ -105,10 +108,15 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY', group: 'administration' }
 ];
 
+/** True when the user has the role, as their main role or an additional one. */
+export function hasRole(user: AuthUser | null, roleId: number): boolean {
+  return !!user && (user.roleId === roleId || (user.roleIds ?? []).includes(roleId));
+}
+
 /** True when the user may use the section: EDIT implies VIEW; the Super Admin may do everything. */
 export function canAccess(user: AuthUser | null, section: Section, level: 'VIEW' | 'EDIT' = 'VIEW'): boolean {
   if (!user) return false;
-  if (user.roleId === ROLE.SUPER_ADMIN) return true;
+  if (hasRole(user, ROLE.SUPER_ADMIN)) return true;
   const p = user.permissions ?? [];
   return p.includes(section + ':EDIT') || (level === 'VIEW' && p.includes(section + ':VIEW'));
 }

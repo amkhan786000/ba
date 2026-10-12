@@ -89,7 +89,7 @@ export class AdminEmailTemplateEditComponent implements OnInit, OnDestroy {
   constructor(private api: ApiService, private auth: AuthService, private router: Router) {}
 
   get canEdit(): boolean { return this.auth.can('EMAIL_TEMPLATES', 'EDIT'); }
-  get isSuperAdmin(): boolean { return this.auth.currentUser()?.roleId === 1; }
+  get isSuperAdmin(): boolean { return this.auth.isSuperAdmin(); }
 
   ngOnInit(): void {
     this.sub = this.preview$.pipe(

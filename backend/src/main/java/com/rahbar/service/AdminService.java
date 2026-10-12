@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.*;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.*;
@@ -170,6 +171,10 @@ public class AdminService {
 
     // ---------------------------------------------------------------- manage users
 
+    /** Roles besides the main one (several roles per person). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private AdditionalRoleService additionalRoles;
+
     /** One page of users (with role_name) ordered by user_id (the code); every filter is optional. */
     public Map<String, Object> listUsers(int page, int size, String name, String email, Integer roleId, String status) {
         Map<Integer, String> roleNames = roleNames();
@@ -177,9 +182,13 @@ public class AdminService {
                 isBlank(status) ? null : status.trim().toLowerCase(Locale.ROOT),
                 pageRequest(page, size, org.springframework.data.domain.Sort.by("userId")));
         List<Map<String, Object>> rows = new ArrayList<>();
+        Map<Long, Set<Integer>> rolesOf = UserRoles.byUser(result.getContent(), userRepository);
         for (User u : result.getContent()) {
             Map<String, Object> row = Rows.of(u);
             row.put("role_name", roleNames.get(u.getRoleId()));
+            List<Integer> more = rolesOf.getOrDefault(u.getId(), Set.of()).stream().filter(r -> !r.equals(u.getRoleId())).sorted().toList();
+            row.put("additional_role_ids", more);
+            row.put("additional_role_names", more.stream().map(roleNames::get).filter(Objects::nonNull).toList());
             rows.add(row);
         }
         return pageBody(result, rows);
@@ -190,6 +199,7 @@ public class AdminService {
         User u = requireUser(userRepository, userId, "User not found");
         Map<String, Object> row = Rows.of(u);
         row.put("role_name", roleRepository.findById(u.getRoleId()).map(Role::getRoleName).orElse(null));
+        row.put("additional_role_ids", additionalRoles.of(u.getId()));
         return row;
     }
 
@@ -231,6 +241,7 @@ public class AdminService {
             user.setStudyStatus(StudyStatus.STUDYING);
         }
         userRepository.save(user);
+        if (body.get("additionalRoleIds") instanceof Collection<?> more) additionalRoles.set(user, more);
 
         String email = user.getEmail();
         boolean usableEmail = email != null && email.contains("@") && !email.trim().toLowerCase(Locale.ROOT).endsWith("@rahbar.com");
@@ -290,7 +301,8 @@ public class AdminService {
 
     public void updateUser(Long userId, Map<String, Object> body) {
         User user = requireUser(userRepository, userId, "User not found");
-        requireMayAssignRole(user.getRoleId()); // only a Super Admin may change a Super Admin
+        // only a Super Admin may change a Super Admin (as main or additional role)
+        if (UserRoles.has(user, Role.SUPER_ADMIN, userRepository)) requireMayAssignRole(Role.SUPER_ADMIN);
         boolean hidden = hidesDetailsOf(user); // a sponsor's details the editor isn't allowed to see stay as they are
         if (body.get("name") != null) user.setName(String.valueOf(body.get("name")));
         if (!hidden && body.containsKey("email")) user.setEmail(trimToNull(str(body.get("email"))));
@@ -303,11 +315,13 @@ public class AdminService {
         if (!hidden && body.containsKey("chapterId")) user.setChapterId(requireChapter(chapterRepository, body.get("chapterId")));
         if (!hidden && body.containsKey("rccCenterId")) user.setRccCenterId(requireRccCenter(body.get("rccCenterId")));
         userRepository.save(user);
+        if (body.get("additionalRoleIds") instanceof Collection<?> more) additionalRoles.set(user, more);
+        else additionalRoles.dropMain(user); // a new main role that was an additional one isn't listed twice
     }
 
     /** True for a sponsor whose details the signed-in user may not see (they were blanked on their screen). */
     private boolean hidesDetailsOf(User user) {
-        return Integer.valueOf(5).equals(user.getRoleId()) && sponsorPrivacy.hidesDetails();
+        return sponsorPrivacy.hidesDetails() && UserRoles.has(user, 5, userRepository);
     }
 
     /**
@@ -821,7 +835,7 @@ public class AdminService {
         Long sponsorId = toLong(value);
         if (sponsorId == null) return null;
         return userRepository.findById(sponsorId)
-                .filter(s -> SPONSOR_ROLES.contains(s.getRoleId()))
+                .filter(s -> UserRoles.hasAny(s, SPONSOR_ROLES, userRepository))
                 .map(User::getId)
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "The selected sponsor does not exist."));
     }
@@ -851,7 +865,7 @@ public class AdminService {
     @Transactional
     public void setStudyStatus(Long userId, String status, String date, String note) {
         User user = studentScope.requireStudent(userId);
-        if (!Integer.valueOf(STUDENT_ROLE).equals(user.getRoleId())) {
+        if (!UserRoles.has(user, STUDENT_ROLE, userRepository)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Only students have a study status.");
         }
         String s = status == null ? "" : status.trim().toUpperCase(Locale.ROOT);

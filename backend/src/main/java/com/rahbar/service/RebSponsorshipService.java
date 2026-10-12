@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.RebSponsorship;
 import com.rahbar.entity.RebStudent;
 import com.rahbar.entity.User;
@@ -158,7 +159,7 @@ public class RebSponsorshipService {
 
     private User requireSponsor(Long id) {
         User u = id == null ? null : users.findById(id).orElse(null);
-        if (u == null || !ServiceSupport.SPONSOR_ROLES.contains(u.getRoleId())) throw bad("Choose a Rahbar sponsor.");
+        if (u == null || !UserRoles.hasAny(u, ServiceSupport.SPONSOR_ROLES, users)) throw bad("Choose a Rahbar sponsor.");
         return u;
     }
 

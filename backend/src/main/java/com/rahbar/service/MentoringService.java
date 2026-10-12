@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.AlumniProfile;
 import com.rahbar.entity.Mentorship;
 import com.rahbar.entity.User;
@@ -256,7 +257,6 @@ public class MentoringService {
 
     private List<User> students(StudentScope.Scope scope, Map<Long, User> byId) {
         return byId.values().stream()
-                .filter(u -> Integer.valueOf(ServiceSupport.STUDENT_ROLE).equals(u.getRoleId()))
                 .filter(u -> u.getMergedIntoId() == null && StudyStatus.inProgramme(u.getStudyStatus()))
                 .filter(scope::includes)
                 .toList();
@@ -355,7 +355,7 @@ public class MentoringService {
 
     private User requireStudent(Long id) {
         User u = studentScope.requireStudent(id);
-        if (!Integer.valueOf(ServiceSupport.STUDENT_ROLE).equals(u.getRoleId())) throw new ApiException(HttpStatus.NOT_FOUND, "Student not found");
+        if (!UserRoles.has(u, ServiceSupport.STUDENT_ROLE, users)) throw new ApiException(HttpStatus.NOT_FOUND, "Student not found");
         return u;
     }
 

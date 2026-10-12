@@ -62,10 +62,21 @@ import { RccCenter } from './admin-rcc-centers.component';
                 <div class="col-md-6">
                   <div class="form-group">
                     <label for="role_id">Role</label>
-                    <select class="form-control" id="role_id" name="roleId" [(ngModel)]="form.roleId" required>
+                    <select class="form-control" id="role_id" name="roleId" [(ngModel)]="form.roleId" required
+                            (ngModelChange)="mainChanged(form, $event)">
                       <option *ngFor="let r of assignableRoles" [ngValue]="r.roleId">{{ r.roleName }}</option>
                     </select>
+                    <small class="form-text text-muted">Main role: decides the home screen.</small>
                   </div>
+                  <div class="form-group" *ngIf="form.roleId">
+                  <label class="d-block mb-1">Also has these roles <span class="text-muted small">(optional)</span></label>
+                  <div class="custom-control custom-checkbox custom-control-inline" *ngFor="let r of extraRoleChoices(form.roleId)">
+                    <input type="checkbox" class="custom-control-input" [id]="'edit-extra-' + r.roleId" [checked]="form.additionalRoleIds.includes(r.roleId)"
+                           (change)="toggleExtra(form, r.roleId)">
+                    <label class="custom-control-label" [for]="'edit-extra-' + r.roleId">{{ r.roleName }}</label>
+                  </div>
+                  <small class="form-text text-muted">One person, one account: e.g. a Super Admin who also sponsors a student gets the Sponsor role here, not a second account.</small>
+                </div>
                 </div>
                 <div class="col-md-6">
                   <div class="form-group">
@@ -97,7 +108,7 @@ export class AdminUserEditComponent implements OnInit {
   @Input() id = '';
 
   roles: RoleOption[] = [];
-  form: { name: string; email: string; roleId: number; status: string; chapterId: number | null; rccCenterId: number | null } | null = null;
+  form: { name: string; email: string; roleId: number; additionalRoleIds: number[]; status: string; chapterId: number | null; rccCenterId: number | null } | null = null;
   chapters: Chapter[] = [];
   rccCenters: RccCenter[] = [];
   private originalChapterId: number | null = null;
@@ -111,7 +122,7 @@ export class AdminUserEditComponent implements OnInit {
   /** Only a Super Admin may give someone the Super Admin role. */
   get assignableRoles(): RoleOption[] {
     const own = this.form?.roleId;
-    return this.auth.currentUser()?.roleId === ROLE.SUPER_ADMIN
+    return this.auth.isSuperAdmin()
       ? this.roles : this.roles.filter((r) => r.roleId !== ROLE.SUPER_ADMIN || r.roleId === own);
   }
 
@@ -127,11 +138,21 @@ export class AdminUserEditComponent implements OnInit {
       next: (u) => {
         this.originalChapterId = u.chapter_id ?? null;
         this.masked = !!u.masked;
-        this.form = { name: u.name, email: u.email ?? '', roleId: u.role_id, status: u.status,
+        this.form = { name: u.name, email: u.email ?? '', roleId: u.role_id, additionalRoleIds: u.additional_role_ids ?? [], status: u.status,
                       chapterId: u.chapter_id ?? null, rccCenterId: u.rcc_center_id ?? null };
       },
       error: (err) => (this.error = err?.error?.error ?? 'Could not load user.')
     });
+  }
+
+  /** Roles that can be added besides the main one. */
+  extraRoleChoices(main: number | null): RoleOption[] { return this.assignableRoles.filter((r) => r.roleId !== main); }
+
+  /** The new main role is not also an additional one. */
+  mainChanged(f: { additionalRoleIds: number[] }, main: number): void { f.additionalRoleIds = f.additionalRoleIds.filter((r) => r !== main); }
+
+  toggleExtra(f: { additionalRoleIds: number[] }, roleId: number): void {
+    f.additionalRoleIds = f.additionalRoleIds.includes(roleId) ? f.additionalRoleIds.filter((r) => r !== roleId) : [...f.additionalRoleIds, roleId];
   }
 
   save(): void {

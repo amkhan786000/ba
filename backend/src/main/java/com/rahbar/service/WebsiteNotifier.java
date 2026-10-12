@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.service.WebsiteNotifier;
 
 import com.rahbar.entity.Role;
@@ -42,12 +43,18 @@ public class WebsiteNotifier {
                 if (Integer.valueOf(Role.SUPER_ADMIN).equals(r.getRoleId()) || r.permissionSet().contains(key)) byId.put(r.getRoleId(), r);
             }
             if (byId.isEmpty()) return;
-            for (User u : users.findByRoleIdIn(new ArrayList<>(byId.keySet()))) {
+            List<User> people = users.findByRoleIdIn(new ArrayList<>(byId.keySet()));
+            Map<Long, java.util.Set<Integer>> rolesOf = UserRoles.byUser(people, users);
+            for (User u : people) {
                 if ("Inactive".equalsIgnoreCase(u.getStatus())) continue;
-                String scope = byId.get(u.getRoleId()).getScope();
-                if (Role.SCOPE_CHAPTER.equals(scope) && (chapterId == null || !chapterId.equals(u.getChapterId()))) continue;
-                if (Role.SCOPE_RCC.equals(scope) && (centerId == null || !centerId.equals(u.getRccCenterId()))) continue;
-                notifications.notify(u.getId(), title, message, "WEBSITE", link, false);
+                // any of their roles (main or additional) with the permission whose scope covers this record
+                boolean reaches = rolesOf.getOrDefault(u.getId(), java.util.Set.of()).stream().map(byId::get).filter(java.util.Objects::nonNull).anyMatch(r -> {
+                    String scope = r.getScope();
+                    if (Role.SCOPE_CHAPTER.equals(scope)) return chapterId != null && chapterId.equals(u.getChapterId());
+                    if (Role.SCOPE_RCC.equals(scope)) return centerId != null && centerId.equals(u.getRccCenterId());
+                    return true;
+                });
+                if (reaches) notifications.notify(u.getId(), title, message, "WEBSITE", link, false);
             }
         } catch (RuntimeException e) {
             log.warn("Could not send website notification '{}': {}", title, e.getMessage());
