@@ -29,9 +29,10 @@ public class InsightsController {
         return chapterDashboardService.dashboard(chapterId);
     }
 
+    /** studyStatus: the students' study statuses to check (repeat or comma separated); default STUDYING. */
     @GetMapping("/data-quality")
     @PreAuthorize("hasAuthority('DATA_QUALITY:VIEW')")
-    public List<Map<String, Object>> dataQuality() {
-        return dataQualityService.checks();
+    public List<Map<String, Object>> dataQuality(@RequestParam(required = false) List<String> studyStatus) {
+        return dataQualityService.checks(studyStatus);
     }
 }

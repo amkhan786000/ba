@@ -86,13 +86,41 @@ public class DataQualityService {
         return u.getRccCenterId() != null && (u.getUserId() == null || u.getUserId().isBlank());
     }
 
+    /** The study statuses the student checks look at when the page doesn't choose: students who are studying now. */
+    static final Set<String> DEFAULT_STUDY_STATUSES = Set.of(StudyStatus.STUDYING);
+
+    /** Known study status codes from the page; nothing (or nothing known) means {@link #DEFAULT_STUDY_STATUSES}. */
+    static Set<String> studyStatuses(Collection<String> requested) {
+        Set<String> out = new LinkedHashSet<>();
+        if (requested != null) {
+            for (String r : requested) {
+                if (r == null) continue;
+                for (String part : r.split(",")) {
+                    String code = part.trim().toUpperCase(Locale.ROOT);
+                    if (StudyStatus.LABELS.containsKey(code)) out.add(code);
+                }
+            }
+        }
+        return out.isEmpty() ? DEFAULT_STUDY_STATUSES : out;
+    }
+
     public List<Map<String, Object>> checks() {
+        return checks(null);
+    }
+
+    /**
+     * @param studyStatus the study statuses (Study tab) of the students the missing-data checks look at, e.g.
+     *                    STUDYING and ON_HOLD; empty means studying only. Checks about the status itself (finished
+     *                    students still mapped, possible duplicates) always look at everyone.
+     */
+    public List<Map<String, Object>> checks(Collection<String> studyStatus) {
         if (com.rahbar.security.Access.chapterScoped() || com.rahbar.security.Access.rccScoped()) {
             throw com.rahbar.security.Access.forbidden("Data quality checks cover the whole organisation and aren't available for chapter or RCC roles.");
         }
-        // Current (scholarship) students: active accounts that are still studying or on hold.
+        Set<String> statuses = studyStatuses(studyStatus);
+        // The scholarship students the checks are about: active accounts with one of the chosen study statuses.
         List<User> students = userRepository.findByRoleId(6).stream()
-                .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && StudyStatus.inProgramme(u.getStudyStatus()))
+                .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && statuses.contains(StudyStatus.of(u.getStudyStatus())))
                 .filter(u -> !coachingOnly(u))
                 .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
@@ -113,18 +141,18 @@ public class DataQualityService {
         courseAssignmentRepository.findAll().forEach(s -> withCourse.add(s.getUserId()));
 
         List<Map<String, Object>> checks = new ArrayList<>();
-        checks.add(in(SPONSORS, "/admin/sponsorships", userCheck("students_without_sponsor", "Students without a sponsor",
-                "Current students not mapped to any sponsor.", students, u -> !sponsored.contains(u.getId()))));
-        checks.add(in(SPONSORS, "/admin/students", userCheck("students_without_bank", "Students without bank details",
-                "Payments can't be sent to these students.", students, u -> !withBank.contains(u.getId()))));
-        checks.add(in(STUDENTS, "/admin/students", userCheck("students_without_course", "Students without a course",
+        checks.add(byStudy(in(SPONSORS, "/admin/sponsorships", userCheck("students_without_sponsor", "Students without a sponsor",
+                "Students not mapped to any sponsor.", students, u -> !sponsored.contains(u.getId())))));
+        checks.add(byStudy(in(SPONSORS, "/admin/students", userCheck("students_without_bank", "Students without bank details",
+                "Payments can't be sent to these students.", students, u -> !withBank.contains(u.getId())))));
+        checks.add(byStudy(in(STUDENTS, "/admin/students", userCheck("students_without_course", "Students without a course",
                 "No institution / course assigned, so their payment schedule can't be worked out.", students,
-                u -> !withCourse.contains(u.getId()))));
-        checks.add(in(STUDENTS, "/admin/students", userCheck("students_without_chapter", "Students without a chapter",
-                "They don't show on any chapter dashboard.", students, u -> u.getChapterId() == null)));
-        checks.add(in(STUDENTS, "/admin/students", userCheck("students_without_email", "Students without a real email address",
+                u -> !withCourse.contains(u.getId())))));
+        checks.add(byStudy(in(STUDENTS, "/admin/students", userCheck("students_without_chapter", "Students without a chapter",
+                "They don't show on any chapter dashboard.", students, u -> u.getChapterId() == null))));
+        checks.add(byStudy(in(STUDENTS, "/admin/students", userCheck("students_without_email", "Students without a real email address",
                 "They can't get emails (no address, or a placeholder ...@rahbar.com).", students,
-                u -> !usableEmail(u.getEmail()))));
+                u -> !usableEmail(u.getEmail())))));
         // Duplicates are checked across every active student account, whatever the study status.
         checks.add(in(STUDENTS, "/admin/students", duplicateStudents(userRepository.findByRoleId(6).stream()
                 .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && u.getMergedIntoId() == null).toList())));
@@ -216,19 +244,20 @@ public class DataQualityService {
         for (User u : students) {
             if (sponsored.contains(u.getId()) && u.getYear() == null) {
                 noYear.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "chapter", u.getChapterName(),
-                        "payment_start_date", u.getPaymentStartDate()));
+                        "study_status", StudyStatus.label(u.getStudyStatus()), "payment_start_date", u.getPaymentStartDate()));
             }
             // every current scholarship student, sponsored or not: the first installment's due date
             if (u.getPaymentStartDate() == null) {
                 noStart.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "chapter", u.getChapterName(),
-                        "session_year", u.getYear(), "sponsored", sponsored.contains(u.getId()) ? "Yes" : "No"));
+                        "study_status", StudyStatus.label(u.getStudyStatus()), "session_year", u.getYear(),
+                        "sponsored", sponsored.contains(u.getId()) ? "Yes" : "No"));
             }
             if (u.getYear() != null) studentsByYear.merge(u.getYear(), 1, Integer::sum);
             String digits = u.getPhone() == null ? "" : u.getPhone().replaceAll("\\D", "");
             if (digits.length() == 12 && digits.startsWith("91")) digits = digits.substring(2);
             if (!blank(u.getPhone()) && !digits.matches("[6-9]\\d{9}")) {
                 badPhone.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "phone", u.getPhone(),
-                        "chapter", u.getChapterName()));
+                        "chapter", u.getChapterName(), "study_status", StudyStatus.label(u.getStudyStatus())));
             }
         }
 
@@ -239,6 +268,8 @@ public class DataQualityService {
             }
         });
 
+        Set<Long> current = new HashSet<>();
+        students.forEach(u -> current.add(u.getId()));
         List<Map<String, Object>> finishedMapped = new ArrayList<>(), inactiveSponsor = new ArrayList<>();
         for (GrantorGrantee gg : grantorGranteeRepository.findAll()) {
             if (gg.getGrantorId() == null || gg.getGrantorId().equals(unassigned)) continue;
@@ -248,11 +279,9 @@ public class DataQualityService {
             Map<String, Object> r = row("id", st.getId(), "user_id", st.getUserId(), "name", st.getName(),
                     "study_status", StudyStatus.label(study), "sponsor", sp.getName() + " (" + ServiceSupport.refOf(sp) + ")");
             if (StudyStatus.GRADUATED.equals(study) || StudyStatus.DROPPED_OUT.equals(study)) finishedMapped.add(r);
-            else if ("Inactive".equalsIgnoreCase(sp.getStatus())) inactiveSponsor.add(r);
+            else if ("Inactive".equalsIgnoreCase(sp.getStatus()) && current.contains(st.getId())) inactiveSponsor.add(r);
         }
 
-        Set<Long> current = new HashSet<>();
-        students.forEach(u -> current.add(u.getId()));
         List<Map<String, Object>> badBank = new ArrayList<>();
         for (BankDetails b : bankDetailsRepository.findAll()) {
             if (!current.contains(b.getUserId())) continue;
@@ -263,6 +292,7 @@ public class DataQualityService {
             if (problem == null) continue;
             User u = users.get(b.getUserId());
             badBank.add(row("id", b.getUserId(), "user_id", u == null ? null : u.getUserId(), "name", u == null ? null : u.getName(),
+                    "study_status", u == null ? null : StudyStatus.label(u.getStudyStatus()),
                     "bank", b.getBankName(), "ifsc_code", b.getIfscCode(), "problem", problem));
         }
 
@@ -277,26 +307,26 @@ public class DataQualityService {
             if (centerNames.contains(rcc) || rcc.equals("non-rcc") || rcc.equals("non rcc") || rcc.equals("rcc")) continue;
             User u = users.get(g.getUserId());
             unknownRcc.add(row("id", g.getUserId(), "user_id", u == null ? null : u.getUserId(), "name", g.getName(),
-                    "rcc_name", g.getRccName()));
+                    "study_status", u == null ? null : StudyStatus.label(u.getStudyStatus()), "rcc_name", g.getRccName()));
         }
 
         return List.of(
-                in(SPONSORS, "/admin/students", check("students_without_payment_start", "Students without a payment start date",
-                        "No date for the first installment, so no fee schedule can be made once they are sponsored (Student Directory > BA Details).", noStart)),
-                in(SPONSORS, "/admin/students", check("sponsored_students_without_session_year", "Sponsored students without a session year",
-                        "The session year picks their Payment Config (amount and frequency); no fee schedule until it is set (Student Directory > BA Details).", noYear)),
-                in(ADMINISTRATION, "/admin/system-configuration", check("session_years_without_payment_config", "Session years without a payment config",
-                        "Students of these years get no installments until a Payment Config is added for the year.", noConfig)),
+                byStudy(in(SPONSORS, "/admin/students", check("students_without_payment_start", "Students without a payment start date",
+                        "No date for the first installment, so no fee schedule can be made once they are sponsored (Student Directory > BA Details).", noStart))),
+                byStudy(in(SPONSORS, "/admin/students", check("sponsored_students_without_session_year", "Sponsored students without a session year",
+                        "The session year picks their Payment Config (amount and frequency); no fee schedule until it is set (Student Directory > BA Details).", noYear))),
+                byStudy(in(ADMINISTRATION, "/admin/system-configuration", check("session_years_without_payment_config", "Session years without a payment config",
+                        "Students of these years get no installments until a Payment Config is added for the year.", noConfig))),
                 in(SPONSORS, "/admin/sponsorships", check("finished_students_still_mapped", "Graduated or dropped-out students still mapped to a sponsor",
                         "The sponsor still sees them as current; unmap them so the sponsor can take a new student.", finishedMapped)),
-                in(SPONSORS, "/admin/sponsorships", check("students_with_inactive_sponsor", "Current students mapped to an inactive sponsor",
-                        "Their sponsor's account is inactive, so nobody is paying for them.", inactiveSponsor)),
-                in(SPONSORS, "/admin/students", check("students_with_bad_bank_details", "Students with incomplete or invalid bank details",
-                        "Missing account number, or an account number / IFSC code that doesn't look right (IFSC: 4 letters, 0, 6 letters or digits).", badBank)),
-                in(STUDENTS, "/admin/students", check("students_with_invalid_phone", "Students with an invalid phone number",
-                        "Not a 10-digit Indian mobile number (starting 6-9), so OTPs and calls may not reach them.", badPhone)),
-                in(STUDENTS, "/admin/students", check("students_with_unknown_rcc", "Students whose RCC name matches no RCC center",
-                        "Their coaching center lead can't see them. Correct the RCC name in Student Directory > BA Details.", unknownRcc)));
+                byStudy(in(SPONSORS, "/admin/sponsorships", check("students_with_inactive_sponsor", "Current students mapped to an inactive sponsor",
+                        "Their sponsor's account is inactive, so nobody is paying for them.", inactiveSponsor))),
+                byStudy(in(SPONSORS, "/admin/students", check("students_with_bad_bank_details", "Students with incomplete or invalid bank details",
+                        "Missing account number, or an account number / IFSC code that doesn't look right (IFSC: 4 letters, 0, 6 letters or digits).", badBank))),
+                byStudy(in(STUDENTS, "/admin/students", check("students_with_invalid_phone", "Students with an invalid phone number",
+                        "Not a 10-digit Indian mobile number (starting 6-9), so OTPs and calls may not reach them.", badPhone))),
+                byStudy(in(STUDENTS, "/admin/students", check("students_with_unknown_rcc", "Students whose RCC name matches no RCC center",
+                        "Their coaching center lead can't see them. Correct the RCC name in Student Directory > BA Details.", unknownRcc))));
     }
 
     // ---------------------------------------------------------------- leads and access
@@ -410,10 +440,19 @@ public class DataQualityService {
     private Map<String, Object> userCheck(String key, String title, String description, List<User> users, Predicate<User> problem) {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (User u : users) {
-            if (problem.test(u)) rows.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(),
-                    "role_id", u.getRoleId(), "chapter", u.getChapterName(), "status", u.getStatus()));
+            if (!problem.test(u)) continue;
+            Map<String, Object> r = row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(),
+                    "role_id", u.getRoleId(), "chapter", u.getChapterName(), "status", u.getStatus());
+            if (Integer.valueOf(6).equals(u.getRoleId())) r.put("study_status", StudyStatus.label(u.getStudyStatus()));
+            rows.add(r);
         }
         return check(key, title, description, rows);
+    }
+
+    /** Marks a check whose students follow the page's study status filter. */
+    private static Map<String, Object> byStudy(Map<String, Object> check) {
+        check.put("study_filtered", true);
+        return check;
     }
 
     /**
