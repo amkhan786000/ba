@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { FEATURES } from '../../core/models/features';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
@@ -32,7 +33,7 @@ interface ImportResult { added: number; updated: number; skipped: number; messag
 
     <div class="d-flex flex-wrap mb-3" *ngIf="canEdit">
       <button class="btn btn-primary mr-2 mb-2" (click)="openAdmit()" [disabled]="!sections.length"><i class="mdi mdi-plus mr-1"></i>Admit a girl</button>
-      <button class="btn btn-outline-primary mr-2 mb-2" (click)="importing = { file: null, result: null }"><i class="mdi mdi-upload mr-1"></i>Import from Excel / CSV</button>
+      <button *ngIf="bulkUpload" class="btn btn-outline-primary mr-2 mb-2" (click)="importing = { file: null, result: null }"><i class="mdi mdi-upload mr-1"></i>Import from Excel / CSV</button>
       <a class="btn btn-outline-secondary mb-2" routerLink="/admin/reb/promotion"><i class="mdi mdi-arrow-up-bold-circle-outline mr-1"></i>Year-end promotion</a>
     </div>
 
@@ -202,6 +203,8 @@ export class RebStudentsComponent implements OnInit, OnDestroy {
   sectionId: number | null = null;
   status = 'ACTIVE';
   feePlan = '';
+  /** Excel / CSV import is switched off (core/models/features.ts). */
+  readonly bulkUpload = FEATURES.bulkUpload;
   q = '';
   readonly table = new ServerTable<RebStudentRow, PagedResult<RebStudentRow> & { residential: number }>(
     (p) => this.api.get('/admin/reb/students', { sessionId: this.sessionId, sectionId: this.sectionId, status: this.status,

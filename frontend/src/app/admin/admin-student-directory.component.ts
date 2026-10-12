@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subject, Subscription, debounceTime } from 'rxjs';
+import { FEATURES } from '../core/models/features';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
@@ -62,7 +63,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
         <div class="card">
           <div class="card-body">
             <div class="mb-3">
-              <button *ngIf="canEdit" type="button" class="btn btn-success btn-responsive mr-md-2" (click)="showUpload = true"><i class="mdi mdi-file-upload"></i> Upload CSV</button>
+              <button *ngIf="canEdit && bulkUpload" type="button" class="btn btn-success btn-responsive mr-md-2" (click)="showUpload = true"><i class="mdi mdi-file-upload"></i> Upload CSV</button>
               <button *ngIf="canEdit" type="button" class="btn btn-primary btn-responsive" (click)="openManual()"><i class="mdi mdi-account-plus"></i> Register Student</button>
             </div>
 
@@ -521,6 +522,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   installmentProblem: string | null = null;
   readonly installmentBadge = installmentBadge;
   study = { status: 'STUDYING', date: '', note: '' };
+  /** CSV bulk upload is switched off (core/models/features.ts). */
+  readonly bulkUpload = FEATURES.bulkUpload;
   fChapter: number | null = null;
   fStudy = '';
   fStatus = '';
