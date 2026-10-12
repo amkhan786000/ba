@@ -58,9 +58,9 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
       <div class="col-12 col-md-4">
         <div class="card-box">
           <h4 class="header-title mt-0">Next payment</h4>
-          <ng-container *ngIf="next; else noNext">
-            <h2>₹{{ next.i.amount | number: '1.0-2' }}</h2>
-            <small class="text-muted">{{ next.i.due_date | date: 'd MMM yyyy' }} · {{ next.d.grantee['name'] }}</small>
+          <ng-container *ngIf="next as n; else noNext">
+            <h2>₹{{ n.amount | number: '1.0-2' }}</h2>
+            <small class="text-muted">{{ n.date | date: 'd MMM yyyy' }} · {{ n.names.length === 1 ? n.names[0] : n.names.length + ' students (' + n.names.join(', ') + ')' }}</small>
           </ng-container>
           <ng-template #noNext><h2>—</h2><small class="text-muted">No upcoming installments</small></ng-template>
         </div>
@@ -245,9 +245,17 @@ export class SponsorPaymentsComponent implements OnInit {
     return { count: now.length, amount: now.reduce((s, x) => s + Number(x.i.amount), 0), overdue: now.filter((x) => x.i.status === 'Overdue').length };
   }
 
-  get next(): Item | null {
-    return this.items.filter((x) => !x.i.payment_id && !x.d.former && x.i.status === 'Not Due')
-      .sort((a, b) => a.i.due_date.localeCompare(b.i.due_date))[0] ?? null;
+  /** Everything due on the next due date (all students together): the date, total amount and whose installments. */
+  get next(): { date: string; amount: number; names: string[] } | null {
+    const upcoming = this.items.filter((x) => !x.i.payment_id && !x.d.former && x.i.status === 'Not Due');
+    if (!upcoming.length) return null;
+    const date = upcoming.map((x) => x.i.due_date).sort()[0];
+    const same = upcoming.filter((x) => x.i.due_date === date);
+    return {
+      date,
+      amount: same.reduce((sum, x) => sum + Number(x.i.amount), 0),
+      names: [...new Set(same.map((x) => String(x.d.grantee['name'])))]
+    };
   }
 
   get paidThisYear(): { count: number; amount: number } {
