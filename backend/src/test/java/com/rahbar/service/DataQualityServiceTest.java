@@ -83,7 +83,7 @@ class DataQualityServiceTest {
     void everyCheckHasAMenuGroupAndAScreen() {
         Set<String> groups = Set.of("students", "sponsors", "community", "website", "administration");
         var checks = service.checks();
-        assertEquals(32, checks.size()); // 23 before, duplicate sponsors, 8 payment set-up checks
+        assertEquals(33, checks.size()); // 23 before, duplicate sponsors, 8 payment set-up checks, same person / two accounts
         for (var c : checks) {
             assertTrue(groups.contains((String) c.get("group")), c.get("key") + " has group " + c.get("group"));
             assertTrue(String.valueOf(c.get("link")).startsWith("/admin/"), c.get("key") + " has link " + c.get("link"));
@@ -122,6 +122,28 @@ class DataQualityServiceTest {
         var checks = byKey();
         assertEquals(1, checks.get("chapter_leads_without_chapter").get("count"));
         assertEquals(1, checks.get("rcc_coordinators_without_center").get("count"));
+    }
+
+    @Test
+    void samePersonWithAccountsInDifferentRolesIsFound() {
+        when(roles.findAll()).thenReturn(List.of(role(2, "Application Administrator", Role.SCOPE_ALL), role(5, "Sponsor", Role.SCOPE_ALL),
+                role(6, "Student", Role.SCOPE_ALL)));
+        User staff = user(30, 2, "A-30"), sponsorAccount = user(31, 5, "S-31");
+        staff.setName("Amjad  Khan");
+        sponsorAccount.setName("amjad khan");
+        User twin1 = user(32, 6, "ST-32"), twin2 = user(33, 6, "ST-33"); // students only: the student check's job
+        twin1.setName("Sara Ali");
+        twin2.setName("Sara Ali");
+        User merged = user(34, 5, "S-34");
+        merged.setName("Amjad Khan");
+        merged.setMergedIntoId(30L);
+        when(users.findAll()).thenReturn(List.of(staff, sponsorAccount, twin1, twin2, merged));
+
+        Map<String, Object> check = byKey().get("same_person_two_accounts");
+        assertEquals(2, check.get("count"));
+        @SuppressWarnings("unchecked") List<Map<String, Object>> rows = (List<Map<String, Object>>) check.get("rows");
+        assertEquals(List.of("A-30", "S-31"), rows.stream().map(r -> r.get("user_id")).toList());
+        assertEquals("Sponsor", rows.get(1).get("roles"));
     }
 
     @Test

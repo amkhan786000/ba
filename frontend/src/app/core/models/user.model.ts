@@ -121,6 +121,38 @@ export function canAccess(user: AuthUser | null, section: Section, level: 'VIEW'
   return p.includes(section + ':EDIT') || (level === 'VIEW' && p.includes(section + ':VIEW'));
 }
 
+/** Every role of the user: the main one and any additional ones. */
+export function rolesOf(user: AuthUser | null): number[] {
+  if (!user) return [];
+  return [...new Set([user.roleId, ...(user.roleIds ?? [])])];
+}
+
+/** May the user use the admin area? Only with a staff role (any role other than the portal ones). */
+export function hasAdminArea(user: AuthUser | null): boolean {
+  return rolesOf(user).some((r) => !PORTAL_ROLES.includes(r));
+}
+
+const PORTAL_LABELS: Record<number, string> = {
+  [3]: 'Coordinator portal', [4]: 'Convenor portal', [5]: 'Sponsor portal', [6]: 'Student portal'
+};
+
+/** The areas the user can switch between (admin area and each portal they have a role for), main role's first. */
+export function areasOf(user: AuthUser | null): { label: string; path: string; root: string }[] {
+  const out: { label: string; path: string; root: string }[] = [];
+  const main = user?.roleId ?? 0;
+  const admin = hasAdminArea(user)
+    ? { label: 'Admin area', path: ADMIN_LINKS.find((l) => l.section && canAccess(user, l.section))?.path ?? '/admin/profile', root: '/admin' } : null;
+  if (admin && !PORTAL_ROLES.includes(main)) out.push(admin);
+  for (const r of [main, ...rolesOf(user).filter((x) => x !== main)]) {
+    if (PORTAL_ROLES.includes(r)) {
+      const path = dashboardPathForRole(r);
+      out.push({ label: PORTAL_LABELS[r], path, root: '/' + path.split('/')[1] });
+    }
+  }
+  if (admin && PORTAL_ROLES.includes(main)) out.push(admin);
+  return out;
+}
+
 /** Where a user lands after signing in: their portal, or the first admin screen they may open. */
 export function landingPath(user: AuthUser | null): string {
   if (!user) return '/login';

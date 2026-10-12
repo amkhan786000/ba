@@ -1,16 +1,16 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { PORTAL_ROLES, Section, landingPath } from '../models/user.model';
+import { Section, hasAdminArea, landingPath } from '../models/user.model';
 
-/** The admin area: every signed-in user except the portal roles (coordinator, convenor, sponsor, student). */
+/** The admin area: users with a staff role (main or additional); only-portal users (coordinator, convenor, sponsor, student) go to their portal. */
 export const adminAreaGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
   const user = auth.currentUser();
   if (!user) return router.createUrlTree(['/login']);
   if (user.mustChangePassword) return router.createUrlTree(['/change-password']);
-  if (PORTAL_ROLES.includes(user.roleId)) return router.createUrlTree([landingPath(user)]);
+  if (!hasAdminArea(user)) return router.createUrlTree([landingPath(user)]);
   return true;
 };
 

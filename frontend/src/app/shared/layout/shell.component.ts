@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
-import { NAV_GROUPS, ROLE_LABELS, Section } from '../../core/models/user.model';
+import { NAV_GROUPS, ROLE_LABELS, Section, areasOf } from '../../core/models/user.model';
 import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 export interface NavLink {
@@ -87,6 +87,12 @@ type NavEntry = { link: NavLink; group?: undefined } | { group: { key: string; l
                 <strong>{{ auth.currentUser()?.name }}</strong>
                 <small>{{ roleLabel }} · {{ auth.currentUser()?.userId }}</small>
               </div>
+              <ng-container *ngIf="areas.length > 1">
+                <div class="user-menu-label">Switch to</div>
+                <a *ngFor="let a of areas" [routerLink]="a.path" (click)="menuOpen = false" [class.active]="a.root === sectionRoot">
+                  <i class="mdi" [ngClass]="a.root === '/admin' ? 'mdi-shield-account-outline' : 'mdi-account-switch-outline'"></i><span>{{ a.label }}</span>
+                  <i *ngIf="a.root === sectionRoot" class="mdi mdi-check ml-auto"></i></a>
+              </ng-container>
               <a [routerLink]="[sectionRoot, 'profile']" (click)="menuOpen = false"><i class="mdi mdi-account-circle-outline"></i><span>My profile</span></a>
               <a href="#" class="danger" (click)="logout($event)"><i class="mdi mdi-logout-variant"></i><span>Sign out</span></a>
             </div>
@@ -198,6 +204,9 @@ export class ShellComponent implements OnDestroy {
 
   /** "/admin", "/sponsor", ... taken from the first menu link. */
   get sectionRoot(): string { return '/' + (this.homeLink.split('/')[1] ?? ''); }
+
+  /** Admin area and portals this person can switch between (several roles). */
+  get areas(): { label: string; path: string; root: string }[] { return areasOf(this.auth.currentUser()); }
 
   get roleLabel(): string {
     const user = this.auth.currentUser();

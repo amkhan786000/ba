@@ -158,6 +158,7 @@ public class DataQualityService {
         checks.add(in(STUDENTS, "/admin/students", duplicateStudents(userRepository.findByRoleId(6).stream()
                 .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && u.getMergedIntoId() == null).toList())));
         checks.add(in(SPONSORS, "/admin/sponsorships", duplicateSponsors(sponsors)));
+        checks.add(in(ADMINISTRATION, "/admin/users", samePersonTwoAccounts()));
         checks.add(in(SPONSORS, "/admin/users", userCheck("sponsors_without_email", "Sponsors without a real email address",
                 "They can't get payment reminders or broadcast emails.", sponsors, u -> !usableEmail(u.getEmail()))));
         checks.add(in(SPONSORS, "/admin/sponsorships", userCheck("sponsors_without_students", "Sponsors without students",
@@ -495,6 +496,38 @@ public class DataQualityService {
         return check("possible_duplicate_students", "Possible duplicate students",
                 "Active students with the same name and the same father's name, phone or email (or two of those with a "
                         + "different spelling of the name); check whether they were entered twice.", rows);
+    }
+
+    /**
+     * The same person with two accounts in different roles (e.g. a staff account and a separate sponsor account), by
+     * the same name. A person should be one account with several roles: the Super Admin merges them here. Groups of
+     * student accounts only are left to "Possible duplicate students".
+     */
+    private Map<String, Object> samePersonTwoAccounts() {
+        Map<Integer, String> roleNames = new HashMap<>();
+        roleRepository.findAll().forEach(r -> roleNames.put(r.getRoleId(), r.getRoleName()));
+        List<User> active = userRepository.findAll().stream()
+                .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && u.getMergedIntoId() == null && text(u.getName()) != null).toList();
+        Map<Long, Set<Integer>> rolesOf = UserRoles.byUser(active, userRepository);
+        Map<String, List<User>> byName = new TreeMap<>();
+        for (User u : active) byName.computeIfAbsent(text(u.getName()), k -> new ArrayList<>()).add(u);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        int group = 0;
+        for (List<User> same : byName.values()) {
+            if (same.size() < 2) continue;
+            boolean onlyStudents = same.stream().allMatch(u -> rolesOf.getOrDefault(u.getId(), Set.of()).equals(Set.of(ServiceSupport.STUDENT_ROLE)));
+            long kinds = same.stream().map(u -> rolesOf.getOrDefault(u.getId(), Set.of())).distinct().count();
+            if (onlyStudents || kinds < 2) continue;
+            group++;
+            for (User u : same) {
+                List<String> names = rolesOf.getOrDefault(u.getId(), Set.of()).stream().map(r -> roleNames.getOrDefault(r, "role " + r)).toList();
+                rows.add(row("group", group, "id", u.getId(), "user_id", u.getUserId(), "name", u.getName(),
+                        "roles", String.join(", ", names), "chapter", u.getChapterName(), "joined", u.getCreatedAt()));
+            }
+        }
+        return check("same_person_two_accounts", "Same person, two accounts?",
+                "Accounts with the same name in different roles (e.g. a staff account and a sponsor account). If it is one "
+                        + "person, the Super Admin merges them into one account that has both roles.", rows);
     }
 
     /** Possible duplicate sponsors: the same rule on full name, email, phone and chapter. */
