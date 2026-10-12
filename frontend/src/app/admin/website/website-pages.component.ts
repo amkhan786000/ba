@@ -8,6 +8,7 @@ import { WebsiteMarkdownPipe } from './website-markdown.pipe';
 import { WebsiteRevisionsComponent } from './website-revisions.component';
 import { WebsiteRecordsComponent } from './website-records.component';
 import { SLOT_GROUPS, SLOTS, Slot } from './website-content-registry';
+import { AppDatePipe } from '../../shared/app-date';
 
 interface ContentRow { key: string; lang: string; value?: string; changedBy?: string; changedAt?: string }
 
@@ -25,7 +26,7 @@ type Lang = (typeof LANGS)[number]['code'];
 @Component({
   selector: 'app-website-pages',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, WebsiteMarkdownPipe, WebsiteRevisionsComponent, WebsiteRecordsComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, WebsiteMarkdownPipe, WebsiteRevisionsComponent, WebsiteRecordsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Pages</h4></div></div></div>
     <ul class="nav nav-tabs mb-3">
@@ -74,7 +75,7 @@ type Lang = (typeof LANGS)[number]['code'];
           </details>
           <div class="d-flex flex-wrap align-items-center justify-content-between mt-2">
             <span class="small text-muted">
-              <ng-container *ngIf="saved(s.key) as r; else builtIn">Changed by {{ r.changedBy || '—' }} on {{ r.changedAt | date: 'd MMM yyyy, HH:mm' }}</ng-container>
+              <ng-container *ngIf="saved(s.key) as r; else builtIn">Changed by {{ r.changedBy || '—' }} on {{ r.changedAt | appDate: 'datetime' }}</ng-container>
               <ng-template #builtIn>{{ lang === 'en' ? 'Built-in text' : 'Not translated: English is shown' }}</ng-template>
             </span>
             <span *ngIf="canEdit">

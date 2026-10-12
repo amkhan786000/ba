@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { isoDate } from '../../shared/format';
 import { FEE_PLANS, RELATIONS, RebSectionRow, RebSession } from './reb.models';
+import { AppDatePipe } from '../../shared/app-date';
 
 interface Enquiry {
   id: number; girl_name: string; date_of_birth: string | null; guardian_name: string; relation: string | null; phone: string; email: string | null;
@@ -24,7 +25,7 @@ const SOURCE: Record<string, string> = { WEBSITE: 'Website', PHONE: 'Phone', WAL
 @Component({
   selector: 'app-reb-enquiries',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Admission Enquiries</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -44,7 +45,7 @@ const SOURCE: Record<string, string> = { WEBSITE: 'Website', PHONE: 'Phone', WAL
           <tr *ngFor="let e of visible" class="clickable" (click)="open(e)">
             <td><strong>{{ e.girl_name }}</strong><div class="small text-muted">{{ e.district }}{{ e.residential ? ' · hostel' : '' }}</div></td>
             <td>{{ e.guardian_name }}<div class="small text-muted">{{ e.phone }}</div></td>
-            <td>{{ e.class_sought || '--' }}</td><td>{{ sources[e.source] }}</td><td>{{ e.created_at | date: 'd MMM yyyy' }}</td>
+            <td>{{ e.class_sought || '--' }}</td><td>{{ sources[e.source] }}</td><td>{{ e.created_at | appDate }}</td>
             <td><span class="badge" [ngClass]="e.status === 'NEW' ? 'badge-primary' : e.status === 'ADMITTED' ? 'badge-success' : 'badge-light border'">{{ statuses[e.status] }}</span></td>
           </tr>
         </tbody>

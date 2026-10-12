@@ -1,6 +1,7 @@
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../../core/services/api.service';
+import { AppDatePipe } from '../../shared/app-date';
 
 interface Version { id: number; value?: string; savedBy?: string; savedAt: string }
 
@@ -11,7 +12,7 @@ interface Version { id: number; value?: string; savedBy?: string; savedAt: strin
 @Component({
   selector: 'app-website-revisions',
   standalone: true,
-  imports: [CommonModule],
+  imports: [AppDatePipe, CommonModule],
   template: `
     <details class="website-revisions mt-1" (toggle)="onToggle($event)">
       <summary class="small text-muted">History</summary>
@@ -20,7 +21,7 @@ interface Version { id: number; value?: string; savedBy?: string; savedAt: strin
       <p *ngIf="!loading && !error && !versions.length" class="small text-muted mb-1">No earlier versions yet.</p>
       <ul class="list-unstyled mb-0">
         <li *ngFor="let v of versions; let first = first" class="border-bottom py-1">
-          <div class="small"><strong>{{ v.savedAt | date: 'd MMM yyyy, HH:mm' }}</strong> · {{ v.savedBy || 'system' }}
+          <div class="small"><strong>{{ v.savedAt | appDate: 'datetime' }}</strong> · {{ v.savedBy || 'system' }}
             <span *ngIf="first" class="badge badge-light border ml-1">current</span></div>
           <div class="small text-muted" style="white-space: pre-wrap">{{ preview(v.value) }}</div>
           <button *ngIf="!first" type="button" class="btn btn-xs btn-outline-secondary mt-1" (click)="use.emit(v.value ?? '')">Use this version</button>

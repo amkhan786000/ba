@@ -6,6 +6,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 type Row = Record<string, any>;
 
@@ -14,7 +15,7 @@ type Row = Record<string, any>;
 @Component({
   selector: 'app-student-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">My Payment History</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -38,7 +39,7 @@ type Row = Record<string, any>;
                   </td></tr>
                   <tr *ngFor="let i of installments">
                     <td>{{ i.installment_no }}</td>
-                    <td>{{ i.due_date | date: 'd MMM yyyy' }}</td>
+                    <td>{{ i.due_date | appDate }}</td>
                     <td>₹{{ i.amount | number: '1.2-2' }}</td>
                     <td><span class="badge" [ngClass]="badge(i.status)">{{ i.status }}</span></td>
                     <td>{{ i.paid_amount !== null ? '₹' + (i.paid_amount | number: '1.2-2') : '—' }}</td>

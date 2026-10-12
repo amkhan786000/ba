@@ -5,6 +5,7 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { RebSectionRow, RebSession, TRACKS } from './reb.models';
+import { AppDatePipe } from '../../shared/app-date';
 
 interface Exam { id: number; name: string; kind: string; weight_percent: number; start_date: string | null; end_date: string | null; status: string; papers: number }
 interface SheetSubject { subject_id: number; subject_name: string; track: string; included: boolean; exam_date: string | null; max_marks: number; pass_marks: number }
@@ -29,7 +30,7 @@ const STATUS: Record<string, string> = { DRAFT: 'Draft', MARKS_ENTRY: 'Marks ent
 @Component({
   selector: 'app-reb-exams',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Exams &amp; Results</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -58,7 +59,7 @@ const STATUS: Record<string, string> = { DRAFT: 'Draft', MARKS_ENTRY: 'Marks ent
             <div class="d-flex flex-wrap justify-content-between align-items-start">
               <div class="mb-2"><h4 class="mt-0 mb-1">{{ exam.name }}</h4>
                 <span class="badge" [ngClass]="exam.status === 'PUBLISHED' ? 'badge-success' : exam.status === 'MARKS_ENTRY' ? 'badge-info' : 'badge-light border'">{{ status[exam.status] }}</span>
-                <span class="small text-muted ml-1">{{ kinds[exam.kind] }}<span *ngIf="exam.start_date"> · {{ exam.start_date | date: 'd MMM' }}<span *ngIf="exam.end_date"> – {{ exam.end_date | date: 'd MMM yyyy' }}</span></span>
+                <span class="small text-muted ml-1">{{ kinds[exam.kind] }}<span *ngIf="exam.start_date"> · {{ exam.start_date | date: 'd MMM' }}<span *ngIf="exam.end_date"> – {{ exam.end_date | appDate }}</span></span>
                   <span *ngIf="exam.weight_percent"> · counts {{ exam.weight_percent }}% in the annual result</span></span></div>
               <div *ngIf="office" class="d-flex flex-wrap">
                 <button class="btn btn-sm btn-outline-primary mr-1 mb-1" (click)="editExam(exam)">Edit</button>

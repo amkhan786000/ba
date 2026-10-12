@@ -8,6 +8,7 @@ import { CardTableDirective } from '../shared/card-table.directive';
 import { PagerComponent } from '../shared/pager/pager.component';
 import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { isoDate } from '../shared/format';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Category { id: number; name: string; kind: string; active: boolean }
 interface Entry {
@@ -30,7 +31,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
 @Component({
   selector: 'app-admin-finance',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective, PagerComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective, PagerComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Income &amp; Expenses</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -61,7 +62,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
         <tbody>
           <tr *ngIf="!table.loading && !table.rows.length"><td colspan="6" class="text-center text-muted">No entries.</td></tr>
           <tr *ngFor="let e of table.rows">
-            <td class="text-nowrap">{{ e.entry_date | date: 'd MMM yyyy' }}</td>
+            <td class="text-nowrap">{{ e.entry_date | appDate }}</td>
             <td>{{ e.category_name }}<div class="small text-muted">{{ e.description }}</div></td>
             <td>{{ e.project_name || '--' }}</td>
             <td>{{ e.party || '--' }}<div class="small text-muted">{{ methods[e.method] }}{{ e.reference ? ' · ' + e.reference : '' }}</div></td>

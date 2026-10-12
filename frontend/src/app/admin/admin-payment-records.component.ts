@@ -9,6 +9,7 @@ import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { isoDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 /**
  * Admin > Payment Records: every installment between sponsors and students. They are created when a student is
@@ -18,7 +19,7 @@ import { CardTableDirective } from '../shared/card-table.directive';
 @Component({
   selector: 'app-admin-payment-records',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Payment Records</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -52,11 +53,11 @@ import { CardTableDirective } from '../shared/card-table.directive';
                 <td><strong>{{ r.student_name }}</strong><div class="small text-muted">{{ r.student_code }}</div></td>
                 <td>{{ r.sponsor_name || '--' }}<div class="small text-muted">{{ r.sponsor_code }}</div></td>
                 <td>{{ r.installment_no }}</td>
-                <td>{{ r.due_date | date: 'd MMM yyyy' }}</td>
+                <td>{{ r.due_date | appDate }}</td>
                 <td>₹{{ r.amount | number: '1.2-2' }}</td>
                 <td><span class="badge" [ngClass]="badge(r.status)">{{ r.status }}</span></td>
                 <td>
-                  <ng-container *ngIf="r.payment_id; else dash">₹{{ r.paid_amount | number: '1.2-2' }}<div class="small text-muted">{{ r.paid_date | date: 'd MMM yyyy' }}</div></ng-container>
+                  <ng-container *ngIf="r.payment_id; else dash">₹{{ r.paid_amount | number: '1.2-2' }}<div class="small text-muted">{{ r.paid_date | appDate }}</div></ng-container>
                 </td>
                 <td class="tablet-hide">
                   <a *ngIf="link(r.receipt_url) as l; else dash" [href]="l" target="_blank" rel="noopener">View</a>
@@ -80,7 +81,7 @@ import { CardTableDirective } from '../shared/card-table.directive';
             <button type="button" class="close" (click)="pay = null">&times;</button>
           </div>
           <div class="modal-body">
-            <p class="text-muted small">Credited to {{ pay.row.sponsor_name }} ({{ pay.row.sponsor_code }}); due {{ pay.row.due_date | date: 'd MMM yyyy' }}.</p>
+            <p class="text-muted small">Credited to {{ pay.row.sponsor_name }} ({{ pay.row.sponsor_code }}); due {{ pay.row.due_date | appDate }}.</p>
             <div class="form-group"><label>Payment date</label><input type="date" class="form-control" [(ngModel)]="pay.paymentDate"></div>
             <div class="form-group"><label>Amount (₹)</label><input type="number" step="0.01" min="0" class="form-control" [(ngModel)]="pay.amount"></div>
             <div class="form-group"><label>Receipt <span class="text-muted">(optional)</span></label>

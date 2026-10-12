@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Period { id: number; startDate: string | null; endDate: string | null; isActive: boolean }
 
@@ -11,7 +12,7 @@ interface Period { id: number; startDate: string | null; endDate: string | null;
 @Component({
   selector: 'app-admin-application-period',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
     <div class="row"><div class="col-12"><div class="page-title-box mt-3"><h4 class="page-title">Application Period Management</h4></div></div></div>
@@ -23,8 +24,8 @@ interface Period { id: number; startDate: string | null; endDate: string | null;
             <h5 class="card-title">Current Status</h5>
             <ng-container *ngIf="period?.isActive; else inactive">
               <p><span class="badge badge-success font-14">ACTIVE</span></p>
-              <p class="mb-1"><strong>Start Date:</strong> {{ period?.startDate ? (period?.startDate | date: 'MMMM dd, y') : 'N/A' }}</p>
-              <p class="mb-0"><strong>End Date:</strong> {{ period?.endDate ? (period?.endDate | date: 'MMMM dd, y') : 'N/A' }}</p>
+              <p class="mb-1"><strong>Start Date:</strong> {{ period?.startDate ? (period?.startDate | appDate) : 'N/A' }}</p>
+              <p class="mb-0"><strong>End Date:</strong> {{ period?.endDate ? (period?.endDate | appDate) : 'N/A' }}</p>
             </ng-container>
             <ng-template #inactive>
               <p><span class="badge badge-secondary font-14">INACTIVE</span></p>

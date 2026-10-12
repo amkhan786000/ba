@@ -8,6 +8,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent } from '../shared/pager/pager.component';
 import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Volunteer {
   volunteer_id: number; full_name: string; email: string | null; phone: string | null; city: string | null;
@@ -40,7 +41,7 @@ const STATUS_BADGE: Record<string, string> = {
 @Component({
   selector: 'app-admin-volunteers',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Volunteers</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -90,7 +91,7 @@ const STATUS_BADGE: Record<string, string> = {
                   <div class="small text-muted">{{ r.email }}<span *ngIf="r.email && r.phone"> · </span>{{ r.phone }}</div></td>
                 <td><span *ngFor="let o of offersOf(r)" class="badge badge-light border mr-1">{{ o }}</span></td>
                 <td>{{ place(r) || '--' }}</td>
-                <td>{{ r.created_at | date: 'mediumDate' }}</td>
+                <td>{{ r.created_at | appDate }}</td>
                 <td><span class="badge" [ngClass]="badge(r.status)">{{ statuses[r.status] || r.status }}</span></td>
                 <td class="text-right"><button class="btn btn-xs btn-outline-primary" (click)="open(r)">{{ canEdit ? 'Follow up' : 'View' }}</button></td>
               </tr>
@@ -115,7 +116,7 @@ const STATUS_BADGE: Record<string, string> = {
               <dt class="col-sm-4">Lives in</dt><dd class="col-sm-8">{{ place(v) || '--' }}</dd>
               <dt class="col-sm-4">Home district</dt><dd class="col-sm-8">{{ v.home_district || '--' }}</dd>
               <dt class="col-sm-4">Profession</dt><dd class="col-sm-8">{{ v.profession || '--' }}</dd>
-              <dt class="col-sm-4">Signed up</dt><dd class="col-sm-8">{{ v.created_at | date: 'medium' }}<span *ngIf="v.source" class="text-muted"> via {{ v.source }}</span></dd>
+              <dt class="col-sm-4">Signed up</dt><dd class="col-sm-8">{{ v.created_at | appDate: 'datetime' }}<span *ngIf="v.source" class="text-muted"> via {{ v.source }}</span></dd>
             </dl>
 
             <ng-container *ngIf="v.wants_mentor">

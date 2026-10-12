@@ -8,6 +8,7 @@ import { isoDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { CheckoutOrder, payWithRazorpay } from '../shared/razorpay';
+import { AppDatePipe } from '../shared/app-date';
 
 type Row = Record<string, any>;
 
@@ -38,7 +39,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
 @Component({
   selector: 'app-sponsor-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   styles: [`
     .table-schedule td, .table-schedule th { vertical-align: middle; }
     .card-box.clickable { cursor: pointer; }
@@ -61,7 +62,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
           <h4 class="header-title mt-0">Next payment</h4>
           <ng-container *ngIf="next as n; else noNext">
             <h2>₹{{ n.amount | number: '1.0-2' }}</h2>
-            <small class="text-muted">{{ n.date | date: 'd MMM yyyy' }} · {{ n.names.length === 1 ? n.names[0] : n.names.length + ' students (' + n.names.join(', ') + ')' }}</small>
+            <small class="text-muted">{{ n.date | appDate }} · {{ n.names.length === 1 ? n.names[0] : n.names.length + ' students (' + n.names.join(', ') + ')' }}</small>
           </ng-container>
           <ng-template #noNext><h2>—</h2><small class="text-muted">No upcoming installments</small></ng-template>
         </div>
@@ -148,10 +149,10 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
                   (change)="toggleChosen(r)" [attr.aria-label]="'Choose installment ' + r.i.installment_no"></td>
                 <td><strong>{{ r.d.grantee['name'] }}</strong><div class="small text-muted">{{ r.d.grantee['user_id'] }}<span *ngIf="r.d.former"> · no longer yours</span></div></td>
                 <td>{{ r.i.installment_no }}</td>
-                <td>{{ r.i.due_date | date: 'd MMM yyyy' }}</td>
+                <td>{{ r.i.due_date | appDate }}</td>
                 <td>₹{{ r.i.amount | number: '1.2-2' }}</td>
                 <td><span class="badge" [ngClass]="badge(r.i.status)">{{ r.i.status === 'Not Due' ? 'Upcoming' : r.i.status }}</span></td>
-                <td>{{ r.i.paid_date ? (r.i.paid_date | date: 'd MMM yyyy') : '—' }}<div *ngIf="r.i.paid_amount !== null" class="small text-muted">₹{{ r.i.paid_amount | number: '1.2-2' }}</div></td>
+                <td>{{ r.i.paid_date ? (r.i.paid_date | appDate) : '—' }}<div *ngIf="r.i.paid_amount !== null" class="small text-muted">₹{{ r.i.paid_amount | number: '1.2-2' }}</div></td>
                 <td>
                   <span *ngIf="!r.i.payment_id">—</span>
                   <div *ngIf="r.i.payment_id" class="d-flex flex-column">
@@ -181,7 +182,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
             <button type="button" class="close text-white" (click)="onlineForm = null" aria-label="Close">&times;</button>
           </div>
           <div class="modal-body">
-            <ul class="small mb-3"><li *ngFor="let x of chosenItems">{{ x.d.grantee['name'] }}: installment #{{ x.i.installment_no }}, ₹{{ x.i.amount | number: '1.0-2' }} (due {{ x.i.due_date | date: 'd MMM yyyy' }})</li></ul>
+            <ul class="small mb-3"><li *ngFor="let x of chosenItems">{{ x.d.grantee['name'] }}: installment #{{ x.i.installment_no }}, ₹{{ x.i.amount | number: '1.0-2' }} (due {{ x.i.due_date | appDate }})</li></ul>
             <div class="form-group">
               <label for="o-pan">Your PAN</label>
               <input id="o-pan" class="form-control text-uppercase" maxlength="10" [(ngModel)]="onlineForm.pan" placeholder="ABCDE1234F">

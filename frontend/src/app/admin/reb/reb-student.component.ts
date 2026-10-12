@@ -8,6 +8,7 @@ import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { RebStudentFeesComponent } from './reb-student-fees.component';
 import { isoDate, uploadUrl } from '../../shared/format';
+import { AppDatePipe } from '../../shared/app-date';
 import {
   CATEGORIES, DOCUMENT_KINDS, ENROLLMENT_STATUSES, FEE_PLANS, RELATIONS, RebGuardian, RebSectionRow, RebSession, STATUSES,
   guardianBody, newGuardian, planBadge, statusBadge
@@ -29,7 +30,7 @@ interface Profile {
 @Component({
   selector: 'app-reb-student',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective, RebStudentFeesComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective, RebStudentFeesComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box d-flex flex-wrap align-items-center justify-content-between">
       <h4 class="page-title mb-2">
@@ -55,8 +56,8 @@ interface Profile {
             </div>
             <dl class="row mb-0" *ngIf="!editing">
               <dt class="col-sm-4">Admission no.</dt><dd class="col-sm-8">{{ s['admission_no'] }}</dd>
-              <dt class="col-sm-4">Date of birth</dt><dd class="col-sm-8">{{ s['date_of_birth'] ? (str(s['date_of_birth']) | date: 'd MMM yyyy') : '--' }}</dd>
-              <dt class="col-sm-4">Admitted on</dt><dd class="col-sm-8">{{ s['admitted_on'] ? (str(s['admitted_on']) | date: 'd MMM yyyy') : '--' }}</dd>
+              <dt class="col-sm-4">Date of birth</dt><dd class="col-sm-8">{{ s['date_of_birth'] ? (str(s['date_of_birth']) | appDate) : '--' }}</dd>
+              <dt class="col-sm-4">Admitted on</dt><dd class="col-sm-8">{{ s['admitted_on'] ? (str(s['admitted_on']) | appDate) : '--' }}</dd>
               <dt class="col-sm-4">Fee plan</dt><dd class="col-sm-8"><span class="badge" [ngClass]="planBadge(str(s['fee_plan']))">{{ plans[str(s['fee_plan'])] }}</span></dd>
               <dt class="col-sm-4">Hostel</dt><dd class="col-sm-8">{{ s['residential'] ? 'Lives in the hostel' : 'Day scholar' }}</dd>
               <dt class="col-sm-4">Address</dt><dd class="col-sm-8">{{ s['address'] || '--' }}<span *ngIf="s['district']">, {{ s['district'] }}</span><span *ngIf="s['state']">, {{ s['state'] }}</span></dd>
@@ -65,7 +66,7 @@ interface Profile {
               <dt class="col-sm-4">Board registration</dt><dd class="col-sm-8">{{ s['board_registration_no'] || '--' }}</dd>
               <dt class="col-sm-4">Previous school</dt><dd class="col-sm-8">{{ s['previous_school'] || '--' }}</dd>
               <ng-container *ngIf="p.private"><dt class="col-sm-4">Aadhaar</dt><dd class="col-sm-8">{{ s['aadhaar_last4'] ? 'XXXX XXXX ' + s['aadhaar_last4'] : '--' }}</dd></ng-container>
-              <ng-container *ngIf="s['status'] !== 'ACTIVE'"><dt class="col-sm-4">Left on</dt><dd class="col-sm-8">{{ s['left_on'] ? (str(s['left_on']) | date: 'd MMM yyyy') : '--' }}<span *ngIf="s['leaving_reason']"> · {{ s['leaving_reason'] }}</span></dd></ng-container>
+              <ng-container *ngIf="s['status'] !== 'ACTIVE'"><dt class="col-sm-4">Left on</dt><dd class="col-sm-8">{{ s['left_on'] ? (str(s['left_on']) | appDate) : '--' }}<span *ngIf="s['leaving_reason']"> · {{ s['leaving_reason'] }}</span></dd></ng-container>
               <ng-container *ngIf="p.rahbar_user"><dt class="col-sm-4">Rahbar scholar</dt><dd class="col-sm-8">{{ p.rahbar_user.name }} {{ p.rahbar_user.user_id ? '(' + p.rahbar_user.user_id + ')' : '' }}</dd></ng-container>
               <ng-container *ngIf="s['notes']"><dt class="col-sm-4">Notes</dt><dd class="col-sm-8" style="white-space: pre-line">{{ s['notes'] }}</dd></ng-container>
             </dl>
@@ -180,7 +181,7 @@ interface Profile {
               <li *ngIf="!p.documents?.length" class="text-muted">No documents yet.</li>
               <li *ngFor="let d of p.documents" class="d-flex justify-content-between align-items-center border-bottom py-1">
                 <span><a [href]="link(d.file_path)" target="_blank" rel="noopener">{{ docKinds[d.kind] || d.kind }}</a>
-                  <span class="small text-muted"> · {{ d.file_name }} · {{ d.created_at | date: 'd MMM yyyy' }}</span></span>
+                  <span class="small text-muted"> · {{ d.file_name }} · {{ d.created_at | appDate }}</span></span>
                 <button *ngIf="canPrivateEdit" class="btn btn-xs btn-outline-danger" (click)="deleteDoc(d.id)">Remove</button>
               </li>
             </ul>

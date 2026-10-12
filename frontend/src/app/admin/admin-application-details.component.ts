@@ -7,6 +7,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 import { APPLICATION_STATUSES, ApplicationRow } from './admin-applications.component';
 import { InterviewScoresComponent } from '../shared/interview-scores.component';
+import { AppDatePipe } from '../shared/app-date';
 
 interface ApplicationDetail extends ApplicationRow {
   user_id: number | null;
@@ -31,7 +32,7 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
 @Component({
   selector: 'app-admin-application-details',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, InterviewScoresComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, InterviewScoresComponent],
   template: `
     <div class="row">
       <div class="col-12">
@@ -43,7 +44,7 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
               <span *ngIf="app" class="badge ml-2 align-middle" [ngClass]="badge(app.status)">{{ app.status || 'no status' }}</span>
             </h4>
           </div>
-          <span class="text-muted mt-2 mt-md-0" *ngIf="app">Application #{{ app.grantee_detail_id }} · submitted {{ app.created_at ? (app.created_at | date: 'd MMM yyyy') : '--' }}</span>
+          <span class="text-muted mt-2 mt-md-0" *ngIf="app">Application #{{ app.grantee_detail_id }} · submitted {{ app.created_at ? (app.created_at | appDate) : '--' }}</span>
         </div>
       </div>
     </div>
@@ -78,7 +79,7 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
               <p *ngIf="!docs.length" class="text-muted mb-0">No documents uploaded yet.</p>
               <a *ngFor="let d of docs" class="doc-item" [href]="file(d.filePath)" target="_blank" rel="noopener">
                 <i class="mdi" [ngClass]="docIcon(d.fileName)"></i>
-                <span><strong>{{ d.docType }}</strong><small>{{ d.fileName }} · {{ d.uploadedAt ? (d.uploadedAt | date: 'd MMM yyyy') : '' }}</small></span>
+                <span><strong>{{ d.docType }}</strong><small>{{ d.fileName }} · {{ d.uploadedAt ? (d.uploadedAt | appDate) : '' }}</small></span>
                 <i class="mdi mdi-open-in-new ml-auto text-muted"></i>
               </a>
             </div>
@@ -157,7 +158,7 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
             <ul class="timeline">
               <li *ngFor="let h of history; let first = first" [class.current]="first">
                 <span class="badge" [ngClass]="badge(h.status)">{{ h.status }}</span>
-                <small class="text-muted ml-1">{{ h.date ? (h.date | date: 'd MMM yyyy, HH:mm') : '' }}</small>
+                <small class="text-muted ml-1">{{ h.date ? (h.date | appDate: 'datetime') : '' }}</small>
                 <p *ngIf="h.comments" class="mb-0 mt-1">{{ h.comments }}</p>
               </li>
             </ul>

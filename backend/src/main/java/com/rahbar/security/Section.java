@@ -97,6 +97,8 @@ public enum Section {
     DOCUMENTS("Documents: add & edit (who reads each one is set on the document)"),
     /** Help & FAQ: EDIT adds, changes and deletes questions and chooses which show on biharanjuman.com (everyone reads them). */
     FAQS("FAQ: add, edit & delete questions"),
+    /** Administration > Application Settings: how the app shows things to everyone (e.g. the date format). */
+    APP_SETTINGS("Application settings (date format, ...)"),
     /** The categories of Admin > Documents. */
     DOCUMENT_CATEGORIES("Document categories"),
     /** Administration > Income & Expenses: the books, categories and what is published on the website. */

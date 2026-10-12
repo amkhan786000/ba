@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface DueDate {
   due_id: number; title: string; due_date: string; note: string | null;
@@ -21,7 +22,7 @@ interface Form { dueId: number | null; title: string; dueDate: string; note: str
 @Component({
   selector: 'app-admin-progress-due-dates',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">
@@ -77,11 +78,11 @@ interface Form { dueId: number | null; title: string; dueDate: string; note: str
               <tr *ngIf="!loading && !rows.length"><td colspan="7" class="text-center text-muted">No due dates yet.</td></tr>
               <tr *ngFor="let d of rows" [class.table-light]="isPast(d)">
                 <td>
-                  <strong>{{ d.due_date | date: 'd MMM yyyy' }}</strong>
+                  <strong>{{ d.due_date | appDate }}</strong>
                   <div class="small" [ngClass]="isPast(d) ? 'text-muted' : 'text-primary'">{{ when(d) }}</div>
                 </td>
                 <td>{{ d.title }}</td>
-                <td>{{ d.window_start | date: 'd MMM yyyy' }}</td>
+                <td>{{ d.window_start | appDate }}</td>
                 <td><span class="badge badge-success">{{ d.submitted }}</span></td>
                 <td><span class="badge" [ngClass]="d.pending ? (isPast(d) ? 'badge-danger' : 'badge-warning') : 'badge-light'">{{ d.pending }}</span></td>
                 <td class="small">{{ d.note || '' }}</td>

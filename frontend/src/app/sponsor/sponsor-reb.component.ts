@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Girl {
   student_id: number; name: string; status: string; class: string | null; monthly_amount: number; since: string; until: string | null;
@@ -16,7 +17,7 @@ interface Girl {
 @Component({
   selector: 'app-sponsor-reb',
   standalone: true,
-  imports: [CommonModule, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Rahbar-e-Banaat</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -38,7 +39,7 @@ interface Girl {
           <h6 *ngIf="g.payments.length">Your payments</h6>
           <ul class="list-unstyled small mb-0">
             <li *ngFor="let p of g.payments" class="d-flex justify-content-between border-bottom py-1">
-              <span>{{ p.paid_on | date: 'd MMM yyyy' }} · ₹{{ p.amount | number: '1.0-2' }}</span>
+              <span>{{ p.paid_on | appDate }} · ₹{{ p.amount | number: '1.0-2' }}</span>
               <a href="" (click)="$event.preventDefault(); receipt(p.id)">Receipt</a></li>
           </ul>
         </div></div>

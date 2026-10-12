@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { ASSESSMENTS, RebClass, RebSectionRow, RebSession, RebStaff, RebSubject, TRACKS } from './reb.models';
+import { AppDatePipe } from '../../shared/app-date';
 
 type Tab = 'sessions' | 'classes' | 'sections' | 'subjects' | 'curriculum' | 'settings';
 
@@ -18,7 +19,7 @@ interface CurriculumRow { subjectId: number; name: string; track: string; maxMar
 @Component({
   selector: 'app-reb-setup',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">REB Setup</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -43,7 +44,7 @@ interface CurriculumRow { subjectId: number; name: string; track: string; maxMar
           <tr *ngIf="!sessions.length"><td colspan="5" class="text-center text-muted">No sessions yet.</td></tr>
           <tr *ngFor="let s of sessions">
             <td><strong>{{ s.name }}</strong> <span *ngIf="s.is_current" class="badge badge-success ml-1">Current</span></td>
-            <td>{{ s.start_date | date: 'd MMM yyyy' }}</td><td>{{ s.end_date | date: 'd MMM yyyy' }}</td>
+            <td>{{ s.start_date | appDate }}</td><td>{{ s.end_date | appDate }}</td>
             <td>{{ s.status === 'OPEN' ? 'Open' : 'Closed' }}</td>
             <td class="text-right text-nowrap">
               <button *ngIf="canEdit && !s.is_current" class="btn btn-xs btn-outline-success mr-1" (click)="makeCurrent(s)">Make current</button>

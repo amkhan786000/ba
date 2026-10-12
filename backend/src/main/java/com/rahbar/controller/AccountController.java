@@ -27,6 +27,9 @@ public class AccountController {
     }
 
     /** What the signed-in user may do on the admin screens: permission keys, scope and their chapter / RCC center. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.service.DisplaySettings displaySettings;
+
     /** Roles with their own portal (coordinator, convenor, sponsor, student): not offered for "View as". */
     private static final java.util.Set<Integer> PORTAL_ROLES = java.util.Set.of(3, 4, 5, 6);
 
@@ -48,6 +51,8 @@ public class AccountController {
         }
         roles.sort(java.util.Comparator.comparing((Map<String, Object> r) -> !(Boolean) r.get("main")));
         body.put("roles", roles);
+        // How every screen shows dates (Administration > Application Settings).
+        body.put("dateFormat", displaySettings.dateFormat());
         body.put("chapterId", p.getUser().getChapterId());
         body.put("rccCenterId", p.getUser().getRccCenterId());
         // No address, or a placeholder (...@rahbar.com): the app shows a banner asking to add a real one.

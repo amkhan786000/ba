@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Note {
   id: number; kind: string; kind_label: string; message: string; status: 'PENDING' | 'APPROVED' | 'RETURNED';
@@ -14,7 +15,7 @@ interface Mine { sponsor_name: string | null; notes: Note[]; kinds: Record<strin
 @Component({
   selector: 'app-student-notes',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Write to my sponsor</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -47,7 +48,7 @@ interface Mine { sponsor_name: string | null; notes: Note[]; kinds: Record<strin
         <h5 class="mt-0">My notes</h5>
         <div *ngFor="let n of data!.notes" class="border-bottom py-2">
           <div class="d-flex justify-content-between">
-            <small class="text-muted">{{ n.kind_label }} · {{ n.written_at | date: 'd MMM yyyy' }}</small>
+            <small class="text-muted">{{ n.kind_label }} · {{ n.written_at | appDate }}</small>
             <span class="badge" [ngClass]="n.status === 'APPROVED' ? 'badge-success' : n.status === 'RETURNED' ? 'badge-warning' : 'badge-light border'">
               {{ n.status === 'APPROVED' ? 'Sent to your sponsor' : n.status === 'RETURNED' ? 'Returned' : 'Waiting for the office' }}</span>
           </div>

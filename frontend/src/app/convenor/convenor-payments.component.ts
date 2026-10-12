@@ -7,6 +7,7 @@ import { asDate, localDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 type Row = Record<string, any>;
 
@@ -23,7 +24,7 @@ interface StudentData {
 @Component({
   selector: 'app-convenor-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Convenor Payments</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -62,11 +63,11 @@ interface StudentData {
                     <tbody>
                       <tr *ngFor="let i of current.installments">
                         <td>{{ i.installment_no }}</td>
-                        <td>{{ i.due_date | date: 'd MMM yyyy' }}</td>
+                        <td>{{ i.due_date | appDate }}</td>
                         <td>₹{{ i.amount | number: '1.2-2' }}</td>
                         <td><span class="badge" [ngClass]="badge(i.status)">{{ i.status }}</span></td>
                         <td>{{ i.paid_amount !== null ? '₹' + (i.paid_amount | number: '1.2-2') : '—' }}</td>
-                        <td>{{ i.paid_date ? (i.paid_date | date: 'd MMM yyyy') : '—' }}</td>
+                        <td>{{ i.paid_date ? (i.paid_date | appDate) : '—' }}</td>
                         <td>
                           <button *ngIf="i.payment_id" class="btn btn-sm btn-light" disabled>Paid</button>
                           <button *ngIf="!i.payment_id" type="button" class="btn btn-sm btn-success" (click)="openPay(i)">Record Payment</button>

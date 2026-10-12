@@ -7,6 +7,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.component';
 import { PagerComponent, pageOf } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Grantee {
   user: { id: number; user_id: string; name: string } | null;
@@ -42,7 +43,7 @@ interface Overview {
 @Component({
   selector: 'app-sponsor-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, BarChartComponent, PagerComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, BarChartComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">
@@ -94,10 +95,10 @@ interface Overview {
           <hr class="my-2">
           <p class="mb-1 small"><strong>Latest progress:</strong>
             <ng-container *ngIf="s.latest_progress as lp; else noProgress">{{ lp.year ? 'Year ' + lp.year : '' }}{{ lp.session && lp.session !== '0' ? ', semester ' + lp.session : '' }}
-              · marks {{ lp.marks || '—' }} · {{ lp.uploaded_at | date: 'd MMM yyyy' }}</ng-container>
+              · marks {{ lp.marks || '—' }} · {{ lp.uploaded_at | appDate }}</ng-container>
             <ng-template #noProgress><span class="text-muted">none uploaded yet</span></ng-template></p>
           <p class="mb-1 small"><strong>Your last payment:</strong>
-            <ng-container *ngIf="s.last_payment as lpay; else noPay">₹{{ lpay.amount | number: '1.0-0' }} on {{ lpay.date | date: 'd MMM yyyy' }} ·
+            <ng-container *ngIf="s.last_payment as lpay; else noPay">₹{{ lpay.amount | number: '1.0-0' }} on {{ lpay.date | appDate }} ·
               <span [class.text-success]="lpay.spent_proof" [class.text-muted]="!lpay.spent_proof">{{ lpay.spent_proof ? 'spent proof received' : 'spent proof pending' }}</span></ng-container>
             <ng-template #noPay><span class="text-muted">none yet</span></ng-template></p>
           <p *ngIf="s.quiet" class="mb-0 small text-warning"><i class="mdi mdi-clock-alert-outline mr-1"></i>No news for a while{{ s.last_activity ? ' (last: ' + (s.last_activity | date: 'MMM yyyy') + ')' : '' }}. The office can follow up.</p>

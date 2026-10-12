@@ -1,3 +1,5 @@
+import { formatAppDate } from './app-date';
+
 /**
  * Helpers for values coming straight out of JDBC maps, where dates may arrive as
  * ISO strings ("2024-05-01T00:00:00"), plain dates ("2024-05-01") or epoch millis.
@@ -14,10 +16,9 @@ export function asDate(v: unknown): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-/** Same output as JavaScript's toLocaleDateString(), which the Flask pages used. */
+/** A date in the chosen format (Administration > Application Settings, DD/MM/YYYY by default). */
 export function localDate(v: unknown, fallback = '--'): string {
-  const d = asDate(v);
-  return d ? d.toLocaleDateString() : fallback;
+  return formatAppDate(v, 'date', fallback);
 }
 
 /** yyyy-MM-dd for <input type="date">. */

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { Subscription, interval, startWith, switchMap, catchError, of } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
+import { formatAppDate } from '../app-date';
 
 interface NotificationItem {
   id: number; title: string; message: string; category: string | null; link: string | null; read: boolean; createdAt: string | null;
@@ -121,7 +122,7 @@ export class NotificationBellComponent implements OnInit, OnDestroy {
     const hours = Math.round(mins / 60);
     if (hours < 24) return `${hours} h ago`;
     const days = Math.round(hours / 24);
-    return days < 7 ? `${days} d ago` : new Date(value).toLocaleDateString();
+    return days < 7 ? `${days} d ago` : formatAppDate(value);
   }
 
   @HostListener('document:click')

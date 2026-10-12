@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Last { at: string; channel: string; kind: string; by: string; note: string }
 interface Row {
@@ -21,7 +22,7 @@ interface Row {
 @Component({
   selector: 'app-admin-sponsor-followup',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Sponsor Follow-up</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -53,10 +54,10 @@ interface Row {
             <td *ngIf="canEdit"><input type="checkbox" [checked]="selected.has(r.sponsor_id)" (change)="toggle(r.sponsor_id)" [disabled]="!r.has_email" [attr.aria-label]="'Choose ' + r.name"></td>
             <td><strong>{{ r.name }}</strong><div class="small text-muted">{{ r.user_id }}{{ r.chapter ? ' · ' + r.chapter : '' }}<span *ngIf="!r.has_email"> · no email</span></div></td>
             <ng-container *ngIf="tab === 'LAPSED'">
-              <td>{{ r.students }}</td><td>{{ r.overdue_count }} · ₹{{ r.overdue_amount | number: '1.0-0' }}</td><td>{{ r.oldest_due | date: 'd MMM yyyy' }}</td>
+              <td>{{ r.students }}</td><td>{{ r.overdue_count }} · ₹{{ r.overdue_amount | number: '1.0-0' }}</td><td>{{ r.oldest_due | appDate }}</td>
             </ng-container>
             <ng-container *ngIf="tab === 'AVAILABLE'">
-              <td>{{ r.never_sponsored ? 'Never had a student' : r.last_student }}</td><td>{{ r.since ? (r.since | date: 'd MMM yyyy') : '--' }}</td>
+              <td>{{ r.never_sponsored ? 'Never had a student' : r.last_student }}</td><td>{{ r.since ? (r.since | appDate) : '--' }}</td>
             </ng-container>
             <td class="small"><ng-container *ngIf="r.last_followup as f">{{ f.at | date: 'd MMM' }} · {{ channels[f.channel] }}<span *ngIf="f.by"> by {{ f.by }}</span>
               <div class="text-muted text-truncate" style="max-width: 220px">{{ f.note }}</div></ng-container><span *ngIf="!r.last_followup" class="text-muted">Not yet</span></td>
@@ -113,7 +114,7 @@ interface Row {
           <div class="modal-body">
             <p *ngIf="!hist.rows.length" class="text-muted mb-0">Nothing yet.</p>
             <ul class="list-unstyled mb-0"><li *ngFor="let h of hist.rows" class="border-bottom py-2">
-              <div class="small text-muted">{{ h.at | date: 'd MMM yyyy, h:mm a' }} · {{ channels[h.channel] }} · {{ h.kind === 'LAPSED' ? 'stopped paying' : 'no student' }}<span *ngIf="h.by"> · {{ h.by }}</span></div>
+              <div class="small text-muted">{{ h.at | appDate: 'datetime' }} · {{ channels[h.channel] }} · {{ h.kind === 'LAPSED' ? 'stopped paying' : 'no student' }}<span *ngIf="h.by"> · {{ h.by }}</span></div>
               <div>{{ h.note }}</div></li></ul>
           </div>
         </div>

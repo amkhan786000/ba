@@ -6,6 +6,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface EmailRow {
   email_id: number; sent_at: string; to_address: string; recipient_code: string | null; recipient_name: string | null;
@@ -20,7 +21,7 @@ interface EmailDetail extends EmailRow { body: string | null }
 @Component({
   selector: 'app-admin-email-log',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   styles: [`
     .subject { max-width: 380px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     @media (max-width: 991.98px) { .subject { max-width: 180px; } }
@@ -56,7 +57,7 @@ interface EmailDetail extends EmailRow { body: string | null }
               <tr *ngIf="loading"><td colspan="5" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
               <tr *ngIf="!loading && !rows.length"><td colspan="5" class="text-center text-muted">No emails found.</td></tr>
               <tr *ngFor="let e of rows" class="clickable" (click)="open(e)">
-                <td class="text-nowrap">{{ e.sent_at | date: 'd MMM yyyy, h:mm a' }}</td>
+                <td class="text-nowrap">{{ e.sent_at | appDate: 'datetime' }}</td>
                 <td>
                   {{ e.recipient_name || e.to_address }}
                   <div class="small text-muted">{{ e.recipient_code ? e.recipient_code + ' · ' : '' }}{{ e.recipient_name ? e.to_address : '' }}</div>
@@ -84,7 +85,7 @@ interface EmailDetail extends EmailRow { body: string | null }
           <div class="modal-body">
             <dl class="row small mb-3">
               <dt class="col-sm-3">To</dt><dd class="col-sm-9">{{ detail.to_address }}<span *ngIf="detail.recipient_name"> ({{ detail.recipient_name }}, {{ detail.recipient_code }})</span></dd>
-              <dt class="col-sm-3">Sent</dt><dd class="col-sm-9">{{ detail.sent_at | date: 'd MMM yyyy, h:mm:ss a' }}</dd>
+              <dt class="col-sm-3">Sent</dt><dd class="col-sm-9">{{ detail.sent_at | appDate: 'datetime' }}</dd>
               <dt class="col-sm-3">Status</dt>
               <dd class="col-sm-9">
                 <span class="badge" [ngClass]="detail.status === 'SENT' ? 'badge-success' : 'badge-danger'">{{ detail.status === 'SENT' ? 'Sent' : 'Failed' }}</span>

@@ -9,6 +9,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { asDate } from '../shared/format';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { formatAppDate } from '../shared/app-date';
 
 interface MergePreview {
   keep: { user_id: string; name: string }; remove: { user_id: string; name: string };
@@ -306,7 +307,7 @@ export class AdminDataQualityComponent implements OnInit {
 
   cell(v: unknown): string {
     if (v === null || v === undefined || v === '') return '--';
-    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}(T|$)/.test(v)) return asDate(v)?.toLocaleDateString() ?? v;
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}(T|$)/.test(v)) return formatAppDate(v, 'date', v);
     return String(v);
   }
 }

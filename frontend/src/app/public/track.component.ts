@@ -5,6 +5,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { errorText } from '../shared/alerts/alerts.component';
 import { AuthLayoutComponent } from '../shared/auth-layout/auth-layout.component';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Tracked {
   applicationId: number; name: string; courseApplied: string | null; rccName: string | null; submittedAt: string | null;
@@ -20,7 +21,7 @@ const STEPS = ['submitted', 'interviewing', 'accepted', 'admitted'];
 @Component({
   selector: 'app-track-application',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AuthLayoutComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AuthLayoutComponent],
   template: `
     <app-auth-layout [heading]="app ? 'Application #' + app.applicationId : 'Track your application'"
                      [subheading]="app ? '' : 'Enter your application number and any mobile number you gave on the form.'"
@@ -51,7 +52,7 @@ const STEPS = ['submitted', 'interviewing', 'accepted', 'admitted'];
         <div class="track-head">
           <div><span>Student</span><strong>{{ app.name }}</strong></div>
           <div><span>Course</span><strong>{{ app.courseApplied || '--' }}</strong></div>
-          <div><span>Submitted</span><strong>{{ app.submittedAt ? (app.submittedAt | date: 'd MMM yyyy') : '--' }}</strong></div>
+          <div><span>Submitted</span><strong>{{ app.submittedAt ? (app.submittedAt | appDate) : '--' }}</strong></div>
         </div>
 
         <div class="stepper" [class.rejected]="app.status === 'rejected'">
@@ -95,7 +96,7 @@ const STEPS = ['submitted', 'interviewing', 'accepted', 'admitted'];
         <ul class="timeline">
           <li *ngFor="let h of app.history; let first = first" [class.current]="first">
             <strong class="text-capitalize">{{ h.status }}</strong>
-            <small class="text-muted ml-1">{{ h.date ? (h.date | date: 'd MMM yyyy') : '' }}</small>
+            <small class="text-muted ml-1">{{ h.date ? (h.date | appDate) : '' }}</small>
             <p *ngIf="h.comments" class="mb-0 small">{{ h.comments }}</p>
           </li>
         </ul>
