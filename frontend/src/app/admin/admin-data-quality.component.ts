@@ -12,9 +12,19 @@ import { CardTableDirective } from '../shared/card-table.directive';
 
 interface MergePreview {
   keep: { user_id: string; name: string }; remove: { user_id: string; name: string };
-  moves: { applications: number; payments: number; progressReports: number; notifications: number; statusHistory: number };
+  /** Student merge: counts that move. */
+  moves?: { applications: number; payments: number; progressReports: number; notifications: number; statusHistory: number };
+  /** Person merge: what moves, and the kept account's roles afterwards. */
+  lines?: string[];
+  roles?: string[];
   notes: string[];
 }
+
+/** Checks whose rows the Super Admin can merge, and the API that merges them. */
+const MERGE_API: Record<string, { path: string; what: string }> = {
+  possible_duplicate_students: { path: '/admin/students/merge', what: 'student' },
+  same_person_two_accounts: { path: '/admin/people/merge', what: 'account' }
+};
 interface Check {
   key: string; title: string; description: string; count: number; rows: Record<string, unknown>[];
   /** Menu group (NAV_GROUPS key) and the admin screen where it is fixed. */
@@ -126,26 +136,31 @@ const HIDDEN = new Set(['role_id', 'group']);
       </div>
     </ng-container>
 
-    <!-- Merge a duplicate student into the one to keep (Super Admin only) -->
+    <!-- Merge a duplicate student, or a person's second account, into the one to keep (Super Admin only) -->
     <div *ngIf="merge" class="modal fade show d-block" tabindex="-1" (click)="merge = null">
       <div class="modal-dialog modal-lg modal-dialog-scrollable" (click)="$event.stopPropagation()">
         <div class="modal-content">
-          <div class="modal-header"><h5 class="modal-title">Merge duplicate student</h5><button type="button" class="close" (click)="merge = null">&times;</button></div>
+          <div class="modal-header"><h5 class="modal-title">{{ merge.api.what === 'student' ? 'Merge duplicate student' : 'Merge into one account' }}</h5><button type="button" class="close" (click)="merge = null">&times;</button></div>
           <div class="modal-body">
             <p>
               Merge <strong>{{ merge.remove['name'] }} ({{ merge.remove['user_id'] }})</strong> into:
             </p>
             <select class="form-control mb-3" [(ngModel)]="merge.keepId" (ngModelChange)="previewMerge()">
               <option [ngValue]="null">Choose the record to keep…</option>
-              <option *ngFor="let k of merge.candidates" [ngValue]="k['id']">{{ k['name'] }} ({{ k['user_id'] }}){{ k['study_status'] ? ' · ' + k['study_status'] : '' }}</option>
+              <option *ngFor="let k of merge.candidates" [ngValue]="k['id']">{{ k['name'] }} ({{ k['user_id'] }}){{ k['study_status'] ? ' · ' + k['study_status'] : '' }}{{ k['roles'] ? ' · ' + k['roles'] : '' }}</option>
             </select>
             <div *ngIf="merge.preview as p">
               <p class="mb-1">These move from {{ p.remove.user_id }} to {{ p.keep.user_id }}:</p>
               <ul class="mb-2">
-                <li>{{ p.moves.applications }} application(s), {{ p.moves.payments }} payment(s), {{ p.moves.progressReports }} progress report(s)</li>
-                <li>{{ p.moves.notifications }} notification(s), {{ p.moves.statusHistory }} study-status change(s)</li>
+                <ng-container *ngIf="p.moves as mv">
+                  <li>{{ mv.applications }} application(s), {{ mv.payments }} payment(s), {{ mv.progressReports }} progress report(s)</li>
+                  <li>{{ mv.notifications }} notification(s), {{ mv.statusHistory }} study-status change(s)</li>
+                </ng-container>
+                <li *ngFor="let l of p.lines">{{ l }}</li>
+                <li *ngIf="p.lines && !p.lines.length">Nothing else to move.</li>
                 <li *ngFor="let n of p.notes">{{ n }}</li>
               </ul>
+              <p *ngIf="p.roles" class="mb-2">Afterwards {{ p.keep.user_id }} has the roles <strong>{{ p.roles.join(', ') }}</strong>.</p>
               <div class="alert alert-warning small mb-0">
                 {{ p.remove.user_id }} will be deactivated and marked "merged into {{ p.keep.user_id }}". It is never deleted, but this can't be undone from the app.
               </div>
@@ -174,6 +189,7 @@ export class AdminDataQualityComponent implements OnInit {
   study = new Set<string>(this.savedStudy());
 
   merge: {
+    api: { path: string; what: string };
     remove: Record<string, unknown>; candidates: Record<string, unknown>[]; keepId: number | null;
     preview: MergePreview | null; busy: boolean; error: string;
   } | null = null;
@@ -184,12 +200,12 @@ export class AdminDataQualityComponent implements OnInit {
   get studyStatuses(): StudyStatusOption[] { return this.statuses.list; }
 
   /** Possible duplicates can be merged by the Super Admin. */
-  mergeable(c: Check): boolean { return c.key === 'possible_duplicate_students' && this.auth.isSuperAdmin(); }
+  mergeable(c: Check): boolean { return !!MERGE_API[c.key] && this.auth.isSuperAdmin(); }
 
   /** The other students of the same duplicate group are the candidates to keep. */
   startMerge(c: Check, row: Record<string, unknown>): void {
     const candidates = c.rows.filter((r) => r['id'] !== row['id'] && r['group'] === row['group']);
-    this.merge = { remove: row, candidates, keepId: candidates.length === 1 ? (candidates[0]['id'] as number) : null, preview: null, busy: false, error: '' };
+    this.merge = { api: MERGE_API[c.key], remove: row, candidates, keepId: candidates.length === 1 ? (candidates[0]['id'] as number) : null, preview: null, busy: false, error: '' };
     if (this.merge.keepId) this.previewMerge();
   }
 
@@ -199,7 +215,7 @@ export class AdminDataQualityComponent implements OnInit {
     m.preview = null;
     m.error = '';
     if (!m.keepId) return;
-    this.api.post<MergePreview>('/admin/students/merge/preview', { keepId: m.keepId, removeId: m.remove['id'] }).subscribe({
+    this.api.post<MergePreview>(m.api.path + '/preview', { keepId: m.keepId, removeId: m.remove['id'] }).subscribe({
       next: (p) => (m.preview = p),
       error: (e) => (m.error = errorText(e, 'Could not prepare the merge.'))
     });
@@ -209,9 +225,9 @@ export class AdminDataQualityComponent implements OnInit {
     const m = this.merge;
     if (!m?.preview || !confirm(`Merge ${m.preview.remove.user_id} into ${m.preview.keep.user_id}?`)) return;
     m.busy = true;
-    this.api.post<{ message: string }>('/admin/students/merge', { keepId: m.keepId, removeId: m.remove['id'] }).subscribe({
+    this.api.post<{ message: string }>(m.api.path, { keepId: m.keepId, removeId: m.remove['id'] }).subscribe({
       next: (r) => { this.merge = null; this.message = r.message; this.load(); },
-      error: (e) => { m.busy = false; m.error = errorText(e, 'Could not merge the students.'); }
+      error: (e) => { m.busy = false; m.error = errorText(e, 'Could not merge them.'); }
     });
   }
 
