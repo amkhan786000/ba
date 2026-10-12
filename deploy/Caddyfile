@@ -1,15 +1,14 @@
-# Front door of the server (only used with COMPOSE_PROFILES=https): Caddy holds port 80 and sends each visitor to
-# the right app by the name they opened. Plain HTTP for now.
+# Front door of the server (only used with COMPOSE_PROFILES=https): Caddy holds ports 80 and 443, sends each
+# visitor to the right app by the name they opened, and gets and renews free Let's Encrypt certificates by itself.
 #
-#   http://biharanjuman.com, http://www.biharanjuman.com  -> the Bihar Anjuman website (container
-#                                                            biharanjuman-frontend, which joins this network
-#                                                            with CADDY_NETWORK=rahbar_default)
-#   anything else (the server's IP, rahbar.biharanjuman.com) -> Rahbar
+#   https://biharanjuman.com, https://www.biharanjuman.com -> the Bihar Anjuman website (container
+#                                                             biharanjuman-frontend, which joins this network
+#                                                             with CADDY_NETWORK=rahbar_default)
+#   https://rahbar.biharanjuman.com                        -> Rahbar
+#   http://<server-ip> (any other name)                    -> Rahbar, plain HTTP (no certificate for an IP)
 #
-# HTTPS later: delete "auto_https off", change "http://" to "https://" below and open port 443
-# (sudo ufw allow 443/tcp). Caddy then gets and renews free Let's Encrypt certificates by itself.
+# http:// on the three names is sent on to https:// automatically. Port 443 must be open (sudo ufw allow 443/tcp).
 {
-	auto_https off
 	# Keep the visitor's address (X-Forwarded-For) when the request comes from inside this server: the website's
 	# nginx calls Rahbar's API through here and passes the visitor on. Visitors on the internet can't fake it.
 	servers {
@@ -18,12 +17,19 @@
 }
 
 # The Bihar Anjuman website (biharanjuman.com repository).
-http://biharanjuman.com, http://www.biharanjuman.com {
+biharanjuman.com, www.biharanjuman.com {
 	encode gzip
 	reverse_proxy biharanjuman-frontend:80
 }
 
-# Rahbar: the server's IP address, rahbar.biharanjuman.com and any other name.
+# Rahbar on its own name.
+rahbar.biharanjuman.com {
+	encode gzip
+	reverse_proxy frontend:80
+}
+
+# Rahbar on the server's IP address and any other name, plain HTTP. The website's API calls
+# (http://host.docker.internal/api/public/website) come in here too.
 :80 {
 	encode gzip
 	reverse_proxy frontend:80
