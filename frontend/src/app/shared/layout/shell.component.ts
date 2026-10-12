@@ -3,7 +3,12 @@ import { CommonModule } from '@angular/common';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { Subscription, filter } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
-import { NAV_GROUPS, ROLE_LABELS, Section, areasOf } from '../../core/models/user.model';
+import { ADMIN_LINKS, AuthUser, NAV_GROUPS, ROLE_LABELS, Section, areasOf, canAccess } from '../../core/models/user.model';
+
+/** The first admin screen the user may open (after switching "View as"). */
+function landingAdminPath(user: AuthUser | null): string {
+  return ADMIN_LINKS.find((l) => l.section && canAccess(user, l.section))?.path ?? '/admin/profile';
+}
 import { NotificationBellComponent } from '../notifications/notification-bell.component';
 
 export interface NavLink {
@@ -87,9 +92,16 @@ type NavEntry = { link: NavLink; group?: undefined } | { group: { key: string; l
                 <strong>{{ auth.currentUser()?.name }}</strong>
                 <small>{{ roleLabel }} · {{ auth.currentUser()?.userId }}</small>
               </div>
+              <ng-container *ngIf="viewAsRoles.length > 1">
+                <div class="user-menu-label">View as</div>
+                <a href="" (click)="$event.preventDefault(); viewAs(null)" [class.active]="sectionRoot === '/admin' && !acting">
+                  <i class="mdi mdi-account-multiple-outline"></i><span>All my roles</span><i *ngIf="sectionRoot === '/admin' && !acting" class="mdi mdi-check ml-auto"></i></a>
+                <a *ngFor="let r of viewAsRoles" href="" (click)="$event.preventDefault(); viewAs(r.id)" [class.active]="acting === r.id">
+                  <i class="mdi mdi-account-eye-outline"></i><span>{{ r.name }}</span><i *ngIf="acting === r.id" class="mdi mdi-check ml-auto"></i></a>
+              </ng-container>
               <ng-container *ngIf="areas.length > 1">
                 <div class="user-menu-label">Switch to</div>
-                <a *ngFor="let a of areas" [routerLink]="a.path" (click)="menuOpen = false" [class.active]="a.root === sectionRoot">
+                <a *ngFor="let a of areas" [routerLink]="a.path" (click)="goArea($event, a)" [class.active]="a.root === sectionRoot">
                   <i class="mdi" [ngClass]="a.root === '/admin' ? 'mdi-shield-account-outline' : 'mdi-account-switch-outline'"></i><span>{{ a.label }}</span>
                   <i *ngIf="a.root === sectionRoot" class="mdi mdi-check ml-auto"></i></a>
               </ng-container>
@@ -101,6 +113,11 @@ type NavEntry = { link: NavLink; group?: undefined } | { group: { key: string; l
         </header>
 
         <main class="app-content">
+          <div *ngIf="actingName" class="alert alert-info d-flex flex-wrap align-items-center py-2 acting-banner">
+            <i class="mdi mdi-account-eye-outline mr-2"></i>
+            <span class="flex-fill">Viewing as <strong>{{ actingName }}</strong>: you see the menu and records this role gets.</span>
+            <button type="button" class="btn btn-sm btn-outline-primary ml-2" (click)="viewAs(null)">Back to all my roles</button>
+          </div>
           <div *ngIf="auth.currentUser()?.emailMissing && !emailBannerHidden" class="alert alert-warning d-flex align-items-start email-banner">
             <i class="mdi mdi-email-alert-outline mr-2 mt-1"></i>
             <div class="flex-fill">
@@ -208,9 +225,40 @@ export class ShellComponent implements OnDestroy {
   /** Admin area and portals this person can switch between (several roles). */
   get areas(): { label: string; path: string; root: string }[] { return areasOf(this.auth.currentUser()); }
 
+  /** Staff roles the user can "View as" (shown when they have more than one; portals have their own area). */
+  get viewAsRoles(): { id: number; name: string }[] { return (this.auth.currentUser()?.roles ?? []).filter((r) => !r.portal); }
+
+  get acting(): number | null { return this.auth.currentUser()?.actingRoleId ?? null; }
+
+  get actingName(): string | null {
+    const id = this.acting;
+    return id === null ? null : (this.auth.currentUser()?.roles ?? []).find((r) => r.id === id)?.name ?? 'one role';
+  }
+
+  /** Switches "View as" and opens the first screen that role may use. */
+  viewAs(roleId: number | null): void {
+    this.menuOpen = false;
+    this.auth.actAs(roleId).subscribe({
+      next: () => this.router.navigateByUrl(landingAdminPath(this.auth.currentUser())),
+      error: () => {}
+    });
+  }
+
+  /** Going to a portal leaves "View as" (a portal is one role already). */
+  goArea(event: Event, a: { path: string; root: string }): void {
+    this.menuOpen = false;
+    if (a.root !== '/admin' && this.acting !== null) {
+      event.preventDefault();
+      this.auth.actAs(null).subscribe({ next: () => this.router.navigateByUrl(a.path), error: () => {} });
+    }
+  }
+
   get roleLabel(): string {
     const user = this.auth.currentUser();
-    return user?.roleName || ROLE_LABELS[user?.roleId ?? 0] || 'User';
+    if (this.actingName) return 'Viewing as ' + this.actingName;
+    const main = user?.roleName || ROLE_LABELS[user?.roleId ?? 0] || 'User';
+    const more = (user?.roles?.length ?? 1) - 1;
+    return more > 0 ? main + ' +' + more : main;
   }
 
   get initials(): string {

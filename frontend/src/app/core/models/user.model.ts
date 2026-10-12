@@ -21,6 +21,10 @@ export interface AuthUser {
   scope?: string;
   chapterId?: number | null;
   rccCenterId?: number | null;
+  /** All the user's roles with their names (main first); portal roles have their own area. */
+  roles?: { id: number; name: string; main: boolean; portal: boolean }[];
+  /** "View as": the one role the user is acting as right now (null: all their roles). */
+  actingRoleId?: number | null;
 }
 
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
@@ -117,7 +121,8 @@ export function hasRole(user: AuthUser | null, roleId: number): boolean {
 /** True when the user may use the section: EDIT implies VIEW; the Super Admin may do everything. */
 export function canAccess(user: AuthUser | null, section: Section, level: 'VIEW' | 'EDIT' = 'VIEW'): boolean {
   if (!user) return false;
-  if (hasRole(user, ROLE.SUPER_ADMIN)) return true;
+  // Super Admin may do everything, unless viewing as another of their roles.
+  if (user.actingRoleId != null ? user.actingRoleId === ROLE.SUPER_ADMIN : hasRole(user, ROLE.SUPER_ADMIN)) return true;
   const p = user.permissions ?? [];
   return p.includes(section + ':EDIT') || (level === 'VIEW' && p.includes(section + ':VIEW'));
 }

@@ -36,7 +36,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 if (jwtService.isTokenValid(token)) {
                     String id = jwtService.extractUserId(token);
                     if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                        UserDetails userDetails = userDetailsService.loadUserByUsername(id);
+                        UserDetails userDetails = userDetailsService.loadUserByUsername(id, actingRole(request));
                         UsernamePasswordAuthenticationToken authToken =
                                 new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                         authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
@@ -59,6 +59,17 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
         }
         filterChain.doFilter(request, response);
+    }
+
+    /** "View as": the role id in the X-Acting-Role header, or null. */
+    private static Integer actingRole(HttpServletRequest request) {
+        String v = request.getHeader("X-Acting-Role");
+        if (v == null || v.isBlank()) return null;
+        try {
+            return Integer.valueOf(v.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private static boolean allowedBeforePasswordChange(String path) {

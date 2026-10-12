@@ -13,6 +13,8 @@ import { PushService } from '../../core/services/push.service';
 interface Profile {
   userId: string; name: string; email: string; phone: string; sex: string | null; chapterId: number | null; chapterName: string | null;
   year: number | null; status: string | null; roleId: number; roleName: string | null; memberSince: string | null;
+  /** Every role the person has (main first) and what each is tied to. */
+  roles?: { id: number; name: string; main: boolean; detail?: string | null; warning?: string | null }[];
 }
 
 /** "My profile" for every role: contact details and password. */
@@ -30,13 +32,22 @@ interface Profile {
           <div class="card-body text-center">
             <div class="profile-avatar">{{ initials }}</div>
             <h4 class="mb-1 mt-3">{{ p.name }}</h4>
-            <p class="text-muted mb-3">{{ p.roleName || 'User' }}</p>
+            <p class="text-muted mb-3">{{ p.roleName || 'User' }}<span *ngIf="(p.roles?.length ?? 0) > 1"> + {{ p.roles!.length - 1 }} more</span></p>
             <div class="profile-facts">
               <div><span>User ID</span><strong>{{ p.userId }}</strong></div>
               <div><span>Status</span><strong>{{ p.status || '--' }}</strong></div>
               <div *ngIf="p.year"><span>Session year</span><strong>{{ p.year }}</strong></div>
               <div><span>Member since</span><strong>{{ date(p.memberSince) }}</strong></div>
             </div>
+          </div>
+          <div class="card-body border-top text-left" *ngIf="p.roles?.length">
+            <h5 class="mt-0 mb-2">My roles</h5>
+            <div *ngFor="let r of p.roles" class="mb-2">
+              <strong>{{ r.name }}</strong> <span *ngIf="r.main" class="badge badge-light border ml-1" title="Decides the screen you start on">main</span>
+              <div *ngIf="r.detail" class="small text-muted">{{ r.detail }}</div>
+              <div *ngIf="r.warning" class="small text-warning">{{ r.warning }}</div>
+            </div>
+            <small class="text-muted" *ngIf="p.roles!.length > 1">Use "View as" in the menu under your name to see the app as one of your roles.</small>
           </div>
         </div>
       </div>

@@ -5,7 +5,8 @@ import { environment } from '../../../environments/environment';
 import { AuthUser, ROLE, Section, canAccess, hasRole } from '../models/user.model';
 
 export interface AccessInfo {
-  roleId: number; roleIds?: number[]; roleName: string | null; permissions: string[]; scope: string; chapterId: number | null; rccCenterId: number | null;
+  roleId: number; roleIds?: number[]; roleName: string | null; actingRoleId?: number | null;
+  roles?: { id: number; name: string; main: boolean; portal: boolean }[]; permissions: string[]; scope: string; chapterId: number | null; rccCenterId: number | null;
   emailMissing: boolean;
 }
 
@@ -28,6 +29,8 @@ interface LoginResponse {
 
 const TOKEN_KEY = 'rahbar_token';
 const USER_KEY = 'rahbar_user';
+/** "View as" role for this browser tab (sent to the server as X-Acting-Role). */
+export const ACTING_KEY = 'rahbar_acting_role';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -88,7 +91,11 @@ export class AuthService {
   /** Does the signed-in user have the role (main or additional)? */
   hasRole(roleId: number): boolean { return hasRole(this.currentUser(), roleId); }
 
-  isSuperAdmin(): boolean { return this.hasRole(ROLE.SUPER_ADMIN); }
+  /** Super Admin, unless they are viewing as another of their roles. */
+  isSuperAdmin(): boolean {
+    const acting = this.currentUser()?.actingRoleId;
+    return acting != null ? acting === ROLE.SUPER_ADMIN : this.hasRole(ROLE.SUPER_ADMIN);
+  }
 
   /** May the signed-in user view (or manage) the admin section? */
   can(section: Section, level: 'VIEW' | 'EDIT' = 'VIEW'): boolean {
@@ -98,7 +105,8 @@ export class AuthService {
   /** Re-reads permissions from the server, so changes made in Roles apply without signing in again. */
   refreshAccess(): Observable<AccessInfo> {
     return this.http.get<AccessInfo>(`${environment.apiBaseUrl}/account/access`).pipe(tap((a) =>
-      this.updateUser({ roleName: a.roleName ?? undefined, roleIds: a.roleIds, permissions: a.permissions, scope: a.scope,
+      this.updateUser({ roleName: a.roleName ?? undefined, roleIds: a.roleIds, roles: a.roles, actingRoleId: a.actingRoleId ?? null,
+        permissions: a.permissions, scope: a.scope,
         chapterId: a.chapterId, rccCenterId: a.rccCenterId, emailMissing: a.emailMissing })));
   }
 
@@ -111,7 +119,21 @@ export class AuthService {
     this.currentUser.set(user);
   }
 
+  /** "View as" one of the user's roles (null: back to all of them). Kept for this browser tab only. */
+  actingRole(): number | null {
+    try { const v = sessionStorage.getItem(ACTING_KEY); return v ? Number(v) : null; } catch { return null; }
+  }
+
+  /** Switches "View as" and reloads the permissions the server gives for it (the menu follows). */
+  actAs(roleId: number | null): Observable<AccessInfo> {
+    try {
+      if (roleId === null) sessionStorage.removeItem(ACTING_KEY); else sessionStorage.setItem(ACTING_KEY, String(roleId));
+    } catch { /* private mode: only this page view */ }
+    return this.refreshAccess();
+  }
+
   logout(): void {
+    try { sessionStorage.removeItem(ACTING_KEY); } catch { /* ignore */ }
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
     this.currentUser.set(null);

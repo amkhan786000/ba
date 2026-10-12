@@ -36,12 +36,32 @@ public class RahbarUserDetailsService implements UserDetailsService {
 
     /** The user with the permissions of all their roles: the main one (users.role_id) and any additional ones. */
     public RahbarUserPrincipal principalFor(User user) {
+        return principalFor(user, null);
+    }
+
+    /**
+     * As {@link #principalFor(User)}, or, with "View as" (actingRole: one of the user's own roles), exactly that role's
+     * permissions and scope, so the screens and the data are what that role gets. It can only narrow access: a role
+     * the user doesn't have is ignored.
+     */
+    public RahbarUserPrincipal principalFor(User user, Integer actingRole) {
         Set<Integer> ids = new LinkedHashSet<>();
         if (user.getRoleId() != null) ids.add(user.getRoleId());
         if (user.getId() != null) additionalRoles.findByUserId(user.getId()).forEach(r -> ids.add(r.getRoleId()));
+        if (actingRole != null && ids.contains(actingRole) && ids.size() > 1) {
+            List<Role> one = roleRepository.findById(actingRole).map(List::of).orElse(List.of());
+            return combine(user, Set.of(actingRole), one).actingAs(actingRole, ids);
+        }
         List<Role> roles = new ArrayList<>();
         for (Integer roleId : ids) roleRepository.findById(roleId).ifPresent(roles::add);
         return combine(user, ids, roles);
+    }
+
+    /** The user for a request: id from the token, and the "View as" role from the X-Acting-Role header (or null). */
+    public UserDetails loadUserByUsername(String id, Integer actingRole) {
+        User user = parseId(id).flatMap(userRepository::findById)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + id));
+        return principalFor(user, actingRole);
     }
 
     /**

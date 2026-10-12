@@ -22,6 +22,9 @@ public class RahbarUserPrincipal implements UserDetails {
     private final String scope;
     private final Set<Integer> roleIds;
     private final boolean rebClassesOnly;
+    /** "View as": the one role the user chose to act as (null: all their roles), and all the roles they have. */
+    private Integer actingRoleId;
+    private Set<Integer> allRoleIds;
 
     /** One role: the scope is that role's (REB_CLASSES limits REB to the user's classes). */
     public RahbarUserPrincipal(User user, Set<String> permissions, String scope) {
@@ -40,9 +43,26 @@ public class RahbarUserPrincipal implements UserDetails {
         this.rebClassesOnly = rebClassesOnly;
     }
 
-    /** The main role (users.role_id) and any additional ones. */
+    /** The roles in force for this request: all of the user's, or just the one they chose to view as. */
     public Set<Integer> getRoleIds() {
         return roleIds;
+    }
+
+    /** All of the user's roles (main and additional), also while viewing as one of them. */
+    public Set<Integer> getAllRoleIds() {
+        return allRoleIds == null ? roleIds : allRoleIds;
+    }
+
+    /** The role chosen with "View as", or null. */
+    public Integer getActingRoleId() {
+        return actingRoleId;
+    }
+
+    /** The same user, acting as one of their roles (permissions and scope are that role's only). */
+    RahbarUserPrincipal actingAs(Integer roleId, Set<Integer> all) {
+        this.actingRoleId = roleId;
+        this.allRoleIds = Set.copyOf(all);
+        return this;
     }
 
     public boolean hasRole(int roleId) {
