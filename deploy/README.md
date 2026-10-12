@@ -118,29 +118,33 @@ service watch it. With [UptimeRobot](https://uptimerobot.com) (free plan, checks
 
 You get an email when either goes down and when it is back.
 
-## Domains: Caddy as the front door
+## Domains and HTTPS: Caddy as the front door
 
 A domain's DNS can only point to an IP, never to a port. So `biharanjuman.com`, `www.biharanjuman.com` and
-`rahbar.biharanjuman.com` all point to the server, and Caddy (on port 80, see `deploy/Caddyfile`) looks at the name:
+`rahbar.biharanjuman.com` all point to the server, and Caddy (ports 80 and 443, see `deploy/Caddyfile`) looks at the
+name. It gets and renews free Let's Encrypt certificates by itself; `http://` on those names is sent on to `https://`.
 
 | Opened as | Goes to |
 | --- | --- |
-| `http://biharanjuman.com`, `http://www.biharanjuman.com` | the Bihar Anjuman website (`biharanjuman-frontend`) |
-| `http://rahbar.biharanjuman.com`, `http://YOUR_SERVER_IP`, anything else | Rahbar |
+| `https://biharanjuman.com`, `https://www.biharanjuman.com` | the Bihar Anjuman website (`biharanjuman-frontend`) |
+| `https://rahbar.biharanjuman.com` | Rahbar |
+| `http://YOUR_SERVER_IP`, anything else | Rahbar, plain HTTP |
 
-1. Add to `/opt/rahbar/.env`:
+1. Open the HTTPS port **before** deploying this Caddyfile: `sudo ufw allow 443/tcp`.
+2. In `/opt/rahbar/.env`:
    ```
    COMPOSE_PROFILES=https
    HTTP_BIND=127.0.0.1:8081
-   PUBLIC_URL=http://rahbar.biharanjuman.com
+   PUBLIC_URL=https://rahbar.biharanjuman.com
    ```
-   (`COMPOSE_PROFILES=https` only turns Caddy on; `HTTP_BIND` moves Rahbar's own port 80 aside for Caddy.)
-2. Run the deploy again (Actions → Deploy Latest Tag) and check that `http://YOUR_SERVER_IP` still opens Rahbar.
-3. Connect the website and switch the DNS: see "Domain (biharanjuman.com)" in the biharanjuman.com repository's
+   (`COMPOSE_PROFILES=https` turns Caddy on; `HTTP_BIND` moves Rahbar's own port 80 aside for Caddy.)
+3. Run the deploy (Actions → Deploy Latest Tag). Check:
+   `docker logs rahbar-caddy 2>&1 | grep -i "certificate obtained"` lists all three names.
+4. The website side (joining Caddy's network, DNS at Netfirms): "Domain" in the biharanjuman.com repository's
    `deploy/README.md`.
 
-HTTPS later: in `deploy/Caddyfile` delete `auto_https off` and change `http://` to `https://`, run
-`sudo ufw allow 443/tcp`, deploy, and change `PUBLIC_URL` to `https://`. Caddy gets free certificates by itself.
+A new name needs its DNS record first and a block in `deploy/Caddyfile`. If a certificate fails, it is almost always
+DNS that points elsewhere (`dig +short NAME`) or port 80/443 closed (`sudo ufw status`); Caddy keeps retrying.
 
 ## Looking at the database with DBeaver (or another client)
 
