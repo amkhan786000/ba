@@ -126,6 +126,13 @@ if ! docker ps --format '{{.Names}} {{.Ports}}' | grep -q "^rahbar-frontend .*:$
 fi
 log "Starting containers"
 "${COMPOSE[@]}" up -d --remove-orphans
+# Caddy keeps the Caddyfile it was started with: the deploy replaces the file on disk, and a running container
+# still sees the old one (even after a restart). When they differ, recreate Caddy so the new one takes effect.
+if docker ps --format '{{.Names}}' | grep -qx rahbar-caddy \
+   && ! docker exec rahbar-caddy cat /etc/caddy/Caddyfile 2>/dev/null | cmp -s - "$APP_DIR/Caddyfile"; then
+  log "Caddyfile changed: recreating Caddy"
+  "${COMPOSE[@]}" up -d --force-recreate caddy || log "WARNING: could not recreate Caddy. Run: docker compose -f docker-compose.prod.yml --env-file .env up -d --force-recreate caddy"
+fi
 
 # ---- 4. Health check (the backend can take a minute to start) ----
 healthy=false

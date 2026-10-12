@@ -8,6 +8,9 @@
 #   http://<server-ip> (any other name)                    -> Rahbar, plain HTTP (no certificate for an IP)
 #
 # http:// on the three names is sent on to https:// automatically. Port 443 must be open (sudo ufw allow 443/tcp).
+#
+# Upstreams are named by container name, never by compose service name: the website's service is also called
+# "frontend", and once it joins this network the name "frontend" points to both apps.
 {
 	# Keep the visitor's address (X-Forwarded-For) when the request comes from inside this server: the website's
 	# nginx calls Rahbar's API through here and passes the visitor on. Visitors on the internet can't fake it.
@@ -25,12 +28,12 @@ biharanjuman.com, www.biharanjuman.com {
 # Rahbar on its own name.
 rahbar.biharanjuman.com {
 	encode gzip
-	reverse_proxy frontend:80
+	reverse_proxy rahbar-frontend:80
 }
 
 # Rahbar on the server's IP address and any other name, plain HTTP. The website's API calls
 # (http://host.docker.internal/api/public/website) come in here too.
 :80 {
 	encode gzip
-	reverse_proxy frontend:80
+	reverse_proxy rahbar-frontend:80
 }
