@@ -90,6 +90,8 @@ public enum Section {
      * document. Who may read a document is chosen on the document (everyone, or some roles), not here.
      */
     DOCUMENTS("Documents: add & edit (who reads each one is set on the document)"),
+    /** Help & FAQ: EDIT adds, changes and deletes questions and chooses which show on biharanjuman.com (everyone reads them). */
+    FAQS("FAQ: add, edit & delete questions"),
     /** The categories of Admin > Documents. */
     DOCUMENT_CATEGORIES("Document categories"),
     /** Administration > Income & Expenses: the books, categories and what is published on the website. */

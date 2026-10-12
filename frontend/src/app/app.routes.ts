@@ -67,6 +67,7 @@ import { AdminDocumentsComponent } from './admin/admin-documents.component';
 import { AdminFinanceComponent } from './admin/admin-finance.component';
 import { AdminSponsorFollowupComponent } from './admin/admin-sponsor-followup.component';
 import { AdminMentoringComponent } from './admin/admin-mentoring.component';
+import { FaqComponent } from './shared/faq/faq.component';
 import { AdminStudentNotesComponent } from './admin/admin-student-notes.component';
 import { StudentNotesComponent } from './student/student-notes.component';
 import { SponsorNotesComponent } from './sponsor/sponsor-notes.component';
@@ -158,6 +159,7 @@ export const routes: Routes = [
       { path: 'volunteers', component: AdminVolunteersComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEERS' } },
       { path: 'volunteer-options', component: AdminVolunteerOptionsComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEER_OPTIONS' } },
       { path: 'documents', component: AdminDocumentsComponent }, // everyone: each document says who may read it
+      { path: 'faq', component: FaqComponent }, // everyone: each question says who sees it
       { path: 'sponsor-followup', component: AdminSponsorFollowupComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
       { path: 'student-notes', component: AdminStudentNotesComponent, canActivate: [permissionGuard], data: { permission: 'STUDENT_NOTES' } },
       { path: 'mentoring', component: AdminMentoringComponent, canActivate: [permissionGuard], data: { permission: 'MENTORING' } },
@@ -203,11 +205,13 @@ export const routes: Routes = [
         { path: '/coordinator/assign-students', label: 'Assign Students', icon: 'mdi-account-multiple-plus' },
         { path: '/coordinator/payments', label: 'Monitor Payments', icon: 'mdi-cash-multiple' },
         { path: '/coordinator/reports', label: 'Generate Reports', icon: 'mdi-chart-bar' },
-        { path: '/coordinator/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
+        { path: '/coordinator/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' },
+        { path: '/coordinator/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline' }
       ]
     },
     children: [
       { path: 'documents', component: AdminDocumentsComponent },
+      { path: 'faq', component: FaqComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: CoordinatorDashboardComponent },
@@ -234,11 +238,13 @@ export const routes: Routes = [
         { path: '/convenor/sponsors', label: 'Manage Sponsors', icon: 'mdi-account-multiple' },
         { path: '/convenor/progress', label: 'Student Progress', icon: 'mdi-chart-line' },
         { path: '/convenor/payments', label: 'Payments', icon: 'mdi-account-multiple' },
-        { path: '/convenor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
+        { path: '/convenor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' },
+        { path: '/convenor/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline' }
       ]
     },
     children: [
       { path: 'documents', component: AdminDocumentsComponent },
+      { path: 'faq', component: FaqComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: ConvenorDashboardComponent },
@@ -261,11 +267,13 @@ export const routes: Routes = [
         { path: '/sponsor/progress', label: 'Student Progress', icon: 'mdi-chart-line' },
         { path: '/sponsor/notes', label: 'Notes from Students', icon: 'mdi-message-text-outline' },
         { path: '/sponsor/reb', label: 'Rahbar-e-Banaat', icon: 'mdi-human-female-girl' },
-        { path: '/sponsor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
+        { path: '/sponsor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' },
+        { path: '/sponsor/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline' }
       ]
     },
     children: [
       { path: 'documents', component: AdminDocumentsComponent },
+      { path: 'faq', component: FaqComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: SponsorDashboardComponent },
@@ -287,11 +295,13 @@ export const routes: Routes = [
         { path: '/student/progress', label: 'Progress', icon: 'mdi-chart-line' },
         { path: '/student/notes', label: 'Write to my Sponsor', icon: 'mdi-message-text-outline' },
         { path: '/student/alumni', label: 'Alumni Profile', icon: 'mdi-school' },
-        { path: '/student/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' }
+        { path: '/student/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' },
+        { path: '/student/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline' }
       ]
     },
     children: [
       { path: 'documents', component: AdminDocumentsComponent },
+      { path: 'faq', component: FaqComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: StudentDashboardComponent },
