@@ -126,6 +126,12 @@ if ! docker ps --format '{{.Names}} {{.Ports}}' | grep -q "^rahbar-frontend .*:$
 fi
 log "Starting containers"
 "${COMPOSE[@]}" up -d --remove-orphans
+# Caddy reads its Caddyfile only at start: load the one just copied in (no-op when Caddy isn't used).
+if docker ps --format '{{.Names}}' | grep -qx rahbar-caddy; then
+  log "Reloading Caddy"
+  docker exec rahbar-caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile >/dev/null 2>&1 \
+    || docker restart rahbar-caddy >/dev/null || log "WARNING: could not reload Caddy: docker restart rahbar-caddy"
+fi
 
 # ---- 4. Health check (the backend can take a minute to start) ----
 healthy=false
