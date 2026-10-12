@@ -2,7 +2,7 @@ import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { catchError, from, throwError } from 'rxjs';
-import { AuthService } from '../services/auth.service';
+import { ACTING_KEY, AuthService } from '../services/auth.service';
 
 const TOKEN_KEY = 'rahbar_token';
 
@@ -12,6 +12,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const token = localStorage.getItem(TOKEN_KEY);
   if (token) {
     req = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
+    // "View as" one of the user's roles: the server then answers with exactly that role's access.
+    let acting: string | null = null;
+    try { acting = sessionStorage.getItem(ACTING_KEY); } catch { /* ignore */ }
+    if (acting) req = req.clone({ setHeaders: { 'X-Acting-Role': acting } });
   }
   return next(req).pipe(
     catchError((err: HttpErrorResponse) => {

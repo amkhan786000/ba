@@ -9,8 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashMap;
-import java.util.Map;
+import java.util.*;
 
 import static com.rahbar.service.ServiceSupport.requireUser;
 
@@ -48,6 +47,30 @@ public class AccountService {
         p.put("status", u.getStatus());
         p.put("roleId", u.getRoleId());
         p.put("roleName", roleRepository.findById(u.getRoleId()).map(r -> r.getRoleName()).orElse(null));
+        // Every role the person has (main first), and what each is tied to: a chapter / RCC lead's chapter / center
+        // (a warning when it is missing, since their screens stay empty), a sponsor's current students.
+        List<Map<String, Object>> roles = new ArrayList<>();
+        for (Integer id : com.rahbar.util.UserRoles.byUser(List.of(u), userRepository).getOrDefault(u.getId(), Set.of())) {
+            com.rahbar.entity.Role r = roleRepository.findById(id).orElse(null);
+            if (r == null) continue;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", id);
+            row.put("name", r.getRoleName());
+            row.put("main", id.equals(u.getRoleId()));
+            String scope = r.getScope();
+            if (com.rahbar.entity.Role.SCOPE_CHAPTER.equals(scope)) {
+                row.put("detail", u.getChapterId() == null ? null : "Chapter: " + u.getChapterName());
+                if (u.getChapterId() == null) row.put("warning", "Not linked to a chapter yet, so this role sees no records. Ask an admin to set your chapter.");
+            } else if (com.rahbar.entity.Role.SCOPE_RCC.equals(scope)) {
+                if (u.getRccCenterId() == null) row.put("warning", "Not linked to an RCC center yet, so this role sees no records. Ask an admin to set it.");
+                else row.put("detail", "Linked to your RCC center");
+            } else if (id == 5) {
+                int students = userRepository.findGranteesOf(u.getId()).size();
+                row.put("detail", students == 0 ? "No student at the moment" : students + " student" + (students == 1 ? "" : "s") + " now");
+            }
+            roles.add(row);
+        }
+        p.put("roles", roles);
         p.put("memberSince", u.getCreatedAt());
         p.put("mustChangePassword", Boolean.TRUE.equals(u.getMustChangePassword()));
         return p;

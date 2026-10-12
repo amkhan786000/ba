@@ -5,6 +5,7 @@ import com.rahbar.service.AccountService;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /** The signed-in user's own profile and password (every role). */
@@ -26,6 +27,9 @@ public class AccountController {
     }
 
     /** What the signed-in user may do on the admin screens: permission keys, scope and their chapter / RCC center. */
+    /** Roles with their own portal (coordinator, convenor, sponsor, student): not offered for "View as". */
+    private static final java.util.Set<Integer> PORTAL_ROLES = java.util.Set.of(3, 4, 5, 6);
+
     @GetMapping("/access")
     public Map<String, Object> access() {
         var p = com.rahbar.security.Access.current();
@@ -34,7 +38,16 @@ public class AccountController {
         body.put("roleName", roleRepository.findById(p.getUser().getRoleId()).map(com.rahbar.entity.Role::getRoleName).orElse(null));
         body.put("permissions", p.getPermissions());
         body.put("scope", p.getScope());
-        body.put("roleIds", p.getRoleIds());
+        body.put("roleIds", p.getAllRoleIds());
+        body.put("actingRoleId", p.getActingRoleId());
+        // All the user's roles with their names (main first), for "View as" and the user menu.
+        List<Map<String, Object>> roles = new java.util.ArrayList<>();
+        for (Integer id : p.getAllRoleIds()) {
+            roleRepository.findById(id).ifPresent(r -> roles.add(Map.of("id", r.getRoleId(), "name", r.getRoleName(),
+                    "main", r.getRoleId().equals(p.getUser().getRoleId()), "portal", PORTAL_ROLES.contains(r.getRoleId()))));
+        }
+        roles.sort(java.util.Comparator.comparing((Map<String, Object> r) -> !(Boolean) r.get("main")));
+        body.put("roles", roles);
         body.put("chapterId", p.getUser().getChapterId());
         body.put("rccCenterId", p.getUser().getRccCenterId());
         // No address, or a placeholder (...@rahbar.com): the app shows a banner asking to add a real one.
