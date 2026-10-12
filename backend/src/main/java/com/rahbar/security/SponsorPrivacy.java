@@ -24,7 +24,7 @@ public class SponsorPrivacy {
     /** "<prefix>_<detail>" keys that describe a student's sponsor, e.g. grantor_phone, sponsor_email. */
     private static final List<String> PREFIXES = List.of("sponsor", "grantor", "current_sponsor", "assigned_sponsor");
     private static final List<String> DETAILS = List.of("email", "phone", "mobile", "chapter", "chapter_id",
-            "chapter_name", "address", "region");
+            "chapter_name", "address", "region", "pan");
     /** Nested objects that are a student's sponsor, e.g. { "sponsor": { ... } }. */
     private static final Set<String> SPONSOR_OBJECTS = Set.of("sponsor", "grantor");
 

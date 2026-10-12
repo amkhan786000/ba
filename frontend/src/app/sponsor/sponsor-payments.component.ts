@@ -7,6 +7,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { isoDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { CheckoutOrder, payWithRazorpay } from '../shared/razorpay';
 
 type Row = Record<string, any>;
 
@@ -125,12 +126,26 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
           <div *ngFor="let d of problems">{{ d.grantee['name'] }}: {{ d.installments.length ? 'no further installments' : 'payment schedule not ready yet' }} ({{ d.installmentProblem }}). Please contact the office.</div>
         </div>
 
+        <div *ngIf="online?.pays_through_rahbar" class="alert mb-3" [ngClass]="online?.available ? 'alert-success' : 'alert-info'">
+          <ng-container *ngIf="online?.available; else notOpen">
+            <i class="mdi mdi-shield-check-outline mr-1"></i>You pay through Rahbar: tick the installments and choose <strong>Pay online</strong>
+            (UPI, Indian cards or net banking). You get an 80G receipt by email, and the office sends the money on to your student.
+            <span *ngIf="online?.test_mode" class="badge badge-warning ml-1">Test mode: no real money</span>
+            <div *ngIf="chosen.size" class="mt-2"><button type="button" class="btn btn-success btn-sm" (click)="openOnline()">
+              <i class="mdi mdi-cash-fast mr-1"></i>Pay online ₹{{ chosenTotal | number: '1.0-2' }} for {{ chosen.size }} installment{{ chosen.size === 1 ? '' : 's' }}</button>
+              <button type="button" class="btn btn-link btn-sm" (click)="chosen.clear()">Clear</button></div>
+          </ng-container>
+          <ng-template #notOpen>You pay through Rahbar. Online payment opens soon; meanwhile please contact the office to pay.</ng-template>
+        </div>
+
         <div class="table-responsive">
           <table class="table table-sm table-schedule mb-0">
-            <thead><tr><th>Student</th><th>#</th><th>Due date</th><th>Amount</th><th>Status</th><th>Paid on</th><th>Receipts</th><th></th></tr></thead>
+            <thead><tr><th *ngIf="canPayOnline" style="width: 30px"></th><th>Student</th><th>#</th><th>Due date</th><th>Amount</th><th>Status</th><th>Paid on</th><th>Receipts</th><th></th></tr></thead>
             <tbody>
-              <tr *ngIf="loaded && !rows.length"><td colspan="8" class="text-center text-muted">{{ items.length ? 'Nothing matches these filters.' : 'No installments yet.' }}</td></tr>
+              <tr *ngIf="loaded && !rows.length"><td [attr.colspan]="canPayOnline ? 9 : 8" class="text-center text-muted">{{ items.length ? 'Nothing matches these filters.' : 'No installments yet.' }}</td></tr>
               <tr *ngFor="let r of rows" [class.needs-pay]="!r.i.payment_id && (r.i.status === 'Overdue' || r.i.status === 'Due') && !r.d.former">
+                <td *ngIf="canPayOnline"><input *ngIf="payableOnline(r)" type="checkbox" [checked]="chosen.has(r.i.installment_id)"
+                  (change)="toggleChosen(r)" [attr.aria-label]="'Choose installment ' + r.i.installment_no"></td>
                 <td><strong>{{ r.d.grantee['name'] }}</strong><div class="small text-muted">{{ r.d.grantee['user_id'] }}<span *ngIf="r.d.former"> · no longer yours</span></div></td>
                 <td>{{ r.i.installment_no }}</td>
                 <td>{{ r.i.due_date | date: 'd MMM yyyy' }}</td>
@@ -148,11 +163,41 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
                   </div>
                 </td>
                 <td class="text-right">
-                  <button *ngIf="!r.i.payment_id && !r.d.former" type="button" class="btn btn-xs btn-success" (click)="openPay(r)">Pay now</button>
+                  <button *ngIf="!r.i.payment_id && !r.d.former && !online?.pays_through_rahbar" type="button" class="btn btn-xs btn-success" (click)="openPay(r)">Pay now</button>
+                  <button *ngIf="payableOnline(r)" type="button" class="btn btn-xs btn-success" (click)="chosen.clear(); toggleChosen(r); openOnline()">Pay online</button>
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="onlineForm" class="modal fade show d-block" tabindex="-1" (click)="onlineForm = null">
+      <div class="modal-dialog modal-dialog-centered" (click)="$event.stopPropagation()">
+        <div class="modal-content">
+          <div class="modal-header bg-success text-white">
+            <h5 class="modal-title text-white">Pay online ₹{{ chosenTotal | number: '1.0-2' }}</h5>
+            <button type="button" class="close text-white" (click)="onlineForm = null" aria-label="Close">&times;</button>
+          </div>
+          <div class="modal-body">
+            <ul class="small mb-3"><li *ngFor="let x of chosenItems">{{ x.d.grantee['name'] }}: installment #{{ x.i.installment_no }}, ₹{{ x.i.amount | number: '1.0-2' }} (due {{ x.i.due_date | date: 'd MMM yyyy' }})</li></ul>
+            <div class="form-group">
+              <label for="o-pan">Your PAN</label>
+              <input id="o-pan" class="form-control text-uppercase" maxlength="10" [(ngModel)]="onlineForm.pan" placeholder="ABCDE1234F">
+              <small class="text-muted">Printed on your 80G receipt and reported to the Income Tax Department (Form 10BD).</small>
+            </div>
+            <div class="custom-control custom-checkbox">
+              <input type="checkbox" class="custom-control-input" id="o-decl" [(ngModel)]="onlineForm.declaration">
+              <label class="custom-control-label small" for="o-decl">I am an Indian citizen and I am paying from my own Indian bank account
+                (savings, NRE or NRO). Bihar Anjuman cannot accept money from foreign citizens or foreign accounts.</label>
+            </div>
+            <p *ngIf="online?.test_mode" class="small text-warning mt-2 mb-0">Test mode: use Razorpay's test card or UPI; no real money moves.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-success btn-block" (click)="payOnline()" [disabled]="paying || !onlineForm.declaration || onlineForm.pan.trim().length !== 10">
+              {{ paying ? 'Waiting for the payment…' : 'Continue to payment' }}</button>
+          </div>
         </div>
       </div>
     </div>
@@ -189,6 +234,12 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
 })
 export class SponsorPaymentsComponent implements OnInit {
   readonly thisYear = new Date().getFullYear();
+  /** Paying through Rahbar online (Razorpay): who may, their PAN and past online payments. */
+  online: { pays_through_rahbar: boolean; available: boolean; test_mode: boolean; pan: string | null } | null = null;
+  /** Installments ticked for one online payment (installment ids). */
+  chosen = new Set<number>();
+  onlineForm: { pan: string; declaration: boolean } | null = null;
+  paying = false;
   details: Detail[] = [];
   items: Item[] = [];
   loaded = false;
@@ -207,6 +258,45 @@ export class SponsorPaymentsComponent implements OnInit {
     // "Pay Now" on the dashboard links here with ?granteeId=<users.id>
     this.studentId = this.route.snapshot.queryParamMap.get('granteeId') ?? '';
     this.load();
+    this.api.get<NonNullable<typeof this.online>>('/sponsor/online-payments').subscribe({ next: (o) => (this.online = o), error: () => (this.online = null) });
+  }
+
+  /** The tick column shows for sponsors who pay through Rahbar once online payment is open. */
+  get canPayOnline(): boolean { return !!this.online?.pays_through_rahbar && !!this.online?.available; }
+
+  payableOnline(x: Item): boolean { return this.canPayOnline && !x.i.payment_id && !x.d.former; }
+
+  toggleChosen(x: Item): void {
+    if (this.chosen.has(x.i.installment_id)) this.chosen.delete(x.i.installment_id); else this.chosen.add(x.i.installment_id);
+  }
+
+  get chosenItems(): Item[] { return this.items.filter((x) => this.chosen.has(x.i.installment_id)); }
+
+  get chosenTotal(): number { return this.chosenItems.reduce((s, x) => s + Number(x.i.amount), 0); }
+
+  openOnline(): void {
+    if (!this.chosen.size) return;
+    this.onlineForm = { pan: this.online?.pan ?? '', declaration: false };
+  }
+
+  /** Rahbar opens the order, Razorpay takes the payment, Rahbar checks the signature and records it. */
+  payOnline(): void {
+    const f = this.onlineForm;
+    if (!f) return;
+    this.paying = true;
+    this.api.post<CheckoutOrder>('/sponsor/online-payments/order', { installmentIds: [...this.chosen], pan: f.pan.trim().toUpperCase(), declaration: f.declaration })
+      .subscribe({
+        next: (order) => {
+          this.onlineForm = null;
+          payWithRazorpay(order).then((result) => {
+            this.api.post<{ message: string }>('/sponsor/online-payments/confirm', result).subscribe({
+              next: (r) => { this.paying = false; this.chosen.clear(); this.message = r.message; this.load(); },
+              error: (e) => { this.paying = false; this.error = errorText(e, 'We could not confirm the payment yet. If money left your account, it will show here shortly.'); this.load(); }
+            });
+          }).catch((e: Error) => { this.paying = false; if (e.message !== 'Payment cancelled.') this.error = e.message; });
+        },
+        error: (e) => { this.paying = false; this.error = errorText(e, 'Could not start the payment.'); }
+      });
   }
 
   load(): void {

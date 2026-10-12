@@ -40,4 +40,8 @@ public class Payment extends Modifiable {
     @Column(name = "due_date")
     private LocalDate dueDate;
 
+    /** ONLINE when paid through Rahbar's online payments (Razorpay); null for payments recorded with a receipt. */
+    @Column(name = "method", length = 10)
+    private String method;
+
 }

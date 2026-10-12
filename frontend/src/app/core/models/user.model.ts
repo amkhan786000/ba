@@ -28,7 +28,7 @@ export interface AuthUser {
 }
 
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
-export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG'
+export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG' | 'ONLINE_PAYMENTS'
   | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
   | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
@@ -69,6 +69,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/sponsor-followup', label: 'Sponsor Follow-up', icon: 'mdi-account-heart', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/payment-records', label: 'Payment Records', icon: 'mdi-receipt', section: 'PAYMENT_RECORDS', group: 'sponsors' },
+  { path: '/admin/online-payments', label: 'Online Payments', icon: 'mdi-credit-card-outline', section: 'ONLINE_PAYMENTS', group: 'sponsors' },
   { path: '/admin/payment-dues', label: 'Payment Dues', icon: 'mdi-alarm', section: 'PAYMENT_DUES', group: 'sponsors' },
   { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings', section: 'PAYMENT_CONFIG', group: 'sponsors' },
 
