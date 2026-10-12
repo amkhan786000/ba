@@ -103,9 +103,15 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
             </select>
           </div>
           <div class="col-12 col-md-3 form-group text-md-right">
-            <button type="button" class="btn btn-outline-secondary" (click)="statement()" [disabled]="downloading"
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-1" (click)="statement()" [disabled]="downloading"
                     [title]="'Your payments in ' + statementYear + ' as a PDF'">
               <i class="mdi mdi-file-pdf-box mr-1"></i>{{ downloading ? 'Preparing…' : 'Statement ' + statementYear }}</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-1 ml-1" (click)="history()" [disabled]="downloading"
+                    [title]="year ? 'Your payments in ' + year + ' as Excel' : 'All your payments as Excel'">
+              <i class="mdi mdi-file-excel-box mr-1"></i>Excel</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm mb-1 ml-1" (click)="calendar()" [disabled]="downloading"
+                    title="Your upcoming due dates as calendar reminders (3 days before each)">
+              <i class="mdi mdi-calendar-plus mr-1"></i>Add to calendar</button>
           </div>
         </div>
 
@@ -134,6 +140,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
                 <td>
                   <span *ngIf="!r.i.payment_id">—</span>
                   <div *ngIf="r.i.payment_id" class="d-flex flex-column">
+                    <a href="" class="small" (click)="$event.preventDefault(); receipt(r.i.payment_id!)">Rahbar receipt (PDF)</a>
                     <a *ngIf="link(r.i.receipt_url) as u" [href]="u" target="_blank" rel="noopener" class="small text-info">Bank receipt</a>
                     <span *ngIf="!r.i.receipt_url" class="small text-muted">No receipt</span>
                     <a *ngIf="link(r.i.student_proof_url) as u" [href]="u" target="_blank" rel="noopener" class="small text-success font-weight-bold">Spent proof</a>
@@ -265,6 +272,31 @@ export class SponsorPaymentsComponent implements OnInit {
     this.api.download('/sponsor/statement', { year: y }, `Rahbar_statement_${y}.pdf`).subscribe({
       next: () => (this.downloading = false),
       error: (e) => { this.downloading = false; this.error = errorText(e, 'Could not create the statement.'); }
+    });
+  }
+
+  /** Rahbar's receipt for one payment (PDF). */
+  receipt(paymentId: number): void {
+    this.api.download(`/sponsor/payments/${paymentId}/receipt`, undefined, `Rahbar_receipt_${paymentId}.pdf`).subscribe({
+      error: (e) => (this.error = errorText(e, 'Could not create the receipt.'))
+    });
+  }
+
+  /** Payment history as Excel: the chosen year, or everything. */
+  history(): void {
+    this.downloading = true;
+    this.api.download('/sponsor/payments/history', { year: this.year || null }, `Rahbar_payments_${this.year || 'all'}.xlsx`).subscribe({
+      next: () => (this.downloading = false),
+      error: (e) => { this.downloading = false; this.error = errorText(e, 'Could not create the Excel file.'); }
+    });
+  }
+
+  /** Upcoming due dates as an .ics file: opening it adds them to the sponsor's calendar app. */
+  calendar(): void {
+    this.downloading = true;
+    this.api.download('/sponsor/payments/calendar', undefined, 'Rahbar_payments.ics').subscribe({
+      next: () => { this.downloading = false; this.message = 'Open the downloaded file to add your due dates to your calendar.'; },
+      error: (e) => { this.downloading = false; this.error = errorText(e, 'Could not create the calendar file.'); }
     });
   }
 
