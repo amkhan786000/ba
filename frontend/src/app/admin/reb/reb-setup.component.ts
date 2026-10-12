@@ -7,6 +7,7 @@ import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { ASSESSMENTS, RebClass, RebSectionRow, RebSession, RebStaff, RebSubject, TRACKS } from './reb.models';
 import { AppDatePipe } from '../../shared/app-date';
+import { DateInputComponent } from '../../shared/date-input.component';
 
 type Tab = 'sessions' | 'classes' | 'sections' | 'subjects' | 'curriculum' | 'settings';
 
@@ -19,7 +20,7 @@ interface CurriculumRow { subjectId: number; name: string; track: string; maxMar
 @Component({
   selector: 'app-reb-setup',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">REB Setup</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -193,8 +194,8 @@ interface CurriculumRow { subjectId: number; name: string; track: string; maxMar
               <ng-container *ngSwitchCase="'sessions'">
                 <div class="form-group"><label for="f-name">Name *</label><input id="f-name" class="form-control" [(ngModel)]="form.d['name']" placeholder="e.g. 2026 or 2026-27"></div>
                 <div class="row">
-                  <div class="col-6 form-group"><label for="f-start">Starts *</label><input id="f-start" type="date" class="form-control" [(ngModel)]="form.d['startDate']"></div>
-                  <div class="col-6 form-group"><label for="f-end">Ends *</label><input id="f-end" type="date" class="form-control" [(ngModel)]="form.d['endDate']"></div>
+                  <div class="col-6 form-group"><label for="f-start">Starts *</label><app-date-input id="f-start" [(ngModel)]="form.d['startDate']"></app-date-input></div>
+                  <div class="col-6 form-group"><label for="f-end">Ends *</label><app-date-input id="f-end" [(ngModel)]="form.d['endDate']"></app-date-input></div>
                 </div>
                 <div class="form-group" *ngIf="form.id"><label for="f-status">Status</label>
                   <select id="f-status" class="form-control" [(ngModel)]="form.d['status']"><option value="OPEN">Open</option><option value="CLOSED">Closed</option></select></div>

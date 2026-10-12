@@ -11,6 +11,7 @@ import { AuthService } from '../core/services/auth.service';
 import { ROLE } from '../core/models/user.model';
 import { EMPTY, Subject, Subscription, catchError, debounceTime, merge, switchMap } from 'rxjs';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { DateInputComponent } from '../shared/date-input.component';
 
 export interface UserRow {
   /** users.id: used in links and API calls. */
@@ -42,7 +43,7 @@ export interface RoleOption {
 @Component({
   selector: 'app-admin-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, PagerComponent, CardTableDirective],
+  imports: [DateInputComponent, CommonModule, FormsModule, RouterLink, PagerComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">
@@ -205,7 +206,7 @@ export interface RoleOption {
                   </div>
                   <div class="form-group col-md-6">
                     <label>Payment Start Date</label>
-                    <input type="date" class="form-control" name="paymentStartDate" [(ngModel)]="newUser.paymentStartDate" />
+                    <app-date-input name="paymentStartDate" [(ngModel)]="newUser.paymentStartDate"></app-date-input>
                     <small class="text-muted">The first installment is due on this date.</small>
                   </div>
                 </div>

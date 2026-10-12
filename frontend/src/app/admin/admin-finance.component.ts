@@ -9,6 +9,7 @@ import { PagerComponent } from '../shared/pager/pager.component';
 import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { isoDate } from '../shared/format';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 interface Category { id: number; name: string; kind: string; active: boolean }
 interface Entry {
@@ -31,7 +32,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
 @Component({
   selector: 'app-admin-finance',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective, PagerComponent],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective, PagerComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Income &amp; Expenses</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -45,8 +46,8 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
     <!-- entries -->
     <div class="card" *ngIf="tab === 'entries'"><div class="card-body">
       <div class="row align-items-end">
-        <div class="col-6 col-md-2 form-group"><label for="f-from">From</label><input id="f-from" type="date" class="form-control" [(ngModel)]="from" (ngModelChange)="table.filter()"></div>
-        <div class="col-6 col-md-2 form-group"><label for="f-to">To</label><input id="f-to" type="date" class="form-control" [(ngModel)]="to" (ngModelChange)="table.filter()"></div>
+        <div class="col-6 col-md-2 form-group"><label for="f-from">From</label><app-date-input id="f-from" [(ngModel)]="from" (ngModelChange)="table.filter()"></app-date-input></div>
+        <div class="col-6 col-md-2 form-group"><label for="f-to">To</label><app-date-input id="f-to" [(ngModel)]="to" (ngModelChange)="table.filter()"></app-date-input></div>
         <div class="col-6 col-md-2 form-group"><label for="f-kind">Kind</label>
           <select id="f-kind" class="form-control" [(ngModel)]="kind" (ngModelChange)="table.filter()"><option value="">Both</option><option value="INCOME">Income</option><option value="EXPENSE">Expenses</option></select></div>
         <div class="col-6 col-md-3 form-group"><label for="f-cat">Category</label>
@@ -144,7 +145,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
         <div class="modal-content">
           <div class="modal-header"><h5 class="modal-title">{{ entry.id ? 'Edit entry' : 'Add entry' }}</h5><button type="button" class="close" (click)="entry = null" aria-label="Close">&times;</button></div>
           <div class="modal-body"><div class="row">
-            <div class="col-6 form-group"><label for="e-date">Date *</label><input id="e-date" type="date" class="form-control" [max]="today" [(ngModel)]="entry.entryDate"></div>
+            <div class="col-6 form-group"><label for="e-date">Date *</label><app-date-input id="e-date" [max]="today" [(ngModel)]="entry.entryDate"></app-date-input></div>
             <div class="col-6 form-group"><label for="e-amount">Amount (₹) *</label><input id="e-amount" type="number" min="0" step="0.01" class="form-control" [(ngModel)]="entry.amount"></div>
             <div class="col-12 form-group"><label for="e-cat">Category *</label>
               <select id="e-cat" class="form-control" [(ngModel)]="entry.categoryId"><option [ngValue]="null">-- Choose --</option>

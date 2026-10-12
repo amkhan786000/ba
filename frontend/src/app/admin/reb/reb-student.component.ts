@@ -9,6 +9,7 @@ import { CardTableDirective } from '../../shared/card-table.directive';
 import { RebStudentFeesComponent } from './reb-student-fees.component';
 import { isoDate, uploadUrl } from '../../shared/format';
 import { AppDatePipe } from '../../shared/app-date';
+import { DateInputComponent } from '../../shared/date-input.component';
 import {
   CATEGORIES, DOCUMENT_KINDS, ENROLLMENT_STATUSES, FEE_PLANS, RELATIONS, RebGuardian, RebSectionRow, RebSession, STATUSES,
   guardianBody, newGuardian, planBadge, statusBadge
@@ -30,7 +31,7 @@ interface Profile {
 @Component({
   selector: 'app-reb-student',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective, RebStudentFeesComponent],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective, RebStudentFeesComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box d-flex flex-wrap align-items-center justify-content-between">
       <h4 class="page-title mb-2">
@@ -72,8 +73,8 @@ interface Profile {
             </dl>
             <div *ngIf="editing" class="row">
               <div class="col-md-6 form-group"><label for="e-name">Full name *</label><input id="e-name" class="form-control" [(ngModel)]="e['name']"></div>
-              <div class="col-6 col-md-3 form-group"><label for="e-dob">Date of birth</label><input id="e-dob" type="date" class="form-control" [(ngModel)]="e['dateOfBirth']"></div>
-              <div class="col-6 col-md-3 form-group"><label for="e-adm">Admitted on</label><input id="e-adm" type="date" class="form-control" [(ngModel)]="e['admittedOn']"></div>
+              <div class="col-6 col-md-3 form-group"><label for="e-dob">Date of birth</label><app-date-input id="e-dob" [(ngModel)]="e['dateOfBirth']"></app-date-input></div>
+              <div class="col-6 col-md-3 form-group"><label for="e-adm">Admitted on</label><app-date-input id="e-adm" [(ngModel)]="e['admittedOn']"></app-date-input></div>
               <div class="col-6 col-md-3 form-group"><label for="e-plan">Fee plan</label>
                 <select id="e-plan" class="form-control" [(ngModel)]="e['feePlan']"><option *ngFor="let k of planKeys" [value]="k">{{ plans[k] }}</option></select></div>
               <div class="col-6 col-md-3 form-group"><label for="e-cat">Category</label>
@@ -226,7 +227,7 @@ interface Profile {
             <div class="form-group"><label for="s-status">Status</label>
               <select id="s-status" class="form-control" [(ngModel)]="st.status"><option *ngFor="let k of statusKeys" [value]="k">{{ statuses[k] }}</option></select></div>
             <ng-container *ngIf="st.status !== 'ACTIVE'">
-              <div class="form-group"><label for="s-date">Date</label><input id="s-date" type="date" class="form-control" [(ngModel)]="st.date"></div>
+              <div class="form-group"><label for="s-date">Date</label><app-date-input id="s-date" [(ngModel)]="st.date"></app-date-input></div>
               <div class="form-group mb-0"><label for="s-reason">Reason{{ st.status === 'LEFT' ? ' *' : '' }}</label><textarea id="s-reason" class="form-control" rows="2" [(ngModel)]="st.reason"></textarea></div>
             </ng-container>
             <p *ngIf="st.status === 'ACTIVE'" class="text-muted mb-0">She is studying again; check her class below after saving.</p>

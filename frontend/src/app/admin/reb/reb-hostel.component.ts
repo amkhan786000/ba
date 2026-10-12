@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { isoDate } from '../../shared/format';
 import { RELATIONS, RebGuardian, RebStudentRow } from './reb.models';
+import { DateInputComponent } from '../../shared/date-input.component';
 
 interface Leave {
   id: number; pass_no: string; student_id: number; student_name: string; admission_no: string; guardian_name: string | null;
@@ -21,7 +22,7 @@ interface Leave {
 @Component({
   selector: 'app-reb-hostel',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [DateInputComponent, CommonModule, FormsModule, RouterLink, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Hostel Leave</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -68,7 +69,7 @@ interface Leave {
               <select id="p-guardian" class="form-control" [(ngModel)]="pass.guardianId"><option [ngValue]="null">-- Choose --</option>
                 <option *ngFor="let g of pickers" [ngValue]="g.id">{{ g.name }} ({{ relation(g.relation) }}){{ g.phone ? ' · ' + g.phone : '' }}</option></select>
               <small *ngIf="!pickers.length" class="text-danger">None of her guardians may take her home. Change that on her page first.</small></div>
-            <div class="form-group"><label for="p-back">Due back on *</label><input id="p-back" type="date" class="form-control" [min]="today" [(ngModel)]="pass.leaveTo"></div>
+            <div class="form-group"><label for="p-back">Due back on *</label><app-date-input id="p-back" [min]="today" [(ngModel)]="pass.leaveTo"></app-date-input></div>
             <div class="form-group"><label for="p-reason">Reason *</label><input id="p-reason" class="form-control" [(ngModel)]="pass.reason" placeholder="e.g. Eid holidays, family wedding"></div>
             <div class="form-group mb-0"><label for="p-note">Note</label><input id="p-note" class="form-control" [(ngModel)]="pass.note"></div>
           </div>

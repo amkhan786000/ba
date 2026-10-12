@@ -8,6 +8,7 @@ import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component
 import { isoDate } from '../../shared/format';
 import { FEE_PLANS, RELATIONS, RebSectionRow, RebSession } from './reb.models';
 import { AppDatePipe } from '../../shared/app-date';
+import { DateInputComponent } from '../../shared/date-input.component';
 
 interface Enquiry {
   id: number; girl_name: string; date_of_birth: string | null; guardian_name: string; relation: string | null; phone: string; email: string | null;
@@ -25,7 +26,7 @@ const SOURCE: Record<string, string> = { WEBSITE: 'Website', PHONE: 'Phone', WAL
 @Component({
   selector: 'app-reb-enquiries',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Admission Enquiries</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -59,7 +60,7 @@ const SOURCE: Record<string, string> = { WEBSITE: 'Website', PHONE: 'Phone', WAL
           <div class="modal-body">
             <fieldset [disabled]="!canEdit"><div class="row">
               <div class="col-md-6 form-group"><label for="q-girl">Girl's name *</label><input id="q-girl" class="form-control" [(ngModel)]="sel.d['girlName']"></div>
-              <div class="col-md-6 form-group"><label for="q-dob">Date of birth</label><input id="q-dob" type="date" class="form-control" [(ngModel)]="sel.d['dateOfBirth']"></div>
+              <div class="col-md-6 form-group"><label for="q-dob">Date of birth</label><app-date-input id="q-dob" [(ngModel)]="sel.d['dateOfBirth']"></app-date-input></div>
               <div class="col-md-4 form-group"><label for="q-rel">Relation</label>
                 <select id="q-rel" class="form-control" [(ngModel)]="sel.d['relation']"><option *ngFor="let r of relationKeys" [value]="r">{{ relations[r] }}</option></select></div>
               <div class="col-md-8 form-group"><label for="q-guardian">Parent / guardian *</label><input id="q-guardian" class="form-control" [(ngModel)]="sel.d['guardianName']"></div>
@@ -87,7 +88,7 @@ const SOURCE: Record<string, string> = { WEBSITE: 'Website', PHONE: 'Phone', WAL
                     <option *ngFor="let s of sections" [ngValue]="s.id">{{ s.label }}</option></select></div>
                 <div class="col-6 col-md-3 form-group mb-2"><label for="ad-plan">Fee plan</label>
                   <select id="ad-plan" class="form-control" [(ngModel)]="admitForm.feePlan"><option *ngFor="let k of planKeys" [value]="k">{{ plans[k] }}</option></select></div>
-                <div class="col-6 col-md-4 form-group mb-2"><label for="ad-date">Admitted on</label><input id="ad-date" type="date" class="form-control" [(ngModel)]="admitForm.admittedOn"></div>
+                <div class="col-6 col-md-4 form-group mb-2"><label for="ad-date">Admitted on</label><app-date-input id="ad-date" [(ngModel)]="admitForm.admittedOn"></app-date-input></div>
               </div>
               <button class="btn btn-success btn-sm" (click)="admit()" [disabled]="busy || !admitForm.sectionId">Admit and open her page</button>
             </div>

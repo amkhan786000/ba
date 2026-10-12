@@ -7,6 +7,7 @@ import { ROLE_LABELS } from '../core/models/user.model';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 interface LogRow {
   log_id: number; user_id: number | null; user_code: string | null; user_name: string | null; role_id: number | null; action: string;
@@ -17,7 +18,7 @@ interface LogRow {
 @Component({
   selector: 'app-admin-activity-log',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Activity Log</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -35,11 +36,11 @@ interface LogRow {
           </div>
           <div class="col-6 col-md-2 form-group">
             <label for="from">From</label>
-            <input id="from" type="date" class="form-control" name="from" [(ngModel)]="from">
+            <app-date-input id="from" name="from" [(ngModel)]="from"></app-date-input>
           </div>
           <div class="col-6 col-md-2 form-group">
             <label for="to">To</label>
-            <input id="to" type="date" class="form-control" name="to" [(ngModel)]="to">
+            <app-date-input id="to" name="to" [(ngModel)]="to"></app-date-input>
           </div>
           <div class="col-6 col-md-2 form-group d-flex">
             <button class="btn btn-primary flex-fill" type="submit">Filter</button>

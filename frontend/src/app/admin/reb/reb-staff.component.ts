@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { DESIGNATIONS, RebSession, RebStaff, TRACKS } from './reb.models';
+import { DateInputComponent } from '../../shared/date-input.component';
 
 interface AssignmentSection { id: number; label: string; subjects: { subject_id: number; subject_name: string; track: string; staff_id: number | null }[] }
 
@@ -16,7 +17,7 @@ interface AssignmentSection { id: number; label: string; subjects: { subject_id:
 @Component({
   selector: 'app-reb-staff',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [DateInputComponent, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Teachers &amp; Staff</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -86,10 +87,10 @@ interface AssignmentSection { id: number; label: string; subjects: { subject_id:
             <div class="col-md-6 form-group"><label for="s-phone">Phone</label><input id="s-phone" type="tel" class="form-control" [(ngModel)]="form.d['phone']"></div>
             <div class="col-md-6 form-group"><label for="s-email">Email</label><input id="s-email" type="email" class="form-control" [(ngModel)]="form.d['email']"></div>
             <div class="col-md-6 form-group"><label for="s-qual">Qualification</label><input id="s-qual" class="form-control" [(ngModel)]="form.d['qualification']"></div>
-            <div class="col-6 col-md-3 form-group"><label for="s-join">Joined on</label><input id="s-join" type="date" class="form-control" [(ngModel)]="form.d['joinedOn']"></div>
+            <div class="col-6 col-md-3 form-group"><label for="s-join">Joined on</label><app-date-input id="s-join" [(ngModel)]="form.d['joinedOn']"></app-date-input></div>
             <div class="col-6 col-md-3 form-group"><label for="s-status">Status</label>
               <select id="s-status" class="form-control" [(ngModel)]="form.d['status']"><option value="ACTIVE">Working</option><option value="LEFT">Left</option></select></div>
-            <div class="col-md-6 form-group" *ngIf="form.d['status'] === 'LEFT'"><label for="s-left">Left on</label><input id="s-left" type="date" class="form-control" [(ngModel)]="form.d['leftOn']"></div>
+            <div class="col-md-6 form-group" *ngIf="form.d['status'] === 'LEFT'"><label for="s-left">Left on</label><app-date-input id="s-left" [(ngModel)]="form.d['leftOn']"></app-date-input></div>
             <div class="col-12 form-group"><label for="s-login">Rahbar login (optional)</label>
               <input id="s-login" type="email" class="form-control" [(ngModel)]="form.d['loginEmail']" placeholder="Email of her Rahbar account">
               <small class="text-muted">Link a Rahbar account (made in Manage Users) so she can later mark attendance and enter marks for her classes. Leave empty for none.</small></div>

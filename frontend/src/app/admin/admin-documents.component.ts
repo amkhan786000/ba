@@ -9,6 +9,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { WebsiteMarkdownPipe } from './website/website-markdown.pipe';
 import { AppDatePipe } from '../shared/app-date';
+import { DateInputComponent } from '../shared/date-input.component';
 
 /** Portal URL prefix -> the role whose documents it shows. */
 const PORTAL_AREAS: Record<string, number> = { coordinator: ROLE.COORDINATOR, convenor: ROLE.CONVENOR, sponsor: ROLE.SPONSOR, student: ROLE.STUDENT };
@@ -35,7 +36,7 @@ interface Revision { id: number; title: string; content: string; effective_date:
 @Component({
   selector: 'app-admin-documents',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective, WebsiteMarkdownPipe],
+  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective, WebsiteMarkdownPipe],
   styles: [`
     .doc-list { max-height: 70vh; overflow-y: auto; }
     .doc-list .list-group-item { cursor: pointer; }
@@ -93,7 +94,7 @@ interface Revision { id: number; title: string; content: string; effective_date:
             <h4 class="header-title">{{ edit.id ? 'Edit document' : 'Add document' }}</h4>
             <div class="row">
               <div class="col-md-8 form-group"><label for="d-title">Title *</label><input id="d-title" class="form-control" [(ngModel)]="edit.title" maxlength="200"></div>
-              <div class="col-md-4 form-group"><label for="d-date">Effective date</label><input id="d-date" type="date" class="form-control" [(ngModel)]="edit.effectiveDate"></div>
+              <div class="col-md-4 form-group"><label for="d-date">Effective date</label><app-date-input id="d-date" [(ngModel)]="edit.effectiveDate"></app-date-input></div>
               <div class="col-md-8 form-group"><label for="d-cat">Category *</label>
                 <select id="d-cat" class="form-control" [(ngModel)]="edit.categoryId">
                   <option [ngValue]="null">-- Choose --</option>

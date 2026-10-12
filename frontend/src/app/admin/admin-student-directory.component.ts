@@ -18,6 +18,7 @@ import { studyStatusBadge } from '../shared/study-status';
 import { StudyStatusService } from '../core/services/study-status.service';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { DateInputComponent } from '../shared/date-input.component';
 
 interface StudentRow {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
@@ -48,7 +49,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
 @Component({
   selector: 'app-admin-student-directory',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, BulkReportComponent, CardTableDirective],
+  imports: [DateInputComponent, CommonModule, FormsModule, AlertsComponent, PagerComponent, BulkReportComponent, CardTableDirective],
   styles: [`
     .nav-pills .nav-link { cursor: pointer; }
     .table-schedule td, .table-schedule th { vertical-align: middle; }
@@ -203,7 +204,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                 <small class="text-muted">Picks the Payment Config (amount and frequency).</small>
               </div>
               <div class="col-md-6 form-group"><label>Payment Start Date</label>
-                <input type="date" class="form-control" [(ngModel)]="edit.paymentStartDate" [disabled]="!editing">
+                <app-date-input [(ngModel)]="edit.paymentStartDate" [disabled]="!editing"></app-date-input>
                 <small class="text-muted">The first installment is due on this date.</small>
               </div>
               <div class="col-12 text-muted small">Assigned on: {{ fmt(details.course?.['assigned_at'], 'N/A') }}</div>
@@ -249,7 +250,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                     <option *ngFor="let st of studyStatuses" [value]="st.code">{{ st.label }}</option>
                   </select>
                 </div>
-                <div class="col-md-3 form-group"><label>Effective date</label><input type="date" class="form-control" [(ngModel)]="study.date"></div>
+                <div class="col-md-3 form-group"><label>Effective date</label><app-date-input [(ngModel)]="study.date"></app-date-input></div>
                 <div class="col-md-4 form-group"><label>Note <span class="text-muted">(optional)</span></label>
                   <input type="text" class="form-control" maxlength="500" [(ngModel)]="study.note" placeholder="e.g. Completed B.Tech">
                 </div>
@@ -356,7 +357,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
           <form #pf="ngForm" (ngSubmit)="savePayment()">
             <div class="modal-body">
               <div class="form-group"><label>Amount (INR)</label><input type="number" class="form-control" name="amount" [(ngModel)]="pay.amount" required></div>
-              <div class="form-group"><label>Date</label><input type="date" class="form-control" name="paymentDate" [(ngModel)]="pay.paymentDate" required></div>
+              <div class="form-group"><label>Date</label><app-date-input name="paymentDate" [(ngModel)]="pay.paymentDate" [required]="true"></app-date-input></div>
               <div class="form-group"><label>Receipt</label><input type="file" class="form-control-file" (change)="pay.receipt = fileOf($event)"></div>
             </div>
             <div class="modal-footer"><button type="submit" class="btn btn-success" [disabled]="pf.invalid || busy">Record Payment</button></div>
@@ -410,7 +411,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                   </select>
                 </div>
                 <div class="col-md-6 form-group"><label>Payment Start Date</label>
-                  <input type="date" name="paymentStartDate" class="form-control" [(ngModel)]="manual.paymentStartDate">
+                  <app-date-input name="paymentStartDate" [(ngModel)]="manual.paymentStartDate"></app-date-input>
                   <small class="text-muted">The first installment is due on this date; the next ones follow the Payment Config of the session year.</small>
                 </div>
               </div>
