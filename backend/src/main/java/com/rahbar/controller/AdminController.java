@@ -41,14 +41,6 @@ public class AdminController {
         return !Access.can(Section.SPONSOR_DETAILS, Section.Level.VIEW);
     }
 
-    // ---------------------------------------------------------------- dashboard
-
-    @GetMapping("/dashboard")
-    @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
-    public Map<String, Object> dashboard(@RequestParam(required = false) Integer year) {
-        return adminService.dashboard(year);
-    }
-
     // ---------------------------------------------------------- application period
 
     @GetMapping("/application-period")

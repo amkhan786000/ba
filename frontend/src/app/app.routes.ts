@@ -6,6 +6,9 @@ import { ResetPasswordComponent } from './auth/reset-password/reset-password.com
 import { PublicApplyComponent } from './public/apply.component';
 import { ShellComponent } from './shared/layout/shell.component';
 import { AdminDashboardComponent } from './admin/admin-dashboard.component';
+import { AdminStudentsDashboardComponent } from './admin/admin-students-dashboard.component';
+import { AdminSponsorsDashboardComponent } from './admin/admin-sponsors-dashboard.component';
+import { AdminApplicationsDashboardComponent } from './admin/admin-applications-dashboard.component';
 import { AdminUsersComponent } from './admin/admin-users.component';
 import { AdminBroadcastsComponent } from './admin/admin-broadcasts.component';
 import { AdminUserEditComponent } from './admin/admin-user-edit.component';
@@ -118,6 +121,9 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', canActivate: [adminHomeGuard], children: [] },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: AdminDashboardComponent, canActivate: [permissionGuard], data: { permission: 'DASHBOARD' } },
+      { path: 'students-dashboard', component: AdminStudentsDashboardComponent, canActivate: [permissionGuard], data: { permission: 'STUDENTS' } },
+      { path: 'sponsors-dashboard', component: AdminSponsorsDashboardComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
+      { path: 'applications-dashboard', component: AdminApplicationsDashboardComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
       { path: 'users', component: AdminUsersComponent, canActivate: [permissionGuard], data: { permission: 'USERS' } },
       { path: 'users/:id/edit', component: AdminUserEditComponent, canActivate: [permissionGuard], data: { permission: 'USERS' } },
       { path: 'roles', component: AdminRolesComponent, canActivate: [permissionGuard], data: { permission: 'ROLES' } },

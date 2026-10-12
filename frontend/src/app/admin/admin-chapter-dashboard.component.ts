@@ -8,6 +8,8 @@ import { studyStatusBadge } from '../shared/study-status';
 import { StudyStatusService } from '../core/services/study-status.service';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
+import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.component';
+import { DonutChartComponent } from '../shared/charts/donut-chart.component';
 
 interface Counts {
   students: number; studying: number; withoutSponsor: number; sponsors: number; paymentsOverdue: number; openApplications: number;
@@ -39,7 +41,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
 @Component({
   selector: 'app-admin-chapter-dashboard',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective, BarChartComponent, DonutChartComponent],
   styles: [`
     .stat { cursor: pointer; }
     .stat.selected { box-shadow: 0 0 0 2px var(--primary, #3bafda) inset; }
@@ -99,6 +101,25 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
             <small class="text-muted">not decided yet</small>
           </div>
         </div>
+      </div>
+
+      <div class="row" *ngIf="charts">
+        <div class="col-xl-3 col-md-6"><div class="card"><div class="card-body">
+          <h4 class="header-title mb-3">Study status</h4>
+          <app-donut-chart [data]="charts.study" caption="students" emptyText="No students yet."></app-donut-chart>
+        </div></div></div>
+        <div class="col-xl-3 col-md-6"><div class="card"><div class="card-body">
+          <h4 class="header-title mb-3">Sponsored</h4>
+          <app-donut-chart [data]="charts.sponsored" caption="studying" [colours]="['#15803d', '#d97706']" emptyText="No students studying."></app-donut-chart>
+        </div></div></div>
+        <div class="col-xl-3 col-md-6"><div class="card"><div class="card-body">
+          <h4 class="header-title mb-3">Top colleges</h4>
+          <app-bar-chart [data]="charts.colleges" colour="#6d28d9" emptyText="No students yet."></app-bar-chart>
+        </div></div></div>
+        <div class="col-xl-3 col-md-6"><div class="card"><div class="card-body">
+          <h4 class="header-title mb-3">Students per sponsor</h4>
+          <app-bar-chart [data]="charts.load" colour="#0e7490" emptyText="No sponsors yet."></app-bar-chart>
+        </div></div></div>
       </div>
 
       <div class="card">
@@ -167,6 +188,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
   `
 })
 export class AdminChapterDashboardComponent implements OnInit {
+  charts: ChapterCharts | null = null;
   readonly pg = new PageState();
   data: Dashboard | null = null;
   chapterId: number | null = null;
@@ -189,6 +211,7 @@ export class AdminChapterDashboardComponent implements OnInit {
         // The chapter list only comes with a dashboard for unscoped users; keep it when switching chapters.
         this.data = { ...d, chapters: d.chapters ?? this.data?.chapters };
         this.chapterId = d.chapter?.chapter_id ?? this.chapterId;
+        this.charts = d.chapter ? chapterCharts(d) : null;
         this.pg.reset();
       },
       error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load the chapter dashboard.'); }
@@ -241,4 +264,35 @@ export class AdminChapterDashboardComponent implements OnInit {
     const q = this.q.trim().toLowerCase();
     return q ? rows.filter((r) => fields(r).some((v) => (v ?? '').toLowerCase().includes(q))) : rows;
   }
+}
+
+interface ChapterCharts { study: BarDatum[]; sponsored: BarDatum[]; colleges: BarDatum[]; load: BarDatum[] }
+
+const STUDY_LABELS: Record<string, string> = { STUDYING: 'Studying', ON_HOLD: 'On hold', GRADUATED: 'Graduated', DROPPED_OUT: 'Dropped out' };
+
+/** The chapter's charts, counted from the lists the dashboard already has. */
+function chapterCharts(d: Dashboard): ChapterCharts {
+  const students = d.students ?? [];
+  const tally = (keys: string[]) => {
+    const m = new Map<string, number>();
+    keys.forEach((k) => m.set(k, (m.get(k) ?? 0) + 1));
+    return m;
+  };
+  const study = tally(students.map((s) => s.study_status || 'STUDYING'));
+  const studying = students.filter((s) => (s.study_status || 'STUDYING') === 'STUDYING');
+  const colleges = [...tally(students.map((s) => s.institution_name || 'Not assigned')).entries()]
+    .sort((a, b) => b[1] - a[1]).slice(0, 8).map(([label, value]) => ({ label, value }));
+  const load = [1, 2, 3, 4, 5].map((n) => ({
+    label: n === 5 ? '5 or more' : n + (n === 1 ? ' student' : ' students'),
+    value: (d.sponsors ?? []).filter((s) => (n === 5 ? s.student_count >= 5 : s.student_count === n)).length
+  }));
+  return {
+    study: Object.keys(STUDY_LABELS).map((k) => ({ label: STUDY_LABELS[k], value: study.get(k) ?? 0 })),
+    sponsored: [
+      { label: 'With a sponsor', value: studying.filter((s) => s.sponsor_code).length },
+      { label: 'Waiting for one', value: studying.filter((s) => !s.sponsor_code).length }
+    ],
+    colleges,
+    load: load.some((l) => l.value) ? load : []
+  };
 }

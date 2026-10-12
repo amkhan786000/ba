@@ -58,6 +58,8 @@ export const NAV_GROUPS: Record<string, { label: string; icon: string }> = {
 export const ADMIN_LINKS: { path: string; label: string; icon: string; section?: Section; group?: string }[] = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard', section: 'DASHBOARD' },
 
+  { path: '/admin/students-dashboard', label: 'Students Dashboard', icon: 'mdi-chart-bar', section: 'STUDENTS', group: 'students' },
+  { path: '/admin/applications-dashboard', label: 'Applications Dashboard', icon: 'mdi-chart-timeline-variant', section: 'APPLICATIONS', group: 'students' },
   { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS', group: 'students' },
   { path: '/admin/application-period', label: 'Application Period', icon: 'mdi-calendar', section: 'APPLICATION_PERIOD', group: 'students' },
   { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS', group: 'students' },
@@ -68,6 +70,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES', group: 'students' },
   { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES', group: 'students' },
 
+  { path: '/admin/sponsors-dashboard', label: 'Sponsors Dashboard', icon: 'mdi-chart-areaspline', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/sponsor-followup', label: 'Sponsor Follow-up', icon: 'mdi-account-heart', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/payment-records', label: 'Payment Records', icon: 'mdi-receipt', section: 'PAYMENT_RECORDS', group: 'sponsors' },
