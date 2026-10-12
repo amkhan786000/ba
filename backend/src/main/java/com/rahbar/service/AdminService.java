@@ -116,34 +116,6 @@ public class AdminService {
         this.fileStorageService = fileStorageService;
     }
 
-    // ---------------------------------------------------------------- dashboard
-
-    public Map<String, Object> dashboard(Integer year) {
-        List<Integer> years = yearsDesc(userRepository.findCreatedYears(), granteeDetailsRepository.findCreatedYears(),
-                paymentRepository.findPaymentYears());
-
-        long usersCount = year == null ? userRepository.count() : userRepository.countCreatedInYear(year);
-        long applicationsCount = year == null ? granteeDetailsRepository.count() : granteeDetailsRepository.countCreatedInYear(year);
-        long paymentsCount = year == null ? paymentRepository.count() : paymentRepository.countPaidInYear(year);
-        long sponsorsConvenorsCount = year == null
-                ? userRepository.countByRoleIdInAndStatus(SPONSOR_CONVENOR_ROLES, "Active")
-                : userRepository.countByRoleIdInAndStatusCreatedInYear(SPONSOR_CONVENOR_ROLES, "Active", year);
-
-        Map<String, Object> applicationPeriod = applicationPeriodRepository.findById(1L)
-                .filter(p -> Boolean.TRUE.equals(p.getIsActive()))
-                .map(Rows::of).orElse(null);
-
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("usersCount", usersCount);
-        result.put("applicationsCount", applicationsCount);
-        result.put("paymentsCount", paymentsCount);
-        result.put("sponsorsConvenorsCount", sponsorsConvenorsCount);
-        result.put("availableYears", years);
-        result.put("selectedYear", year);
-        result.put("applicationPeriod", applicationPeriod);
-        return result;
-    }
-
     // ---------------------------------------------------------- application period
 
     public Optional<ApplicationPeriod> currentApplicationPeriod() {
