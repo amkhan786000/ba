@@ -2,6 +2,7 @@ import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { FEATURES } from '../core/models/features';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { ChapterService } from '../core/services/chapter.service';
@@ -55,7 +56,7 @@ interface FeeRow {
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
               <h4 class="header-title mb-2 mb-md-0">Sponsors</h4>
               <div class="d-flex flex-column flex-sm-row align-items-center">
-                <button *ngIf="canManage" type="button" class="btn btn-success waves-effect waves-light" (click)="showUpload = true">
+                <button *ngIf="canManage && bulkUpload" type="button" class="btn btn-success waves-effect waves-light" (click)="showUpload = true">
                   <i class="mdi mdi-file-upload"></i> Bulk Upload
                 </button>
               </div>
@@ -280,6 +281,8 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
   get showDetails(): boolean { return this.auth.can('SPONSOR_DETAILS'); }
   /** Edit Profile: Manage on Sponsor details. */
   get canEditProfile(): boolean { return this.auth.can('SPONSOR_DETAILS', 'EDIT'); }
+  /** CSV bulk upload is switched off (core/models/features.ts). */
+  readonly bulkUpload = FEATURES.bulkUpload;
   search = '';
   readonly table = new ServerTable<SponsorRow>(
     (p) => this.api.get<PagedResult<SponsorRow>>('/admin/sponsorships', { q: this.search, ...p }),
