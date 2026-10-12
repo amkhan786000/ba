@@ -22,14 +22,30 @@ public class StudentController {
 
     private final com.rahbar.service.AlumniService alumniService;
 
+    private final com.rahbar.service.StudentNoteService noteService;
+
     public StudentController(StudentService studentService, com.rahbar.service.StudentReminderService reminderService,
-                             com.rahbar.service.AlumniService alumniService) {
+                             com.rahbar.service.AlumniService alumniService, com.rahbar.service.StudentNoteService noteService) {
+        this.noteService = noteService;
         this.alumniService = alumniService;
         this.studentService = studentService;
         this.reminderService = reminderService;
     }
 
     /** Next progress-report due date (and whether it's done) plus any overdue ones. */
+    /** Notes to my sponsor: mine (with their status) and who my sponsor is. */
+    @GetMapping("/notes")
+    public Map<String, Object> notes() {
+        return noteService.mine(me());
+    }
+
+    /** Body: { kind UPDATE | THANK_YOU, message }. The office checks it before the sponsor sees it. */
+    @PostMapping("/notes")
+    public Map<String, Object> writeNote(@RequestBody Map<String, Object> body) {
+        noteService.write(me(), body);
+        return Map.of("message", "Thank you! The office will check your note and then pass it on to your sponsor.");
+    }
+
     /** The student's alumni profile (editable once they are marked as graduated). */
     @GetMapping("/alumni-profile")
     public Map<String, Object> alumniProfile() {

@@ -20,6 +20,9 @@ public class SponsorController {
     private final SponsorService sponsorService;
     private final com.rahbar.service.SponsorStatementService statementService;
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.service.StudentNoteService noteService;
+
     public SponsorController(SponsorService sponsorService, com.rahbar.service.SponsorStatementService statementService) {
         this.statementService = statementService;
         this.sponsorService = sponsorService;
@@ -66,5 +69,11 @@ public class SponsorController {
         int y = year == null ? java.time.LocalDate.now().getYear() - 1 : year;
         byte[] pdf = statementService.pdf(me(), y);
         return StatementResponses.pdf(pdf, com.rahbar.service.SponsorStatementService.fileName(statementService.requireSponsor(me()), y));
+    }
+
+    /** Notes my students wrote to me (approved by the office), newest first. */
+    @GetMapping("/notes")
+    public java.util.List<Map<String, Object>> notes() {
+        return noteService.forSponsor(me());
     }
 }
