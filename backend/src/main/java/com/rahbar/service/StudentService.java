@@ -126,8 +126,9 @@ public class StudentService {
         String studentName = userRepository.findById(userId).map(User::getName).orElse("A student");
         String summary = studentName + " uploaded marks (" + marks + ") for " + session + " " + academicYear + ".";
         grantorGranteeRepository.findFirstByGranteeId(userId).ifPresent(gg -> notificationService.notify(gg.getGrantorId(),
-                "New progress report to review", summary,
-                NotificationService.PROGRESS, "/sponsor/progress", false));
+                "New progress report to review", summary, NotificationService.PROGRESS, "/sponsor/progress",
+                EmailType.SPONSOR_PROGRESS_UPLOADED, ServiceSupport.vars("student_name", studentName, "marks", marks,
+                        "session", session, "year", String.valueOf(academicYear))));
     }
 
     public List<Map<String, Object>> progressHistory(Long userId) {
@@ -145,7 +146,8 @@ public class StudentService {
         String studentName = userRepository.findById(userId).map(User::getName).orElse("A student");
         notificationService.notify(payment.getGrantorId(), "Payment proof uploaded",
                 studentName + " uploaded proof of receipt for a payment of " + payment.getAmount() + ".",
-                NotificationService.PAYMENT, "/sponsor/payments", false);
+                NotificationService.PAYMENT, "/sponsor/payments", EmailType.SPONSOR_SPENT_PROOF_UPLOADED,
+                ServiceSupport.vars("student_name", studentName, "amount", payment.getAmount() == null ? "" : payment.getAmount().stripTrailingZeros().toPlainString()));
     }
 
     /** Picks the safe user columns shown on student cards. */
