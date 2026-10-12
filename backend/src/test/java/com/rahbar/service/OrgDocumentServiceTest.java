@@ -154,6 +154,26 @@ class OrgDocumentServiceTest {
     }
 
     @Test
+    void inThePortalAnAdminWhoIsAlsoASponsorSeesWhatSponsorsSee() {
+        User me = new User();
+        me.setId(1L);
+        me.setRoleId(1);
+        var p = new RahbarUserPrincipal(me, Set.of("DOCUMENTS:EDIT"), Role.SCOPE_ALL, Set.of(1, 5), false); // Super Admin + Sponsor
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()));
+
+        OrgDocument staffOnly = doc("ROLES", "2,8", false);
+        assertTrue(OrgDocumentService.mayRead(staffOnly)); // admin area: an editor sees everything
+        var asSponsor = OrgDocumentService.reader(5);
+        assertFalse(asSponsor.editor());
+        assertFalse(OrgDocumentService.mayRead(staffOnly, asSponsor));
+        assertTrue(OrgDocumentService.mayRead(doc("ROLES", "5", false), asSponsor));
+        assertTrue(OrgDocumentService.mayRead(doc("PUBLIC", null, false), asSponsor));
+        assertFalse(OrgDocumentService.mayRead(doc("PUBLIC", null, true), asSponsor)); // archived: not in the portal
+
+        assertThrows(ApiException.class, () -> OrgDocumentService.reader(6)); // not a student
+    }
+
+    @Test
     void aNewDocumentIsForEveryoneUnlessRolesAreChosen() {
         assertEquals("PUBLIC", service.save(null, body("Policy", "Text")).getVisibility());
         Map<String, Object> roles = body("Board minutes", "Text");
