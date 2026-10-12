@@ -40,6 +40,12 @@ public class ReportCatalogService {
                     "Active students who have no bank details on file yet.", false),
             new ReportDefinition("student_progress", "Students", "Progress reports",
                     "Marks uploaded by students with the review status and reviewer comments.", true),
+            new ReportDefinition("alumni", "Students", "Alumni",
+                    "Graduates with what they do now, organisation, city, graduation year and whether they agreed to be contacted.", false),
+            new ReportDefinition("mentoring_pairs", "Students", "Mentoring pairs",
+                    "Volunteers and graduates mentoring or tutoring students: who, since when, focus and status.", false),
+            new ReportDefinition("volunteers", "Students", "Volunteer sign-ups",
+                    "People who offered to mentor, tutor, sponsor or join a chapter through the website, with their follow-up status.", true),
 
             new ReportDefinition("students_by_institution", "Student breakdowns", "Students by institution",
                     "Number of students at each college: active, inactive, with and without a sponsor.", false),
@@ -60,6 +66,14 @@ public class ReportCatalogService {
                     "Every sponsor and convenor with number of students and total paid.", false),
             new ReportDefinition("sponsors_by_chapter", "Sponsors", "Sponsors by chapter",
                     "Number of sponsors, students and total paid per chapter.", false),
+            new ReportDefinition("students_by_sponsor", "Sponsors", "Students by sponsor",
+                    "Each sponsor's students with institution, course, study status, since when, paid so far and overdue installments; a subtotal per sponsor, and the students without a sponsor at the end.", false),
+            new ReportDefinition("sponsors_without_student", "Sponsors", "Sponsors without a student",
+                    "Active sponsors with no student now: when their last student left and who it was, or that they never had one.", false),
+            new ReportDefinition("sponsors_overdue", "Sponsors", "Sponsors with overdue installments",
+                    "Sponsors whose students have installments unpaid after the due date: how many, how much and the oldest due date.", false),
+            new ReportDefinition("sponsorship_changes", "Sponsors", "Sponsorship changes",
+                    "Students mapped to a sponsor, or moved off one, in the period (from the mapping history).", true),
 
             new ReportDefinition("payments", "Payments", "All payments",
                     "Every payment with student, sponsor, amount, status and date.", true),
@@ -102,6 +116,12 @@ public class ReportCatalogService {
     private final ActivityLogService activityLogService;
     private final ReportService reportService;
     private final com.rahbar.security.StudentScope studentScope;
+    private final PaymentInstallmentRepository installmentRepository;
+    private final SponsorMappingHistoryRepository mappingHistoryRepository;
+    private final VolunteerApplicationRepository volunteerRepository;
+    private final ChapterRepository chapterRepository;
+    private final AlumniService alumniService;
+    private final MentoringService mentoringService;
 
     public ReportCatalogService(com.rahbar.security.SponsorPrivacy sponsorPrivacy, UserRepository userRepository, RoleRepository roleRepository,
                                 GranteeDetailsRepository granteeDetailsRepository,
@@ -114,8 +134,16 @@ public class ReportCatalogService {
                                 StudentProgressRepository studentProgressRepository,
                                 RccCenterRepository rccCenterRepository, PaymentReminderService paymentReminderService,
                                 ActivityLogService activityLogService, ReportService reportService,
-                                com.rahbar.security.StudentScope studentScope) {
+                                com.rahbar.security.StudentScope studentScope, PaymentInstallmentRepository installmentRepository,
+                                SponsorMappingHistoryRepository mappingHistoryRepository, VolunteerApplicationRepository volunteerRepository,
+                                ChapterRepository chapterRepository, AlumniService alumniService, MentoringService mentoringService) {
         this.studentScope = studentScope;
+        this.installmentRepository = installmentRepository;
+        this.mappingHistoryRepository = mappingHistoryRepository;
+        this.volunteerRepository = volunteerRepository;
+        this.chapterRepository = chapterRepository;
+        this.alumniService = alumniService;
+        this.mentoringService = mentoringService;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.granteeDetailsRepository = granteeDetailsRepository;
@@ -137,12 +165,23 @@ public class ReportCatalogService {
 
     /** The reports the signed-in user may open: chapter / RCC-scoped users get the ones filtered to their students. */
     public List<ReportDefinition> catalog() {
-        if (studentScope.current().all()) return CATALOG;
-        return CATALOG.stream().filter(d -> !ORGANISATION_WIDE.contains(d.key())).toList();
+        boolean all = studentScope.current().all();
+        return CATALOG.stream().filter(d -> all || !ORGANISATION_WIDE.contains(d.key())).filter(d -> allowed(d.key())).toList();
     }
 
     /** Reports about the whole organisation (not filtered per chapter / RCC center): not for scoped users. */
-    private static final Set<String> ORGANISATION_WIDE = Set.of("sponsors_by_chapter", "users_by_role", "activity_log");
+    private static final Set<String> ORGANISATION_WIDE = Set.of("sponsors_by_chapter", "users_by_role", "activity_log", "volunteers");
+
+    /** Reports with people's contact details that also need VIEW on the screen they come from. */
+    private static final Map<String, com.rahbar.security.Section> NEEDS_SECTION = Map.of(
+            "alumni", com.rahbar.security.Section.ALUMNI,
+            "mentoring_pairs", com.rahbar.security.Section.MENTORING,
+            "volunteers", com.rahbar.security.Section.VOLUNTEERS);
+
+    private static boolean allowed(String key) {
+        com.rahbar.security.Section section = NEEDS_SECTION.get(key);
+        return section == null || com.rahbar.security.Access.can(section, com.rahbar.security.Section.Level.VIEW);
+    }
 
     // ---------------------------------------------------------------- what the signed-in user may see
 
@@ -211,6 +250,7 @@ public class ReportCatalogService {
         if (ORGANISATION_WIDE.contains(key) && !studentScope.current().all()) {
             throw com.rahbar.security.Access.forbidden("This report covers the whole organisation and isn't available for your role.");
         }
+        if (!allowed(key)) throw com.rahbar.security.Access.forbidden("This report needs access to " + NEEDS_SECTION.get(key).label() + ".");
         return def;
     }
 
@@ -242,6 +282,13 @@ public class ReportCatalogService {
                 case "student_progress" -> studentProgress(range);
                 case "sponsors_convenors" -> sponsors();
                 case "sponsors_by_chapter" -> sponsorsByChapter();
+                case "students_by_sponsor" -> studentsBySponsor();
+                case "sponsors_without_student" -> sponsorsWithoutStudent();
+                case "sponsors_overdue" -> sponsorsOverdue();
+                case "sponsorship_changes" -> sponsorshipChanges(range);
+                case "alumni" -> alumni();
+                case "mentoring_pairs" -> mentoringPairs();
+                case "volunteers" -> volunteers(range);
                 case "payments" -> payments(range, null);
                 case "pending_payments" -> payments(range, "pending");
                 case "payments_by_month" -> paymentsByMonth(range);
@@ -589,6 +636,214 @@ public class ReportCatalogService {
         List<Map<String, Object>> rows = new ArrayList<>();
         counts.forEach((chapter, c) -> rows.add(row("chapter", chapter, "sponsors", c[0], "students", c[1],
                 "total_paid", totals.getOrDefault(chapter, BigDecimal.ZERO))));
+        return rows;
+    }
+
+    // ---------------------------------------------------------------- sponsors and their students
+
+    /**
+     * Each sponsor (by name) with their students, a subtotal row per sponsor, then the students without a sponsor
+     * ("Unassigned"). Paid = this sponsor's paid payments for the student; overdue = installments unpaid after the due date.
+     */
+    private List<Map<String, Object>> studentsBySponsor() {
+        Map<Long, Long> sponsorOf = sponsorIdByStudent();
+        Long unassigned = ServiceSupport.unassignedGrantorId(userRepository);
+        Map<Long, User> users = scopeUsers();
+        Map<String, String> institutionNames = new HashMap<>();
+        institutionRepository.findAll().forEach(i -> institutionNames.put(i.getInstitutionId(), i.getInstitutionName()));
+        Map<Long, Course> courses = new HashMap<>();
+        courseRepository.findAll().forEach(c -> courses.put(c.getCourseId(), c));
+        Map<Long, StudentInstitutionCourse> enrolment = enrolments();
+        Map<String, java.time.LocalDateTime> since = new HashMap<>(); // "sponsor:student" -> start of the current mapping
+        for (SponsorMappingHistory h : mappingHistoryRepository.findAll()) {
+            if (h.getEndedAt() == null && h.getStartedAt() != null) since.merge(h.getGrantorId() + ":" + h.getGranteeId(), h.getStartedAt(), (a, b) -> a.isAfter(b) ? a : b);
+        }
+        Map<String, BigDecimal> paid = new HashMap<>();
+        for (Payment p : visiblePayments()) {
+            if (!"Paid".equalsIgnoreCase(p.getStatus()) || p.getGrantorId() == null) continue;
+            paid.merge(p.getGrantorId() + ":" + p.getGranteeId(), p.getAmount() == null ? BigDecimal.ZERO : p.getAmount(), BigDecimal::add);
+        }
+        Map<String, long[]> overdueCount = new HashMap<>();
+        Map<String, BigDecimal> overdueAmount = new HashMap<>();
+        LocalDate today = LocalDate.now();
+        for (PaymentInstallment i : installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc()) {
+            if (i.getPaymentId() != null || i.getDueDate() == null || !i.getDueDate().isBefore(today)) continue;
+            String k = i.getGrantorId() + ":" + i.getGranteeId();
+            overdueCount.computeIfAbsent(k, x -> new long[1])[0]++;
+            overdueAmount.merge(k, i.getAmount() == null ? BigDecimal.ZERO : i.getAmount(), BigDecimal::add);
+        }
+
+        // sponsor users.id (null = unassigned) -> their students, sponsors by name, unassigned last
+        Map<Long, List<User>> bySponsor = new HashMap<>();
+        for (User u : visibleStudents()) {
+            if (u.getMergedIntoId() != null) continue;
+            Long sponsorId = sponsorOf.get(u.getId());
+            if (sponsorId != null && sponsorId.equals(unassigned)) sponsorId = null;
+            bySponsor.computeIfAbsent(sponsorId, k -> new ArrayList<>()).add(u);
+        }
+        List<Long> order = new ArrayList<>(bySponsor.keySet());
+        order.sort(Comparator.comparing((Long id) -> id == null ? 1 : 0)
+                .thenComparing(id -> id == null || users.get(id) == null ? "" : String.valueOf(users.get(id).getName()), String.CASE_INSENSITIVE_ORDER));
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Long sponsorId : order) {
+            User sp = sponsorId == null ? null : users.get(sponsorId);
+            String code = sponsorId == null ? null : sp == null ? null : sp.getUserId();
+            String name = sponsorId == null ? "Unassigned" : sp == null ? "(unknown sponsor)" : sp.getName();
+            String chapter = sp == null ? null : sp.getChapterName();
+            BigDecimal paidSum = BigDecimal.ZERO, overdueSum = BigDecimal.ZERO;
+            long overdueN = 0;
+            List<User> students = sorted(bySponsor.get(sponsorId), User::getName);
+            for (User u : students) {
+                String k = sponsorId + ":" + u.getId();
+                StudentInstitutionCourse sic = enrolment.get(u.getId());
+                Course course = sic == null ? null : courses.get(sic.getCourseId());
+                BigDecimal p = sponsorId == null ? BigDecimal.ZERO : paid.getOrDefault(k, BigDecimal.ZERO);
+                long on = sponsorId == null ? 0 : overdueCount.getOrDefault(k, new long[1])[0];
+                BigDecimal oa = sponsorId == null ? BigDecimal.ZERO : overdueAmount.getOrDefault(k, BigDecimal.ZERO);
+                paidSum = paidSum.add(p);
+                overdueSum = overdueSum.add(oa);
+                overdueN += on;
+                java.time.LocalDateTime from = sponsorId == null ? null : since.get(k);
+                rows.add(row("sponsor_id", code, "sponsor_name", name, "sponsor_chapter", chapter,
+                        "student_id", u.getUserId(), "student_name", u.getName(), "student_chapter", u.getChapterName(),
+                        "institution", sic == null ? null : institutionNames.get(sic.getInstitutionId()),
+                        "course", course == null ? null : course.getCourseName(),
+                        "study_status", StudyStatus.label(u.getStudyStatus()), "status", u.getStatus(),
+                        "sponsored_since", from == null ? null : from.toLocalDate(),
+                        "paid", p, "overdue_installments", on, "overdue_amount", oa));
+            }
+            rows.add(row("sponsor_id", code, "sponsor_name", name, "sponsor_chapter", chapter,
+                    "student_id", null, "student_name", "Subtotal: " + students.size() + " student" + (students.size() == 1 ? "" : "s"),
+                    "student_chapter", null, "institution", null, "course", null, "study_status", null, "status", null,
+                    "sponsored_since", null, "paid", paidSum, "overdue_installments", overdueN, "overdue_amount", overdueSum));
+        }
+        return rows;
+    }
+
+    /** Active sponsors (the user may see) with no student now; most recently freed first, never-sponsored last. */
+    private List<Map<String, Object>> sponsorsWithoutStudent() {
+        Set<Long> withStudent = new HashSet<>();
+        grantorGranteeRepository.findAll().forEach(m -> { if (m.getGrantorId() != null) withStudent.add(m.getGrantorId()); });
+        Long unassigned = ServiceSupport.unassignedGrantorId(userRepository);
+        Map<Long, SponsorMappingHistory> lastEnded = new HashMap<>();
+        for (SponsorMappingHistory h : mappingHistoryRepository.findAll()) {
+            if (h.getEndedAt() == null) continue;
+            lastEnded.merge(h.getGrantorId(), h, (a, b) -> a.getEndedAt().isAfter(b.getEndedAt()) ? a : b);
+        }
+        Map<Long, String> names = userNames();
+        Map<Long, String> codes = userCodes();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (User s : userRepository.findByRoleIdIn(ServiceSupport.SPONSOR_ROLES)) {
+            if ("Inactive".equalsIgnoreCase(s.getStatus()) || s.getId().equals(unassigned) || s.getMergedIntoId() != null) continue;
+            if (withStudent.contains(s.getId()) || !scope().includesSponsor(s)) continue;
+            SponsorMappingHistory h = lastEnded.get(s.getId());
+            rows.add(row("sponsor_id", s.getUserId(), "sponsor_name", s.getName(), "sponsor_chapter", s.getChapterName(),
+                    "without_student_since", h == null ? null : h.getEndedAt().toLocalDate(),
+                    "last_student_id", h == null ? null : codes.get(h.getGranteeId()),
+                    "last_student_name", h == null ? "Never had a student" : names.get(h.getGranteeId())));
+        }
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> (LocalDate) r.get("without_student_since"), Comparator.nullsLast(Comparator.reverseOrder())));
+        return rows;
+    }
+
+    /** Sponsors with installments unpaid after the due date (students the user may see), oldest due first. */
+    private List<Map<String, Object>> sponsorsOverdue() {
+        LocalDate today = LocalDate.now();
+        Map<Long, User> users = scopeUsers();
+        Map<Long, Object[]> bySponsor = new LinkedHashMap<>(); // students, count, amount, oldest
+        for (PaymentInstallment i : installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc()) {
+            if (i.getPaymentId() != null || i.getDueDate() == null || !i.getDueDate().isBefore(today) || i.getGrantorId() == null) continue;
+            if (!seesStudent(i.getGranteeId())) continue;
+            Object[] a = bySponsor.computeIfAbsent(i.getGrantorId(), k -> new Object[]{new HashSet<Long>(), 0L, BigDecimal.ZERO, i.getDueDate()});
+            @SuppressWarnings("unchecked") Set<Long> st = (Set<Long>) a[0];
+            st.add(i.getGranteeId());
+            a[1] = (Long) a[1] + 1;
+            a[2] = ((BigDecimal) a[2]).add(i.getAmount() == null ? BigDecimal.ZERO : i.getAmount());
+            if (i.getDueDate().isBefore((LocalDate) a[3])) a[3] = i.getDueDate();
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        bySponsor.forEach((id, a) -> {
+            User s = users.get(id);
+            rows.add(row("sponsor_id", s == null ? null : s.getUserId(), "sponsor_name", s == null ? null : s.getName(),
+                    "sponsor_chapter", s == null ? null : s.getChapterName(), "students", ((Set<?>) a[0]).size(),
+                    "overdue_installments", a[1], "overdue_amount", a[2], "oldest_due", a[3],
+                    "days_overdue", java.time.temporal.ChronoUnit.DAYS.between((LocalDate) a[3], today)));
+        });
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> (LocalDate) r.get("oldest_due")));
+        return rows;
+    }
+
+    /** Mapping history in the period: a "Mapped" row when a student got a sponsor, an "Ended" row when it stopped. */
+    private List<Map<String, Object>> sponsorshipChanges(DateRange range) {
+        Map<Long, String> names = userNames();
+        Map<Long, String> codes = userCodes();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (SponsorMappingHistory h : mappingHistoryRepository.findAll()) {
+            if (!seesStudent(h.getGranteeId())) continue;
+            if (h.getStartedAt() != null && range.contains(h.getStartedAt())) rows.add(change(h.getStartedAt(), "Mapped", h, names, codes));
+            if (h.getEndedAt() != null && range.contains(h.getEndedAt())) rows.add(change(h.getEndedAt(), "Ended", h, names, codes));
+        }
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> (java.time.LocalDateTime) r.get("date")).reversed());
+        return rows;
+    }
+
+    private static Map<String, Object> change(java.time.LocalDateTime when, String what, SponsorMappingHistory h,
+                                              Map<Long, String> names, Map<Long, String> codes) {
+        return row("date", when, "change", what, "student_id", codes.get(h.getGranteeId()), "student_name", names.get(h.getGranteeId()),
+                "sponsor_id", codes.get(h.getGrantorId()), "sponsor_name", names.get(h.getGrantorId()));
+    }
+
+    // ---------------------------------------------------------------- alumni, mentoring, volunteers
+
+    /** Graduates (the user may see) and what they do now (Admin > Alumni). */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> alumni() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> a : (List<Map<String, Object>>) alumniService.list().get("rows")) {
+            rows.add(row("student_id", a.get("user_id"), "name", a.get("name"), "chapter", a.get("chapter"),
+                    "course", a.get("course"), "institution", a.get("institution"), "graduation_year", a.get("graduation_year"),
+                    "now", a.get("current_status_label"), "organisation", a.get("organisation"), "role", a.get("role_title"),
+                    "city", a.get("city"), "country", a.get("country"),
+                    "agreed_to_be_contacted", Boolean.TRUE.equals(a.get("consent_to_contact")) ? "Yes" : "No",
+                    "email", a.get("email"), "phone", a.get("phone"), "linkedin", a.get("linkedin_url")));
+        }
+        return rows;
+    }
+
+    /** Mentoring pairs (students the user may see), active first (Students > Mentoring). */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> mentoringPairs() {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map<String, Object> m : (List<Map<String, Object>>) mentoringService.overview().get("rows")) {
+            rows.add(row("student_id", m.get("student_ref_id"), "student_name", m.get("student_name"), "chapter", m.get("chapter"),
+                    "mentor", m.get("mentor_name"), "mentor_is", "ALUMNI".equals(m.get("mentor_kind")) ? "Graduate" : "Volunteer",
+                    "mentor_email", m.get("mentor_email"), "mentor_phone", m.get("mentor_phone"),
+                    "help", m.get("help_label"), "focus", m.get("focus"), "status", "ACTIVE".equals(m.get("status")) ? "Active" : "Ended",
+                    "started_on", m.get("started_on"), "ended_on", m.get("ended_on"), "notes", m.get("notes")));
+        }
+        return rows;
+    }
+
+    /** Website volunteer sign-ups in the period (by sign-up date), newest first. */
+    private List<Map<String, Object>> volunteers(DateRange range) {
+        Map<Long, String> chapters = new HashMap<>();
+        chapterRepository.findAll().forEach(c -> chapters.put(c.getChapterId(), c.getChapterName()));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (VolunteerApplication v : volunteerRepository.findAllByOrderByCreatedAtDesc()) {
+            if (!range.contains(v.getCreatedAt())) continue;
+            List<String> offers = new ArrayList<>();
+            if (v.isWantsMentor()) offers.add("Mentor");
+            if (v.isWantsTutor()) offers.add("Tutor");
+            if (v.isWantsSponsor()) offers.add("Sponsor");
+            if (v.isWantsChapter()) offers.add("Join a chapter");
+            if (v.getOtherOffers() != null && !v.getOtherOffers().isBlank()) offers.add("Other");
+            rows.add(row("signed_up", v.getCreatedAt(), "name", v.getFullName(), "email", v.getEmail(), "phone", v.getPhone(),
+                    "city", v.getCity(), "country", v.getCountry(), "home_district", v.getHomeDistrict(), "profession", v.getProfession(),
+                    "offers", String.join(", ", offers), "mentor_fields", v.getMentorFields(), "tutor_subjects", v.getTutorSubjects(),
+                    "hours_per_month", v.getHoursPerMonth(), "chapter", chapters.get(v.getChapterId()),
+                    "status", VolunteerApplication.STATUSES.getOrDefault(v.getStatus(), v.getStatus()), "notes", v.getNotes()));
+        }
         return rows;
     }
 
