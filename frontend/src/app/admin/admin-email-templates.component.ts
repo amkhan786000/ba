@@ -6,6 +6,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 export interface EmailTemplateRow {
   key: string;
@@ -31,7 +32,7 @@ export interface EmailTemplateRow {
 @Component({
   selector: 'app-admin-email-templates',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Email Templates</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -57,7 +58,7 @@ export interface EmailTemplateRow {
                   <td class="small">{{ t.subject }}</td>
                   <td><span class="badge" [ngClass]="t.customised ? 'badge-primary' : 'badge-light'">{{ t.customised ? 'Custom' : 'Built-in' }}</span></td>
                   <td class="small">
-                    <ng-container *ngIf="t.customised; else dash">{{ t.updated_at | date: 'd MMM yyyy' }}<div class="text-muted">{{ t.updated_by_name }}</div></ng-container>
+                    <ng-container *ngIf="t.customised; else dash">{{ t.updated_at | appDate }}<div class="text-muted">{{ t.updated_by_name }}</div></ng-container>
                   </td>
                   <td class="text-nowrap">
                     <a [routerLink]="['/admin/email-templates', t.key]" class="btn btn-sm btn-primary">{{ canEdit ? (t.customised ? 'Edit' : 'Customise') : 'View' }}</a>

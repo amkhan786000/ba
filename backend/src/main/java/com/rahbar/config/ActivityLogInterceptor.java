@@ -163,6 +163,7 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/admin/people/merge", "Merged a person's second account into their main one");
         label("POST /api/student/notes", "Wrote a note to their sponsor");
         label("POST /api/admin/faqs", "Added an FAQ");
+        label("PUT /api/admin/app-settings", "Changed the application settings");
         label("POST /api/sponsor/online-payments/order", "Started an online payment");
         label("POST /api/sponsor/online-payments/confirm", "Paid online");
         label("POST /api/admin/online-payments/items/[0-9]+/pass-on", "Passed an online payment on to a student");

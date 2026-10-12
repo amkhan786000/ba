@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { isoDate } from '../shared/format';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Item { id: number; student_name: string; student_ref_id: string; amount: number; passed_on_at: string | null; passed_on_ref: string | null }
 interface Row {
@@ -25,7 +26,7 @@ interface Person { id: number; user_id: string; name: string }
 @Component({
   selector: 'app-admin-online-payments',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Online Payments</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -59,7 +60,7 @@ interface Person { id: number; user_id: string; name: string }
           </div>
           <div class="text-right">
             <h5 class="mb-0">₹{{ r.amount | number: '1.0-2' }}</h5>
-            <div class="small text-muted">{{ (r.paid_at || r.created_at) | date: 'd MMM yyyy, h:mm a' }}</div>
+            <div class="small text-muted">{{ (r.paid_at || r.created_at) | appDate: 'datetime' }}</div>
             <a *ngIf="r.status === 'PAID'" href="" class="small" (click)="$event.preventDefault(); downloadReceipt(r)">{{ r.receipt_no }} (PDF)</a>
           </div>
         </div>
@@ -69,7 +70,7 @@ interface Person { id: number; user_id: string; name: string }
             <td>{{ i.student_name }} <small class="text-muted">{{ i.student_ref_id }}</small></td>
             <td class="text-right">₹{{ i.amount | number: '1.0-2' }}</td>
             <td>
-              <span *ngIf="i.passed_on_at">{{ i.passed_on_at | date: 'd MMM yyyy' }} · {{ i.passed_on_ref }}</span>
+              <span *ngIf="i.passed_on_at">{{ i.passed_on_at | appDate }} · {{ i.passed_on_ref }}</span>
               <span *ngIf="!i.passed_on_at && r.status !== 'PAID'" class="text-muted">—</span>
               <div *ngIf="!i.passed_on_at && r.status === 'PAID' && canEdit" class="d-flex flex-wrap">
                 <input type="date" class="form-control form-control-sm mr-1 mb-1" style="width: 150px" [(ngModel)]="passOn[i.id].date" aria-label="Date sent">

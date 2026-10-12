@@ -10,6 +10,7 @@ import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { RoleOption } from './admin-users.component';
 import { uploadUrl } from '../shared/format';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { formatAppDate } from '../shared/app-date';
 
 type AudienceType = 'USERS' | 'ROLES' | 'CHAPTER_LEADS';
 
@@ -423,6 +424,6 @@ export class AdminBroadcastsComponent implements OnInit, OnDestroy {
   when(v: string | null): string {
     if (!v) return '--';
     const d = new Date(v);
-    return isNaN(d.getTime()) ? v : d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+    return isNaN(d.getTime()) ? v : formatAppDate(d, 'datetime');
   }
 }

@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Row {
   id: number; kind_label: string; message: string; status: 'PENDING' | 'APPROVED' | 'RETURNED'; written_at: string;
@@ -16,7 +17,7 @@ interface ListBody { rows: Row[]; counts: Record<string, number> }
 @Component({
   selector: 'app-admin-student-notes',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Notes to Sponsors</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -33,8 +34,8 @@ interface ListBody { rows: Row[]; counts: Record<string, number> }
       <div *ngFor="let r of rows" class="border rounded p-3 mb-2">
         <div class="d-flex flex-wrap justify-content-between">
           <div><strong>{{ r.student_name }}</strong> <small class="text-muted">{{ r.student_ref_id }}{{ r.chapter ? ' · ' + r.chapter : '' }}</small>
-            <div class="small text-muted">To {{ r.sponsor_name || '—' }} ({{ r.sponsor_id }}) · {{ r.kind_label }} · written {{ r.written_at | date: 'd MMM yyyy' }}</div></div>
-          <div class="small text-muted text-right" *ngIf="r.reviewed_at">{{ r.status === 'APPROVED' ? 'Approved' : 'Returned' }} {{ r.reviewed_at | date: 'd MMM yyyy' }}<span *ngIf="r.reviewed_by"> by {{ r.reviewed_by }}</span></div>
+            <div class="small text-muted">To {{ r.sponsor_name || '—' }} ({{ r.sponsor_id }}) · {{ r.kind_label }} · written {{ r.written_at | appDate }}</div></div>
+          <div class="small text-muted text-right" *ngIf="r.reviewed_at">{{ r.status === 'APPROVED' ? 'Approved' : 'Returned' }} {{ r.reviewed_at | appDate }}<span *ngIf="r.reviewed_by"> by {{ r.reviewed_by }}</span></div>
         </div>
         <p class="mt-2 mb-2" style="white-space: pre-line">{{ r.message }}</p>
         <p *ngIf="r.status === 'RETURNED'" class="small text-warning mb-0">Reason: {{ r.review_note }}</p>

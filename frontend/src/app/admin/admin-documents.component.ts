@@ -8,6 +8,7 @@ import { ROLE } from '../core/models/user.model';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { WebsiteMarkdownPipe } from './website/website-markdown.pipe';
+import { AppDatePipe } from '../shared/app-date';
 
 /** Portal URL prefix -> the role whose documents it shows. */
 const PORTAL_AREAS: Record<string, number> = { coordinator: ROLE.COORDINATOR, convenor: ROLE.CONVENOR, sponsor: ROLE.SPONSOR, student: ROLE.STUDENT };
@@ -34,7 +35,7 @@ interface Revision { id: number; title: string; content: string; effective_date:
 @Component({
   selector: 'app-admin-documents',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective, WebsiteMarkdownPipe],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective, WebsiteMarkdownPipe],
   styles: [`
     .doc-list { max-height: 70vh; overflow-y: auto; }
     .doc-list .list-group-item { cursor: pointer; }
@@ -76,7 +77,7 @@ interface Revision { id: number; title: string; content: string; effective_date:
                 <a *ngFor="let d of g.docs" class="list-group-item list-group-item-action py-2" [class.active]="d.id === current?.id"
                    tabindex="0" (click)="open(d.id)" (keydown.enter)="open(d.id)">
                   <div>{{ d.title }} <span *ngIf="d.archived" class="badge badge-secondary ml-1">Archived</span></div>
-                  <small [class.text-muted]="d.id !== current?.id">{{ d.effective_date ? 'Effective ' + (d.effective_date | date: 'd MMM yyyy') : 'Updated ' + (d.updated_at | date: 'd MMM yyyy') }}</small>
+                  <small [class.text-muted]="d.id !== current?.id">{{ d.effective_date ? 'Effective ' + (d.effective_date | appDate) : 'Updated ' + (d.updated_at | appDate) }}</small>
                   <div *ngIf="d.snippet" class="small font-italic mt-1" [class.text-muted]="d.id !== current?.id">{{ d.snippet }}</div>
                 </a>
               </div>
@@ -142,8 +143,8 @@ interface Revision { id: number; title: string; content: string; effective_date:
                 <span *ngIf="current.archived" class="badge badge-secondary ml-1">Archived</span>
                 <h3 class="mt-1 mb-1">{{ current.title }}</h3>
                 <div class="small text-muted">
-                  <span *ngIf="current.effective_date">Effective {{ current.effective_date | date: 'd MMMM yyyy' }} · </span>
-                  Last changed {{ current.updated_at | date: 'd MMM yyyy, h:mm a' }}<span *ngIf="current.updated_by_name"> by {{ current.updated_by_name }}</span>
+                  <span *ngIf="current.effective_date">Effective {{ current.effective_date | appDate }} · </span>
+                  Last changed {{ current.updated_at | appDate: 'datetime' }}<span *ngIf="current.updated_by_name"> by {{ current.updated_by_name }}</span>
                 </div>
                 <div *ngIf="current.readers" class="small mt-1"><i class="mdi mdi-eye-outline mr-1"></i>Can read: {{ current.readers }}</div>
               </div>
@@ -221,14 +222,14 @@ interface Revision { id: number; title: string; content: string; effective_date:
                 <div class="list-group">
                   <a *ngFor="let v of versions" class="list-group-item list-group-item-action py-2" [class.active]="v.id === version?.id" tabindex="0"
                      (click)="version = v" (keydown.enter)="version = v">
-                    <div class="small">Replaced {{ v.created_at | date: 'd MMM yyyy, h:mm a' }}</div>
+                    <div class="small">Replaced {{ v.created_at | appDate: 'datetime' }}</div>
                     <small [class.text-muted]="v.id !== version?.id">{{ v.replaced_by_name ? 'by ' + v.replaced_by_name : '' }}</small>
                   </a>
                 </div>
               </div>
               <div class="col-md-8" *ngIf="version">
                 <h5 class="mt-3 mt-md-0">{{ version.title }}</h5>
-                <p class="small text-muted" *ngIf="version.effective_date">Effective {{ version.effective_date | date: 'd MMMM yyyy' }}</p>
+                <p class="small text-muted" *ngIf="version.effective_date">Effective {{ version.effective_date | appDate }}</p>
                 <div class="border rounded p-3 doc-text website-prose" [innerHTML]="version.content | websiteMarkdown"></div>
               </div>
             </div>

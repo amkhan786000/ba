@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Note { id: number; student_name: string; student_ref_id: string; kind: string; message: string; date: string }
 
@@ -9,7 +10,7 @@ interface Note { id: number; student_name: string; student_ref_id: string; kind:
 @Component({
   selector: 'app-sponsor-notes',
   standalone: true,
-  imports: [CommonModule, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Notes from my students</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -18,7 +19,7 @@ interface Note { id: number; student_name: string; student_ref_id: string; kind:
       <div *ngFor="let n of notes" class="border-bottom py-3">
         <div class="d-flex justify-content-between align-items-start">
           <div><strong>{{ n.student_name }}</strong> <small class="text-muted">({{ n.student_ref_id }})</small></div>
-          <small class="text-muted text-nowrap ml-2">{{ n.kind }} · {{ n.date | date: 'd MMM yyyy' }}</small>
+          <small class="text-muted text-nowrap ml-2">{{ n.kind }} · {{ n.date | appDate }}</small>
         </div>
         <p class="mb-0 mt-1" style="white-space: pre-line">{{ n.message }}</p>
       </div>

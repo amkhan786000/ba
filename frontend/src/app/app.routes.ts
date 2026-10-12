@@ -68,6 +68,7 @@ import { AdminFinanceComponent } from './admin/admin-finance.component';
 import { AdminSponsorFollowupComponent } from './admin/admin-sponsor-followup.component';
 import { AdminMentoringComponent } from './admin/admin-mentoring.component';
 import { FaqComponent } from './shared/faq/faq.component';
+import { AdminAppSettingsComponent } from './admin/admin-app-settings.component';
 import { AdminOnlinePaymentsComponent } from './admin/admin-online-payments.component';
 import { AdminStudentNotesComponent } from './admin/admin-student-notes.component';
 import { StudentNotesComponent } from './student/student-notes.component';
@@ -161,6 +162,7 @@ export const routes: Routes = [
       { path: 'volunteer-options', component: AdminVolunteerOptionsComponent, canActivate: [permissionGuard], data: { permission: 'VOLUNTEER_OPTIONS' } },
       { path: 'documents', component: AdminDocumentsComponent }, // everyone: each document says who may read it
       { path: 'faq', component: FaqComponent }, // everyone: each question says who sees it
+      { path: 'app-settings', component: AdminAppSettingsComponent, canActivate: [permissionGuard], data: { permission: 'APP_SETTINGS' } },
       { path: 'online-payments', component: AdminOnlinePaymentsComponent, canActivate: [permissionGuard], data: { permission: 'ONLINE_PAYMENTS' } },
       { path: 'sponsor-followup', component: AdminSponsorFollowupComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
       { path: 'student-notes', component: AdminStudentNotesComponent, canActivate: [permissionGuard], data: { permission: 'STUDENT_NOTES' } },

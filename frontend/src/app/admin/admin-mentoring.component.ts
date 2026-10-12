@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Pair {
   id: number; student_id: number; student_ref_id: string | null; student_name: string; chapter: string | null;
@@ -31,7 +32,7 @@ interface Overview { rows: Pair[]; active: number; waiting: number; mentors: num
 @Component({
   selector: 'app-admin-mentoring',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Mentoring</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -57,7 +58,7 @@ interface Overview { rows: Pair[]; active: number; waiting: number; mentors: num
             <td>{{ p.mentor_name }} <span class="badge" [ngClass]="p.mentor_kind === 'ALUMNI' ? 'badge-soft-success' : 'badge-soft-info'">{{ p.mentor_kind === 'ALUMNI' ? 'Graduate' : 'Volunteer' }}</span>
               <div class="small text-muted">{{ p.mentor_email }}{{ p.mentor_email && p.mentor_phone ? ' · ' : '' }}{{ p.mentor_phone }}</div></td>
             <td>{{ p.help_label }}<div class="small text-muted" *ngIf="p.focus">{{ p.focus }}</div></td>
-            <td>{{ p.started_on | date: 'd MMM yyyy' }}<div class="small text-muted" *ngIf="p.ended_on">ended {{ p.ended_on | date: 'd MMM yyyy' }}</div></td>
+            <td>{{ p.started_on | appDate }}<div class="small text-muted" *ngIf="p.ended_on">ended {{ p.ended_on | appDate }}</div></td>
             <td class="small"><div class="text-truncate" style="max-width: 240px">{{ p.notes }}</div></td>
             <td class="text-right text-nowrap" *ngIf="canEdit">
               <button class="btn btn-xs btn-outline-secondary mr-1" (click)="edit = { pair: p, focus: p.focus || '', notes: p.notes || '' }">Notes</button>

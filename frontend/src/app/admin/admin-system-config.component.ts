@@ -7,6 +7,7 @@ import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 export interface Schedule {
   schedule_id: number;
@@ -25,7 +26,7 @@ export interface Schedule {
 @Component({
   selector: 'app-admin-system-config',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Payment Config</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -62,7 +63,7 @@ export interface Schedule {
                     <td>Every {{ s.frequency_months || 3 }} months</td>
                     <td>{{ 12 / (s.frequency_months || 3) }}</td>
                     <td>{{ s.due_notice_days ?? 30 }} days before</td>
-                    <td>{{ s.updated_at ? (s.updated_at | date: 'd MMM yyyy, h:mm a') : '--' }}</td>
+                    <td>{{ s.updated_at ? (s.updated_at | appDate: 'datetime') : '--' }}</td>
                     <td>{{ s.updated_by_name || '--' }}</td>
                     <td *ngIf="canEdit"><a [routerLink]="['/admin/system-configuration', s.year, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a></td>
                   </tr>

@@ -6,6 +6,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { ROLE_LABELS } from '../core/models/user.model';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface LogRow {
   log_id: number; user_id: number | null; user_code: string | null; user_name: string | null; role_id: number | null; action: string;
@@ -16,7 +17,7 @@ interface LogRow {
 @Component({
   selector: 'app-admin-activity-log',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Activity Log</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -53,7 +54,7 @@ interface LogRow {
               <tr *ngIf="loading"><td colspan="5" class="text-center text-muted"><span class="spinner-border spinner-border-sm"></span></td></tr>
               <tr *ngIf="!loading && !rows.length"><td colspan="5" class="text-center text-muted">No activity found.</td></tr>
               <tr *ngFor="let r of rows">
-                <td class="text-nowrap">{{ r.created_at | date: 'd MMM yyyy, HH:mm' }}</td>
+                <td class="text-nowrap">{{ r.created_at | appDate: 'datetime' }}</td>
                 <td>
                   <ng-container *ngIf="r.user_id; else anon">
                     <strong>{{ r.user_name || r.user_code }}</strong>

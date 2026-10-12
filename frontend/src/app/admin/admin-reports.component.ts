@@ -7,6 +7,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { asDate } from '../shared/format';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { formatAppDate } from '../shared/app-date';
 
 interface ReportDef { key: string; category: string; title: string; description: string; dateRange: boolean }
 interface ReportData { key: string; title: string; columns: string[]; rows: Record<string, unknown>[] }
@@ -267,9 +268,9 @@ export class AdminReportsComponent implements OnInit {
     if (v === null || v === undefined) return '';
     if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v)) {
       const d = asDate(v);
-      return d ? d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : v;
+      return d ? formatAppDate(d, 'datetime') : v;
     }
-    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return asDate(v)?.toLocaleDateString() ?? v;
+    if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) return formatAppDate(v, 'date', v);
     return String(v);
   }
 }

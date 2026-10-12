@@ -10,6 +10,7 @@ import { CardTableDirective } from '../../shared/card-table.directive';
 import { PagerComponent, PageState, PaginatePipe } from '../../shared/pager/pager.component';
 import { isoDate } from '../../shared/format';
 import { RebSectionRow, RebSession, RebStudentRow } from './reb.models';
+import { AppDatePipe } from '../../shared/app-date';
 
 type Tab = 'collect' | 'bills' | 'dues' | 'daybook' | 'setup';
 
@@ -45,7 +46,7 @@ export function billBadge(b: { status: string; overdue?: boolean }): string {
 @Component({
   selector: 'app-reb-fees',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective, PagerComponent, PaginatePipe],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, CardTableDirective, PagerComponent, PaginatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">REB Fees</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -270,10 +271,10 @@ export function billBadge(b: { status: string; overdue?: boolean }): string {
                   <span class="font-weight-normal small"> (sponsor ₹{{ $any(bill['sponsor_share']) | number: '1.0-2' }}, family ₹{{ $any(bill['family_share']) | number: '1.0-2' }})</span></td></tr>
               </tbody>
             </table>
-            <p class="mb-1">Due {{ $any(bill['due_date']) | date: 'd MMM yyyy' }} · {{ statuses[$any(bill['status'])] }}<span *ngIf="bill['note']"> · {{ bill['note'] }}</span></p>
+            <p class="mb-1">Due {{ $any(bill['due_date']) | appDate }} · {{ statuses[$any(bill['status'])] }}<span *ngIf="bill['note']"> · {{ bill['note'] }}</span></p>
             <h6 class="mt-3">Payments</h6>
             <p *ngIf="!billPayments.length" class="text-muted small">None yet.</p>
-            <ul class="list-unstyled small mb-0"><li *ngFor="let p of billPayments">{{ $any(p['paid_on']) | date: 'd MMM yyyy' }} · {{ p['receipt_no'] }} · {{ p['share'] === 'SPONSOR' ? 'sponsor' : 'family' }} · ₹{{ $any(p['amount']) | number: '1.0-2' }}</li></ul>
+            <ul class="list-unstyled small mb-0"><li *ngFor="let p of billPayments">{{ $any(p['paid_on']) | appDate }} · {{ p['receipt_no'] }} · {{ p['share'] === 'SPONSOR' ? 'sponsor' : 'family' }} · ₹{{ $any(p['amount']) | number: '1.0-2' }}</li></ul>
             <div *ngIf="canApprove && (bill['status'] === 'DUE' || bill['status'] === 'PARTIAL')" class="border-top mt-3 pt-3">
               <label for="bill-reason">Reason (for waiving or cancelling)</label>
               <input id="bill-reason" class="form-control mb-2" [(ngModel)]="billReason">

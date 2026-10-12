@@ -6,6 +6,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
 import { CardTableDirective } from '../../shared/card-table.directive';
 import { FEE_PLANS } from './reb.models';
+import { AppDatePipe } from '../../shared/app-date';
 
 interface Dashboard {
   session: { name: string; start_date: string; end_date: string } | null;
@@ -20,7 +21,7 @@ interface Dashboard {
 @Component({
   selector: 'app-reb-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertsComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, RouterLink, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Rahbar-e-Banaat</h4></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
@@ -29,7 +30,7 @@ interface Dashboard {
       <div *ngIf="!d.session" class="alert alert-info">
         No session is set up yet. <a *ngIf="canSetup" routerLink="/admin/reb/setup">Open REB Setup</a> to add the session, classes, sections and subjects.
       </div>
-      <p *ngIf="d.session" class="text-muted">Session <strong>{{ d.session.name }}</strong>: {{ d.session.start_date | date: 'd MMM yyyy' }} to {{ d.session.end_date | date: 'd MMM yyyy' }}</p>
+      <p *ngIf="d.session" class="text-muted">Session <strong>{{ d.session.name }}</strong>: {{ d.session.start_date | appDate }} to {{ d.session.end_date | appDate }}</p>
 
       <div class="row">
         <div class="col-6 col-xl-3"><div class="card-box"><h4 class="header-title mt-0">Girls studying</h4><h2>{{ d.active }}</h2>

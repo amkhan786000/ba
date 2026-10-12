@@ -7,12 +7,13 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { EmailTemplateRow } from './admin-email-templates.component';
+import { AppDatePipe } from '../shared/app-date';
 
 /** Edit the wording of one kind of email, with the placeholders it can use and a live preview. */
 @Component({
   selector: 'app-admin-email-template-edit',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent],
   styles: [`
     .chip { display: inline-block; background: #eef2f7; border-radius: 1rem; padding: .15rem .6rem; margin: 0 .35rem .35rem 0;
             font-size: .85rem; border: 0; font-family: monospace; }
@@ -54,7 +55,7 @@ import { EmailTemplateRow } from './admin-email-templates.component';
                 </button>
               </div>
             </div>
-            <small *ngIf="t.customised" class="d-block text-muted mt-2">Custom wording, last changed {{ t.updated_at | date: 'd MMM yyyy, h:mm a' }}{{ t.updated_by_name ? ' by ' + t.updated_by_name : '' }}.</small>
+            <small *ngIf="t.customised" class="d-block text-muted mt-2">Custom wording, last changed {{ t.updated_at | appDate: 'datetime' }}{{ t.updated_by_name ? ' by ' + t.updated_by_name : '' }}.</small>
             <small *ngIf="!t.customised" class="d-block text-muted mt-2">This email uses the built-in wording. Saving creates a custom template.</small>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent } from '../shared/pager/pager.component';
 import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Due {
   student_id: number; student_code: string; student_name: string; student_phone: string | null;
@@ -19,7 +20,7 @@ interface Due {
 @Component({
   selector: 'app-admin-payment-dues',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">
@@ -61,14 +62,14 @@ interface Due {
               <tr *ngFor="let d of table.rows">
                 <td><strong>{{ d.student_name }}</strong><div class="small text-muted">{{ d.student_code }}</div></td>
                 <td>{{ d.sponsor_name || '--' }}<div class="small text-muted">{{ d.sponsor_code }}</div></td>
-                <td>{{ d.course_start ? (d.course_start | date: 'd MMM yyyy') : '--' }}</td>
+                <td>{{ d.course_start ? (d.course_start | appDate) : '--' }}</td>
                 <td>
                   <strong>{{ d.installments_paid }}</strong> / {{ d.installments_due }} / {{ d.installments_total }}
                   <div class="progress mt-1" style="max-width: 140px" *ngIf="d.installments_total">
                     <div class="progress-bar" [style.width.%]="pct(d)"></div>
                   </div>
                 </td>
-                <td>{{ d.next_due_date ? (d.next_due_date | date: 'd MMM yyyy') : '--' }}</td>
+                <td>{{ d.next_due_date ? (d.next_due_date | appDate) : '--' }}</td>
                 <td>
                   <span class="badge" [ngClass]="badge(d.status)">{{ d.status }}</span>
                   <div class="small text-danger" *ngIf="d.overdue">{{ d.overdue }} overdue</div>

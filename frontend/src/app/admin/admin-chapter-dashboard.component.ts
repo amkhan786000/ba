@@ -7,6 +7,7 @@ import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.c
 import { studyStatusBadge } from '../shared/study-status';
 import { StudyStatusService } from '../core/services/study-status.service';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Counts {
   students: number; studying: number; withoutSponsor: number; sponsors: number; paymentsOverdue: number; openApplications: number;
@@ -38,7 +39,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
 @Component({
   selector: 'app-admin-chapter-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   styles: [`
     .stat { cursor: pointer; }
     .stat.selected { box-shadow: 0 0 0 2px var(--primary, #3bafda) inset; }
@@ -138,7 +139,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
                 <tr *ngFor="let d of dues | paginate: pg.page : pg.size">
                   <td><strong>{{ d.student_name }}</strong><div class="small text-muted">{{ d.student_code }}</div></td>
                   <td>{{ d.sponsor_name || '--' }}<div class="small text-muted">{{ d.sponsor_code }}</div></td>
-                  <td>{{ d.next_due_date ? (d.next_due_date | date: 'd MMM yyyy') : '--' }}</td>
+                  <td>{{ d.next_due_date ? (d.next_due_date | appDate) : '--' }}</td>
                   <td>
                     <span class="badge" [ngClass]="d.status === 'Overdue' ? 'badge-danger' : 'badge-warning'">{{ d.status }}</span>
                     <div class="small text-danger" *ngIf="d.overdue">{{ d.overdue }} overdue</div>
@@ -154,7 +155,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
                 <tr *ngFor="let a of applications | paginate: pg.page : pg.size">
                   <td><strong>{{ a.name }}</strong><div class="small text-muted">#{{ a.grantee_detail_id }}</div></td>
                   <td><span class="badge badge-info text-capitalize">{{ a.status }}</span></td>
-                  <td>{{ a.submitted_at ? (a.submitted_at | date: 'd MMM yyyy') : '--' }}</td>
+                  <td>{{ a.submitted_at ? (a.submitted_at | appDate) : '--' }}</td>
                 </tr>
               </tbody>
             </table>

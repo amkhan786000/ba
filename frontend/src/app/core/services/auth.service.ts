@@ -3,9 +3,10 @@ import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { AuthUser, ROLE, Section, canAccess, hasRole } from '../models/user.model';
+import { setDateFormat } from '../../shared/app-date';
 
 export interface AccessInfo {
-  roleId: number; roleIds?: number[]; roleName: string | null; actingRoleId?: number | null;
+  roleId: number; roleIds?: number[]; roleName: string | null; actingRoleId?: number | null; dateFormat?: string;
   roles?: { id: number; name: string; main: boolean; portal: boolean }[]; permissions: string[]; scope: string; chapterId: number | null; rccCenterId: number | null;
   emailMissing: boolean;
 }
@@ -37,6 +38,7 @@ export class AuthService {
   currentUser = signal<AuthUser | null>(this.loadUser());
 
   constructor(private http: HttpClient) {
+    setDateFormat(this.currentUser()?.dateFormat); // the last known setting until /account/access answers
     // Every tab shares one stored sign-in. When another tab signs in as someone else (or signs out), this tab must
     // follow: otherwise it keeps showing the old user and their buttons while its requests go out as the new one.
     if (typeof window !== 'undefined') {
@@ -104,10 +106,12 @@ export class AuthService {
 
   /** Re-reads permissions from the server, so changes made in Roles apply without signing in again. */
   refreshAccess(): Observable<AccessInfo> {
-    return this.http.get<AccessInfo>(`${environment.apiBaseUrl}/account/access`).pipe(tap((a) =>
-      this.updateUser({ roleName: a.roleName ?? undefined, roleIds: a.roleIds, roles: a.roles, actingRoleId: a.actingRoleId ?? null,
+    return this.http.get<AccessInfo>(`${environment.apiBaseUrl}/account/access`).pipe(tap((a) => {
+      setDateFormat(a.dateFormat);
+      this.updateUser({ roleName: a.roleName ?? undefined, roleIds: a.roleIds, roles: a.roles, actingRoleId: a.actingRoleId ?? null, dateFormat: a.dateFormat,
         permissions: a.permissions, scope: a.scope,
-        chapterId: a.chapterId, rccCenterId: a.rccCenterId, emailMissing: a.emailMissing })));
+        chapterId: a.chapterId, rccCenterId: a.rccCenterId, emailMissing: a.emailMissing });
+    }));
   }
 
   /** Updates the stored user (e.g. after a profile edit or a password change). */

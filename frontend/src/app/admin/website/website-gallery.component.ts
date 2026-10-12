@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { AlertsComponent, errorText } from '../../shared/alerts/alerts.component';
+import { AppDatePipe } from '../../shared/app-date';
 
 interface Photo {
   id: number; title: string; caption?: string | null; album?: string | null; takenOn?: string | null;
@@ -17,7 +18,7 @@ const ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
 @Component({
   selector: 'app-website-gallery',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Gallery</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -73,7 +74,7 @@ const ACCEPT = 'image/jpeg,image/png,image/gif,image/webp';
                 </ng-container>
                 <ng-template #show>
                   <strong class="d-block">{{ g.title }}</strong>
-                  <span class="text-muted d-block">{{ g.album || 'No album' }} · {{ g.createdAt | date: 'mediumDate' }}</span>
+                  <span class="text-muted d-block">{{ g.album || 'No album' }} · {{ g.createdAt | appDate }}</span>
                   <span class="badge" [ngClass]="g.published ? 'badge-success' : 'badge-light border'">{{ g.published ? 'In the gallery' : 'Hidden' }}</span>
                   <div class="mt-2" *ngIf="canEdit">
                     <button type="button" class="btn btn-xs btn-outline-primary mr-1 mb-1" (click)="startEdit(g)">Edit</button>

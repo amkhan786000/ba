@@ -23,6 +23,8 @@ export interface AuthUser {
   rccCenterId?: number | null;
   /** All the user's roles with their names (main first); portal roles have their own area. */
   roles?: { id: number; name: string; main: boolean; portal: boolean }[];
+  /** How dates are shown (Administration > Application Settings), e.g. DD/MM/YYYY. */
+  dateFormat?: string;
   /** "View as": the one role the user is acting as right now (null: all their roles). */
   actingRoleId?: number | null;
 }
@@ -33,7 +35,7 @@ export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTER
   | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
-  | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES' | 'FAQS' | 'FINANCE'
+  | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES' | 'FAQS' | 'APP_SETTINGS' | 'FINANCE'
   | 'REB_DASHBOARD' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS'
   | 'REB_FEES' | 'REB_FEE_APPROVALS' | 'REB_SPONSORSHIPS' | 'REB_ATTENDANCE' | 'REB_EXAMS' | 'REB_ENQUIRIES' | 'REB_QURAN' | 'REB_HOSTEL';
 
@@ -111,6 +113,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/finance', label: 'Income & Expenses', icon: 'mdi-scale-balance', section: 'FINANCE', group: 'administration' },
   { path: '/admin/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline', group: 'administration' },
   { path: '/admin/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline', group: 'administration' },
+  { path: '/admin/app-settings', label: 'Application Settings', icon: 'mdi-tune-variant', section: 'APP_SETTINGS', group: 'administration' },
   { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY', group: 'administration' },
   { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY', group: 'administration' }
 ];

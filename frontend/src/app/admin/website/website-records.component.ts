@@ -12,6 +12,7 @@ import { WebsiteMarkdownPipe } from './website-markdown.pipe';
 import { WebsiteRevisionsComponent } from './website-revisions.component';
 import { TranslatableField, WebsiteTranslationsComponent } from './website-translations.component';
 import { RefList, WebsiteField, WebsiteResource, slugify, toLocalInput, websiteResource } from './website-resources';
+import { formatAppDate } from '../../shared/app-date';
 
 type Row = Record<string, unknown> & { id?: number };
 interface Option { id: number; name: string }
@@ -276,7 +277,7 @@ export class WebsiteRecordsComponent implements OnInit, OnChanges, OnDestroy {
   /** Records sent from the website (or added by a migration) have no Rahbar user. */
   who(id: unknown): string { return (id != null && this.names[String(id)]) || '—'; }
 
-  when(v: unknown): string { return v ? new Date(String(v)).toLocaleString() : '—'; }
+  when(v: unknown): string { return v ? formatAppDate(v, 'datetime', '—') : '—'; }
 
   suggestions(key: string): string[] {
     return this.table.last?.suggestions?.[key] ?? [];

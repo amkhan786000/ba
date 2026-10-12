@@ -7,6 +7,7 @@ import { AuthService } from '../../core/services/auth.service';
 import { errorText } from '../../shared/alerts/alerts.component';
 import { RebSession } from './reb.models';
 import { RebSponsorshipRow } from './reb-sponsorships.component';
+import { AppDatePipe } from '../../shared/app-date';
 
 interface LedgerRow { type: 'BILL' | 'PAYMENT'; id: number; date: string; text: string; status: string; debit?: number; credit?: number; balance: number }
 interface Concession {
@@ -20,7 +21,7 @@ const REASONS: Record<string, string> = { ORPHAN: 'Orphan', SIBLING: 'Sibling', 
 @Component({
   selector: 'app-reb-student-fees',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink],
   template: `
     <div class="card"><div class="card-body">
       <div class="d-flex justify-content-between align-items-center mb-2">
@@ -36,7 +37,7 @@ const REASONS: Record<string, string> = { ORPHAN: 'Orphan', SIBLING: 'Sibling', 
           <tbody>
             <tr *ngIf="!ledger.length"><td colspan="5" class="text-muted">No bills yet.</td></tr>
             <tr *ngFor="let l of ledger" [class.text-muted]="l.status === 'CANCELLED'">
-              <td class="text-nowrap">{{ l.date | date: 'd MMM yy' }}</td><td class="small">{{ l.text }}
+              <td class="text-nowrap">{{ l.date | appDate }}</td><td class="small">{{ l.text }}
                 <a *ngIf="l.type === 'PAYMENT'" href="" (click)="$event.preventDefault(); receipt(l.id)">receipt</a></td>
               <td class="text-right">{{ l.debit ? '₹' + (l.debit | number: '1.0-2') : '' }}</td>
               <td class="text-right">{{ l.credit ? '₹' + (l.credit | number: '1.0-2') : '' }}</td>

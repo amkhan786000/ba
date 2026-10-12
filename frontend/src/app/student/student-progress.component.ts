@@ -6,6 +6,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
 import { ProgressReviewComponent } from '../shared/review/progress-review.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 interface Progress { progress_id: number; review_status?: string | null; review_comment?: string | null; year: string | number | null; session: string | null; marks: string | number | null; file_path: string | null; created_at: string | null }
 
@@ -16,7 +17,7 @@ interface ProgressDue { next: DueItem | null; overdue: DueItem[] }
 @Component({
   selector: 'app-student-progress',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, ProgressReviewComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, ProgressReviewComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box mt-2"><h4 class="page-title">Academic Progress</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -25,13 +26,13 @@ interface ProgressDue { next: DueItem | null; overdue: DueItem[] }
     <ng-container *ngIf="due">
       <div *ngFor="let o of due.overdue" class="alert alert-danger">
         <i class="mdi mdi-alert-circle mr-1"></i>
-        <strong>{{ o.title }}</strong> was due on {{ o.due_date | date: 'd MMM yyyy' }} and we haven't received it yet. Please upload it below.
+        <strong>{{ o.title }}</strong> was due on {{ o.due_date | appDate }} and we haven't received it yet. Please upload it below.
         <div *ngIf="o.note" class="small mt-1">{{ o.note }}</div>
       </div>
       <div *ngIf="due.next as n" class="alert" [ngClass]="n.submitted ? 'alert-success' : 'alert-info'">
         <i class="mdi mr-1" [ngClass]="n.submitted ? 'mdi-check-circle' : 'mdi-calendar-clock'"></i>
-        <ng-container *ngIf="!n.submitted">Next progress report: <strong>{{ n.title }}</strong>, due {{ n.due_date | date: 'd MMM yyyy' }}.</ng-container>
-        <ng-container *ngIf="n.submitted">Thank you, your report for <strong>{{ n.title }}</strong> (due {{ n.due_date | date: 'd MMM yyyy' }}) has been received.</ng-container>
+        <ng-container *ngIf="!n.submitted">Next progress report: <strong>{{ n.title }}</strong>, due {{ n.due_date | appDate }}.</ng-container>
+        <ng-container *ngIf="n.submitted">Thank you, your report for <strong>{{ n.title }}</strong> (due {{ n.due_date | appDate }}) has been received.</ng-container>
         <div *ngIf="n.note" class="small mt-1">{{ n.note }}</div>
       </div>
     </ng-container>
