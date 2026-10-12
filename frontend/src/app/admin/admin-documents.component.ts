@@ -265,7 +265,7 @@ export class AdminDocumentsComponent implements OnInit {
   get canEdit(): boolean { return this.auth.can('DOCUMENTS', 'EDIT'); }
   get canCategories(): boolean { return this.auth.can('DOCUMENT_CATEGORIES'); }
   get canEditCategories(): boolean { return this.auth.can('DOCUMENT_CATEGORIES', 'EDIT'); }
-  get superAdmin(): boolean { return this.auth.currentUser()?.roleId === ROLE.SUPER_ADMIN; }
+  get superAdmin(): boolean { return this.auth.isSuperAdmin(); }
   get currentRow(): DocRow | undefined { return this.docs.find((d) => d.id === this.current?.id); }
 
   /** Documents matching the filters, by category in the categories' order. */

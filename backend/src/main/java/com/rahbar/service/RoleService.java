@@ -30,6 +30,8 @@ public class RoleService {
     public List<Map<String, Object>> listRoles() {
         Map<Integer, Long> counts = new HashMap<>();
         for (Object[] r : userRepository.countPerRole()) counts.put((Integer) r[0], (Long) r[1]);
+        // people who have the role as an additional one count too
+        for (Object[] r : userRepository.countPerAdditionalRole()) counts.merge((Integer) r[0], (Long) r[1], Long::sum);
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Role role : roleRepository.findAllByOrderByRoleIdAsc()) {
             Map<String, Object> row = toRow(role);

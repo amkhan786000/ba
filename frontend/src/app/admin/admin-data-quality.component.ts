@@ -184,7 +184,7 @@ export class AdminDataQualityComponent implements OnInit {
   get studyStatuses(): StudyStatusOption[] { return this.statuses.list; }
 
   /** Possible duplicates can be merged by the Super Admin. */
-  mergeable(c: Check): boolean { return c.key === 'possible_duplicate_students' && this.auth.currentUser()?.roleId === 1; }
+  mergeable(c: Check): boolean { return c.key === 'possible_duplicate_students' && this.auth.isSuperAdmin(); }
 
   /** The other students of the same duplicate group are the candidates to keep. */
   startMerge(c: Check, row: Record<string, unknown>): void {

@@ -4,6 +4,7 @@ import com.lowagie.text.*;
 import com.lowagie.text.pdf.PdfPCell;
 import com.lowagie.text.pdf.PdfPTable;
 import com.lowagie.text.pdf.PdfWriter;
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.*;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.*;
@@ -139,7 +140,7 @@ public class SponsorStatementService {
 
     public User requireSponsor(Long id) {
         User u = userRepository.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Sponsor not found."));
-        if (!ServiceSupport.SPONSOR_ROLES.contains(u.getRoleId())) throw new ApiException(HttpStatus.BAD_REQUEST, "That user is not a sponsor.");
+        if (!UserRoles.hasAny(u, ServiceSupport.SPONSOR_ROLES, userRepository)) throw new ApiException(HttpStatus.BAD_REQUEST, "That user is not a sponsor.");
         return u;
     }
 

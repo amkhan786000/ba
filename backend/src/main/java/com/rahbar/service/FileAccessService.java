@@ -55,17 +55,23 @@ public class FileAccessService {
     }
 
     private boolean mayRead(User me, String file) {
-        Integer role = me.getRoleId();
         // Stored paths may carry a folder (legacy rows): match on the file name at the end.
         String like = "%/" + file, likeWin = "%\\\\" + file;
         // Rahbar-e-Banaat documents and photos (minors): only people with "REB: private details & documents".
         if (file.startsWith("reb_") || exists("select 1 from reb_student_documents where file_path = ?", file)) {
             return Access.can(com.rahbar.security.Section.REB_STUDENT_PRIVATE, com.rahbar.security.Section.Level.VIEW);
         }
-        if (role == null || (role != SPONSOR && role != STUDENT)) return staffMayRead(file, like, likeWin);
+        // Someone can be staff and a sponsor (or student) at once: any of their roles that allows the file is enough.
+        java.util.Set<Integer> roles = Access.current().getRoleIds();
+        if (roles.stream().anyMatch(r -> r != SPONSOR && r != STUDENT) && staffMayRead(file, like, likeWin)) return true;
         Long id = me.getId();
-        if (role == STUDENT) {
-            return exists("""
+        if (roles.contains(STUDENT) && studentMayRead(id, file, like, likeWin)) return true;
+        return roles.contains(SPONSOR) && sponsorMayRead(id, file, like, likeWin);
+    }
+
+    /** A student: their own payment receipts / proofs, progress reports and application documents. */
+    private boolean studentMayRead(Long id, String file, String like, String likeWin) {
+        return exists("""
                 select 1 from payments where grantee_id = ? and (receipt_url in (?, ?) or student_proof_url in (?, ?)
                   or receipt_url like ? or student_proof_url like ? or receipt_url like ? or student_proof_url like ?)
                 """, id, file, "uploads/" + file, file, "uploads/" + file, like, like, likeWin, likeWin)
@@ -75,8 +81,10 @@ public class FileAccessService {
                 select 1 from application_documents d join grantee_details g on g.grantee_detail_id = d.grantee_detail_id
                  where g.user_id = ? and (d.file_path = ? or d.file_path like ? or d.file_path like ?)
                 """, id, file, like, likeWin);
-        }
-        // Sponsor
+    }
+
+    /** A sponsor: receipts of their payments and progress reports of their (past) students. */
+    private boolean sponsorMayRead(Long id, String file, String like, String likeWin) {
         return exists("""
                 select 1 from payments where grantor_id = ? and (receipt_url in (?, ?) or student_proof_url in (?, ?)
                   or receipt_url like ? or student_proof_url like ? or receipt_url like ? or student_proof_url like ?)

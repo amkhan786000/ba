@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.config.AuditConfig;
 import com.rahbar.entity.EmailLog;
 import com.rahbar.entity.User;
@@ -80,7 +81,7 @@ public class EmailLogService {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (EmailLog e : result.getContent()) {
             User r = e.getRecipientUserId() == null ? null : users.get(e.getRecipientUserId());
-            boolean hidden = !seeSponsors && r != null && ServiceSupport.SPONSOR_ROLES.contains(r.getRoleId());
+            boolean hidden = !seeSponsors && r != null && UserRoles.hasAny(r, ServiceSupport.SPONSOR_ROLES, userRepository);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("email_id", e.getEmailId());
             row.put("sent_at", e.getSentAt());
@@ -106,7 +107,7 @@ public class EmailLogService {
     public Map<String, Object> get(Long id) {
         EmailLog e = emailLogRepository.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Email not found."));
         User r = e.getRecipientUserId() == null ? null : userRepository.findById(e.getRecipientUserId()).orElse(null);
-        boolean hidden = !!sponsorPrivacy.hidesDetails() && r != null && ServiceSupport.SPONSOR_ROLES.contains(r.getRoleId());
+        boolean hidden = sponsorPrivacy.hidesDetails() && r != null && UserRoles.hasAny(r, ServiceSupport.SPONSOR_ROLES, userRepository);
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("email_id", e.getEmailId());
         row.put("sent_at", e.getSentAt());

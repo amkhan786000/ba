@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.User;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.UserRepository;
@@ -105,7 +106,7 @@ public class StudentMergeService {
         if (!Access.isSuperAdmin()) throw Access.forbidden("Only the Super Admin can merge students.");
         if (keep.getId().equals(remove.getId())) throw new ApiException(HttpStatus.BAD_REQUEST, "Choose two different students.");
         for (User u : List.of(keep, remove)) {
-            if (!Integer.valueOf(ServiceSupport.STUDENT_ROLE).equals(u.getRoleId())) {
+            if (!UserRoles.has(u, ServiceSupport.STUDENT_ROLE, userRepository)) {
                 throw new ApiException(HttpStatus.BAD_REQUEST, u.getUserId() + " is not a student.");
             }
             if (u.getMergedIntoId() != null) throw new ApiException(HttpStatus.BAD_REQUEST, u.getUserId() + " was already merged into another student.");

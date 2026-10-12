@@ -17,9 +17,9 @@ public final class AuthUtil {
     }
 
     public static void requireRole(int... allowedRoleIds) {
-        int roleId = currentUser().getRoleId();
+        RahbarUserPrincipal me = Access.current(); // any of the user's roles (main or additional) will do
         for (int r : allowedRoleIds) {
-            if (r == roleId) return;
+            if (me.hasRole(r)) return;
         }
         throw new ApiException(HttpStatus.FORBIDDEN, "You do not have permission to access this page.");
     }

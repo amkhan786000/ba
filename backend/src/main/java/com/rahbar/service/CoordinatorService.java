@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.*;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.*;
@@ -129,8 +130,12 @@ public class CoordinatorService {
         Map<Integer, Role> roles = new HashMap<>();
         roleRepository.findAll().forEach(r -> roles.put(r.getRoleId(), r));
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (User u : userRepository.findByRoleIdIn(SPONSOR_CONVENOR_ROLES)) {
-            Role role = roles.get(u.getRoleId());
+        List<User> people = userRepository.findByRoleIdIn(SPONSOR_CONVENOR_ROLES);
+        Map<Long, java.util.Set<Integer>> rolesOf = UserRoles.byUser(people, userRepository);
+        for (User u : people) {
+            // their sponsor / convenor role (it may be an additional one, e.g. an admin who also sponsors)
+            Role role = rolesOf.getOrDefault(u.getId(), java.util.Set.of()).stream().filter(SPONSOR_CONVENOR_ROLES::contains)
+                    .findFirst().map(roles::get).orElse(null);
             if (role == null) continue;
             Map<String, Object> row = Rows.of(u);
             row.put("role_name", role.getRoleName());

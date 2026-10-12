@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.GranteeDetails;
 import com.rahbar.entity.RccCenter;
 import com.rahbar.entity.User;
@@ -147,7 +148,7 @@ public class RccStudentService {
     private User requireRccStudent(Long id) {
         User u = studentScope.requireStudent(id);
         GranteeDetails g = granteeDetailsRepository.findFirstByUserIdOrderByGranteeDetailIdAsc(id).orElse(null);
-        if (!Integer.valueOf(STUDENT_ROLE).equals(u.getRoleId()) || centerOf(u, g, centersByName(studentScope.current())) == null) {
+        if (!UserRoles.has(u, STUDENT_ROLE, userRepository) || centerOf(u, g, centersByName(studentScope.current())) == null) {
             throw new ApiException(HttpStatus.NOT_FOUND, "Student not found");
         }
         return u;

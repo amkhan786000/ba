@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.GrantorGrantee;
 import com.rahbar.entity.Payment;
 import com.rahbar.entity.PaymentInstallment;
@@ -121,7 +122,7 @@ public class PaymentInstallmentService {
     @Transactional
     public void sync(Long studentId) {
         User student = userRepository.findById(studentId).orElse(null);
-        if (student == null || !Integer.valueOf(ServiceSupport.STUDENT_ROLE).equals(student.getRoleId())) return;
+        if (student == null || !UserRoles.has(student, ServiceSupport.STUDENT_ROLE, userRepository)) return;
 
         List<PaymentInstallment> rows = new ArrayList<>(installmentRepository.findByGranteeIdOrderByInstallmentNoAsc(studentId));
         Map<Long, Payment> payments = new HashMap<>();

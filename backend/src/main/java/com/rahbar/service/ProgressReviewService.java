@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.StudentProgress;
 import com.rahbar.entity.User;
 import com.rahbar.exception.ApiException;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -71,11 +73,11 @@ public class ProgressReviewService {
         return Rows.of(progress);
     }
 
+    /** Any of the reviewer's roles (main or additional) that may review this student's report is enough. */
     private boolean canReview(User reviewer, Long granteeId) {
-        int role = reviewer.getRoleId() == null ? 0 : reviewer.getRoleId();
-        if (role == 1 || role == 2 || role == 8) return true;
-        if (role == 5) return grantorGranteeRepository.existsByGranteeIdAndGrantorId(granteeId, reviewer.getId());
-        if (role == 4) {
+        if (UserRoles.hasAny(reviewer, List.of(1, 2, 8), userRepository)) return true;
+        if (UserRoles.has(reviewer, 5, userRepository) && grantorGranteeRepository.existsByGranteeIdAndGrantorId(granteeId, reviewer.getId())) return true;
+        if (UserRoles.has(reviewer, 4, userRepository)) {
             Long chapterId = reviewer.getChapterId();
             return chapterId != null && userRepository.findById(granteeId)
                     .map(s -> chapterId.equals(s.getChapterId())).orElse(false);

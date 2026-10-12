@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.*;
 import com.rahbar.repository.*;
 import com.rahbar.security.Access;
@@ -434,7 +435,7 @@ public class RebBillingService {
         if ("SPONSOR".equals(payer)) {
             sponsorId = id(body.get("sponsorUserId"));
             if (sponsorId == null) sponsorId = sponsorshipService.covering(g.getId(), YearMonth.now().toString()).map(RebSponsorship::getSponsorUserId).orElse(null);
-            if (sponsorId == null || users.findById(sponsorId).filter(u -> ServiceSupport.SPONSOR_ROLES.contains(u.getRoleId())).isEmpty()) {
+            if (sponsorId == null || users.findById(sponsorId).filter(u -> UserRoles.hasAny(u, ServiceSupport.SPONSOR_ROLES, users)).isEmpty()) {
                 throw bad("Choose the sponsor who paid.");
             }
         }

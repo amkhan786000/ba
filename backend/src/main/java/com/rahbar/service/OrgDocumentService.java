@@ -79,8 +79,8 @@ public class OrgDocumentService {
         if (editor()) return true;
         if (d.isArchived()) return false;
         if ("PUBLIC".equals(d.getVisibility())) return true;
-        Integer role = Access.current().getUser().getRoleId();
-        return role != null && d.visibleRoles().contains(role);
+        // any of the reader's roles (main or additional)
+        return Access.current().getRoleIds().stream().anyMatch(d.visibleRoles()::contains);
     }
 
     /** role id -> name, for showing who may read a document. */

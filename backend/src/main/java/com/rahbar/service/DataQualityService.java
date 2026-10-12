@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.util.UserRoles;
 import com.rahbar.entity.WebBlogPost;
 import com.rahbar.repository.WebBlogPostRepository;
 import com.rahbar.entity.WebMember;
@@ -336,13 +337,19 @@ public class DataQualityService {
         Map<Integer, Role> roles = new HashMap<>();
         roleRepository.findAll().forEach(r -> roles.put(r.getRoleId(), r));
         List<Map<String, Object>> noChapter = new ArrayList<>(), noCenter = new ArrayList<>();
-        for (User u : userRepository.findAll()) {
-            Role r = roles.get(u.getRoleId());
-            if (r == null || "Inactive".equalsIgnoreCase(u.getStatus())) continue;
-            Map<String, Object> row = row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "role", r.getRoleName(),
-                    "email", u.getEmail());
-            if (Role.SCOPE_CHAPTER.equals(r.getScope()) && u.getChapterId() == null) noChapter.add(row);
-            if (Role.SCOPE_RCC.equals(r.getScope()) && u.getRccCenterId() == null) noCenter.add(row);
+        List<User> everyone = userRepository.findAll();
+        Map<Long, java.util.Set<Integer>> rolesOf = UserRoles.byUser(everyone, userRepository);
+        for (User u : everyone) {
+            if ("Inactive".equalsIgnoreCase(u.getStatus())) continue;
+            // any of their roles (main or additional) that covers only a chapter / center
+            for (Integer roleId : rolesOf.getOrDefault(u.getId(), java.util.Set.of())) {
+                Role r = roles.get(roleId);
+                if (r == null) continue;
+                Map<String, Object> row = row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "role", r.getRoleName(),
+                        "email", u.getEmail());
+                if (Role.SCOPE_CHAPTER.equals(r.getScope()) && u.getChapterId() == null && noChapter.stream().noneMatch(x -> u.getId().equals(x.get("id")))) noChapter.add(row);
+                if (Role.SCOPE_RCC.equals(r.getScope()) && u.getRccCenterId() == null && noCenter.stream().noneMatch(x -> u.getId().equals(x.get("id")))) noCenter.add(row);
+            }
         }
         return List.of(
                 in(ADMINISTRATION, "/admin/users", check("chapter_leads_without_chapter", "Chapter leads without a chapter",
