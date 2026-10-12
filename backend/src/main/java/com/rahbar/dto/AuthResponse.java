@@ -16,6 +16,9 @@ public class AuthResponse {
     /** Admin-screen permission keys of the user's role (e.g. "USERS:EDIT"). */
     private java.util.Set<String> permissions = java.util.Set.of();
     /** ALL, CHAPTER or RCC: which records the permissions cover. */
+    /** The main role and any additional ones. */
+    private java.util.Set<Integer> roleIds = java.util.Set.of();
+
     private String scope;
 
     public static AuthResponse otpRequired(Long id, String message) {
@@ -58,5 +61,7 @@ public class AuthResponse {
     public void setPermissions(java.util.Set<String> permissions) { this.permissions = permissions; }
     public String getScope() { return scope; }
     public void setScope(String scope) { this.scope = scope; }
+    public java.util.Set<Integer> getRoleIds() { return roleIds; }
+    public void setRoleIds(java.util.Set<Integer> roleIds) { this.roleIds = roleIds; }
     public void setMessage(String message) { this.message = message; }
 }
