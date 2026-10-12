@@ -66,12 +66,13 @@ jobs:
           ADMIN_EMAIL: ci-admin@example.com
           REMINDERS_CRON: "0 0 0 1 1 *"
         run: |
-          nohup java -jar target/*.jar > app.log 2>&1 &
+          nohup java -jar target/rahbar-backend.jar > app.log 2>&1 &
+          app=$!  # nohup becomes java, so this is the backend's process
           for i in $(seq 1 60); do
             if curl -fs http://localhost:8080/api/public/website/stats > /dev/null; then
               echo "The backend is up after ~$((i * 3)) seconds."; exit 0
             fi
-            if ! pgrep -f 'target/.*\.jar' > /dev/null; then echo "The backend stopped:"; tail -n 120 app.log; exit 1; fi
+            if ! kill -0 "$app" 2> /dev/null; then echo "The backend stopped:"; tail -n 120 app.log; exit 1; fi
             sleep 3
           done
           echo "The backend did not come up in 3 minutes:"; tail -n 120 app.log; exit 1
