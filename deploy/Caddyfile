@@ -5,7 +5,12 @@
 #                                                             biharanjuman-frontend, which joins this network
 #                                                             with CADDY_NETWORK=rahbar_default)
 #   https://rahbar.biharanjuman.com                        -> Rahbar
-#   http://<server-ip> (any other name)                    -> Rahbar, plain HTTP (no certificate for an IP)
+#   http://<server-ip> (any other name)                    -> https://rahbar.biharanjuman.com (redirect), except the
+#                                                             website's own calls to Rahbar's public API from inside
+#                                                             this server, which stay on plain HTTP internally
+#
+# Every HTTPS answer tells browsers to use HTTPS only for this name from now on (HSTS), and no server name or
+# version is announced.
 #
 # http:// on the three names is sent on to https:// automatically. Port 443 must be open (sudo ufw allow 443/tcp).
 #
@@ -19,21 +24,41 @@
 	}
 }
 
+(secure) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}
+
 # The Bihar Anjuman website (biharanjuman.com repository).
 biharanjuman.com, www.biharanjuman.com {
+	import secure
 	encode gzip
 	reverse_proxy biharanjuman-frontend:80
 }
 
 # Rahbar on its own name.
 rahbar.biharanjuman.com {
+	import secure
 	encode gzip
 	reverse_proxy rahbar-frontend:80
 }
 
-# Rahbar on the server's IP address and any other name, plain HTTP. The website's API calls
-# (http://host.docker.internal/api/public/website) come in here too.
+# Plain HTTP on the server's IP address (or any other name). Nobody should sign in to Rahbar unencrypted, so visitors
+# are sent to https://rahbar.biharanjuman.com. Only the website's own calls to Rahbar's public API
+# (http://host.docker.internal/api/public/website, from a container on this server, so from a private address)
+# are answered here.
 :80 {
-	encode gzip
-	reverse_proxy rahbar-frontend:80
+	header -Server
+	@internal {
+		remote_ip private_ranges
+		path /api/public/*
+	}
+	handle @internal {
+		reverse_proxy rahbar-frontend:80
+	}
+	handle {
+		redir https://rahbar.biharanjuman.com{uri} permanent
+	}
 }

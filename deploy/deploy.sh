@@ -87,6 +87,11 @@ if [ "${#JWT}" -lt 32 ] || [[ "$JWT" == *change-this* ]]; then
   log "JWT_SECRET must be a long random value (openssl rand -base64 48)."; exit 1
 fi
 HTTP_BIND="$(envval HTTP_BIND)"
+# With Caddy in front (COMPOSE_PROFILES=https), Rahbar's own port must only listen on this server, or people could
+# reach it unencrypted at http://<server-ip>:<port>.
+case "$(envval COMPOSE_PROFILES)" in *https*)
+  case "$HTTP_BIND" in 127.0.0.1:*) ;; *) log "WARNING: HTTPS is on but HTTP_BIND=${HTTP_BIND:-80} is open to the internet. Set HTTP_BIND=127.0.0.1:8081 in /opt/rahbar/.env." ;; esac ;;
+esac
 if [ -n "$HTTP_BIND" ] && [ "$HTTP_BIND" != "80" ]; then
   HEALTH_URL="http://${HTTP_BIND}/api/public/application-form-options"
 fi

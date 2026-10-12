@@ -15,7 +15,11 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class Rows {
 
-    private static final Set<String> HIDDEN = Set.of("password_hash");
+    /**
+     * Never sent in generic rows: password hashes, and PAN (only receipts, Online Payments and the 10BD report show
+     * it, each from its own field).
+     */
+    private static final Set<String> HIDDEN = Set.of("password_hash", "pan");
     private static final Map<Class<?>, List<Map.Entry<String, Field>>> COLUMNS = new ConcurrentHashMap<>();
 
     private Rows() {}
