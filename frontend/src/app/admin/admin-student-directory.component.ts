@@ -13,7 +13,8 @@ import { Institution } from './admin-course-edit.component';
 import { Chapter } from './admin-chapters.component';
 import { RccCenter } from './admin-rcc-centers.component';
 import { ChapterService } from '../core/services/chapter.service';
-import { STUDY_STATUSES, studyStatusBadge, studyStatusLabel } from '../shared/study-status';
+import { studyStatusBadge } from '../shared/study-status';
+import { StudyStatusService } from '../core/services/study-status.service';
 import { InstallmentRow, installmentBadge } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
 
@@ -73,8 +74,47 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                   </select> entries</label>
               </div>
               <div class="col-sm-6 text-sm-right">
-                <label>Search:<input type="search" class="form-control form-control-sm" [(ngModel)]="search" (ngModelChange)="search$.next($event)"></label>
+                <label>Search:<input type="search" class="form-control form-control-sm" [(ngModel)]="search" (ngModelChange)="search$.next($event)"
+                  placeholder="Name, ID, phone, chapter, course, status…" title="Every word must match: name, Ref ID, email, phone, sponsor, chapter, institution, course, study status or status"></label>
               </div>
+            </div>
+
+            <div class="row dt-filters mb-2">
+              <div class="col-6 col-md-2 mb-2">
+                <select class="form-control form-control-sm" [(ngModel)]="fChapter" (ngModelChange)="refilter()" aria-label="Chapter">
+                  <option [ngValue]="null">All chapters</option>
+                  <option *ngFor="let c of chapters" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2 mb-2">
+                <select class="form-control form-control-sm" [(ngModel)]="fStudy" (ngModelChange)="refilter()" aria-label="Study status">
+                  <option value="">Any study status</option>
+                  <option *ngFor="let st of studyStatuses" [value]="st.code">{{ st.label }}</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2 mb-2">
+                <select class="form-control form-control-sm" [(ngModel)]="fStatus" (ngModelChange)="refilter()" aria-label="Status">
+                  <option value="">Active or inactive</option><option value="Active">Active</option><option value="Inactive">Inactive</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2 mb-2">
+                <select class="form-control form-control-sm" [(ngModel)]="fSponsored" (ngModelChange)="refilter()" aria-label="Sponsor">
+                  <option value="">With or without sponsor</option><option value="yes">Has a sponsor</option><option value="no">No sponsor</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2 mb-2">
+                <select class="form-control form-control-sm" [(ngModel)]="fInst" (ngModelChange)="fCourse = null; refilter()" aria-label="Institution">
+                  <option value="">All institutions</option>
+                  <option *ngFor="let i of institutions" [value]="i.institutionId">{{ i.institutionName }}</option>
+                </select>
+              </div>
+              <div class="col-6 col-md-2 mb-2">
+                <select class="form-control form-control-sm" [(ngModel)]="fCourse" (ngModelChange)="refilter()" [disabled]="!fInst" aria-label="Course">
+                  <option [ngValue]="null">{{ fInst ? 'All courses' : 'Choose an institution first' }}</option>
+                  <option *ngFor="let c of coursesFor(fInst)" [ngValue]="c.course_id">{{ c.course_name }}</option>
+                </select>
+              </div>
+              <div class="col-12 small" *ngIf="filtering"><a href="" (click)="$event.preventDefault(); clearFilters()">Clear search and filters</a></div>
             </div>
 
             <div class="table-responsive">
@@ -205,7 +245,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
               <div class="row" *ngIf="canEdit">
                 <div class="col-md-3 form-group"><label>New status</label>
                   <select class="form-control" [(ngModel)]="study.status">
-                    <option *ngFor="let st of studyStatuses" [value]="st">{{ studyLabel(st) }}</option>
+                    <option *ngFor="let st of studyStatuses" [value]="st.code">{{ st.label }}</option>
                   </select>
                 </div>
                 <div class="col-md-3 form-group"><label>Effective date</label><input type="date" class="form-control" [(ngModel)]="study.date"></div>
@@ -481,14 +521,35 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   installmentProblem: string | null = null;
   readonly installmentBadge = installmentBadge;
   study = { status: 'STUDYING', date: '', note: '' };
-  readonly studyStatuses = STUDY_STATUSES;
+  fChapter: number | null = null;
+  fStudy = '';
+  fStatus = '';
+  fSponsored = '';
+  fInst = '';
+  fCourse: number | null = null;
 
   pay: { actionType: 'create' | 'edit'; paymentId?: unknown; installmentId?: number; amount: number | null; paymentDate: string; receipt: File | null } | null = null;
   manual: Record<string, any> | null = null;
   showUpload = false;
   csv: File | null = null;
 
-  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService, private statuses: StudyStatusService) {}
+
+  /** The study statuses (from the server), for the filter and the Study tab. */
+  get studyStatuses(): { code: string; label: string }[] { return this.statuses.list; }
+
+  get filtering(): boolean {
+    return !!(this.search.trim() || this.fChapter !== null || this.fStudy || this.fStatus || this.fSponsored || this.fInst);
+  }
+
+  /** A filter changed: back to page 1 and ask the server. */
+  refilter(): void { this.page = 1; this.load(); }
+
+  clearFilters(): void {
+    this.search = '';
+    this.fChapter = null; this.fStudy = ''; this.fStatus = ''; this.fSponsored = ''; this.fInst = ''; this.fCourse = null;
+    this.refilter();
+  }
 
   get canEdit(): boolean { return this.auth.can('STUDENTS', 'EDIT'); }
 
@@ -512,7 +573,9 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   load(): void {
     this.loading = true;
     this.api.get<{ recordsTotal: number; recordsFiltered: number; data: StudentRow[] }>('/admin/students', {
-      start: (this.page - 1) * this.pageSize, length: this.pageSize, search: this.search.trim()
+      start: (this.page - 1) * this.pageSize, length: this.pageSize, search: this.search.trim(),
+      chapterId: this.fChapter, studyStatus: this.fStudy, status: this.fStatus, sponsored: this.fSponsored,
+      institutionId: this.fInst, courseId: this.fCourse
     }).subscribe({
       next: (r) => { this.loading = false; this.rows = r.data; this.filteredTotal = r.recordsFiltered; },
       error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load students.'); }
@@ -621,7 +684,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     });
   }
 
-  studyLabel(status: unknown): string { return studyStatusLabel(status as string | null); }
+  studyLabel(status: unknown): string { return this.statuses.label(status as string | null); }
   studyBadge(status: unknown): string { return studyStatusBadge(status as string | null); }
 
   saveStudyStatus(): void {
