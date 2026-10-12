@@ -25,14 +25,15 @@ public class OrgDocumentController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public Map<String, Object> list(@RequestParam(required = false) String q) {
-        return service.list(q);
+    /** asRole: the role of the portal the list is shown in (sponsor, student, ...): only what that role may read. */
+    public Map<String, Object> list(@RequestParam(required = false) String q, @RequestParam(required = false) Integer asRole) {
+        return service.list(q, asRole);
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
-    public Map<String, Object> get(@PathVariable Long id) {
-        return service.get(id);
+    public Map<String, Object> get(@PathVariable Long id, @RequestParam(required = false) Integer asRole) {
+        return service.get(id, asRole);
     }
 
     /** The roles to choose from for "who can read". */

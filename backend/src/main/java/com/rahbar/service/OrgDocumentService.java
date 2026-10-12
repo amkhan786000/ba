@@ -74,13 +74,32 @@ public class OrgDocumentService {
         return Access.can(com.rahbar.security.Section.DOCUMENTS, com.rahbar.security.Section.Level.EDIT);
     }
 
+    /** Who is reading: an editor (sees and manages every document), and the roles whose documents they see. */
+    record Reader(boolean editor, Set<Integer> roles) {
+    }
+
+    /**
+     * The signed-in user, or, in a portal (asRole: the sponsor / student / coordinator / convenor role of the
+     * portal), what that role sees: public documents and the ones shared with it, without the editor extras. A person
+     * who is an admin and a sponsor sees in the sponsor portal exactly what sponsors see.
+     */
+    static Reader reader(Integer asRole) {
+        if (asRole == null) return new Reader(editor(), Access.current().getRoleIds());
+        if (!Access.current().hasRole(asRole)) throw Access.forbidden("You don't have that role.");
+        return new Reader(false, Set.of(asRole));
+    }
+
     /** May the signed-in user read the document? Editors: every one; others: public ones and their role's, not archived. */
     static boolean mayRead(OrgDocument d) {
-        if (editor()) return true;
+        return mayRead(d, reader(null));
+    }
+
+    static boolean mayRead(OrgDocument d, Reader reader) {
+        if (reader.editor()) return true;
         if (d.isArchived()) return false;
         if ("PUBLIC".equals(d.getVisibility())) return true;
         // any of the reader's roles (main or additional)
-        return Access.current().getRoleIds().stream().anyMatch(d.visibleRoles()::contains);
+        return reader.roles().stream().anyMatch(d.visibleRoles()::contains);
     }
 
     /** role id -> name, for showing who may read a document. */
@@ -133,11 +152,17 @@ public class OrgDocumentService {
      * it (any case), each with a short snippet of the text around the first match.
      */
     public Map<String, Object> list(String q) {
+        return list(q, null);
+    }
+
+    /** As {@link #list(String)}, for a portal when asRole is given (see {@link #reader}). */
+    public Map<String, Object> list(String q, Integer asRole) {
+        Reader reader = reader(asRole);
         List<String> words = q == null ? List.of() : Arrays.stream(q.toLowerCase(Locale.ROOT).split("\\s+")).filter(w -> !w.isBlank()).toList();
-        List<OrgDocument> all = documents.findAllByOrderByTitleAsc().stream().filter(OrgDocumentService::mayRead)
+        List<OrgDocument> all = documents.findAllByOrderByTitleAsc().stream().filter(d -> mayRead(d, reader))
                 .filter(d -> words.isEmpty() || words.stream().allMatch(w -> (d.getTitle() + "\n" + d.getContent()).toLowerCase(Locale.ROOT).contains(w)))
                 .toList();
-        boolean editor = editor();
+        boolean editor = reader.editor();
         Map<Integer, String> names = editor ? roleNames() : Map.of();
         Map<Long, String> who = names(all.stream().map(OrgDocument::getUpdatedBy).toList());
         Map<Long, Long> versions = new HashMap<>();
@@ -170,10 +195,16 @@ public class OrgDocumentService {
     }
 
     public Map<String, Object> get(Long id) {
+        return get(id, null);
+    }
+
+    /** One document; in a portal (asRole) only when that role may read it, without the editor extras. */
+    public Map<String, Object> get(Long id, Integer asRole) {
+        Reader reader = reader(asRole);
         OrgDocument d = require(id);
-        if (!mayRead(d)) throw new ApiException(HttpStatus.NOT_FOUND, "Document not found.");
+        if (!mayRead(d, reader)) throw new ApiException(HttpStatus.NOT_FOUND, "Document not found.");
         Map<String, Object> r = Rows.of(d);
-        if (editor()) {
+        if (reader.editor()) {
             r.put("readers", readers(d, roleNames()));
             r.put("visible_roles", new ArrayList<>(d.visibleRoles()));
         } else {

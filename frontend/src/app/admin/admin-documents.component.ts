@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
@@ -7,6 +8,9 @@ import { ROLE } from '../core/models/user.model';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { WebsiteMarkdownPipe } from './website/website-markdown.pipe';
+
+/** Portal URL prefix -> the role whose documents it shows. */
+const PORTAL_AREAS: Record<string, number> = { coordinator: ROLE.COORDINATOR, convenor: ROLE.CONVENOR, sponsor: ROLE.SPONSOR, student: ROLE.STUDENT };
 
 interface DocRow {
   id: number; category_id: number; title: string; effective_date: string | null; archived: boolean;
@@ -260,11 +264,20 @@ export class AdminDocumentsComponent implements OnInit {
   message = '';
   error = '';
 
-  constructor(private api: ApiService, private auth: AuthService) {}
+  /**
+   * In a portal (/sponsor, /student, /coordinator, /convenor) the page shows what that portal's role may read, read
+   * only, even for someone who is also an admin; the admin area shows and manages everything.
+   */
+  readonly asRole: number | null;
 
-  get canEdit(): boolean { return this.auth.can('DOCUMENTS', 'EDIT'); }
-  get canCategories(): boolean { return this.auth.can('DOCUMENT_CATEGORIES'); }
-  get canEditCategories(): boolean { return this.auth.can('DOCUMENT_CATEGORIES', 'EDIT'); }
+  constructor(private api: ApiService, private auth: AuthService, router: Router) {
+    const area = router.url.split('/')[1];
+    this.asRole = PORTAL_AREAS[area] ?? null;
+  }
+
+  get canEdit(): boolean { return this.asRole === null && this.auth.can('DOCUMENTS', 'EDIT'); }
+  get canCategories(): boolean { return this.asRole === null && this.auth.can('DOCUMENT_CATEGORIES'); }
+  get canEditCategories(): boolean { return this.asRole === null && this.auth.can('DOCUMENT_CATEGORIES', 'EDIT'); }
   get superAdmin(): boolean { return this.auth.isSuperAdmin(); }
   get currentRow(): DocRow | undefined { return this.docs.find((d) => d.id === this.current?.id); }
 
@@ -287,7 +300,7 @@ export class AdminDocumentsComponent implements OnInit {
     const q = this.q.trim();
     if (q.length < 2) { this.hits = null; return; }
     this.searchTimer = setTimeout(() => {
-      this.api.get<{ documents: DocRow[] }>('/admin/documents', { q }).subscribe({
+      this.api.get<{ documents: DocRow[] }>('/admin/documents', { q, asRole: this.asRole }).subscribe({
         next: (r) => { if (this.q.trim() === q) this.hits = r.documents; },
         error: (e) => (this.error = errorText(e, 'Could not search the documents.'))
       });
@@ -295,7 +308,7 @@ export class AdminDocumentsComponent implements OnInit {
   }
 
   load(openId?: number): void {
-    this.api.get<{ documents: DocRow[]; categories: Category[] }>('/admin/documents').subscribe({
+    this.api.get<{ documents: DocRow[]; categories: Category[] }>('/admin/documents', { asRole: this.asRole }).subscribe({
       next: (r) => {
         this.docs = r.documents;
         this.categories = r.categories;
@@ -310,7 +323,7 @@ export class AdminDocumentsComponent implements OnInit {
     if (this.edit && !confirm('Leave without saving?')) return;
     this.edit = null;
     this.copied = false;
-    this.api.get<Doc>(`/admin/documents/${id}`).subscribe({
+    this.api.get<Doc>(`/admin/documents/${id}`, { asRole: this.asRole }).subscribe({
       next: (d) => (this.current = d),
       error: (e) => (this.error = errorText(e, 'Could not open the document.'))
     });
