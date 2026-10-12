@@ -1,17 +1,7 @@
-/** A student's study status (separate from the login account's Active / Inactive). No status counts as Studying. */
-export const STUDY_STATUS_LABELS: Record<string, string> = {
-  STUDYING: 'Studying',
-  ON_HOLD: 'On hold',
-  GRADUATED: 'Graduated',
-  DROPPED_OUT: 'Dropped out'
-};
-
-export const STUDY_STATUSES = Object.keys(STUDY_STATUS_LABELS);
-
-export function studyStatusLabel(status: string | null | undefined): string {
-  return STUDY_STATUS_LABELS[status || 'STUDYING'] ?? status ?? '';
-}
-
+/**
+ * Badge colour of a student's study status (separate from the login account's Active / Inactive). No status counts
+ * as Studying. The statuses and their labels come from the server: StudyStatusService.
+ */
 export function studyStatusBadge(status: string | null | undefined): string {
   switch (status || 'STUDYING') {
     case 'STUDYING': return 'badge-success';

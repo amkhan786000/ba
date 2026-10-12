@@ -4,6 +4,8 @@ import com.rahbar.util.Ids;
 import com.rahbar.entity.*;
 import com.rahbar.security.Access;
 import com.rahbar.security.Section;
+import com.rahbar.service.StudyStatus;
+import com.rahbar.service.StudentDirectorySearch;
 import com.rahbar.service.AdminService;
 import com.rahbar.service.BulkUploadReport;
 import org.springframework.http.MediaType;
@@ -282,8 +284,20 @@ public class AdminController {
                                             @RequestParam(defaultValue = "10") int length,
                                             @RequestParam(required = false) String search,
                                             @RequestParam(required = false) String institutionId,
-                                            @RequestParam(required = false) Long courseId) {
-        return adminService.listStudents(start, length, search, institutionId, courseId);
+                                            @RequestParam(required = false) Long courseId,
+                                            @RequestParam(required = false) Long chapterId,
+                                            @RequestParam(required = false) String studyStatus,
+                                            @RequestParam(required = false) String status,
+                                            @RequestParam(required = false) String sponsored) {
+        return adminService.listStudents(start, length, search, institutionId, courseId,
+                new StudentDirectorySearch.Filters(chapterId, studyStatus, status, sponsored));
+    }
+
+    /** The study statuses ({ code, label }), so every screen shows the same list and labels. */
+    @GetMapping("/study-statuses")
+    @PreAuthorize("isAuthenticated()")
+    public List<Map<String, String>> studyStatuses() {
+        return StudyStatus.options();
     }
 
     @GetMapping("/students/{userId}")

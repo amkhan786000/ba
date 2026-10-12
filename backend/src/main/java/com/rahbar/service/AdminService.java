@@ -679,10 +679,11 @@ public class AdminService {
     // ------------------------------------------------------------- student directory
 
     /** Student directory page (DataTables shape: recordsTotal, recordsFiltered, data). */
-    public Map<String, Object> listStudents(int start, int length, String search, String institutionId, Long courseId) {
-        String pattern = isBlank(search) ? null : "%" + search.trim() + "%";
-        List<Map<String, Object>> filtered = visibleStudentRows(userRepository.searchStudentDirectory(
-                isBlank(institutionId) ? null : institutionId, courseId, pattern));
+    /** One page of the directory: institution / course filtered in the query, the rest in {@link StudentDirectorySearch}. */
+    public Map<String, Object> listStudents(int start, int length, String search, String institutionId, Long courseId,
+                                            StudentDirectorySearch.Filters filters) {
+        List<Map<String, Object>> filtered = StudentDirectorySearch.apply(visibleStudentRows(userRepository.searchStudentDirectory(
+                isBlank(institutionId) ? null : institutionId, courseId, null)), search, filters);
         int from = Math.min(Math.max(start, 0), filtered.size());
         int to = Math.min(from + Math.max(length, 0), filtered.size());
         return Map.of("recordsTotal", studentScope.current().all() ? userRepository.countByRoleId(STUDENT_ROLE) : (long) filtered.size(),

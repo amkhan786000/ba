@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
-import { studyStatusBadge, studyStatusLabel } from '../shared/study-status';
+import { studyStatusBadge } from '../shared/study-status';
+import { StudyStatusService } from '../core/services/study-status.service';
 import { CardTableDirective } from '../shared/card-table.directive';
 
 interface Counts {
@@ -174,7 +175,7 @@ export class AdminChapterDashboardComponent implements OnInit {
   loading = false;
   error = '';
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, private studyStatuses: StudyStatusService) {}
 
   ngOnInit(): void { this.load(); }
 
@@ -232,7 +233,7 @@ export class AdminChapterDashboardComponent implements OnInit {
     }
   }
 
-  label(status: string | null): string { return studyStatusLabel(status); }
+  label(status: string | null): string { return this.studyStatuses.label(status); }
   badge(status: string | null): string { return studyStatusBadge(status); }
 
   private match<T>(rows: T[], fields: (r: T) => (string | null | undefined)[]): T[] {

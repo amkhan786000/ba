@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../core/services/auth.service';
 import { ADMIN_LINKS, NAV_GROUPS } from '../core/models/user.model';
+import { StudyStatusOption, StudyStatusService } from '../core/services/study-status.service';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { asDate } from '../shared/format';
@@ -23,11 +24,6 @@ interface Check {
 }
 interface Group { key: string; label: string; icon: string; checks: Check[]; problems: number }
 
-/** Study statuses (Student Directory > Study tab), in the order of that tab. */
-const STUDY_STATUSES = [
-  { code: 'STUDYING', label: 'Studying' }, { code: 'ON_HOLD', label: 'On hold' },
-  { code: 'GRADUATED', label: 'Graduated' }, { code: 'DROPPED_OUT', label: 'Dropped out' }
-];
 const STUDY_KEY = 'dq-study-status';
 
 /** Same order as the admin menu. */
@@ -174,7 +170,6 @@ export class AdminDataQualityComponent implements OnInit {
   loading = false;
   error = '';
   message = '';
-  readonly studyStatuses = STUDY_STATUSES;
   /** Study statuses of the students the checks look at; studying only unless chosen otherwise (remembered). */
   study = new Set<string>(this.savedStudy());
 
@@ -183,7 +178,10 @@ export class AdminDataQualityComponent implements OnInit {
     preview: MergePreview | null; busy: boolean; error: string;
   } | null = null;
 
-  constructor(private api: ApiService, private auth: AuthService) {}
+  constructor(private api: ApiService, private auth: AuthService, private statuses: StudyStatusService) {}
+
+  /** The study statuses (from the server), in the order of the Student Directory's Study tab. */
+  get studyStatuses(): StudyStatusOption[] { return this.statuses.list; }
 
   /** Possible duplicates can be merged by the Super Admin. */
   mergeable(c: Check): boolean { return c.key === 'possible_duplicate_students' && this.auth.currentUser()?.roleId === 1; }
@@ -221,8 +219,8 @@ export class AdminDataQualityComponent implements OnInit {
 
   /** "Studying", "Studying + On hold", or "All study statuses". */
   get studyText(): string {
-    if (this.study.size === STUDY_STATUSES.length) return 'All study statuses';
-    return STUDY_STATUSES.filter((s) => this.study.has(s.code)).map((s) => s.label).join(' + ');
+    if (this.studyStatuses.length && this.study.size === this.studyStatuses.length) return 'All study statuses';
+    return [...this.study].map((c) => this.statuses.label(c)).join(' + ');
   }
 
   toggleStudy(code: string): void {
@@ -236,14 +234,15 @@ export class AdminDataQualityComponent implements OnInit {
 
   private savedStudy(): string[] {
     let saved: string[] = [];
-    try { saved = (localStorage.getItem(STUDY_KEY) ?? '').split(',').filter((c) => STUDY_STATUSES.some((s) => s.code === c)); } catch { /* none */ }
+    // Unknown codes are ignored by the server.
+    try { saved = (localStorage.getItem(STUDY_KEY) ?? '').split(',').filter((c) => /^[A-Z_]+$/.test(c)); } catch { /* none */ }
     return saved.length ? saved : ['STUDYING'];
   }
 
   load(): void {
     this.loading = true;
     this.error = '';
-    const studyStatus = STUDY_STATUSES.map((s) => s.code).filter((c) => this.study.has(c)).join(',');
+    const studyStatus = [...this.study].join(',');
     this.api.get<Check[]>('/admin/data-quality', { studyStatus }).subscribe({
       next: (c) => { this.loading = false; this.checks = c; this.groups = this.group(c); },
       error: (e) => { this.loading = false; this.error = errorText(e, 'Could not run the data checks.'); }

@@ -44,4 +44,9 @@ public final class StudyStatus {
     public static String label(String status) {
         return LABELS.getOrDefault(of(status), of(status));
     }
+
+    /** [{ code, label }] in display order, for the screens (the one list of study statuses). */
+    public static java.util.List<Map<String, String>> options() {
+        return LABELS.entrySet().stream().map(e -> Map.of("code", e.getKey(), "label", e.getValue())).toList();
+    }
 }
