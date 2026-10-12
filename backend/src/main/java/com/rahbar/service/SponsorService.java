@@ -42,8 +42,10 @@ public class SponsorService {
                           StudentProgressRepository studentProgressRepository,
                           FileStorageService fileStorageService, NotificationService notificationService,
                           PaymentInstallmentService installmentService,
-                          com.rahbar.repository.SponsorMappingHistoryRepository historyRepository) {
+                          com.rahbar.repository.SponsorMappingHistoryRepository historyRepository,
+                          AlumniProfileRepository alumniRepository) {
         this.historyRepository = historyRepository;
+        this.alumniRepository = alumniRepository;
         this.installmentService = installmentService;
         this.userRepository = userRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
@@ -54,6 +56,111 @@ public class SponsorService {
         this.studentProgressRepository = studentProgressRepository;
         this.fileStorageService = fileStorageService;
         this.notificationService = notificationService;
+    }
+
+    private final AlumniProfileRepository alumniRepository;
+
+    /** A student with no progress report or payment for this long is shown as "no news lately". */
+    static final int QUIET_DAYS = 120;
+
+    /**
+     * Sponsor dashboard, "My students & impact": each current student's study picture (course, institution, semester
+     * now, expected completion, study status) and latest news (last progress report, last payment and whether its
+     * spent proof came in, last activity); what past students do now (graduates who agreed to be contacted); and the
+     * sponsor's impact. Only study information: no phone, address or family details.
+     */
+    public Map<String, Object> overview(Long sponsorId) {
+        List<Payment> mine = paymentRepository.findByGrantorIdOrderByPaymentDateDesc(sponsorId).stream()
+                .filter(p -> "Paid".equalsIgnoreCase(p.getStatus())).toList();
+        LocalDate today = LocalDate.now();
+
+        List<Map<String, Object>> students = new ArrayList<>();
+        Set<Long> supported = new LinkedHashSet<>();
+        for (User u : userRepository.findGranteesOf(sponsorId)) {
+            supported.add(u.getId());
+            Map<String, Object> r = new LinkedHashMap<>(studyPicture(u, today));
+            StudentProgress latest = studentProgressRepository.findByGranteeIdOrderByCreatedAtDesc(u.getId()).stream().findFirst().orElse(null);
+            r.put("latest_progress", latest == null ? null : Map.of("session", String.valueOf(latest.getSession()),
+                    "year", latest.getYear() == null ? "" : String.valueOf(latest.getYear()), "marks", latest.getMarks() == null ? "" : latest.getMarks(),
+                    "review_status", latest.getReviewStatus() == null ? "" : latest.getReviewStatus(),
+                    "uploaded_at", latest.getCreatedAt() == null ? "" : latest.getCreatedAt().toString()));
+            Payment last = mine.stream().filter(p -> u.getId().equals(p.getGranteeId())).findFirst().orElse(null);
+            r.put("last_payment", last == null ? null : Map.of("date", String.valueOf(last.getPaymentDate()), "amount", last.getAmount(),
+                    "spent_proof", last.getStudentProofUrl() != null && !last.getStudentProofUrl().isBlank()));
+            LocalDateTime activity = latestOf(latest == null ? null : latest.getCreatedAt(), last == null ? null : last.getPaymentDate());
+            r.put("last_activity", activity);
+            r.put("quiet", activity == null || activity.toLocalDate().isBefore(today.minusDays(QUIET_DAYS)));
+            students.add(r);
+        }
+
+        List<Map<String, Object>> pastNow = new ArrayList<>();
+        for (Past p : past(sponsorId).values()) {
+            User u = p.student();
+            supported.add(u.getId());
+            Map<String, Object> r = new LinkedHashMap<>(studyPicture(u, today));
+            r.put("sponsored_from", p.from());
+            r.put("sponsored_until", p.until());
+            // What they do now: only graduates who agreed to be contacted share it.
+            com.rahbar.entity.AlumniProfile a = StudyStatus.GRADUATED.equals(u.getStudyStatus())
+                    ? alumniRepository.findById(u.getId()).filter(x -> Boolean.TRUE.equals(x.getConsentToContact())).orElse(null) : null;
+            r.put("now", a == null ? null : Map.of(
+                    "status", a.getCurrentStatus() == null ? "" : com.rahbar.entity.AlumniProfile.STATUSES.getOrDefault(a.getCurrentStatus(), a.getCurrentStatus()),
+                    "organisation", a.getOrganisation() == null ? "" : a.getOrganisation(),
+                    "role", a.getRoleTitle() == null ? "" : a.getRoleTitle(),
+                    "city", a.getCity() == null ? "" : a.getCity()));
+            pastNow.add(r);
+        }
+
+        BigDecimal given = mine.stream().map(Payment::getAmount).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+        LocalDateTime since = mine.stream().map(Payment::getPaymentDate).filter(Objects::nonNull).min(Comparator.naturalOrder()).orElse(null);
+        for (com.rahbar.entity.SponsorMappingHistory h : historyRepository.findByGrantorIdOrderByStartedAtDesc(sponsorId)) {
+            if (h.getStartedAt() != null && (since == null || h.getStartedAt().isBefore(since))) since = h.getStartedAt();
+        }
+        long graduated = supported.stream().map(userRepository::findById).flatMap(Optional::stream)
+                .filter(u -> StudyStatus.GRADUATED.equals(u.getStudyStatus())).count();
+        Map<String, Object> impact = new LinkedHashMap<>();
+        impact.put("total_given", given);
+        impact.put("payments", mine.size());
+        impact.put("students_supported", supported.size());
+        impact.put("studying_now", students.size());
+        impact.put("graduated", graduated);
+        impact.put("since_year", since == null ? null : since.getYear());
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("impact", impact);
+        body.put("students", students);
+        body.put("past", pastNow);
+        return body;
+    }
+
+    /** Course, institution, semester now and expected completion (semesters of 6 months from the course start). */
+    private Map<String, Object> studyPicture(User u, LocalDate today) {
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("id", u.getId());
+        r.put("user_id", u.getUserId());
+        r.put("name", u.getName());
+        r.put("study_status", StudyStatus.label(u.getStudyStatus()));
+        Map<String, Object> c = Rows.first(studentCourseRepository.findCourseDetails(u.getId()));
+        r.put("course", c == null ? null : c.get("course_name"));
+        r.put("institution", c == null ? null : c.get("institution_name"));
+        Integer semesters = c == null || c.get("number_of_semesters") == null ? null : ((Number) c.get("number_of_semesters")).intValue();
+        LocalDate start = c == null || c.get("assigned_at") == null ? null : ((LocalDateTime) c.get("assigned_at")).toLocalDate();
+        if (u.getPaymentStartDate() != null) start = u.getPaymentStartDate();
+        r.put("semesters", semesters);
+        r.put("course_start", start);
+        r.put("expected_completion", start == null || semesters == null ? null : start.plusMonths(6L * semesters));
+        Integer semesterNow = null;
+        if (start != null && semesters != null && StudyStatus.STUDYING.equals(StudyStatus.of(u.getStudyStatus())) && !start.isAfter(today)) {
+            semesterNow = (int) Math.min(semesters, java.time.temporal.ChronoUnit.MONTHS.between(start, today) / 6 + 1);
+        }
+        r.put("semester_now", semesterNow);
+        return r;
+    }
+
+    private static LocalDateTime latestOf(LocalDateTime a, LocalDateTime b) {
+        if (a == null) return b;
+        if (b == null) return a;
+        return a.isAfter(b) ? a : b;
     }
 
     public Map<String, Object> dashboard(Long sponsorId) {
@@ -76,7 +183,7 @@ public class SponsorService {
     }
 
     /** A student this sponsor sponsored before (not mapped to them now) and when that ended. */
-    private record Past(User student, java.time.LocalDateTime from, java.time.LocalDateTime until) {}
+    private record Past(User student, LocalDateTime from, LocalDateTime until) {}
 
     /**
      * Students this sponsor sponsored in the past: from the mapping history (with the period), plus older ones known
@@ -99,16 +206,16 @@ public class SponsorService {
 
     /** Past students for the dashboard: who, when, and what this sponsor paid for them. */
     private List<Map<String, Object>> pastStudents(Long sponsorId) {
-        Map<Long, java.math.BigDecimal> paid = new HashMap<>();
+        Map<Long, BigDecimal> paid = new HashMap<>();
         for (Payment p : paymentRepository.findByGrantorIdOrderByPaymentDateDesc(sponsorId)) {
-            if ("Paid".equalsIgnoreCase(p.getStatus()) && p.getAmount() != null) paid.merge(p.getGranteeId(), p.getAmount(), java.math.BigDecimal::add);
+            if ("Paid".equalsIgnoreCase(p.getStatus()) && p.getAmount() != null) paid.merge(p.getGranteeId(), p.getAmount(), BigDecimal::add);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Past p : past(sponsorId).values()) {
             Map<String, Object> row = new LinkedHashMap<>(StudentService.studentCard(p.student()));
             row.put("sponsored_from", p.from());
             row.put("sponsored_until", p.until());
-            row.put("total_paid", paid.getOrDefault(p.student().getId(), java.math.BigDecimal.ZERO));
+            row.put("total_paid", paid.getOrDefault(p.student().getId(), BigDecimal.ZERO));
             rows.add(row);
         }
         return rows;

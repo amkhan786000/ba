@@ -34,6 +34,12 @@ public class SponsorController {
         return sponsorService.dashboard(me());
     }
 
+    /** My students (study picture and latest news), what past students do now, and my impact. */
+    @GetMapping("/overview")
+    public Map<String, Object> overview() {
+        return sponsorService.overview(me());
+    }
+
     @GetMapping("/payments")
     public Map<String, Object> payments(@RequestParam(required = false) Long granteeId) {
         return sponsorService.payments(me(), granteeId);
