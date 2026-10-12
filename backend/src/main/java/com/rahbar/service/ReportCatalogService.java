@@ -85,6 +85,8 @@ public class ReportCatalogService {
                     "Payments recorded with a pending status.", true),
             new ReportDefinition("payment_dues", "Payments", "Payment dues",
                     "Installments due vs paid for every sponsored student, with overdue counts and next due date.", false),
+            new ReportDefinition("online_payments_80g", "Payments", "Online payments & donations (80G / Form 10BD)",
+                    "Every online payment received through Razorpay in the period: 80G receipt number, date, payer, PAN, address, amount and what it was for. The list your CA needs for Form 10BD (choose the financial year: 1 April to 31 March).", true),
             new ReportDefinition("payment_schedules", "Payments", "Payment amount by year",
                     "The configured scholarship amount for each academic year.", false),
 
@@ -170,13 +172,14 @@ public class ReportCatalogService {
     }
 
     /** Reports about the whole organisation (not filtered per chapter / RCC center): not for scoped users. */
-    private static final Set<String> ORGANISATION_WIDE = Set.of("sponsors_by_chapter", "users_by_role", "activity_log", "volunteers");
+    private static final Set<String> ORGANISATION_WIDE = Set.of("sponsors_by_chapter", "users_by_role", "activity_log", "volunteers", "online_payments_80g");
 
     /** Reports with people's contact details that also need VIEW on the screen they come from. */
     private static final Map<String, com.rahbar.security.Section> NEEDS_SECTION = Map.of(
             "alumni", com.rahbar.security.Section.ALUMNI,
             "mentoring_pairs", com.rahbar.security.Section.MENTORING,
-            "volunteers", com.rahbar.security.Section.VOLUNTEERS);
+            "volunteers", com.rahbar.security.Section.VOLUNTEERS,
+            "online_payments_80g", com.rahbar.security.Section.ONLINE_PAYMENTS);
 
     private static boolean allowed(String key) {
         com.rahbar.security.Section section = NEEDS_SECTION.get(key);
@@ -289,6 +292,7 @@ public class ReportCatalogService {
                 case "alumni" -> alumni();
                 case "mentoring_pairs" -> mentoringPairs();
                 case "volunteers" -> volunteers(range);
+                case "online_payments_80g" -> onlinePayments80g(range);
                 case "payments" -> payments(range, null);
                 case "pending_payments" -> payments(range, "pending");
                 case "payments_by_month" -> paymentsByMonth(range);
@@ -844,6 +848,23 @@ public class ReportCatalogService {
                     "hours_per_month", v.getHoursPerMonth(), "chapter", chapters.get(v.getChapterId()),
                     "status", VolunteerApplication.STATUSES.getOrDefault(v.getStatus(), v.getStatus()), "notes", v.getNotes()));
         }
+        return rows;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private OnlinePaymentRepository onlinePaymentRepository;
+
+    /** Paid online payments in the period (by payment date), oldest first: the details Form 10BD asks for. */
+    private List<Map<String, Object>> onlinePayments80g(DateRange range) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        if (onlinePaymentRepository == null) return rows;
+        onlinePaymentRepository.findAllByOrderByIdDesc().stream()
+                .filter(p -> OnlinePayment.PAID.equals(p.getStatus()) && p.getPaidAt() != null && range.contains(p.getPaidAt()))
+                .sorted(Comparator.comparing(OnlinePayment::getPaidAt))
+                .forEach(p -> rows.add(row("receipt_no", p.getReceiptNo(), "date", p.getPaidAt().toLocalDate(), "name", p.getDonorName(),
+                        "pan", p.getDonorPan(), "address", p.getDonorAddress(), "email", p.getDonorEmail(), "amount", p.getAmount(),
+                        "mode", "Electronic (Razorpay)", "payment_id", p.getGatewayPaymentId(),
+                        "towards", OnlinePayment.SPONSOR.equals(p.getPurpose()) ? "Scholarship (sponsor)" : p.getNote())));
         return rows;
     }
 

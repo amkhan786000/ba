@@ -50,6 +50,9 @@ public class OnlinePaymentService {
     private final EmailService email;
     private final NotificationService notifications;
     private final ObjectMapper json = new ObjectMapper();
+    /** Books paid website donations in Income & Expenses. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private DonationBooks books;
 
     public OnlinePaymentService(OnlinePaymentRepository payments, OnlinePaymentItemRepository items, PaymentInstallmentRepository installments,
                                 PaymentRepository paymentRecords, UserRepository users, GrantorGranteeRepository mappings, RoleRepository roles,
@@ -204,6 +207,10 @@ public class OnlinePaymentService {
         payments.save(p);
         List<String> lines = new ArrayList<>();
         if (OnlinePayment.SPONSOR.equals(p.getPurpose())) recordInstallments(p, lines);
+        if (OnlinePayment.DONATION.equals(p.getPurpose())) {
+            if (books != null) books.record(p, projectOf(p));
+            notifyOffice("New online donation", p.getDonorName() + " donated Rs. " + money(p.getAmount()) + " online (" + p.getNote() + ").");
+        }
         afterPaid(p, lines);
         return p;
     }
@@ -239,6 +246,11 @@ public class OnlinePaymentService {
             }
         }
         notifyOffice("Online payment to pass on", p.getDonorName() + " paid Rs. " + money(p.getAmount()) + " online. Pass it on to the student(s) in Online Payments.");
+    }
+
+    /** The project a donation was for (kept in the Razorpay order notes as project_id; null: general). */
+    private static Long projectOf(OnlinePayment p) {
+        return p.getDonationProjectId();
     }
 
     /** The 80G receipt by email (when the payer has an address). */
