@@ -84,6 +84,24 @@ public enum EmailType {
                     + "Many students are waiting for a sponsor this year. Would you like to support another student? Reply to this "
                     + "email and our team will suggest a student for you.\n\n{{message}}\n\nWith gratitude,\nRahbar - Bihar Anjuman",
             List.of("name", "last_student", "message"), List.of()),
+    SPONSOR_PROGRESS_UPLOADED("Sponsorship", "To sponsor: new progress report",
+            "Sent to a sponsor when their student uploads marks / a progress report.",
+            "Rahbar: {{student_name}} uploaded a progress report",
+            "Dear {{name}},\n\n{{student_name}} uploaded their marks ({{marks}}) for {{session}} {{year}}. You can see the report "
+                    + "on your Student Progress page.\n\nRegards,\nRahbar - Bihar Anjuman",
+            List.of("name", "student_name", "marks", "session", "year"), List.of()),
+    SPONSOR_SPENT_PROOF_UPLOADED("Sponsorship", "To sponsor: spent proof uploaded",
+            "Sent to a sponsor when their student uploads proof of how a payment was spent.",
+            "Rahbar: {{student_name}} sent proof for your payment",
+            "Dear {{name}},\n\n{{student_name}} uploaded proof of how your payment of Rs. {{amount}} was spent. You can open it "
+                    + "on your Payments page.\n\nThank you for your support,\nRahbar - Bihar Anjuman",
+            List.of("name", "student_name", "amount"), List.of()),
+    SPONSOR_STUDENT_GRADUATED("Sponsorship", "To sponsor: student graduated",
+            "Sent to a student's sponsor when the office marks the student as graduated.",
+            "Rahbar: {{student_name}} has graduated",
+            "Dear {{name}},\n\nGood news: {{student_name}} has completed their studies and graduated. Your support made "
+                    + "this possible.\n\nThank you for being part of their journey,\nRahbar - Bihar Anjuman",
+            List.of("name", "student_name"), List.of()),
     SPONSOR_STUDENT_UNMAPPED("Sponsorship", "To previous sponsor: student moved on",
             "Sent to a sponsor when a student is no longer mapped to them.",
             "Rahbar: Student no longer mapped to you",
