@@ -1,9 +1,10 @@
 # Front door of the server (only used with COMPOSE_PROFILES=https): Caddy holds ports 80 and 443, sends each
 # visitor to the right app by the name they opened, and gets and renews free Let's Encrypt certificates by itself.
 #
-#   https://biharanjuman.com, https://www.biharanjuman.com -> the Bihar Anjuman website (container
+#   https://www.biharanjuman.com                           -> the Bihar Anjuman website (container
 #                                                             biharanjuman-frontend, which joins this network
 #                                                             with CADDY_NETWORK=rahbar_default)
+#   https://biharanjuman.com                               -> https://www.biharanjuman.com (redirect)
 #   https://rahbar.biharanjuman.com                        -> Rahbar
 #   http://<server-ip> (any other name)                    -> https://rahbar.biharanjuman.com (redirect), except the
 #                                                             website's own calls to Rahbar's public API from inside
@@ -31,11 +32,18 @@
 	}
 }
 
-# The Bihar Anjuman website (biharanjuman.com repository).
-biharanjuman.com, www.biharanjuman.com {
+# The Bihar Anjuman website (biharanjuman.com repository), on one address: www.biharanjuman.com. Search engines
+# count biharanjuman.com and www.biharanjuman.com as two sites with the same pages, so the short name is sent on
+# for good (301) and every page keeps a single address (the site's canonical links and sitemap use www).
+www.biharanjuman.com {
 	import secure
 	encode gzip
 	reverse_proxy biharanjuman-frontend:80
+}
+
+biharanjuman.com {
+	import secure
+	redir https://www.biharanjuman.com{uri} permanent
 }
 
 # Rahbar on its own name.
