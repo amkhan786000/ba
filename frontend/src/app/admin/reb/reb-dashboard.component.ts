@@ -12,6 +12,7 @@ import { DonutChartComponent } from '../../shared/charts/donut-chart.component';
 import { FunnelChartComponent } from '../../shared/charts/funnel-chart.component';
 import { StatTileComponent } from '../../shared/charts/stat-tile.component';
 import { inr } from '../../shared/charts/money';
+import { FundBalance, FundSummaryComponent } from '../../shared/charts/fund-summary.component';
 
 interface Insights {
   from: string; to: string;
@@ -57,6 +58,7 @@ interface Dashboard {
   sections?: { id: number; label: string; girls: number; capacity: number; class_teacher: string }[];
   fees?: { label: string; billed: number; bills_made: boolean; collected: number; overdue: number; girls_overdue: number } | null;
   insights?: Insights | null;
+  fund?: FundBalance;
 }
 
 const EXAM_KINDS: Record<string, string> = { UNIT_TEST: 'Unit test', TERM: 'Term', ANNUAL: 'Annual', ORAL: 'Oral' };
@@ -70,7 +72,7 @@ const EXAM_STATUS: Record<string, string> = { DRAFT: 'Draft', MARKS_ENTRY: 'Mark
   selector: 'app-reb-dashboard',
   standalone: true,
   imports: [AppDatePipe, CommonModule, RouterLink, AlertsComponent, CardTableDirective, BarChartComponent, ColumnChartComponent,
-    DonutChartComponent, FunnelChartComponent, StatTileComponent],
+    DonutChartComponent, FunnelChartComponent, StatTileComponent, FundSummaryComponent],
   styles: [`
     .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
     .card .header-title small { text-transform: none; font-weight: normal; color: #6b776f; }
@@ -134,6 +136,12 @@ const EXAM_STATUS: Record<string, string> = { DRAFT: 'Draft', MARKS_ENTRY: 'Mark
                        [value]="g.teachers ? (g.girls / g.teachers | number: '1.0-1') : '–'" [sub]="g.teachers + ' teachers'"
                        link="/admin/reb/staff" linkText="Staff"></app-stat-tile>
       </div>
+
+      <!-- REB's own book of income & expenses (separate from Rahbar's) -->
+      <ng-container *ngIf="d.fund">
+        <h5 class="section">REB funds <small class="text-muted">received, spent, in hand</small></h5>
+        <app-fund-summary [fund]="d.fund" [chart]="false" [showLast]="false" linkPath="/admin/reb/finance"></app-fund-summary>
+      </ng-container>
 
       <!-- Classes and girls -->
       <div class="row">

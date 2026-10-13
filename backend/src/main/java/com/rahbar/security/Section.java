@@ -101,8 +101,11 @@ public enum Section {
     APP_SETTINGS("Application settings (date format, ...)"),
     /** The categories of Admin > Documents. */
     DOCUMENT_CATEGORIES("Document categories"),
-    /** Administration > Income & Expenses: the books, categories and what is published on the website. */
-    FINANCE("Income & expenses"),
+    /**
+     * Administration > Rahbar Income & Expenses: Rahbar's own money (office funds received and spent), categories,
+     * balance and what is published on the website. EDIT records entries (Super Admin by default); VIEW is read only.
+     */
+    FINANCE("Rahbar income & expenses"),
     /** Rahbar-e-Banaat (the girls' Madrasa-cum-School): its dashboard. */
     REB_DASHBOARD("REB: dashboard"),
     /** Sessions, classes, sections, subjects, curriculum and settings. EDIT changes them. */
@@ -117,6 +120,8 @@ public enum Section {
     REB_REPORTS("REB: reports"),
     /** REB fees: fee heads and amounts, bills, collecting payments, receipts, dues. */
     REB_FEES("REB: fees"),
+    /** Rahbar-e-Banaat > REB Income & Expenses: REB's own book (separate from Rahbar's). EDIT records entries. */
+    REB_FINANCE("REB: income & expenses"),
     /** REB concessions, waiving or cancelling bills and cancelling receipts. */
     REB_FEE_APPROVALS("REB: fee concessions & cancellations"),
     /** REB sponsorships: which Rahbar sponsor supports which girl. */

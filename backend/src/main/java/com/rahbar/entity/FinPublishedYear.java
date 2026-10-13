@@ -11,6 +11,14 @@ import lombok.Setter;
 public class FinPublishedYear extends Modifiable {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /** RAHBAR or REB: each book publishes its own years. */
+    @Column(nullable = false, length = 10)
+    private String book = "RAHBAR";
+
+    @Column(nullable = false)
     private Integer year;
 
     @Column(length = 500)

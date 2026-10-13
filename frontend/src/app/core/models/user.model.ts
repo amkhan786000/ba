@@ -36,7 +36,7 @@ export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTER
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
   | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES' | 'FAQS' | 'APP_SETTINGS' | 'FINANCE'
-  | 'REB_DASHBOARD' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS'
+  | 'REB_DASHBOARD' | 'REB_FINANCE' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS'
   | 'REB_FEES' | 'REB_FEE_APPROVALS' | 'REB_SPONSORSHIPS' | 'REB_ATTENDANCE' | 'REB_EXAMS' | 'REB_ENQUIRIES' | 'REB_QURAN' | 'REB_HOSTEL';
 
 /** Roles that use their own portal (coordinator, convenor, sponsor, student) instead of the admin screens. */
@@ -92,6 +92,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/reb/attendance', label: 'Attendance', icon: 'mdi-calendar-check', section: 'REB_ATTENDANCE', group: 'reb' },
   { path: '/admin/reb/exams', label: 'Exams & Results', icon: 'mdi-clipboard-text', section: 'REB_EXAMS', group: 'reb' },
   { path: '/admin/reb/fees', label: 'REB Fees', icon: 'mdi-cash-multiple', section: 'REB_FEES', group: 'reb' },
+  { path: '/admin/reb/finance', label: 'REB Income & Expenses', icon: 'mdi-scale-balance', section: 'REB_FINANCE', group: 'reb' },
   { path: '/admin/reb/sponsorships', label: 'REB Sponsorships', icon: 'mdi-hand-heart', section: 'REB_SPONSORSHIPS', group: 'reb' },
   { path: '/admin/reb/staff', label: 'Teachers & Staff', icon: 'mdi-teach', section: 'REB_STAFF', group: 'reb' },
   { path: '/admin/reb/reports', label: 'REB Reports', icon: 'mdi-chart-bar', section: 'REB_REPORTS', group: 'reb' },
@@ -113,7 +114,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS', group: 'administration' },
   { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES', group: 'administration' },
   { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS', group: 'administration' },
-  { path: '/admin/finance', label: 'Income & Expenses', icon: 'mdi-scale-balance', section: 'FINANCE', group: 'administration' },
+  { path: '/admin/finance', label: 'Rahbar Income & Expenses', icon: 'mdi-scale-balance', section: 'FINANCE', group: 'administration' },
   { path: '/admin/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline', group: 'administration' },
   { path: '/admin/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline', group: 'administration' },
   { path: '/admin/app-settings', label: 'Application Settings', icon: 'mdi-tune-variant', section: 'APP_SETTINGS', group: 'administration' },

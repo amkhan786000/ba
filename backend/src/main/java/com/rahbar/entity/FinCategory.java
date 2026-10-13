@@ -14,6 +14,10 @@ public class FinCategory extends Modifiable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** Whose books: RAHBAR or REB (never shown in the other's screens). */
+    @Column(nullable = false, length = 10)
+    private String book = "RAHBAR";
+
     @Column(nullable = false, length = 100)
     private String name;
 

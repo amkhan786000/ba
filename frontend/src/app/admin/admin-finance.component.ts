@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
@@ -10,6 +10,7 @@ import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { isoDate } from '../shared/format';
 import { AppDatePipe } from '../shared/app-date';
 import { DateInputComponent } from '../shared/date-input.component';
+import { FundBalance, FundSummaryComponent } from '../shared/charts/fund-summary.component';
 
 interface Category { id: number; name: string; kind: string; active: boolean }
 interface Entry {
@@ -19,23 +20,29 @@ interface Entry {
 interface Line { name: string; amount: number }
 interface Summary {
   year: number; income_by_category: Line[]; expense_by_category: Line[]; expense_by_project: Line[]; income: number; expense: number;
-  scholarships_paid: number; reb_fees_collected: number; published: boolean; note?: string;
+  scholarships_paid?: number; reb_fees_collected?: number; published: boolean; note?: string;
 }
 
 const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank transfer', CHEQUE: 'Cheque' };
 
 /**
- * Administration > Income & Expenses: record money in and out by category (and project), see a year's summary
- * (which also counts sponsors' scholarship payments and REB fees recorded elsewhere in Rahbar), and choose whether
+ * One book of income & expenses (route data "book"): Administration > Rahbar Income & Expenses or Rahbar-e-Banaat >
+ * REB Income & Expenses, each with its own entries and categories. Record money in and out by category (and project),
+ * see a year's summary (Rahbar's adds sponsors' scholarship payments, REB's the REB fees collected), and choose whether
  * that summary is shown on biharanjuman.com.
  */
 @Component({
   selector: 'app-admin-finance',
   standalone: true,
-  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective, PagerComponent],
+  imports: [FundSummaryComponent, DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective, PagerComponent],
   template: `
-    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Income &amp; Expenses</h4></div></div></div>
+    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">{{ reb ? 'REB' : 'Rahbar' }} Income &amp; Expenses</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
+    <p class="text-muted">{{ reb ? "Rahbar-e-Banaat's own book: money received for the school and what it spends. Kept apart from Rahbar's book."
+      : "Rahbar's own money: funds received for the office and the work, and what is spent. Kept apart from REB's book." }}
+      <span *ngIf="!canEdit" class="badge badge-light ml-1"><i class="mdi mdi-eye mr-1"></i>View only</span></p>
+
+    <app-fund-summary [fund]="fund" [link]="false"></app-fund-summary>
 
     <ul class="nav nav-tabs mb-3">
       <li class="nav-item"><a class="nav-link" href="" [class.active]="tab === 'entries'" (click)="$event.preventDefault(); tab = 'entries'">Entries</a></li>
@@ -94,7 +101,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
             <table class="table table-sm mb-0"><tbody>
               <tr *ngFor="let l of s.income_by_category"><td>{{ l.name }}</td><td class="text-right">₹{{ l.amount | number: '1.0-2' }}</td></tr>
               <tr class="font-weight-bold"><td>Total recorded here</td><td class="text-right">₹{{ s.income | number: '1.0-2' }}</td></tr>
-              <tr><td>REB fees collected <span class="small text-muted">(REB Fees)</span></td><td class="text-right">₹{{ s.reb_fees_collected | number: '1.0-2' }}</td></tr>
+              <tr *ngIf="s.reb_fees_collected != null"><td>REB fees collected <span class="small text-muted">(REB Fees)</span></td><td class="text-right">₹{{ s.reb_fees_collected | number: '1.0-2' }}</td></tr>
             </tbody></table>
           </div></div>
         </div>
@@ -104,7 +111,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
             <table class="table table-sm mb-0"><tbody>
               <tr *ngFor="let l of s.expense_by_category"><td>{{ l.name }}</td><td class="text-right">₹{{ l.amount | number: '1.0-2' }}</td></tr>
               <tr class="font-weight-bold"><td>Total recorded here</td><td class="text-right">₹{{ s.expense | number: '1.0-2' }}</td></tr>
-              <tr><td>Scholarships paid by sponsors to students <span class="small text-muted">(Payment Records)</span></td><td class="text-right">₹{{ s.scholarships_paid | number: '1.0-2' }}</td></tr>
+              <tr *ngIf="s.scholarships_paid != null"><td>Scholarships paid by sponsors to students <span class="small text-muted">(Payment Records)</span></td><td class="text-right">₹{{ s.scholarships_paid | number: '1.0-2' }}</td></tr>
             </tbody></table>
           </div></div>
         </div>
@@ -201,7 +208,7 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
   categoryId: number | null = null;
   q = '';
   readonly table = new ServerTable<Entry, PagedResult<Entry> & { income: number; expense: number }>(
-    (p) => this.api.get('/admin/finance/entries', { from: this.from, to: this.to, kind: this.kind, categoryId: this.categoryId, q: this.q, ...p }),
+    (p) => this.api.get(`${this.base}/entries`, { from: this.from, to: this.to, kind: this.kind, categoryId: this.categoryId, q: this.q, ...p }),
     (e) => (this.error = errorText(e, 'Could not load the entries.')));
   year = new Date().getFullYear();
   summary: Summary | null = null;
@@ -214,7 +221,18 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
 
   constructor(private api: ApiService, private auth: AuthService) {}
 
-  get canEdit(): boolean { return this.auth.can('FINANCE', 'EDIT'); }
+  fund: FundBalance | null = null;
+
+  /** Which book this page shows: Rahbar's (Administration) or REB's (Rahbar-e-Banaat); set from the route. */
+  @Input() book: 'rahbar' | 'reb' = 'rahbar';
+  get reb(): boolean { return this.book === 'reb'; }
+  get base(): string { return `/admin/books/${this.book}`; }
+
+  get canEdit(): boolean { return this.auth.can(this.reb ? 'REB_FINANCE' : 'FINANCE', 'EDIT'); }
+
+  loadBalance(): void {
+    this.api.get<FundBalance>(`${this.base}/balance`).subscribe({ next: (r) => (this.fund = r), error: () => (this.fund = null) });
+  }
   get isIncome(): boolean { return this.categories.find((c) => c.id === this.entry?.categoryId)?.kind === 'INCOME'; }
   categoriesOf(kind: string): Category[] { return this.categories.filter((c) => c.kind === kind); }
   activeOf(kind: string): Category[] { return this.categories.filter((c) => c.kind === kind && (c.active || c.id === this.entry?.categoryId)); }
@@ -223,11 +241,12 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadCategories();
     this.load();
-    this.api.get<{ id: number; name: string }[]>('/admin/finance/projects').subscribe({ next: (r) => (this.projects = r), error: () => (this.projects = []) });
+    this.loadBalance();
+    this.api.get<{ id: number; name: string }[]>(`${this.base}/projects`).subscribe({ next: (r) => (this.projects = r), error: () => (this.projects = []) });
   }
 
   loadCategories(): void {
-    this.api.get<Category[]>('/admin/finance/categories').subscribe({ next: (r) => (this.categories = r), error: (e) => (this.error = errorText(e, 'Could not load the categories.')) });
+    this.api.get<Category[]>(`${this.base}/categories`).subscribe({ next: (r) => (this.categories = r), error: (e) => (this.error = errorText(e, 'Could not load the categories.')) });
   }
 
   ngOnDestroy(): void { this.table.destroy(); }
@@ -240,7 +259,7 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
   load(): void { this.table.load(); }
 
   loadSummary(): void {
-    this.api.get<Summary>('/admin/finance/summary', { year: this.year }).subscribe({ next: (r) => (this.summary = r), error: (e) => (this.error = errorText(e, 'Could not load the summary.')) });
+    this.api.get<Summary>(`${this.base}/summary`, { year: this.year }).subscribe({ next: (r) => (this.summary = r), error: (e) => (this.error = errorText(e, 'Could not load the summary.')) });
   }
 
   openEntry(e?: Entry): void {
@@ -252,23 +271,23 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
     const e = this.entry;
     if (!e) return;
     this.busy = true;
-    const req = e.id ? this.api.put<{ message: string }>(`/admin/finance/entries/${e.id}`, e) : this.api.post<{ message: string }>('/admin/finance/entries', e);
+    const req = e.id ? this.api.put<{ message: string }>(`${this.base}/entries/${e.id}`, e) : this.api.post<{ message: string }>(`${this.base}/entries`, e);
     req.subscribe({
-      next: (r) => { this.busy = false; this.entry = null; this.message = r.message; this.load(); },
+      next: (r) => { this.busy = false; this.entry = null; this.message = r.message; this.load(); this.loadBalance(); },
       error: (err) => { this.busy = false; this.error = errorText(err, 'Could not save the entry.'); }
     });
   }
 
   deleteEntry(e: Entry): void {
     if (!confirm(`Delete this entry of ₹${e.amount}?`)) return;
-    this.api.delete<{ message: string }>(`/admin/finance/entries/${e.id}`).subscribe({ next: (r) => { this.message = r.message; this.load(); }, error: (err) => (this.error = errorText(err, 'Could not delete it.')) });
+    this.api.delete<{ message: string }>(`${this.base}/entries/${e.id}`).subscribe({ next: (r) => { this.message = r.message; this.load(); this.loadBalance(); }, error: (err) => (this.error = errorText(err, 'Could not delete it.')) });
   }
 
   saveCategory(): void {
     const c = this.cat;
     if (!c) return;
     this.busy = true;
-    const req = c.id ? this.api.put<{ message: string }>(`/admin/finance/categories/${c.id}`, c) : this.api.post<{ message: string }>('/admin/finance/categories', c);
+    const req = c.id ? this.api.put<{ message: string }>(`${this.base}/categories/${c.id}`, c) : this.api.post<{ message: string }>(`${this.base}/categories`, c);
     req.subscribe({
       next: (r) => { this.busy = false; this.cat = null; this.message = r.message; this.loadCategories(); },
       error: (e) => { this.busy = false; this.error = errorText(e, 'Could not save the category.'); }
@@ -277,19 +296,19 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
 
   deleteCategory(c: Category): void {
     if (!confirm(`Delete ${c.name}?`)) return;
-    this.api.delete<{ message: string }>(`/admin/finance/categories/${c.id}`).subscribe({ next: (r) => { this.message = r.message; this.loadCategories(); }, error: (e) => (this.error = errorText(e, 'Could not delete it.')) });
+    this.api.delete<{ message: string }>(`${this.base}/categories/${c.id}`).subscribe({ next: (r) => { this.message = r.message; this.loadCategories(); }, error: (e) => (this.error = errorText(e, 'Could not delete it.')) });
   }
 
   publish(): void {
     const note = prompt(`Show the ${this.year} summary on the website. A short note for visitors (optional):`, '');
     if (note === null) return;
-    this.api.post<{ message: string }>('/admin/finance/published', { year: this.year, note }).subscribe({
+    this.api.post<{ message: string }>(`${this.base}/published`, { year: this.year, note }).subscribe({
       next: (r) => { this.message = r.message; this.loadSummary(); }, error: (e) => (this.error = errorText(e, 'Could not publish it.'))
     });
   }
 
   unpublish(): void {
-    this.api.delete<{ message: string }>(`/admin/finance/published/${this.year}`).subscribe({
+    this.api.delete<{ message: string }>(`${this.base}/published/${this.year}`).subscribe({
       next: (r) => { this.message = r.message; this.loadSummary(); }, error: (e) => (this.error = errorText(e, 'Could not take it off.'))
     });
   }
