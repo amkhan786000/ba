@@ -26,7 +26,7 @@ export interface BarDatum { label: string; value: number | string }
   template: `
     <div *ngIf="!data?.length" class="empty">{{ emptyText }}</div>
     <div class="bars" *ngIf="data?.length" role="list">
-      <div class="bar-row" *ngFor="let d of data" role="listitem" [title]="d.label + ': ' + text(d) + ' (' + pct(d) + '%)'">
+      <div class="bar-row" *ngFor="let d of data" role="listitem" [title]="d.label + ': ' + text(d) + (unit ? '' : ' (' + pct(d) + '%)')">
         <span class="bar-label">{{ d.label }}</span>
         <span class="bar-track">
           <span class="bar-fill" [style.width.%]="width(d)" [style.background]="colour"></span>
@@ -42,12 +42,16 @@ export class BarChartComponent {
   @Input() money = false;
   @Input() emptyText = 'No data for this year.';
   @Input() colour = '#4f7a00';
+  /** Shown after values, e.g. "%". */
+  @Input() unit = '';
+  /** Bars against 100 (percentages) instead of the largest value. */
+  @Input() max100 = false;
 
-  private get max(): number { return Math.max(1, ...this.data.map((d) => Number(d.value) || 0)); }
+  private get max(): number { return this.max100 ? 100 : Math.max(1, ...this.data.map((d) => Number(d.value) || 0)); }
   private get total(): number { return this.data.reduce((a, d) => a + (Number(d.value) || 0), 0) || 1; }
 
   /** Leaves room for the value label at the end of the longest bar. */
   width(d: BarDatum): number { return ((Number(d.value) || 0) / this.max) * 85; }
-  text(d: BarDatum): string { return this.money ? inr(d.value) : String(d.value); }
+  text(d: BarDatum): string { return this.money ? inr(d.value) : String(d.value) + this.unit; }
   pct(d: BarDatum): number { return Math.round(((Number(d.value) || 0) / this.total) * 100); }
 }
