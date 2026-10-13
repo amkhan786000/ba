@@ -23,6 +23,24 @@ import { AuthLayoutComponent } from '../shared/auth-layout/auth-layout.component
         </div>
         <div class="row">
           <div class="col-sm-6 form-group">
+            <label for="email">Student email</label>
+            <input class="form-control" id="email" type="email" placeholder="name@example.com" name="email" [(ngModel)]="form.email" required>
+            <small class="form-text text-muted">If you are selected, your sign-in details are sent here.</small>
+          </div>
+          <div class="col-sm-6 form-group">
+            <label class="d-block">Gender</label>
+            <div class="custom-control custom-radio custom-control-inline mt-1">
+              <input type="radio" class="custom-control-input" id="sexF" name="sex" value="F" [(ngModel)]="form.sex" required>
+              <label class="custom-control-label" for="sexF">Female</label>
+            </div>
+            <div class="custom-control custom-radio custom-control-inline">
+              <input type="radio" class="custom-control-input" id="sexM" name="sex" value="M" [(ngModel)]="form.sex">
+              <label class="custom-control-label" for="sexM">Male</label>
+            </div>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-6 form-group">
             <label for="studentMobile">Student mobile</label>
             <input class="form-control" id="studentMobile" type="tel" placeholder="10 digits" name="studentMobile" [(ngModel)]="form.studentMobile" required>
           </div>

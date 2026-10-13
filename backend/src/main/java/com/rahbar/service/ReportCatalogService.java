@@ -58,9 +58,9 @@ public class ReportCatalogService {
             new ReportDefinition("students_by_study_status", "Student breakdowns", "Students by study status",
                     "Number of students studying, on hold, graduated and dropped out.", false),
             new ReportDefinition("applications_by_course", "Student breakdowns", "Applications by course applied",
-                    "Demand before admission: applications per course applied for, with accepted / admitted and rejected counts.", true),
+                    "Demand before admission: applications per course applied for, with accepted and rejected counts.", true),
             new ReportDefinition("applications_by_rcc", "Student breakdowns", "Applications by RCC center",
-                    "Applications per RCC center, with accepted / admitted and rejected counts.", true),
+                    "Applications per RCC center, with accepted and rejected counts.", true),
 
             new ReportDefinition("sponsors_convenors", "Sponsors", "Sponsors & convenors",
                     "Every sponsor and convenor with number of students and total paid.", false),
@@ -216,8 +216,12 @@ public class ReportCatalogService {
         return scope().all() ? all : all.stream().filter(scope()::includes).toList();
     }
 
-    private List<GranteeDetails> visibleApplications() {
-        List<GranteeDetails> all = granteeDetailsRepository.findAll();
+    @org.springframework.beans.factory.annotation.Autowired
+    private ScholarshipApplicationRepository scholarshipApplications;
+
+    /** Scholarship applications the user may see. */
+    private List<ScholarshipApplication> visibleApplications() {
+        List<ScholarshipApplication> all = scholarshipApplications.findAll();
         return scope().all() ? all : all.stream().filter(g -> scope().includesApplication(g, scopeUsers())).toList();
     }
 
@@ -306,8 +310,8 @@ public class ReportCatalogService {
                 case "students_by_chapter" -> studentsBy(u -> ServiceSupport.chapterLabel(u.getChapterName()), "chapter");
                 case "students_by_study_status" -> studentsBy(u -> StudyStatus.label(u.getStudyStatus()), "study_status");
                 case "students_by_year" -> studentsBy(u -> u.getYear() == null ? "Not set" : String.valueOf(u.getYear()), "academic_year");
-                case "applications_by_course" -> applicationsBy(GranteeDetails::getCourseApplied, "course_applied", range);
-                case "applications_by_rcc" -> applicationsBy(GranteeDetails::getRccName, "rcc_center", range);
+                case "applications_by_course" -> applicationsBy(ScholarshipApplication::getCourseApplied, "course_applied", range);
+                case "applications_by_rcc" -> applicationsBy(ScholarshipApplication::getRccName, "rcc_center", range);
                 case "rcc_centers" -> rccCenters();
                 case "users_by_role" -> usersByRole();
                 case "activity_log" -> activityLog(from, to);
@@ -322,19 +326,18 @@ public class ReportCatalogService {
     // ---------------------------------------------------------------- applications
 
     private List<Map<String, Object>> applications(DateRange range) {
-        Map<Long, ApplicationStatus> latest = ServiceSupport.latestByApplication(applicationStatusRepository.findLatestPerApplication());
         Map<Long, Long> sponsorOf = sponsorIdByStudent();
         Map<Long, String> names = userNames();
         Map<Long, String> codes = userCodes();
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (GranteeDetails g : sorted(visibleApplications(), GranteeDetails::getGranteeDetailId)) {
+        for (ScholarshipApplication g : sorted(visibleApplications(), ScholarshipApplication::getId)) {
             if (!range.contains(g.getCreatedAt())) continue;
-            ApplicationStatus s = latest.get(g.getGranteeDetailId());
-            Long sponsorId = g.getUserId() == null ? null : sponsorOf.get(g.getUserId());
+            Long sponsorId = g.getStudentUserId() == null ? null : sponsorOf.get(g.getStudentUserId());
             rows.add(row(
-                    "application_id", g.getGranteeDetailId(),
+                    "application_id", g.getId(),
                     "student_name", g.getName(),
-                    "student_user_id", codes.get(g.getUserId()),
+                    "email", g.getEmail(),
+                    "student_user_id", codes.get(g.getStudentUserId()),
                     "father_name", g.getFatherName(),
                     "mother_name", g.getMotherName(),
                     "student_mobile", g.getStudentMobile(),
@@ -345,8 +348,8 @@ public class ReportCatalogService {
                     "course_applied", g.getCourseApplied(),
                     "annual_income", g.getAverageAnnualSalary(),
                     "submitted_at", g.getCreatedAt(),
-                    "status", s == null ? "no status" : s.getStatus(),
-                    "status_date", s == null ? null : s.getCreatedAt(),
+                    "status", ApplicationService.label(g.getStatus()),
+                    "decided_at", g.getDecidedAt(),
                     "interview_at", g.getInterviewAt(),
                     "interview_venue", g.getInterviewVenue(),
                     "assigned_sponsor_id", codes.get(sponsorId),
@@ -356,12 +359,10 @@ public class ReportCatalogService {
     }
 
     private List<Map<String, Object>> applicationsByStatus(DateRange range) {
-        Map<Long, ApplicationStatus> latest = ServiceSupport.latestByApplication(applicationStatusRepository.findLatestPerApplication());
         Map<String, Long> counts = new TreeMap<>();
-        for (GranteeDetails g : visibleApplications()) {
+        for (ScholarshipApplication g : visibleApplications()) {
             if (!range.contains(g.getCreatedAt())) continue;
-            ApplicationStatus s = latest.get(g.getGranteeDetailId());
-            counts.merge(s == null || s.getStatus() == null ? "no status" : s.getStatus(), 1L, Long::sum);
+            counts.merge(ApplicationService.label(g.getStatus()), 1L, Long::sum);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         counts.forEach((status, count) -> rows.add(row("status", status, "applications", count)));
@@ -373,11 +374,11 @@ public class ReportCatalogService {
         List<Map<String, Object>> rows = new ArrayList<>();
         visibleApplications().stream()
                 .filter(g -> g.getInterviewAt() != null && range.contains(g.getInterviewAt()))
-                .sorted(Comparator.comparing(GranteeDetails::getInterviewAt))
+                .sorted(Comparator.comparing(ScholarshipApplication::getInterviewAt))
                 .forEach(g -> rows.add(row(
                         "interview_at", g.getInterviewAt(),
                         "venue", g.getInterviewVenue(),
-                        "application_id", g.getGranteeDetailId(),
+                        "application_id", g.getId(),
                         "student_name", g.getName(),
                         "student_mobile", g.getStudentMobile(),
                         "father_mobile", g.getFatherMobile(),
@@ -574,11 +575,10 @@ public class ReportCatalogService {
     }
 
     /** Applications grouped by a free-text field of the form (course applied, RCC), with outcome counts. */
-    private List<Map<String, Object>> applicationsBy(Function<GranteeDetails, String> field, String column, DateRange range) {
-        Map<Long, ApplicationStatus> latest = ServiceSupport.latestByApplication(applicationStatusRepository.findLatestPerApplication());
-        Map<String, long[]> counts = new HashMap<>();   // [applications, accepted/admitted, rejected]
+    private List<Map<String, Object>> applicationsBy(Function<ScholarshipApplication, String> field, String column, DateRange range) {
+        Map<String, long[]> counts = new HashMap<>();   // [applications, accepted, rejected]
         Map<String, String> display = new HashMap<>();  // first spelling seen for each case-insensitive key
-        for (GranteeDetails g : visibleApplications()) {
+        for (ScholarshipApplication g : visibleApplications()) {
             if (!range.contains(g.getCreatedAt())) continue;
             String value = field.apply(g);
             String shown = value == null || value.isBlank() ? "Not given" : value.trim().replaceAll("\\s+", " ");
@@ -586,14 +586,12 @@ public class ReportCatalogService {
             display.putIfAbsent(key, shown);
             long[] c = counts.computeIfAbsent(key, k -> new long[3]);
             c[0]++;
-            ApplicationStatus s = latest.get(g.getGranteeDetailId());
-            String status = s == null || s.getStatus() == null ? "" : s.getStatus().toLowerCase(Locale.ROOT);
-            if (status.equals("accepted") || status.equals("admitted") || status.equals("provisional admission letter")) c[1]++;
-            if (status.equals("rejected")) c[2]++;
+            if (ScholarshipApplication.ACCEPTED.equals(g.getStatus())) c[1]++;
+            if (ScholarshipApplication.REJECTED.equals(g.getStatus())) c[2]++;
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         counts.forEach((key, c) -> rows.add(row(column, display.get(key), "applications", c[0],
-                "accepted_or_admitted", c[1], "rejected", c[2], "in_progress", c[0] - c[1] - c[2])));
+                "accepted", c[1], "rejected", c[2], "in_progress", c[0] - c[1] - c[2])));
         rows.sort(Comparator.comparing((Map<String, Object> r) -> (Long) r.get("applications")).reversed()
                 .thenComparing(r -> String.valueOf(r.get(column)), String.CASE_INSENSITIVE_ORDER));
         return rows;

@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.Optional;
 
 public interface InterviewReviewRepository extends JpaRepository<InterviewReview, Long> {
-    List<InterviewReview> findByGranteeDetailIdOrderByReviewIdAsc(Long granteeDetailId);
+    List<InterviewReview> findByApplicationIdOrderByReviewIdAsc(Long applicationId);
 
-    List<InterviewReview> findByGranteeDetailIdIn(Collection<Long> granteeDetailIds);
+    List<InterviewReview> findByApplicationIdIn(Collection<Long> applicationIds);
 
-    Optional<InterviewReview> findByGranteeDetailIdAndInterviewerId(Long granteeDetailId, Long interviewerId);
+    Optional<InterviewReview> findByApplicationIdAndInterviewerId(Long applicationId, Long interviewerId);
 }

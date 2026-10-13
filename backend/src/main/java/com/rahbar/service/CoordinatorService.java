@@ -23,25 +23,22 @@ public class CoordinatorService {
     private final UserRepository userRepository;
     private final ChapterRepository chapterRepository;
     private final RoleRepository roleRepository;
-    private final GranteeDetailsRepository granteeDetailsRepository;
+    private final ScholarshipApplicationRepository applications;
     private final GrantorGranteeRepository grantorGranteeRepository;
-    private final ApplicationStatusRepository applicationStatusRepository;
     private final PaymentRepository paymentRepository;
     private final SponsorMappingService sponsorMappingService;
     private final ReportService reportService;
 
     public CoordinatorService(UserRepository userRepository, ChapterRepository chapterRepository, RoleRepository roleRepository,
-                              GranteeDetailsRepository granteeDetailsRepository,
+                              ScholarshipApplicationRepository applications,
                               GrantorGranteeRepository grantorGranteeRepository,
-                              ApplicationStatusRepository applicationStatusRepository,
                               PaymentRepository paymentRepository, SponsorMappingService sponsorMappingService,
                               ReportService reportService) {
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.roleRepository = roleRepository;
-        this.granteeDetailsRepository = granteeDetailsRepository;
+        this.applications = applications;
         this.grantorGranteeRepository = grantorGranteeRepository;
-        this.applicationStatusRepository = applicationStatusRepository;
         this.paymentRepository = paymentRepository;
         this.sponsorMappingService = sponsorMappingService;
         this.reportService = reportService;
@@ -49,17 +46,15 @@ public class CoordinatorService {
 
     public Map<String, Object> dashboard(Long coordinatorId, Integer year) {
         List<Integer> years = yearsDesc(
-                granteeDetailsRepository.findCreatedYears(),
+                applications.findCreatedYears(),
                 userRepository.findCreatedYearsByRoleIdIn(SPONSOR_CONVENOR_ROLES),
                 userRepository.findCreatedYearsByRoleIdIn(List.of(STUDENT_ROLE)));
         int selectedYear = year != null ? year : (years.isEmpty() ? Year.now().getValue() : years.get(0));
 
         // Chart data: latest status of the year's applications, and that year's sponsors per chapter.
-        Map<Long, ApplicationStatus> latest = latestByApplication(applicationStatusRepository.findLatestPerApplication());
-        List<Map<String, Object>> byStatus = countBy(granteeDetailsRepository.findCreatedInYear(selectedYear), gd -> {
-            ApplicationStatus s = latest.get(gd.getGranteeDetailId());
-            return s == null || s.getStatus() == null ? "no status" : s.getStatus();
-        });
+        List<ScholarshipApplication> inYear = applications.findAllByOrderByIdDesc().stream()
+                .filter(a -> a.getCreatedAt() != null && a.getCreatedAt().getYear() == selectedYear).toList();
+        List<Map<String, Object>> byStatus = countBy(inYear, a -> ApplicationService.label(a.getStatus()));
         List<Map<String, Object>> byRegion = countBy(userRepository.findByRoleIdCreatedInYear(5, selectedYear),
                 u -> chapterLabel(u.getChapterName()));
 
@@ -70,23 +65,19 @@ public class CoordinatorService {
         result.put("sponsorsByRegion", byRegion);
         result.put("availableYears", years);
         result.put("selectedYear", selectedYear);
-        result.put("applicationsCount", granteeDetailsRepository.countCreatedInYear(selectedYear));
+        result.put("applicationsCount", inYear.size());
         result.put("sponsorsCount", userRepository.countByRoleIdCreatedInYear(5, selectedYear));
         result.put("granteesCount", userRepository.countByRoleIdCreatedInYear(STUDENT_ROLE, selectedYear));
         return result;
     }
 
-    /** Every application with the applicant's name and its latest status / comments. */
+    /** Every scholarship application, newest first, with its status. */
     public List<Map<String, Object>> applications() {
-        Map<Long, ApplicationStatus> latest = latestByApplication(applicationStatusRepository.findLatestPerApplication());
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (Object[] r : granteeDetailsRepository.findAllWithApplicantName()) {
-            GranteeDetails gd = (GranteeDetails) r[0];
-            ApplicationStatus s = latest.get(gd.getGranteeDetailId());
-            Map<String, Object> row = Rows.of(gd);
-            row.put("applicant_name", r[1]);
-            row.put("status", s == null ? null : s.getStatus());
-            row.put("comments", s == null ? null : s.getComments());
+        for (ScholarshipApplication a : applications.findAllByOrderByIdDesc()) {
+            Map<String, Object> row = Rows.of(a);
+            row.put("applicant_name", a.getName());
+            row.put("status_label", ApplicationService.label(a.getStatus()));
             rows.add(row);
         }
         return rows;
@@ -212,9 +203,9 @@ public class CoordinatorService {
         List<Map<String, Object>> data = new ArrayList<>();
         switch (reportType) {
             case "applications" -> {
-                for (Object[] r : granteeDetailsRepository.findAllWithStatusHistory()) {
-                    Map<String, Object> row = Rows.of(r[0]);
-                    row.putAll(Rows.of(r[1]));
+                for (ScholarshipApplication a : applications.findAllByOrderByIdDesc()) {
+                    Map<String, Object> row = Rows.of(a);
+                    row.put("status", ApplicationService.label(a.getStatus()));
                     data.add(row);
                 }
             }

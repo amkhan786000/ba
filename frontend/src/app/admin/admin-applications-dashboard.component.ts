@@ -19,9 +19,9 @@ interface ApplicationsDashboard {
   kpis: Record<string, number | null>;
   charts: {
     funnel: BarDatum[]; byStatus: BarDatum[]; byMonth: SeriesData; byCourse: BarDatum[]; byRcc: BarDatum[];
-    familyIncome: BarDatum[]; recommendations: BarDatum[];
+    familyIncome: BarDatum[]; recommendations: BarDatum[]; bySex: BarDatum[];
   };
-  upcomingInterviews: { grantee_detail_id: number; name: string; interview_at: string; interview_venue: string; status: string }[];
+  upcomingInterviews: { id: number; name: string; interview_at: string; interview_venue: string; status: string }[];
 }
 
 /** Students > Applications Dashboard: demand, the selection pipeline, who applies and the interviews ahead. */
@@ -61,16 +61,18 @@ interface ApplicationsDashboard {
       <p *ngIf="d.scope !== 'all'" class="alert alert-info py-2">Applications of your {{ d.scope === 'rcc' ? 'RCC center' : 'chapter' }} only.</p>
 
       <div class="tiles">
-        <app-stat-tile label="Received" icon="mdi-file-document" [value]="k('received')" [sub]="k('drafts') + ' still drafts (not sent)'"
+        <app-stat-tile label="Received" icon="mdi-file-document" [value]="k('received')" [sub]="k('applied') + ' not looked at yet (Applied)'"
                        link="/admin/applications" linkText="Applications"></app-stat-tile>
         <app-stat-tile label="Waiting for a decision" icon="mdi-timer-sand" [tone]="k('open') ? 'warning' : 'success'" [value]="k('open')"
-                       sub="submitted, interviewing, waitlisted or on hold" link="/admin/applications" linkText="Review"></app-stat-tile>
-        <app-stat-tile label="Accepted" icon="mdi-check-decagram" tone="success" [value]="k('accepted')" [sub]="k('rejected') + ' rejected'"></app-stat-tile>
+                       sub="applied, in process or interview called" link="/admin/applications" linkText="Review"></app-stat-tile>
+        <app-stat-tile label="Accepted" icon="mdi-check-decagram" tone="success" [value]="k('accepted')" [sub]="k('rejected') + ' rejected · students created'"></app-stat-tile>
         <app-stat-tile label="Acceptance rate" icon="mdi-percent" tone="info" [value]="pct(k('acceptanceRate'))" sub="of decided applications"></app-stat-tile>
         <app-stat-tile label="Interviews ahead" icon="mdi-calendar-account" tone="purple" [value]="k('interviewsUpcoming')"
                        link="/admin/applications/ranking" linkText="Ranking"></app-stat-tile>
         <app-stat-tile label="Interviewed, no review" icon="mdi-comment-alert" [tone]="k('interviewsWithoutReview') ? 'warning' : 'success'"
                        [value]="k('interviewsWithoutReview')" sub="interview date passed"></app-stat-tile>
+        <app-stat-tile label="Days to a decision" icon="mdi-calendar-range" tone="info" [value]="k('daysToDecision') ?? '–'"
+                       sub="on average, applied to accepted / rejected"></app-stat-tile>
       </div>
 
       <div class="row">
@@ -82,7 +84,7 @@ interface ApplicationsDashboard {
         </div>
         <div class="col-xl-6">
           <div class="card"><div class="card-body">
-            <h4 class="header-title mb-3">By current status</h4>
+            <h4 class="header-title mb-3">By current step</h4>
             <app-bar-chart [data]="d.charts.byStatus" emptyText="No applications this year."></app-bar-chart>
           </div></div>
         </div>
@@ -110,7 +112,14 @@ interface ApplicationsDashboard {
             <app-bar-chart [data]="d.charts.byRcc" colour="#6d28d9" emptyText="No applications this year."></app-bar-chart>
           </div></div>
         </div>
-        <div class="col-xl-4">
+        <div class="col-xl-4 col-md-6">
+          <div class="card"><div class="card-body">
+            <h4 class="header-title mb-3">Girls and boys</h4>
+            <app-donut-chart [data]="d.charts.bySex" caption="applicants" [colours]="['#db2777', '#0e7490', '#6b776f']"
+                             emptyText="No applications this year."></app-donut-chart>
+          </div></div>
+        </div>
+        <div class="col-xl-4 col-md-6">
           <div class="card"><div class="card-body">
             <h4 class="header-title mb-3">Family income per year</h4>
             <app-bar-chart [data]="d.charts.familyIncome" colour="#15803d" emptyText="No applications this year."></app-bar-chart>
@@ -127,9 +136,9 @@ interface ApplicationsDashboard {
               <tr *ngIf="!d.upcomingInterviews.length"><td colspan="4" class="text-center text-muted">No interviews scheduled.</td></tr>
               <tr *ngFor="let i of d.upcomingInterviews">
                 <td class="text-nowrap">{{ i.interview_at | appDate: 'datetime' }}</td>
-                <td><a [routerLink]="['/admin/applications', i.grantee_detail_id]">{{ i.name }}</a></td>
+                <td><a [routerLink]="['/admin/applications', i.id]">{{ i.name }}</a></td>
                 <td>{{ i.interview_venue || '--' }}</td>
-                <td class="text-capitalize">{{ i.status }}</td>
+                <td>{{ i.status }}</td>
               </tr>
             </tbody>
           </table></div>

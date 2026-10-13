@@ -510,39 +510,37 @@ public class AdminService {
 
     // ------------------------------------------------------------------ applications
 
-    /** One page of applications (newest first) with their latest status; filters are optional. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.ScholarshipApplicationRepository scholarshipApplications;
+
+    /** One page of scholarship applications (newest first); filters (name, status code, RCC) are optional. */
     public Map<String, Object> applications(int page, int size, String name, String status, String rcc) {
         com.rahbar.security.StudentScope.Scope scope = studentScope.current();
-        org.springframework.data.domain.Sort newest = org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "granteeDetailId");
-        org.springframework.data.domain.Page<GranteeDetails> result;
+        org.springframework.data.domain.Sort newest = org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id");
+        String code = isBlank(status) ? null : status.trim().toUpperCase(Locale.ROOT).replace(' ', '_');
+        org.springframework.data.domain.Page<com.rahbar.entity.ScholarshipApplication> result;
         if (scope.all()) {
-            result = granteeDetailsRepository.searchApplications(likePattern(name), likePattern(rcc),
-                    isBlank(status) ? null : status.trim().toLowerCase(Locale.ROOT), pageRequest(page, size, newest));
+            result = scholarshipApplications.search(likePattern(name), likePattern(rcc), code, pageRequest(page, size, newest));
         } else {
             // Scoped (chapter / RCC) users: only their area's applications, paged here.
             Map<Long, User> users = usersById();
-            List<GranteeDetails> visible = granteeDetailsRepository.searchApplications(likePattern(name), likePattern(rcc),
-                            isBlank(status) ? null : status.trim().toLowerCase(Locale.ROOT),
+            List<com.rahbar.entity.ScholarshipApplication> visible = scholarshipApplications.search(likePattern(name), likePattern(rcc), code,
                             org.springframework.data.domain.PageRequest.of(0, Integer.MAX_VALUE, newest)).getContent().stream()
-                    .filter(g -> scope.includesApplication(g, users)).toList();
+                    .filter(a -> scope.includesApplication(a, users)).toList();
             org.springframework.data.domain.PageRequest req = pageRequest(page, size, newest);
             int from = (int) Math.min(req.getOffset(), visible.size());
             int to = Math.min(from + req.getPageSize(), visible.size());
             result = new org.springframework.data.domain.PageImpl<>(visible.subList(from, to), req, visible.size());
         }
-        List<Long> ids = result.getContent().stream().map(GranteeDetails::getGranteeDetailId).toList();
-        Map<Long, ApplicationStatus> latest = ids.isEmpty() ? Map.of()
-                : latestByApplication(applicationStatusRepository.findLatestFor(ids));
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (GranteeDetails gd : result.getContent()) {
-            ApplicationStatus s = latest.get(gd.getGranteeDetailId());
-            Map<String, Object> row = Rows.of(gd);
-            row.put("status", s == null ? null : s.getStatus());
-            row.put("comments", s == null ? null : s.getComments());
-            row.put("status_date", s == null ? null : s.getCreatedAt());
+        for (com.rahbar.entity.ScholarshipApplication a : result.getContent()) {
+            Map<String, Object> row = Rows.of(a);
+            row.put("status_label", ApplicationService.label(a.getStatus()));
             rows.add(row);
         }
-        return pageBody(result, rows);
+        Map<String, Object> body = pageBody(result, rows);
+        body.put("statuses", ApplicationService.statusOptions());
+        return body;
     }
 
     /** Users by users.id (for scope checks on many rows). */
@@ -567,8 +565,8 @@ public class AdminService {
         return rows.stream().filter(r -> scope.includesId(toLong(r.get("id")), users)).toList();
     }
 
-    public void updateApplicationStatus(Long granteeDetailId, String status, String comments) {
-        applicationService.updateStatus(granteeDetailId, status, comments);
+    public void updateApplicationStatus(Long applicationId, String status, String comments) {
+        applicationService.updateStatus(applicationId, status, comments);
     }
 
     // ------------------------------------------------------------------ manage students

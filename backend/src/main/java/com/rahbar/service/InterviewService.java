@@ -28,21 +28,19 @@ public class InterviewService {
     private final InterviewCriterionRepository criterionRepository;
     private final InterviewReviewRepository reviewRepository;
     private final InterviewScoreRepository scoreRepository;
-    private final GranteeDetailsRepository granteeDetailsRepository;
-    private final ApplicationStatusRepository applicationStatusRepository;
+    private final ScholarshipApplicationRepository applications;
     private final UserRepository userRepository;
     private final com.rahbar.security.StudentScope studentScope;
 
     public InterviewService(InterviewCriterionRepository criterionRepository, InterviewReviewRepository reviewRepository,
-                            InterviewScoreRepository scoreRepository, GranteeDetailsRepository granteeDetailsRepository,
-                            ApplicationStatusRepository applicationStatusRepository, UserRepository userRepository,
+                            InterviewScoreRepository scoreRepository, ScholarshipApplicationRepository applications,
+                            UserRepository userRepository,
                             com.rahbar.security.StudentScope studentScope) {
         this.studentScope = studentScope;
         this.criterionRepository = criterionRepository;
         this.reviewRepository = reviewRepository;
         this.scoreRepository = scoreRepository;
-        this.granteeDetailsRepository = granteeDetailsRepository;
-        this.applicationStatusRepository = applicationStatusRepository;
+        this.applications = applications;
         this.userRepository = userRepository;
     }
 
@@ -102,7 +100,7 @@ public class InterviewService {
     @Transactional(readOnly = true)
     public Map<String, Object> forApplication(Long applicationId) {
         requireApplication(applicationId);
-        List<InterviewReview> reviews = reviewRepository.findByGranteeDetailIdOrderByReviewIdAsc(applicationId);
+        List<InterviewReview> reviews = reviewRepository.findByApplicationIdOrderByReviewIdAsc(applicationId);
         Map<Long, List<InterviewScore>> scores = scoresByReview(reviews);
         Set<Long> usedCriteria = new HashSet<>();
         scores.values().forEach(l -> l.forEach(s -> usedCriteria.add(s.getCriterionId())));
@@ -160,9 +158,9 @@ public class InterviewService {
         String text = comment == null ? null : comment.trim();
         if (text != null && text.length() > 2000) throw new ApiException(HttpStatus.BAD_REQUEST, "The comment can be at most 2,000 characters.");
 
-        InterviewReview review = reviewRepository.findByGranteeDetailIdAndInterviewerId(applicationId, me).orElseGet(() -> {
+        InterviewReview review = reviewRepository.findByApplicationIdAndInterviewerId(applicationId, me).orElseGet(() -> {
             InterviewReview r = new InterviewReview();
-            r.setGranteeDetailId(applicationId);
+            r.setApplicationId(applicationId);
             r.setInterviewerId(me);
             return r;
         });
@@ -189,7 +187,7 @@ public class InterviewService {
     @Transactional
     public void deleteMyReview(Long applicationId) {
         Long me = AuditConfig.currentUserId();
-        reviewRepository.findByGranteeDetailIdAndInterviewerId(applicationId, me).ifPresent(r -> {
+        reviewRepository.findByApplicationIdAndInterviewerId(applicationId, me).ifPresent(r -> {
             scoreRepository.deleteAll(scoreRepository.findByReviewId(r.getReviewId()));
             reviewRepository.delete(r);
         });
@@ -198,32 +196,31 @@ public class InterviewService {
     /** Interviewed applications, best average first, with the average per criterion and the recommendations. */
     @Transactional(readOnly = true)
     public Map<String, Object> ranking() {
-        List<InterviewReview> reviews = reviewRepository.findAll();
+        // Reviews of applications from before scholarship_applications (V45) have no application_id: not ranked.
+        List<InterviewReview> reviews = reviewRepository.findAll().stream().filter(r -> r.getApplicationId() != null).toList();
         Map<Long, List<InterviewScore>> scores = scoresByReview(reviews);
         Map<Long, List<InterviewReview>> byApp = new LinkedHashMap<>();
-        reviews.forEach(r -> byApp.computeIfAbsent(r.getGranteeDetailId(), k -> new ArrayList<>()).add(r));
+        reviews.forEach(r -> byApp.computeIfAbsent(r.getApplicationId(), k -> new ArrayList<>()).add(r));
         List<InterviewCriterion> criteria = criterionRepository.findAllByOrderBySortOrderAscNameAsc();
 
-        Map<Long, GranteeDetails> apps = new HashMap<>();
+        Map<Long, ScholarshipApplication> apps = new HashMap<>();
         com.rahbar.security.StudentScope.Scope scope = studentScope.current();
         Map<Long, User> users = scope.all() ? Map.of() : studentScope.usersById();
-        granteeDetailsRepository.findAllById(byApp.keySet()).stream()
+        applications.findAllById(byApp.keySet()).stream()
                 .filter(a -> scope.includesApplication(a, users)) // chapter / RCC-scoped: own area only
-                .forEach(a -> apps.put(a.getGranteeDetailId(), a));
-        Map<Long, ApplicationStatus> latest = byApp.isEmpty() ? Map.of()
-                : ServiceSupport.latestByApplication(applicationStatusRepository.findLatestFor(new ArrayList<>(byApp.keySet())));
+                .forEach(a -> apps.put(a.getId(), a));
 
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Map.Entry<Long, List<InterviewReview>> e : byApp.entrySet()) {
-            GranteeDetails a = apps.get(e.getKey());
+            ScholarshipApplication a = apps.get(e.getKey());
             if (a == null) continue;
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("application_id", a.getGranteeDetailId());
+            row.put("application_id", a.getId());
             row.put("name", a.getName());
             row.put("course_applied", a.getCourseApplied());
             row.put("rcc_name", a.getRccName());
-            ApplicationStatus s = latest.get(a.getGranteeDetailId());
-            row.put("status", s == null ? null : s.getStatus());
+            row.put("status", a.getStatus());
+            row.put("status_label", ApplicationService.label(a.getStatus()));
             row.put("interviewers", e.getValue().size());
             row.put("overall", overall(e.getValue(), scores));
             Map<String, Object> perCriterion = new LinkedHashMap<>();
@@ -253,9 +250,9 @@ public class InterviewService {
     // ------------------------------------------------------------------------------------ helpers
 
     private void requireApplication(Long applicationId) {
-        GranteeDetails g = applicationId == null ? null : granteeDetailsRepository.findById(applicationId).orElse(null);
-        if (g == null) throw new ApiException(HttpStatus.NOT_FOUND, "Application not found.");
-        studentScope.requireApplication(g);
+        ScholarshipApplication a = applicationId == null ? null : applications.findById(applicationId).orElse(null);
+        if (a == null) throw new ApiException(HttpStatus.NOT_FOUND, "Application not found.");
+        studentScope.requireApplication(a);
     }
 
     private Map<Long, List<InterviewScore>> scoresByReview(List<InterviewReview> reviews) {

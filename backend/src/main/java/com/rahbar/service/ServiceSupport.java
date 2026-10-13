@@ -130,16 +130,6 @@ final class ServiceSupport {
         return names;
     }
 
-    /** Latest status row per application id (ties on created_at go to the highest status_id). */
-    static Map<Long, ApplicationStatus> latestByApplication(List<ApplicationStatus> latestRows) {
-        Map<Long, ApplicationStatus> result = new HashMap<>();
-        for (ApplicationStatus s : latestRows) {
-            result.merge(s.getGranteeDetailId(), s,
-                    (a, b) -> a.getStatusId() != null && b.getStatusId() != null && a.getStatusId() > b.getStatusId() ? a : b);
-        }
-        return result;
-    }
-
     /** Chart rows {label, value} counting each label, biggest first. */
     static <T> List<Map<String, Object>> countBy(Collection<T> items, Function<T, String> label) {
         Map<String, Long> counts = new LinkedHashMap<>();

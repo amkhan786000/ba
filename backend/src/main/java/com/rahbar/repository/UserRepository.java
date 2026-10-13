@@ -18,6 +18,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** The oldest user with this email (several users can share one, e.g. siblings). */
     Optional<User> findFirstByEmailIgnoreCaseOrderByIdAsc(String email);
     Optional<User> findByPhone(String phone);
+
+    List<User> findByChapterId(Long chapterId);
     /*
      * Role lookups include people who have the role as an additional role (user_additional_roles), e.g. a Super Admin
      * who also sponsors a student is in findByRoleId(5).

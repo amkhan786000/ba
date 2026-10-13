@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.entity.ScholarshipApplication;
 import com.rahbar.entity.User;
 import com.rahbar.repository.ApplicationPeriodRepository;
 import com.rahbar.repository.UserRepository;
@@ -27,17 +28,14 @@ import java.util.*;
 @Service
 public class DashboardService {
 
-    /** Latest status of each application ("submitted" when it has none). */
-    private static final String LATEST_STATUS = """
-            COALESCE(LOWER((SELECT a.status FROM application_status a WHERE a.grantee_detail_id = g.grantee_detail_id
-                            ORDER BY a.status_id DESC LIMIT 1)), 'submitted')""";
     private static final String STUDY = "COALESCE(NULLIF(s.study_status, ''), 'STUDYING')";
     private static final String IN_PROGRAMME = " AND " + STUDY + " IN ('STUDYING', 'ON_HOLD')";
     private static final String STUDENT = "s.role_id = 6 AND s.merged_into_id IS NULL";
     private static final String SPONSOR_ROLE_IDS = "4, 5";
+    /** Scholarship applications (since V45) with the student account they became, if accepted. */
+    private static final String APPS = " FROM scholarship_applications g LEFT JOIN users s ON s.id = g.student_user_id WHERE 1 = 1";
     /** Application statuses still waiting for a decision. */
-    static final Set<String> OPEN = Set.of("submitted", "interviewing", "waitlisted", "on hold");
-    static final Set<String> ACCEPTED = Set.of("accepted", "provisional admission letter", "admitted");
+    static final Set<String> OPEN = ApplicationService.OPEN_STATUSES;
 
     private final JdbcTemplate jdbc;
     private final UserRepository users;
@@ -412,36 +410,41 @@ public class DashboardService {
 
     public Map<String, Object> applications(Integer requestedYear) {
         int thisYear = LocalDate.now().getYear();
-        List<Integer> years = years("SELECT DISTINCT YEAR(created_at) FROM grantee_details WHERE created_at IS NOT NULL", thisYear);
+        List<Integer> years = years("SELECT DISTINCT YEAR(created_at) FROM scholarship_applications WHERE created_at IS NOT NULL", thisYear);
         int year = requestedYear == null ? years.get(0) : requestedYear;
         String scope = scope("s");
         LocalDateTime from = yearStart(year), to = yearStart(year + 1);
         String inYear = " AND g.created_at >= ? AND g.created_at < ?";
-        String base = " FROM grantee_details g LEFT JOIN users s ON s.id = g.user_id WHERE 1 = 1" + inYear + scope;
+        String base = APPS + inYear + scope;
 
         Map<String, Long> status = applicationStatusCounts(scope, year);
-        long total = status.entrySet().stream().filter(e -> !"draft".equals(e.getKey())).mapToLong(Map.Entry::getValue).sum();
+        long total = status.values().stream().mapToLong(Long::longValue).sum();
         long open = status.entrySet().stream().filter(e -> OPEN.contains(e.getKey())).mapToLong(Map.Entry::getValue).sum();
-        long accepted = status.entrySet().stream().filter(e -> ACCEPTED.contains(e.getKey())).mapToLong(Map.Entry::getValue).sum();
-        long rejected = status.getOrDefault("rejected", 0L);
+        long accepted = status.getOrDefault(ScholarshipApplication.ACCEPTED, 0L);
+        long rejected = status.getOrDefault(ScholarshipApplication.REJECTED, 0L);
 
         Map<String, Object> kpis = new LinkedHashMap<>();
         kpis.put("received", total);
-        kpis.put("drafts", status.getOrDefault("draft", 0L));
+        kpis.put("applied", status.getOrDefault(ScholarshipApplication.APPLIED, 0L));
         kpis.put("open", open);
         kpis.put("accepted", accepted);
         kpis.put("rejected", rejected);
         kpis.put("acceptanceRate", percent(accepted, accepted + rejected));
         kpis.put("interviewsUpcoming", count("SELECT COUNT(*)" + base + " AND g.interview_at >= ?", from, to, LocalDateTime.now()));
-        kpis.put("interviewsWithoutReview", count("SELECT COUNT(*)" + base + " AND g.interview_at < ?"
-                + " AND NOT EXISTS (SELECT 1 FROM interview_reviews r WHERE r.grantee_detail_id = g.grantee_detail_id)",
+        kpis.put("interviewsWithoutReview", count("SELECT COUNT(*)" + base + " AND g.interview_at < ? AND g.status = 'INTERVIEW'"
+                + " AND NOT EXISTS (SELECT 1 FROM interview_reviews r WHERE r.application_id = g.id)",
                 from, to, LocalDateTime.now()));
+        // Days from applying to the decision (accepted or rejected).
+        Object days = jdbc.queryForObject("SELECT AVG(DATEDIFF(g.decided_at, g.created_at))" + base + " AND g.decided_at IS NOT NULL",
+                Object.class, from, to);
+        kpis.put("daysToDecision", days instanceof Number n ? (Object) Math.round(n.doubleValue()) : null);
 
         Map<String, Object> charts = new LinkedHashMap<>();
         charts.put("funnel", funnel(scope, year));
         List<Map<String, Object>> byStatus = new ArrayList<>();
-        status.entrySet().stream().sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .forEach(e -> byStatus.add(point(capitalise(e.getKey()), e.getValue())));
+        for (String code : ApplicationService.STATUS_LABELS.keySet()) {
+            byStatus.add(point(ApplicationService.label(code), status.getOrDefault(code, 0L)));
+        }
         charts.put("byStatus", byStatus);
         long[] perMonth = new long[12];
         jdbc.queryForList("SELECT MONTH(g.created_at) m, COUNT(*) n" + base + " GROUP BY m", from, to)
@@ -451,6 +454,8 @@ public class DashboardService {
                 + base + " GROUP BY label ORDER BY value DESC LIMIT 10", from, to));
         charts.put("byRcc", labelled("SELECT COALESCE(NULLIF(TRIM(g.rcc_name), ''), 'Not given') label, COUNT(*) value"
                 + base + " GROUP BY label ORDER BY value DESC LIMIT 10", from, to));
+        charts.put("bySex", labelled("SELECT CASE g.sex WHEN 'F' THEN 'Female' WHEN 'M' THEN 'Male' ELSE 'Not given' END label, COUNT(*) value"
+                + base + " GROUP BY label ORDER BY value DESC", from, to));
         charts.put("familyIncome", labelled("""
                 SELECT CASE WHEN g.average_annual_salary IS NULL THEN 'Not given'
                             WHEN g.average_annual_salary < 100000 THEN 'Under ₹1 lakh'
@@ -461,7 +466,7 @@ public class DashboardService {
                 + base + " GROUP BY label ORDER BY sort_key", from, to));
         charts.put("recommendations", labelled("""
                 SELECT COALESCE(NULLIF(r.recommendation, ''), 'None') label, COUNT(*) value FROM interview_reviews r
-                JOIN grantee_details g ON g.grantee_detail_id = r.grantee_detail_id LEFT JOIN users s ON s.id = g.user_id
+                JOIN scholarship_applications g ON g.id = r.application_id LEFT JOIN users s ON s.id = g.student_user_id
                 WHERE 1 = 1""" + inYear + scope + " GROUP BY label ORDER BY value DESC", from, to));
 
         Map<String, Object> body = new LinkedHashMap<>();
@@ -471,33 +476,29 @@ public class DashboardService {
         body.put("period", period());
         body.put("kpis", kpis);
         body.put("charts", charts);
-        body.put("upcomingInterviews", jdbc.queryForList("SELECT g.grantee_detail_id, g.name, g.interview_at, g.interview_venue, "
-                + LATEST_STATUS + " status" + base.replace(inYear, "") + " AND g.interview_at >= ? ORDER BY g.interview_at LIMIT 10",
-                LocalDateTime.now()));
+        List<Map<String, Object>> upcoming = jdbc.queryForList("SELECT g.id, g.name, g.interview_at, g.interview_venue, g.status"
+                + APPS + scope + " AND g.interview_at >= ? ORDER BY g.interview_at LIMIT 10", LocalDateTime.now());
+        upcoming.forEach(r -> r.put("status", ApplicationService.label(String.valueOf(r.get("status")))));
+        body.put("upcomingInterviews", upcoming);
         return body;
     }
 
-    /** Received (not drafts) → interview scheduled → accepted (incl. provisional letter) → admitted, for one year. */
+    /** Applied → reviewed (moved on from Applied, incl. rejected) → interview → accepted, for one year. */
     private List<Map<String, Object>> funnel(String scope, int year) {
         Map<String, Object> r = jdbc.queryForMap("""
                 SELECT COUNT(*) received,
-                       COALESCE(SUM(CASE WHEN g.interview_at IS NOT NULL OR t.st IN ('interviewing', 'waitlisted', 'accepted',
-                                'provisional admission letter', 'admitted') THEN 1 ELSE 0 END), 0) interviewed,
-                       COALESCE(SUM(CASE WHEN t.st IN ('accepted', 'provisional admission letter', 'admitted') THEN 1 ELSE 0 END), 0) accepted,
-                       COALESCE(SUM(CASE WHEN t.st = 'admitted' THEN 1 ELSE 0 END), 0) admitted
-                FROM (SELECT g.grantee_detail_id, %s st FROM grantee_details g LEFT JOIN users s ON s.id = g.user_id
-                      WHERE g.created_at >= ? AND g.created_at < ?%s) t
-                JOIN grantee_details g ON g.grantee_detail_id = t.grantee_detail_id
-                WHERE t.st <> 'draft'""".formatted(LATEST_STATUS, scope), yearStart(year), yearStart(year + 1));
-        return List.of(point("Received", r.get("received")), point("Interview", r.get("interviewed")),
-                point("Accepted", r.get("accepted")), point("Admitted", r.get("admitted")));
+                       COALESCE(SUM(CASE WHEN g.status <> 'APPLIED' THEN 1 ELSE 0 END), 0) in_process,
+                       COALESCE(SUM(CASE WHEN g.interview_at IS NOT NULL OR g.status IN ('INTERVIEW', 'ACCEPTED') THEN 1 ELSE 0 END), 0) interviewed,
+                       COALESCE(SUM(CASE WHEN g.status = 'ACCEPTED' THEN 1 ELSE 0 END), 0) accepted
+                """ + APPS + " AND g.created_at >= ? AND g.created_at < ?" + scope, yearStart(year), yearStart(year + 1));
+        return List.of(point("Applied", r.get("received")), point("Reviewed", r.get("in_process")),
+                point("Interview", r.get("interviewed")), point("Accepted", r.get("accepted")));
     }
 
-    /** Number of applications per latest status (all years when {@code year} is null). */
+    /** Number of applications per status code (all years when {@code year} is null). */
     private Map<String, Long> applicationStatusCounts(String scope, Integer year) {
-        String sql = "SELECT t.st, COUNT(*) n FROM (SELECT " + LATEST_STATUS + " st FROM grantee_details g "
-                + "LEFT JOIN users s ON s.id = g.user_id WHERE 1 = 1" + (year == null ? "" : " AND g.created_at >= ? AND g.created_at < ?")
-                + scope + ") t GROUP BY t.st";
+        String sql = "SELECT g.status st, COUNT(*) n" + APPS + (year == null ? "" : " AND g.created_at >= ? AND g.created_at < ?")
+                + scope + " GROUP BY g.status";
         List<Map<String, Object>> rows = year == null ? jdbc.queryForList(sql) : jdbc.queryForList(sql, yearStart(year), yearStart(year + 1));
         Map<String, Long> counts = new LinkedHashMap<>();
         rows.forEach(r -> counts.put(String.valueOf(r.get("st")), num(r.get("n"))));
@@ -764,9 +765,5 @@ public class DashboardService {
 
     private static LocalDateTime yearStart(int year) {
         return LocalDate.of(year, 1, 1).atStartOfDay();
-    }
-
-    private static String capitalise(String s) {
-        return s == null || s.isEmpty() ? s : Character.toUpperCase(s.charAt(0)) + s.substring(1);
     }
 }

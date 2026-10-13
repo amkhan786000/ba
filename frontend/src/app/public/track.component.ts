@@ -9,13 +9,14 @@ import { AppDatePipe } from '../shared/app-date';
 
 interface Tracked {
   applicationId: number; name: string; courseApplied: string | null; rccName: string | null; submittedAt: string | null;
-  status: string; interviewAt: string | null; interviewVenue: string | null;
+  status: string; statusCode: string; interviewAt: string | null; interviewVenue: string | null;
   history: { status: string; comments: string | null; date: string | null }[];
   documents: { id: number; docType: string; fileName: string; uploadedAt: string | null }[];
   documentTypes: string[];
 }
 
-const STEPS = ['submitted', 'interviewing', 'accepted', 'admitted'];
+/** The steps an application goes through: [code, what the applicant sees]. */
+const STEPS: [string, string][] = [['APPLIED', 'Applied'], ['IN_PROCESS', 'In process'], ['INTERVIEW', 'Interview called'], ['ACCEPTED', 'Accepted']];
 
 /** Public "Track my application": status timeline, interview details and document upload. */
 @Component({
@@ -55,13 +56,14 @@ const STEPS = ['submitted', 'interviewing', 'accepted', 'admitted'];
           <div><span>Submitted</span><strong>{{ app.submittedAt ? (app.submittedAt | appDate) : '--' }}</strong></div>
         </div>
 
-        <div class="stepper" [class.rejected]="app.status === 'rejected'">
+        <div class="stepper" [class.rejected]="app.statusCode === 'REJECTED'">
           <div *ngFor="let s of steps; let i = index" class="step" [class.done]="i <= stepIndex" [class.now]="i === stepIndex">
             <span class="dot"><i class="mdi" [ngClass]="i < stepIndex ? 'mdi-check' : 'mdi-circle-small'"></i></span>
-            <small>{{ s }}</small>
+            <small>{{ s[1] }}</small>
           </div>
         </div>
-        <p class="text-center mb-3">Current status: <strong class="text-capitalize">{{ app.status }}</strong></p>
+        <p class="text-center mb-3">Current status: <strong>{{ app.status }}</strong></p>
+        <p *ngIf="app.statusCode === 'ACCEPTED'" class="alert alert-success">Congratulations! Your sign-in details for Rahbar have been emailed to you.</p>
 
         <div *ngIf="app.interviewAt" class="alert alert-info">
           <i class="mdi mdi-calendar-clock mr-1"></i><strong>Interview:</strong>
@@ -95,7 +97,7 @@ const STEPS = ['submitted', 'interviewing', 'accepted', 'admitted'];
         <h6 class="mt-4">History</h6>
         <ul class="timeline">
           <li *ngFor="let h of app.history; let first = first" [class.current]="first">
-            <strong class="text-capitalize">{{ h.status }}</strong>
+            <strong>{{ h.status }}</strong>
             <small class="text-muted ml-1">{{ h.date ? (h.date | appDate) : '' }}</small>
             <p *ngIf="h.comments" class="mb-0 small">{{ h.comments }}</p>
           </li>
@@ -134,9 +136,7 @@ export class TrackApplicationComponent implements OnInit {
   }
 
   get stepIndex(): number {
-    const s = (this.app?.status ?? '').toLowerCase();
-    if (s === 'provisional admission letter') return 2;
-    const i = STEPS.indexOf(s);
+    const i = STEPS.findIndex((s) => s[0] === this.app?.statusCode);
     return i >= 0 ? i : 0;
   }
 

@@ -35,6 +35,8 @@ public class FileAccessService {
 
     private final StudentScope studentScope;
     private final GranteeDetailsRepository granteeDetailsRepository;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.ScholarshipApplicationRepository scholarshipApplications;
 
     public FileAccessService(JdbcTemplate jdbc, FileStorageService fileStorageService, StudentScope studentScope,
                              GranteeDetailsRepository granteeDetailsRepository) {
@@ -80,6 +82,11 @@ public class FileAccessService {
                 || exists("""
                 select 1 from application_documents d join grantee_details g on g.grantee_detail_id = d.grantee_detail_id
                  where g.user_id = ? and (d.file_path = ? or d.file_path like ? or d.file_path like ?)
+                """, id, file, like, likeWin)
+                // documents of their scholarship application (once accepted)
+                || exists("""
+                select 1 from application_documents d join scholarship_applications a on a.id = d.application_id
+                 where a.student_user_id = ? and (d.file_path = ? or d.file_path like ? or d.file_path like ?)
                 """, id, file, like, likeWin);
     }
 
@@ -117,11 +124,11 @@ public class FileAccessService {
         students.addAll(jdbc.queryForList("select grantee_id from student_progress where file_path = ? or file_path like ? or file_path like ?",
                 Long.class, file, like, likeWin));
         for (Long s : students) if (scope.includesId(s, users)) return true;
-        List<Long> apps = jdbc.queryForList("select grantee_detail_id from application_documents where file_path = ? or file_path like ? or file_path like ?",
-                Long.class, file, like, likeWin);
+        List<Long> apps = jdbc.queryForList("select application_id from application_documents where application_id is not null "
+                + "and (file_path = ? or file_path like ? or file_path like ?)", Long.class, file, like, likeWin);
         for (Long a : apps) {
-            GranteeDetails g = granteeDetailsRepository.findById(a).orElse(null);
-            if (g != null && scope.includesApplication(g, users)) return true;
+            com.rahbar.entity.ScholarshipApplication app = scholarshipApplications.findById(a).orElse(null);
+            if (app != null && scope.includesApplication(app, users)) return true;
         }
         return false;
     }

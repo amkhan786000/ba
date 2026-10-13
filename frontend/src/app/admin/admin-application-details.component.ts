@@ -5,13 +5,16 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
-import { APPLICATION_STATUSES, ApplicationRow } from './admin-applications.component';
+import { APPLICATION_STATUSES, ApplicationRow, applicationBadge } from './admin-applications.component';
 import { InterviewScoresComponent } from '../shared/interview-scores.component';
 import { AppDatePipe } from '../shared/app-date';
 
 interface ApplicationDetail extends ApplicationRow {
-  user_id: number | null;
-  user_code: string | null;
+  student_code: string | null;
+  sex: string | null;
+  staff_note: string | null;
+  decided_at: string | null;
+  decided_by_name: string | null;
   address: string | null;
   father_profession: string | null;
   mother_profession: string | null;
@@ -41,10 +44,10 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
             <a [routerLink]="['/' + section, 'applications']" class="small font-weight-bold"><i class="mdi mdi-arrow-left"></i> Applications</a>
             <h4 class="page-title mt-1">
               {{ app?.name || 'Application' }}
-              <span *ngIf="app" class="badge ml-2 align-middle" [ngClass]="badge(app.status)">{{ app.status || 'no status' }}</span>
+              <span *ngIf="app" class="badge ml-2 align-middle" [ngClass]="badge(app.status)">{{ app.status_label }}</span>
             </h4>
           </div>
-          <span class="text-muted mt-2 mt-md-0" *ngIf="app">Application #{{ app.grantee_detail_id }} · submitted {{ app.created_at ? (app.created_at | appDate) : '--' }}</span>
+          <span class="text-muted mt-2 mt-md-0" *ngIf="app">Application #{{ app.id }} · applied {{ app.created_at ? (app.created_at | appDate) : '--' }}</span>
         </div>
       </div>
     </div>
@@ -56,7 +59,8 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
           <div class="card-body">
             <h4 class="header-title">Applicant</h4>
             <div class="detail-grid">
-              <div><span>Student</span><strong>{{ app.name }}</strong></div>
+              <div><span>Student</span><strong>{{ app.name }}</strong><small>{{ app.sex === 'F' ? 'Female' : app.sex === 'M' ? 'Male' : '' }}</small></div>
+              <div><span>Email</span><strong>{{ app.email }}</strong></div>
               <div><span>Student mobile</span><strong>{{ app.student_mobile || '--' }}</strong></div>
               <div><span>Course applied</span><strong>{{ app.course_applied || '--' }}</strong></div>
               <div><span>RCC center</span><strong>{{ app.rcc_name || '--' }}</strong></div>
@@ -64,7 +68,9 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
               <div><span>Mother</span><strong>{{ app.mother_name || '--' }}</strong><small>{{ app.mother_profession }} {{ app.mother_mobile }}</small></div>
               <div><span>Annual income</span><strong>{{ app.average_annual_salary != null ? '₹' + (app.average_annual_salary | number: '1.0-2') : 'N/A' }}</strong></div>
               <div><span>Address</span><strong>{{ app.address || '--' }}</strong></div>
-              <div><span>Student account</span><strong>{{ app.user_code || 'Not linked yet' }}</strong></div>
+              <div><span>Student record</span><strong>
+                <a *ngIf="app.student_user_id && section === 'admin'; else noLink" [routerLink]="['/admin/users', app.student_user_id, 'edit']">{{ app.student_code }}</a>
+                <ng-template #noLink>{{ app.student_code || 'Made when the application is accepted' }}</ng-template></strong></div>
             </div>
           </div>
         </div>
@@ -105,26 +111,65 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
       </div>
 
       <div class="col-12 col-xl-5">
-        <div class="card">
+        <!-- Accepted: the student exists; nothing more to decide here. -->
+        <div class="card border-success" *ngIf="app.status === 'ACCEPTED'">
           <div class="card-body">
-            <h4 class="header-title">Update status</h4>
-            <form (ngSubmit)="save()">
-              <div class="form-group">
-                <label for="status">Status</label>
-                <select name="status" id="status" class="form-control" [(ngModel)]="status" required>
-                  <option *ngFor="let s of statuses" [value]="s.value">{{ s.label }}</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="comments">Comment</label>
-                <textarea name="comments" id="comments" class="form-control" rows="2" [(ngModel)]="comments"></textarea>
-              </div>
-              <button type="submit" class="btn btn-primary btn-block" [disabled]="saving || !status">Update status</button>
-            </form>
+            <h4 class="header-title text-success"><i class="mdi mdi-check-decagram mr-1"></i>Accepted</h4>
+            <p class="mb-1">Accepted {{ app.decided_at | appDate: 'datetime' }}<ng-container *ngIf="app.decided_by_name"> by {{ app.decided_by_name }}</ng-container>.</p>
+            <p class="mb-1">Student record: <strong>{{ app.student_code }}</strong>.
+              <a *ngIf="section === 'admin'" [routerLink]="['/admin/users', app.student_user_id, 'edit']">Open</a> to add the sponsor, college / course and payment details.</p>
+            <p *ngIf="app.staff_note" class="mb-0 text-muted"><i class="mdi mdi-note-text-outline mr-1"></i>{{ app.staff_note }}</p>
+            <div *ngIf="temporaryPassword" class="alert alert-warning mt-3 mb-0">
+              The email could not be sent. Give the student this temporary password: <strong>{{ temporaryPassword }}</strong>
+            </div>
           </div>
         </div>
 
-        <div class="card">
+        <ng-container *ngIf="app.status !== 'ACCEPTED'">
+          <div class="card border-success" *ngIf="app.status !== 'REJECTED'">
+            <div class="card-body">
+              <h4 class="header-title">Accept</h4>
+              <p class="small text-muted">Accepting makes the student record from this application (the temporary password is emailed to
+                {{ app.email }}) and copies the family details. Sponsor and other details are completed on the student's profile.</p>
+              <ng-container *ngIf="!accepting; else acceptForm">
+                <button type="button" class="btn btn-success btn-block" (click)="accepting = true"><i class="mdi mdi-check mr-1"></i>Accept and create student</button>
+              </ng-container>
+              <ng-template #acceptForm>
+                <div class="form-group">
+                  <label for="note">Staff note <small class="text-muted">(optional)</small></label>
+                  <textarea id="note" class="form-control" rows="3" [(ngModel)]="note" maxlength="2000"
+                            placeholder="e.g. interview result, conditions, who will follow up"></textarea>
+                </div>
+                <div class="d-flex">
+                  <button type="button" class="btn btn-success flex-grow-1 mr-2" (click)="accept()" [disabled]="saving">
+                    {{ saving ? 'Creating the student…' : 'Confirm: accept' }}</button>
+                  <button type="button" class="btn btn-light" (click)="accepting = false" [disabled]="saving">Cancel</button>
+                </div>
+              </ng-template>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-body">
+              <h4 class="header-title">Move to another step</h4>
+              <form (ngSubmit)="save()">
+                <div class="form-group">
+                  <label for="status">Step</label>
+                  <select name="status" id="status" class="form-control" [(ngModel)]="status" required>
+                    <option *ngFor="let s of steps" [value]="s.value">{{ s.label }}</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="comments">Comment <small class="text-muted">(emailed to the applicant)</small></label>
+                  <textarea name="comments" id="comments" class="form-control" rows="2" [(ngModel)]="comments"></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-block" [disabled]="saving || !status || status === app.status">Update</button>
+              </form>
+            </div>
+          </div>
+        </ng-container>
+
+        <div class="card" *ngIf="app.status !== 'ACCEPTED' && app.status !== 'REJECTED'">
           <div class="card-body">
             <h4 class="header-title">Interview</h4>
             <div *ngIf="app.interview_at" class="alert alert-info">
@@ -157,7 +202,7 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
             <p *ngIf="!history.length" class="text-muted mb-0">No status changes yet.</p>
             <ul class="timeline">
               <li *ngFor="let h of history; let first = first" [class.current]="first">
-                <span class="badge" [ngClass]="badge(h.status)">{{ h.status }}</span>
+                <span class="badge" [ngClass]="badgeOfLabel(h.status)">{{ h.status }}</span>
                 <small class="text-muted ml-1">{{ h.date ? (h.date | appDate: 'datetime') : '' }}</small>
                 <p *ngIf="h.comments" class="mb-0 mt-1">{{ h.comments }}</p>
               </li>
@@ -174,7 +219,9 @@ export class AdminApplicationDetailsComponent implements OnInit {
   @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
   get section(): string { return this._section; }
   private _section = 'admin';
-  readonly statuses = APPLICATION_STATUSES;
+  /** Steps staff can move an application to here (accepting has its own button). */
+  readonly steps = APPLICATION_STATUSES.filter((s) => s.value !== 'ACCEPTED');
+  readonly badge = applicationBadge;
 
   app: ApplicationDetail | null = null;
   history: HistoryRow[] = [];
@@ -187,6 +234,9 @@ export class AdminApplicationDetailsComponent implements OnInit {
   docType = 'Marksheet';
   docFile: File | null = null;
   saving = false;
+  accepting = false;
+  note = '';
+  temporaryPassword = '';
   scheduling = false;
   uploading = false;
   message = '';
@@ -212,13 +262,23 @@ export class AdminApplicationDetailsComponent implements OnInit {
     });
   }
 
-  badge(status: string | null): string {
-    const s = (status ?? '').toLowerCase();
-    if (s.includes('accepted') || s.includes('admitted')) return 'badge-success';
-    if (s.includes('rejected')) return 'badge-danger';
-    if (s.includes('submitted') || s.includes('interviewing')) return 'badge-primary';
-    if (s.includes('on hold') || s.includes('waitlisted')) return 'badge-warning';
-    return 'badge-info';
+  /** History rows carry the label ("Interview called"): find its code for the colour. */
+  badgeOfLabel(label: string): string {
+    return applicationBadge(APPLICATION_STATUSES.find((s) => s.label === label)?.value);
+  }
+
+  accept(): void {
+    this.saving = true;
+    this.api.post<{ message: string; temporaryPassword?: string }>(`/admin/applications/${this.id}/accept`, { note: this.note }).subscribe({
+      next: (r) => {
+        this.saving = false;
+        this.accepting = false;
+        this.message = r.message;
+        this.temporaryPassword = r.temporaryPassword ?? '';
+        this.load();
+      },
+      error: (e) => { this.saving = false; this.error = errorText(e, 'Could not accept the application.'); }
+    });
   }
 
   save(): void {
