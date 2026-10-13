@@ -22,9 +22,12 @@ public class AccountService {
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final NotificationService notificationService;
+    private final TrustedDeviceService trustedDevices;
 
     public AccountService(UserRepository userRepository, ChapterRepository chapterRepository, RoleRepository roleRepository,
-                          PasswordEncoder passwordEncoder, NotificationService notificationService) {
+                          PasswordEncoder passwordEncoder, NotificationService notificationService,
+                          TrustedDeviceService trustedDevices) {
+        this.trustedDevices = trustedDevices;
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.roleRepository = roleRepository;
@@ -117,6 +120,7 @@ public class AccountService {
         u.setPasswordHash(passwordEncoder.encode(newPassword));
         u.setMustChangePassword(false);
         userRepository.save(u);
+        trustedDevices.forgetAll(userId); // a new password: every remembered browser must use a code again
         notificationService.notify(userId, "Password changed",
                 "Your Rahbar password was changed. If this wasn't you, contact the administrator straight away.",
                 NotificationService.ACCOUNT, null, EmailType.PASSWORD_CHANGED, ServiceSupport.vars());

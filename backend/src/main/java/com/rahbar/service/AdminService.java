@@ -68,6 +68,7 @@ public class AdminService {
     private final com.rahbar.security.SponsorPrivacy sponsorPrivacy;
     private final PasswordEncoder passwordEncoder;
     private final FileStorageService fileStorageService;
+    private final TrustedDeviceService trustedDevices;
 
     public AdminService(UserRepository userRepository, ChapterRepository chapterRepository, RoleRepository roleRepository,
                         ApplicationPeriodRepository applicationPeriodRepository,
@@ -87,7 +88,8 @@ public class AdminService {
                         com.rahbar.security.SponsorPrivacy sponsorPrivacy,
                         StudentStatusHistoryRepository statusHistoryRepository,
                         PaymentInstallmentService installmentService,
-                        com.rahbar.security.StudentScope studentScope) {
+                        com.rahbar.security.StudentScope studentScope, TrustedDeviceService trustedDevices) {
+        this.trustedDevices = trustedDevices;
         this.studentScope = studentScope;
         this.installmentService = installmentService;
         this.userRepository = userRepository;
@@ -309,6 +311,7 @@ public class AdminService {
         user.setFailedAttempts(0);
         user.setLockedUntil(null); // also unlocks an account locked after too many wrong passwords
         userRepository.save(user);
+        trustedDevices.forgetAll(user.getId()); // remembered browsers must use a code again
 
         String email = user.getEmail();
         boolean usableEmail = email != null && email.contains("@") && !email.trim().toLowerCase(Locale.ROOT).endsWith("@rahbar.com");

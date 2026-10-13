@@ -3,8 +3,11 @@ package com.rahbar.controller;
 import com.rahbar.dto.*;
 import com.rahbar.entity.User;
 import com.rahbar.service.AuthService;
+import com.rahbar.service.TrustedDeviceService;
+import com.rahbar.util.DeviceCookie;
 import com.rahbar.config.ActivityLogInterceptor;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -19,19 +22,28 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final TrustedDeviceService trustedDevices;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, TrustedDeviceService trustedDevices) {
         this.authService = authService;
+        this.trustedDevices = trustedDevices;
     }
 
     @PostMapping("/login")
     public AuthResponse login(@RequestBody LoginRequest req, HttpServletRequest request) {
-        return authService.login(req, ActivityLogInterceptor.clientIp(request));
+        return authService.login(req, ActivityLogInterceptor.clientIp(request), DeviceCookie.read(request));
     }
 
     @PostMapping("/verify-otp")
-    public AuthResponse verifyOtp(@RequestBody OtpVerifyRequest req, HttpServletRequest request) {
-        return authService.verifyOtp(req, ActivityLogInterceptor.clientIp(request));
+    public AuthResponse verifyOtp(@RequestBody OtpVerifyRequest req, HttpServletRequest request, HttpServletResponse response) {
+        String ip = ActivityLogInterceptor.clientIp(request);
+        AuthResponse res = authService.verifyOtp(req, ip);
+        // "Remember this device": this browser skips the code next time, until the cookie expires.
+        if (req.isRememberDevice()) {
+            trustedDevices.remember(res.getId(), request.getHeader("User-Agent"), ip)
+                    .ifPresent(d -> DeviceCookie.write(request, response, d.token(), d.days()));
+        }
+        return res;
     }
 
     @PostMapping("/register")

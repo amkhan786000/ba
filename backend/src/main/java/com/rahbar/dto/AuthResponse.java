@@ -20,6 +20,8 @@ public class AuthResponse {
     private java.util.Set<Integer> roleIds = java.util.Set.of();
 
     private String scope;
+    /** With otpRequired: for how many days "Remember this device" skips the code (0 = not offered). */
+    private int rememberDays;
 
     public static AuthResponse otpRequired(Long id, String message) {
         AuthResponse r = new AuthResponse();
@@ -64,4 +66,6 @@ public class AuthResponse {
     public java.util.Set<Integer> getRoleIds() { return roleIds; }
     public void setRoleIds(java.util.Set<Integer> roleIds) { this.roleIds = roleIds; }
     public void setMessage(String message) { this.message = message; }
+    public int getRememberDays() { return rememberDays; }
+    public void setRememberDays(int rememberDays) { this.rememberDays = rememberDays; }
 }

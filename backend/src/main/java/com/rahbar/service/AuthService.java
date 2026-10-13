@@ -31,6 +31,8 @@ public class AuthService {
     private final NotificationService notificationService;
     private final com.rahbar.security.RahbarUserDetailsService userDetailsService;
     private final com.rahbar.repository.PasswordResetCodeRepository resetCodeRepository;
+    private final TrustedDeviceService trustedDevices;
+    private final SignInSettings signInSettings;
 
     /** Wrong passwords / OTPs (or guesses of one reset code) allowed before locking / voiding. */
     public static final int MAX_ATTEMPTS = 5;
@@ -51,7 +53,8 @@ public class AuthService {
                        EmailService emailService, ActivityLogService activityLogService,
                        NotificationService notificationService,
                        com.rahbar.security.RahbarUserDetailsService userDetailsService,
-                       com.rahbar.repository.PasswordResetCodeRepository resetCodeRepository) {
+                       com.rahbar.repository.PasswordResetCodeRepository resetCodeRepository,
+                       TrustedDeviceService trustedDevices, SignInSettings signInSettings) {
         this.userRepository = userRepository;
         this.otpRepository = otpRepository;
         this.passwordEncoder = passwordEncoder;
@@ -61,6 +64,8 @@ public class AuthService {
         this.notificationService = notificationService;
         this.userDetailsService = userDetailsService;
         this.resetCodeRepository = resetCodeRepository;
+        this.trustedDevices = trustedDevices;
+        this.signInSettings = signInSettings;
     }
 
     /**
@@ -76,6 +81,14 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest req, String ip) {
+        return login(req, ip, null);
+    }
+
+    /**
+     * Password check, then the emailed code, unless {@code deviceToken} (the browser's "remember this device"
+     * cookie) is this user's remembered, unexpired device: then the code is skipped.
+     */
+    public AuthResponse login(LoginRequest req, String ip, String deviceToken) {
         String method = "phone".equalsIgnoreCase(req.getLoginMethod()) ? "phone" : "email";
         Optional<User> userOpt = method.equals("phone") ? findByPhone(req.getIdentifier()) : findByEmail(req.getIdentifier());
 
@@ -119,6 +132,12 @@ public class AuthService {
             return issueToken(user); // original redirected straight to public_application
         }
 
+        // A browser the user chose to remember after an earlier code skips the code until it expires.
+        if (trustedDevices.isTrusted(user.getId(), deviceToken, ip)) {
+            activityLogService.record(user, "Signed in (remembered device, no code needed)", "POST", "/api/auth/login", 200, ip);
+            return issueToken(user);
+        }
+
         // Issue an OTP step-up, same as the Flask flow.
         String otpCode = String.format("%06d", RANDOM.nextInt(1_000_000));
         Otp otp = new Otp();
@@ -131,7 +150,9 @@ public class AuthService {
         emailService.sendWithSecret(EmailType.LOGIN_OTP, user.getEmail(), ServiceSupport.vars("name", user.getName(), "code", otpCode), otpCode);
         if (logOtp) log.warn("LOG_OTP is on: sign-in OTP for {} is {}", user.getUserId(), otpCode);
 
-        return AuthResponse.otpRequired(user.getId(), "An OTP has been sent to your email. Please verify.");
+        AuthResponse otpNeeded = AuthResponse.otpRequired(user.getId(), "An OTP has been sent to your email. Please verify.");
+        otpNeeded.setRememberDays(signInSettings.rememberDays());
+        return otpNeeded;
     }
 
     public AuthResponse verifyOtp(OtpVerifyRequest req, String ip) {
@@ -286,6 +307,7 @@ public class AuthService {
         user.setFailedAttempts(0);
         user.setLockedUntil(null); // proving access to the mailbox also lifts a sign-in lock
         userRepository.save(user);
+        trustedDevices.forgetAll(user.getId()); // a new password: every browser must use a code again
         activityLogService.record(user, "Reset a forgotten password", "POST", "/api/auth/reset-password", 200, ip);
         // Same notice as a password change from the profile: in-app notification plus email.
         notificationService.notify(user.getId(), "Password changed",

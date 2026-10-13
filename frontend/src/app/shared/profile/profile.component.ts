@@ -9,6 +9,7 @@ import { AlertsComponent, errorText } from '../alerts/alerts.component';
 import { PasswordFormComponent } from '../password-form.component';
 import { localDate } from '../format';
 import { PushService } from '../../core/services/push.service';
+import { AppDatePipe } from '../app-date';
 
 interface Profile {
   userId: string; name: string; email: string; phone: string; sex: string | null; chapterId: number | null; chapterName: string | null;
@@ -21,7 +22,7 @@ interface Profile {
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PasswordFormComponent],
+  imports: [CommonModule, FormsModule, AlertsComponent, PasswordFormComponent, AppDatePipe],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">My Profile</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -127,8 +128,28 @@ interface Profile {
 
         <div class="card">
           <div class="card-body">
+            <h4 class="header-title">Remembered devices</h4>
+            <p class="text-muted small">Browsers where you ticked "Remember this device": they don't ask for the emailed code until the date shown
+              (your password is still needed). Changing your password forgets them all.</p>
+            <p *ngIf="!devices.length" class="mb-0 text-muted">None. Every sign-in asks for a code.</p>
+            <ul class="list-unstyled mb-0" *ngIf="devices.length">
+              <li *ngFor="let d of devices" class="d-flex justify-content-between align-items-center py-2 border-bottom">
+                <span>
+                  <i class="mdi mdi-laptop mr-1"></i><strong>{{ d.device_name || 'Browser' }}</strong>
+                  <span *ngIf="d.current" class="badge badge-success ml-1">This device</span>
+                  <small class="d-block text-muted">Last used {{ d.last_used_at | appDate: 'datetime' }} · remembered until {{ d.expires_at | appDate }}</small>
+                </span>
+                <button class="btn btn-sm btn-outline-danger" (click)="forgetDevice(d)">Forget</button>
+              </li>
+            </ul>
+            <button *ngIf="devices.length > 1" class="btn btn-sm btn-link text-danger px-0 mt-2" (click)="forgetAllDevices()">Forget all devices</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-body">
             <h4 class="header-title">Change password</h4>
-            <app-password-form (changed)="message = $event"></app-password-form>
+            <app-password-form (changed)="message = $event; loadDevices()"></app-password-form>
           </div>
         </div>
       </div>
@@ -143,6 +164,8 @@ export class ProfileComponent implements OnInit {
   message = '';
   error = '';
   readonly date = localDate;
+
+  devices: RememberedDevice[] = [];
 
   pushOn = false;
   pushBusy = false;
@@ -183,7 +206,28 @@ export class ProfileComponent implements OnInit {
     return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
   }
 
+  loadDevices(): void {
+    this.api.get<RememberedDevice[]>('/account/devices').subscribe({ next: (d) => (this.devices = d), error: () => (this.devices = []) });
+  }
+
+  forgetDevice(d: RememberedDevice): void {
+    if (!confirm(`Forget ${d.device_name || 'this browser'}? It will ask for a code at the next sign-in.`)) return;
+    this.api.delete<{ message: string }>(`/account/devices/${d.id}`).subscribe({
+      next: (r) => { this.message = r.message; this.loadDevices(); },
+      error: (e) => (this.error = errorText(e, 'Could not forget the device.'))
+    });
+  }
+
+  forgetAllDevices(): void {
+    if (!confirm('Forget all remembered devices? Each will ask for a code at the next sign-in.')) return;
+    this.api.delete<{ message: string }>('/account/devices').subscribe({
+      next: (r) => { this.message = r.message; this.loadDevices(); },
+      error: (e) => (this.error = errorText(e, 'Could not forget the devices.'))
+    });
+  }
+
   ngOnInit(): void {
+    this.loadDevices();
     this.push.isOn().then((on) => (this.pushOn = on)).catch(() => {});
     this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
     this.api.get<Profile>('/account/profile').subscribe({
@@ -211,4 +255,8 @@ export class ProfileComponent implements OnInit {
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not save your profile.'); }
     });
   }
+}
+
+interface RememberedDevice {
+  id: number; device_name: string | null; created_at: string; last_used_at: string | null; expires_at: string; current: boolean;
 }
