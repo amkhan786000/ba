@@ -33,6 +33,30 @@ public class AccountController {
     /** Roles with their own portal (coordinator, convenor, sponsor, student): not offered for "View as". */
     private static final java.util.Set<Integer> PORTAL_ROLES = java.util.Set.of(3, 4, 5, 6);
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.service.TrustedDeviceService trustedDevices;
+
+    /** Browsers that skip the emailed sign-in code ("Remember this device"), marking this one. */
+    @GetMapping("/devices")
+    public List<Map<String, Object>> devices(jakarta.servlet.http.HttpServletRequest request) {
+        return trustedDevices.list(me(), com.rahbar.util.DeviceCookie.read(request));
+    }
+
+    @DeleteMapping("/devices/{id}")
+    public Map<String, String> forgetDevice(@PathVariable Long id) {
+        trustedDevices.forget(me(), id);
+        return Map.of("message", "Forgotten. That browser will ask for a code at the next sign-in.");
+    }
+
+    /** Forgets every remembered browser, and clears this browser's cookie. */
+    @DeleteMapping("/devices")
+    public Map<String, String> forgetAllDevices(jakarta.servlet.http.HttpServletRequest request,
+                                                jakarta.servlet.http.HttpServletResponse response) {
+        long n = trustedDevices.forgetAll(me());
+        com.rahbar.util.DeviceCookie.clear(request, response);
+        return Map.of("message", n == 0 ? "No remembered devices." : "Forgotten " + n + " device(s). Each will ask for a code at the next sign-in.");
+    }
+
     @GetMapping("/access")
     public Map<String, Object> access() {
         var p = com.rahbar.security.Access.current();

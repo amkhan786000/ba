@@ -24,6 +24,8 @@ interface LoginResponse {
   status?: string;
   message?: string;
   mustChangePassword?: boolean;
+  /** With otpRequired: days "Remember this device" skips the code (0 = not offered). */
+  rememberDays?: number;
   permissions?: string[];
   scope?: string;
 }
@@ -61,8 +63,9 @@ export class AuthService {
     return this.http.post<LoginResponse>(`${environment.apiBaseUrl}/auth/login`, { loginMethod, identifier, password });
   }
 
-  verifyOtp(id: number, otp: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(`${environment.apiBaseUrl}/auth/verify-otp`, { id, otp })
+  /** rememberDevice: this browser skips the code at later sign-ins until it expires (an HttpOnly cookie). */
+  verifyOtp(id: number, otp: string, rememberDevice = false): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>(`${environment.apiBaseUrl}/auth/verify-otp`, { id, otp, rememberDevice })
       .pipe(tap((res) => this.persistSession(res)));
   }
 

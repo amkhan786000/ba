@@ -29,9 +29,14 @@ class AuthServiceTest {
 
     private final UserRepository users = mock(UserRepository.class);
     private final PasswordEncoder encoder = mock(PasswordEncoder.class);
-    private final AuthService service = new AuthService(users, mock(OtpRepository.class), encoder,
-            mock(JwtService.class), mock(EmailService.class), mock(ActivityLogService.class),
-            mock(NotificationService.class), mock(RahbarUserDetailsService.class), mock(PasswordResetCodeRepository.class));
+    private final OtpRepository otps = mock(OtpRepository.class);
+    private final EmailService email = mock(EmailService.class);
+    private final RahbarUserDetailsService details = mock(RahbarUserDetailsService.class);
+    private final TrustedDeviceService devices = mock(TrustedDeviceService.class);
+    private final SignInSettings signIn = mock(SignInSettings.class);
+    private final AuthService service = new AuthService(users, otps, encoder,
+            mock(JwtService.class), email, mock(ActivityLogService.class),
+            mock(NotificationService.class), details, mock(PasswordResetCodeRepository.class), devices, signIn);
 
     private static LoginRequest login(String method, String identifier, String password) {
         LoginRequest r = new LoginRequest();
@@ -86,5 +91,45 @@ class AuthServiceTest {
         r.setEmail("");
         assertEquals(HttpStatus.BAD_REQUEST, assertThrows(ApiException.class, () -> service.resetPassword(r, "1.2.3.4")).getStatus());
         verify(users, never()).findByEmail(any());
+    }
+
+    private User activeUser() {
+        User u = new User();
+        u.setId(7L);
+        u.setName("Asha");
+        u.setRoleId(5);
+        u.setStatus("Active");
+        u.setPasswordHash("hash");
+        when(users.findByEmail("a@b.org")).thenReturn(Optional.of(u));
+        when(encoder.matches("pw", "hash")).thenReturn(true);
+        when(details.principalFor(u)).thenReturn(mock(com.rahbar.security.RahbarUserPrincipal.class));
+        return u;
+    }
+
+    @Test
+    void aRememberedDeviceSkipsTheEmailedCode() {
+        activeUser();
+        when(devices.isTrusted(7L, "token", "1.2.3.4")).thenReturn(true);
+        var res = service.login(login("email", "a@b.org", "pw"), "1.2.3.4", "token");
+        assertFalse(res.isOtpRequired());
+        verify(otps, never()).save(any());
+        verifyNoInteractions(email);
+    }
+
+    @Test
+    void otherwiseACodeIsSentAndRememberingIsOffered() {
+        activeUser();
+        when(signIn.rememberDays()).thenReturn(30);
+        var res = service.login(login("email", "a@b.org", "pw"), "1.2.3.4", "someone-elses-token");
+        assertTrue(res.isOtpRequired());
+        assertEquals(30, res.getRememberDays());
+        verify(otps).save(any());
+    }
+
+    @Test
+    void aRememberedDeviceStillNeedsThePassword() {
+        activeUser();
+        when(devices.isTrusted(anyLong(), any(), any())).thenReturn(true);
+        assertThrows(ApiException.class, () -> service.login(login("email", "a@b.org", "wrong"), "1.2.3.4", "token"));
     }
 }

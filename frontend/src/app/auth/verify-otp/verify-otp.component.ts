@@ -16,17 +16,21 @@ export class VerifyOtpComponent {
   /** users.id from the login step. */
   id = 0;
   otp = '';
+  /** Days "Remember this device" lasts (0: not offered). */
+  rememberDays = 0;
+  remember = false;
   error = '';
   loading = false;
 
   constructor(private auth: AuthService, private router: Router, route: ActivatedRoute) {
     this.id = Number(route.snapshot.queryParamMap.get('id')) || 0;
+    this.rememberDays = Number(route.snapshot.queryParamMap.get('days')) || 0;
   }
 
   submit(): void {
     this.error = '';
     this.loading = true;
-    this.auth.verifyOtp(this.id, this.otp).subscribe({
+    this.auth.verifyOtp(this.id, this.otp, this.remember && this.rememberDays > 0).subscribe({
       next: (res) => {
         this.loading = false;
         this.router.navigate([res.mustChangePassword ? '/change-password' : landingPath(this.auth.currentUser())]);
