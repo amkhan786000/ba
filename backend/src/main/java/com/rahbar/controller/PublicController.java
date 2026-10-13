@@ -9,14 +9,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * Mirrors the public-facing bits of routes/admin.py: /apply, /application_status.
- *
- * NOTE: in the original Flask code, public_application() (the public
- * scholarship application form) was annotated @login_required, which
- * contradicts its own "public application" purpose and its template name
- * (public/apply.html). That looks like a bug, so this migration makes the
- * endpoint genuinely public, matching the apparent intent. Flag this to the
- * product owner in case the login requirement was actually deliberate.
+ * Public (no login) application tracking: look up an application by its number and a mobile on the form, and
+ * upload its documents. The application form itself is on the website (WebsiteScholarshipController).
  */
 @RestController
 @RequestMapping("/api/public")
@@ -49,16 +43,7 @@ public class PublicController {
         return applicationService.uploadByApplicant(id, mobile, docType, file);
     }
 
-    @GetMapping("/application-form-options")
-    public Map<String, Object> formOptions() {
-        return publicService.formOptions();
-    }
-
-    @PostMapping("/apply")
-    public Map<String, Object> apply(@RequestBody Map<String, Object> form) {
-        Long applicationId = publicService.apply(form);
-        return Map.of("message", "Application submitted successfully!", "applicationId", applicationId);
-    }
+    // The application form itself is on the website: WebsiteScholarshipController (/api/public/website/scholarship).
 
     @GetMapping("/application-status/{applicationId}")
     public Map<String, Object> applicationStatus(@PathVariable Long applicationId) {

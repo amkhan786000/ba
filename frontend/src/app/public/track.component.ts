@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
+import { WEBSITE_APPLY_URL } from '../core/models/website';
 import { ApiService } from '../core/services/api.service';
 import { errorText } from '../shared/alerts/alerts.component';
 import { AuthLayoutComponent } from '../shared/auth-layout/auth-layout.component';
@@ -106,7 +107,7 @@ const STEPS: [string, string][] = [['APPLIED', 'Applied'], ['IN_PROCESS', 'In pr
       </ng-container>
 
       <div class="auth-links center">
-        <a routerLink="/apply" *ngIf="!app">Apply for a scholarship</a>
+        <a [href]="applyUrl" *ngIf="!app">Apply for a scholarship</a>
         <a routerLink="/login"><i class="mdi mdi-arrow-left mr-1"></i>Back to sign in</a>
       </div>
     </app-auth-layout>
@@ -124,6 +125,8 @@ export class TrackApplicationComponent implements OnInit {
   docFile: File | null = null;
   uploading = false;
   uploaded = '';
+
+  readonly applyUrl = WEBSITE_APPLY_URL;
 
   constructor(private api: ApiService, private route: ActivatedRoute) {}
 

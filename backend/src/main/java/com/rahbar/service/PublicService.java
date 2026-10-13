@@ -16,23 +16,18 @@ import java.util.*;
 import static com.rahbar.service.ServiceSupport.isBlank;
 import static com.rahbar.service.ServiceSupport.str;
 
-/** Public scholarship application form and application-status lookup (no login). */
+/** Scholarship applications from the website (see WebsiteScholarshipController) and the application-status lookup (no login). */
 @Service
 public class PublicService {
 
     private final ApplicationPeriodRepository applicationPeriodRepository;
-    private final RccCenterRepository rccCenterRepository;
-    private final CourseRepository courseRepository;
     private final ScholarshipApplicationRepository applications;
     private final ApplicationStatusRepository applicationStatusRepository;
 
     public PublicService(ApplicationPeriodRepository applicationPeriodRepository,
-                         RccCenterRepository rccCenterRepository, CourseRepository courseRepository,
                          ScholarshipApplicationRepository applications,
                          ApplicationStatusRepository applicationStatusRepository) {
         this.applicationPeriodRepository = applicationPeriodRepository;
-        this.rccCenterRepository = rccCenterRepository;
-        this.courseRepository = courseRepository;
         this.applications = applications;
         this.applicationStatusRepository = applicationStatusRepository;
     }
@@ -41,14 +36,6 @@ public class PublicService {
     public boolean isApplicationPeriodOpen() {
         LocalDateTime today = LocalDate.now().atStartOfDay();
         return applicationPeriodRepository.existsByIsActiveTrueAndStartDateLessThanEqualAndEndDateGreaterThanEqual(today, today);
-    }
-
-    public Map<String, Object> formOptions() {
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("periodOpen", isApplicationPeriodOpen());
-        result.put("rccCenters", Rows.list(rccCenterRepository.findAll()));
-        result.put("courses", Rows.list(courseRepository.findAll()));
-        return result;
     }
 
     /** Saves a new scholarship application (status Applied) and its first history row; returns the application id. */
