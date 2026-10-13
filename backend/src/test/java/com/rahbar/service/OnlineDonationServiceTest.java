@@ -78,7 +78,12 @@ class OnlineDonationServiceTest {
     void aPaidDonationIsBookedAsOnlineDonationIncome() {
         FinCategoryRepository categories = mock(FinCategoryRepository.class);
         FinEntryRepository entries = mock(FinEntryRepository.class);
-        when(categories.findAllByOrderByKindAscNameAsc()).thenReturn(List.of());
+        WebProjectRepository projects = mock(WebProjectRepository.class);
+        WebProject reb = new WebProject();
+        reb.setId(7L);
+        reb.setSlug("rahbar-e-banaat");
+        when(projects.findById(7L)).thenReturn(Optional.of(reb));
+        when(categories.findByBookOrderByKindAscNameAsc(any())).thenReturn(List.of());
         when(categories.save(any())).thenAnswer(i -> { FinCategory c = i.getArgument(0); c.setId(4L); return c; });
         OnlinePayment p = new OnlinePayment();
         p.setPurpose("DONATION");
@@ -88,13 +93,18 @@ class OnlineDonationServiceTest {
         p.setReceiptNo("RB/80G/2026-27/000003");
         p.setGatewayPaymentId("pay_x");
         p.setPaidAt(LocalDateTime.of(2026, 10, 12, 10, 0));
-        new DonationBooks(categories, entries).record(p, 7L);
-        verify(categories).save(argThat(c -> "Online donations".equals(c.getName()) && "INCOME".equals(c.getKind())));
-        verify(entries).save(argThat((FinEntry e) -> "INCOME".equals(e.getKind()) && e.getCategoryId() == 4L && e.getProjectId() == 7L
+        new DonationBooks(categories, entries, projects).record(p, 7L);
+        // a donation for the Rahbar-e-Banaat project goes into REB's book
+        verify(categories).save(argThat(c -> "Online donations".equals(c.getName()) && "INCOME".equals(c.getKind()) && "REB".equals(c.getBook())));
+        verify(entries).save(argThat((FinEntry e) -> "INCOME".equals(e.getKind()) && "REB".equals(e.getBook()) && e.getCategoryId() == 4L && e.getProjectId() == 7L
                 && "pay_x".equals(e.getReference()) && e.getDescription().contains("RB/80G/2026-27/000003")));
 
         p.setPurpose("SPONSOR"); // sponsors' payments become payments to students instead
-        new DonationBooks(categories, entries).record(p, null);
+        new DonationBooks(categories, entries, projects).record(p, null);
         verify(entries, times(1)).save(any());
+
+        p.setPurpose("DONATION"); // a general donation goes into Rahbar's book
+        new DonationBooks(categories, entries, projects).record(p, null);
+        verify(entries).save(argThat((FinEntry e) -> "RAHBAR".equals(e.getBook())));
     }
 }

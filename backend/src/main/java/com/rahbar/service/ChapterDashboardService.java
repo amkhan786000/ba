@@ -27,6 +27,8 @@ public class ChapterDashboardService {
     private final GranteeDetailsRepository granteeDetailsRepository;
     private final ScholarshipApplicationRepository scholarshipApplications;
     private final PaymentReminderService paymentReminderService;
+    @org.springframework.beans.factory.annotation.Autowired
+    private FinanceService finance;
 
     public ChapterDashboardService(ChapterRepository chapterRepository, UserRepository userRepository,
                                    GrantorGranteeRepository grantorGranteeRepository,
@@ -142,6 +144,8 @@ public class ChapterDashboardService {
         counts.put("paymentsOverdue", dues.stream().filter(d -> "Overdue".equals(d.get("status"))).count());
         counts.put("openApplications", applications.size());
         body.put("counts", counts);
+        // Rahbar's own money (Administration > Rahbar Income & Expenses), for users who may see it.
+        if (Access.can(com.rahbar.security.Section.FINANCE, com.rahbar.security.Section.Level.VIEW)) body.put("fund", finance.balance(FinanceService.RAHBAR));
         body.put("students", studentRows);
         body.put("sponsors", sponsorRows);
         body.put("dues", dues);

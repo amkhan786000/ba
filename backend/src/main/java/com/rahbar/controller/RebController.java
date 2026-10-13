@@ -47,6 +47,8 @@ public class RebController {
     private com.rahbar.service.RebBillingService billing;
     @org.springframework.beans.factory.annotation.Autowired
     private com.rahbar.service.RebDashboardService dashboards;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.service.FinanceService finance;
 
     public RebController(RebSetupService setup, RebStaffService staff, RebStudentService students, RebImportService importer,
                          RebCertificateService certificates, RebReportService reports) {
@@ -70,6 +72,10 @@ public class RebController {
         Map<String, Object> out = new java.util.LinkedHashMap<>(students.dashboard());
         out.put("fees", billing.monthSummary()); // null without "REB: fees"
         out.put("insights", dashboards.insights()); // charts: each part only with its own REB permission
+        // REB's own book of income & expenses (never Rahbar's).
+        if (com.rahbar.security.Access.can(com.rahbar.security.Section.REB_FINANCE, com.rahbar.security.Section.Level.VIEW)) {
+            out.put("fund", finance.balance(com.rahbar.service.FinanceService.REB));
+        }
         return out;
     }
 

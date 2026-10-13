@@ -5,37 +5,52 @@ import com.rahbar.entity.FinEntry;
 import com.rahbar.entity.OnlinePayment;
 import com.rahbar.repository.FinCategoryRepository;
 import com.rahbar.repository.FinEntryRepository;
+import com.rahbar.repository.WebProjectRepository;
 import org.springframework.stereotype.Service;
 
 /**
- * Books each paid website donation in Administration > Income & Expenses (category "Online donations", the chosen
- * project if any), so the totals and the website's "Where the money goes" include it. Sponsors' online payments are
- * not booked here: they become payments to students, which the summary already counts as scholarships.
+ * Books each paid website donation (category "Online donations", the chosen project if any) in the right book of
+ * income & expenses: donations for the Rahbar-e-Banaat project in REB's book, all others in Rahbar's. Sponsors'
+ * online payments are not booked here: they become payments to students, which Rahbar's summary counts as scholarships.
  */
 @Service
 public class DonationBooks {
 
     static final String CATEGORY = "Online donations";
+    /** The website project whose donations belong to REB's book. */
+    static final String REB_PROJECT_SLUG = "rahbar-e-banaat";
 
     private final FinCategoryRepository categories;
     private final FinEntryRepository entries;
+    private final WebProjectRepository projects;
 
-    public DonationBooks(FinCategoryRepository categories, FinEntryRepository entries) {
+    public DonationBooks(FinCategoryRepository categories, FinEntryRepository entries, WebProjectRepository projects) {
         this.categories = categories;
         this.entries = entries;
+        this.projects = projects;
+    }
+
+    /** REB for donations to the Rahbar-e-Banaat project, else RAHBAR. */
+    String bookFor(Long projectId) {
+        if (projectId == null) return FinanceService.RAHBAR;
+        return projects.findById(projectId).filter(p -> REB_PROJECT_SLUG.equalsIgnoreCase(p.getSlug()))
+                .map(p -> FinanceService.REB).orElse(FinanceService.RAHBAR);
     }
 
     public void record(OnlinePayment p, Long projectId) {
         if (!OnlinePayment.DONATION.equals(p.getPurpose()) || !OnlinePayment.PAID.equals(p.getStatus())) return;
-        FinCategory c = categories.findAllByOrderByKindAscNameAsc().stream()
+        String book = bookFor(projectId);
+        FinCategory c = categories.findByBookOrderByKindAscNameAsc(book).stream()
                 .filter(x -> "INCOME".equals(x.getKind()) && CATEGORY.equalsIgnoreCase(x.getName())).findFirst()
                 .orElseGet(() -> {
                     FinCategory n = new FinCategory();
+                    n.setBook(book);
                     n.setName(CATEGORY);
                     n.setKind("INCOME");
                     return categories.save(n);
                 });
         FinEntry e = new FinEntry();
+        e.setBook(book);
         e.setEntryDate(p.getPaidAt().toLocalDate());
         e.setKind("INCOME");
         e.setCategoryId(c.getId());

@@ -39,6 +39,8 @@ public class DashboardService {
 
     private final JdbcTemplate jdbc;
     private final UserRepository users;
+    @org.springframework.beans.factory.annotation.Autowired
+    private FinanceService finance;
     private final ApplicationPeriodRepository periods;
 
     public DashboardService(JdbcTemplate jdbc, UserRepository users, ApplicationPeriodRepository periods) {
@@ -100,7 +102,10 @@ public class DashboardService {
                 SELECT COALESCE(c.chapter_name, 'No chapter') label, COUNT(*) value FROM users s
                 LEFT JOIN chapters c ON c.chapter_id = s.chapter_id
                 WHERE %s%s%s GROUP BY label ORDER BY value DESC LIMIT 12""".formatted(STUDENT, IN_PROGRAMME, scope)));
-        if (can(Section.FINANCE)) charts.put("finance", financeByMonth(year));
+        if (can(Section.FINANCE)) {
+            charts.put("finance", financeByMonth(year));
+            body.put("fund", finance.balance(FinanceService.RAHBAR)); // Rahbar's own money (never REB's)
+        }
         body.put("charts", charts);
 
         if (can(Section.REB_DASHBOARD)) body.put("reb", reb(today));
@@ -623,7 +628,7 @@ public class DashboardService {
         BigDecimal[] income = zeros(), expense = zeros();
         jdbc.queryForList("""
                 SELECT MONTH(entry_date) m, kind, SUM(amount) amount FROM fin_entries
-                WHERE entry_date >= ? AND entry_date < ? GROUP BY m, kind""", LocalDate.of(year, 1, 1), LocalDate.of(year + 1, 1, 1))
+                WHERE book = 'RAHBAR' AND entry_date >= ? AND entry_date < ? GROUP BY m, kind""", LocalDate.of(year, 1, 1), LocalDate.of(year + 1, 1, 1))
                 .forEach(r -> ("INCOME".equals(r.get("kind")) ? income : expense)[(int) num(r.get("m")) - 1] = money(r.get("amount")));
         return series(months(), List.of(serie("Income", Arrays.asList(income)), serie("Expenses", Arrays.asList(expense))));
     }
