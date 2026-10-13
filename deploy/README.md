@@ -129,7 +129,7 @@ name. It gets and renews free Let's Encrypt certificates by itself; `http://` on
 
 | Opened as | Goes to |
 | --- | --- |
-| `https://biharanjuman.com`, `https://www.biharanjuman.com` | the Bihar Anjuman website (`biharanjuman-frontend`) |
+| `https://www.biharanjuman.com` (`https://biharanjuman.com` is redirected there) | the Bihar Anjuman website (`biharanjuman-frontend`) |
 | `https://rahbar.biharanjuman.com` | Rahbar |
 | `http://YOUR_SERVER_IP`, anything else | Rahbar, plain HTTP |
 
