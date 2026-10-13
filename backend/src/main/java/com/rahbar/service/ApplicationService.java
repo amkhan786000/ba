@@ -2,11 +2,11 @@ package com.rahbar.service;
 
 import com.rahbar.entity.ApplicationDocument;
 import com.rahbar.entity.ApplicationStatus;
-import com.rahbar.entity.GranteeDetails;
+import com.rahbar.entity.ScholarshipApplication;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.ApplicationDocumentRepository;
 import com.rahbar.repository.ApplicationStatusRepository;
-import com.rahbar.repository.GranteeDetailsRepository;
+import com.rahbar.repository.ScholarshipApplicationRepository;
 import com.rahbar.repository.UserRepository;
 import com.rahbar.util.Rows;
 import org.springframework.http.HttpStatus;
@@ -18,15 +18,26 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * Scholarship applications after submission: status changes, interview scheduling, supporting documents,
- * the staff detail view and the public "track my application" page.
+ * Scholarship applications (scholarship_applications) after submission: status changes, interview scheduling,
+ * supporting documents, the staff detail view and the public "track my application" page. Accepting (which makes the
+ * student account) is in ApplicationAcceptService.
  */
 @Service
 public class ApplicationService {
 
-    public static final Set<String> VALID_STATUSES = Set.of(
-            "draft", "submitted", "interviewing", "accepted", "waitlisted", "rejected",
-            "on hold", "provisional admission letter", "admitted");
+    /** The steps of an application, in order, with what applicants and staff see. */
+    public static final Map<String, String> STATUS_LABELS = new LinkedHashMap<>();
+    static {
+        STATUS_LABELS.put(ScholarshipApplication.APPLIED, "Applied");
+        STATUS_LABELS.put(ScholarshipApplication.IN_PROCESS, "In process");
+        STATUS_LABELS.put(ScholarshipApplication.INTERVIEW, "Interview called");
+        STATUS_LABELS.put(ScholarshipApplication.ACCEPTED, "Accepted");
+        STATUS_LABELS.put(ScholarshipApplication.REJECTED, "Rejected");
+    }
+    public static final Set<String> VALID_STATUSES = STATUS_LABELS.keySet();
+    /** Still waiting for a decision. */
+    public static final Set<String> OPEN_STATUSES = Set.of(ScholarshipApplication.APPLIED, ScholarshipApplication.IN_PROCESS,
+            ScholarshipApplication.INTERVIEW);
 
     public static final List<String> DOCUMENT_TYPES = List.of(
             "Marksheet", "ID proof", "Income certificate", "Photo", "Admission letter", "Other");
@@ -35,111 +46,142 @@ public class ApplicationService {
     private static final int MAX_DOCUMENTS = 10;
     private static final DateTimeFormatter WHEN = DateTimeFormatter.ofPattern("d MMM yyyy, h:mm a");
 
-    private final GranteeDetailsRepository granteeDetailsRepository;
+    private final ScholarshipApplicationRepository applications;
     private final ApplicationStatusRepository applicationStatusRepository;
     private final ApplicationDocumentRepository documentRepository;
     private final FileStorageService fileStorageService;
-    private final NotificationService notificationService;
+    private final EmailService emailService;
     private final UserRepository userRepository;
     private final com.rahbar.security.StudentScope studentScope;
 
-    public ApplicationService(GranteeDetailsRepository granteeDetailsRepository,
+    public ApplicationService(ScholarshipApplicationRepository applications,
                               ApplicationStatusRepository applicationStatusRepository,
                               ApplicationDocumentRepository documentRepository, FileStorageService fileStorageService,
-                              NotificationService notificationService, UserRepository userRepository,
+                              EmailService emailService, UserRepository userRepository,
                               com.rahbar.security.StudentScope studentScope) {
-        this.studentScope = studentScope;
-        this.granteeDetailsRepository = granteeDetailsRepository;
+        this.applications = applications;
         this.applicationStatusRepository = applicationStatusRepository;
         this.documentRepository = documentRepository;
         this.fileStorageService = fileStorageService;
-        this.notificationService = notificationService;
+        this.emailService = emailService;
         this.userRepository = userRepository;
+        this.studentScope = studentScope;
+    }
+
+    public static String label(String status) {
+        return STATUS_LABELS.getOrDefault(status, status);
     }
 
     /** Staff access to an application: chapter / RCC-scoped users only reach their own area's (else 404). */
-    private GranteeDetails require(Long applicationId) {
-        return studentScope.requireApplication(granteeDetailsRepository.findById(applicationId)
+    public ScholarshipApplication require(Long applicationId) {
+        return studentScope.requireApplication(applications.findById(applicationId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Application not found.")));
     }
 
     // ---------------------------------------------------------------- staff actions
 
-    /** Adds a status row (the history is kept) and tells the applicant if they have an account. */
+    /**
+     * Moves the application to another step (Applied, In process, Interview called or Rejected; accepting has its
+     * own action because it creates the student), keeps the history and emails the applicant.
+     */
     public void updateStatus(Long applicationId, String status, String comments) {
-        if (status == null || !VALID_STATUSES.contains(status)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid status selected!");
+        String to = status == null ? "" : status.trim().toUpperCase(Locale.ROOT).replace(' ', '_');
+        if (!VALID_STATUSES.contains(to)) throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid status selected!");
+        if (ScholarshipApplication.ACCEPTED.equals(to)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Use \"Accept\" to accept an application: it also creates the student.");
         }
-        GranteeDetails gd = require(applicationId);
-        addStatus(applicationId, status, comments);
-        notificationService.notify(gd.getUserId(), "Application update",
-                "Your scholarship application #" + applicationId + " is now '" + status + "'."
-                        + (comments == null || comments.isBlank() ? "" : " Note: " + comments.trim()),
-                NotificationService.APPLICATION, null, EmailType.APPLICATION_STATUS,
-                ServiceSupport.vars("application_id", applicationId, "status", status,
-                        "comments", comments == null || comments.isBlank() ? "" : "Note: " + comments.trim()));
+        ScholarshipApplication a = require(applicationId);
+        if (ScholarshipApplication.ACCEPTED.equals(a.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This application was accepted and the student created; it can't change any more.");
+        }
+        setStatus(a, to, comments);
+        boolean rejected = ScholarshipApplication.REJECTED.equals(to);
+        a.setDecidedAt(rejected ? LocalDateTime.now() : null);
+        a.setDecidedBy(rejected ? com.rahbar.security.Access.current().getUser().getId() : null);
+        applications.save(a);
+        notifyApplicant(a, comments);
     }
 
-    /** Sets the interview date / venue and moves the application to "interviewing". */
+    /** Sets the interview date / venue and moves the application to "Interview called". */
     public void scheduleInterview(Long applicationId, String interviewAt, String venue) {
-        GranteeDetails gd = require(applicationId);
+        ScholarshipApplication a = require(applicationId);
+        if (ScholarshipApplication.ACCEPTED.equals(a.getStatus()) || ScholarshipApplication.REJECTED.equals(a.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "This application has been decided already.");
+        }
         LocalDateTime when = ServiceSupport.parseDateTime(interviewAt);
         if (when == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Please choose the interview date and time.");
         if (venue == null || venue.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter the interview venue.");
-        gd.setInterviewAt(when);
-        gd.setInterviewVenue(venue.trim());
-        granteeDetailsRepository.save(gd);
-
+        a.setInterviewAt(when);
+        a.setInterviewVenue(venue.trim());
         String text = "Interview on " + when.format(WHEN) + " at " + venue.trim();
-        addStatus(applicationId, "interviewing", text);
-        notificationService.notify(gd.getUserId(), "Interview scheduled",
-                "Your scholarship interview is scheduled: " + text + ".", NotificationService.APPLICATION, null,
-                EmailType.INTERVIEW_SCHEDULED, ServiceSupport.vars("interview_at", when.format(WHEN), "venue", venue.trim()));
+        setStatus(a, ScholarshipApplication.INTERVIEW, text);
+        applications.save(a);
+        emailService.send(EmailType.INTERVIEW_SCHEDULED, a.getEmail(),
+                ServiceSupport.vars("name", a.getName(), "interview_at", when.format(WHEN), "venue", venue.trim()));
     }
 
-    private void addStatus(Long applicationId, String status, String comments) {
+    /** Sets the current status and adds it to the history (not saved: the caller saves the application). */
+    void setStatus(ScholarshipApplication a, String status, String comments) {
+        a.setStatus(status);
         ApplicationStatus as = new ApplicationStatus();
-        as.setGranteeDetailId(applicationId);
+        as.setApplicationId(a.getId());
         as.setStatus(status);
         as.setComments(comments == null || comments.isBlank() ? null : comments.trim());
         applicationStatusRepository.save(as);
     }
 
-    /** Full application for the staff detail page: fields, latest status, status history and documents. */
+    /** "Your application is now ...": by email (the applicant has no account until accepted). */
+    void notifyApplicant(ScholarshipApplication a, String comments) {
+        emailService.send(EmailType.APPLICATION_STATUS, a.getEmail(),
+                ServiceSupport.vars("name", a.getName(), "application_id", a.getId(), "status", label(a.getStatus()),
+                        "comments", comments == null || comments.isBlank() ? "" : "Note: " + comments.trim()));
+    }
+
+    /** Full application for the staff detail page: fields, status, history and documents. */
     public Map<String, Object> details(Long applicationId) {
-        GranteeDetails gd = require(applicationId);
-        List<ApplicationStatus> history = applicationStatusRepository.findByGranteeDetailIdOrderByCreatedAtDesc(applicationId);
-        Map<String, Object> app = Rows.of(gd);
-        ApplicationStatus latest = history.isEmpty() ? null : history.get(0);
-        app.put("status", latest == null ? null : latest.getStatus());
-        app.put("comments", latest == null ? null : latest.getComments());
-        app.put("status_date", latest == null ? null : latest.getCreatedAt());
-        app.put("user_code", gd.getUserId() == null ? null
-                : userRepository.findById(gd.getUserId()).map(com.rahbar.entity.User::getUserId).orElse(null));
+        ScholarshipApplication a = require(applicationId);
+        List<ApplicationStatus> history = applicationStatusRepository.findByApplicationIdOrderByCreatedAtDescStatusIdDesc(applicationId);
+        Map<String, Object> app = Rows.of(a);
+        app.put("status_label", label(a.getStatus()));
+        app.put("status_date", history.isEmpty() ? a.getCreatedAt() : history.get(0).getCreatedAt());
+        app.put("comments", history.isEmpty() ? null : history.get(0).getComments());
+        app.put("student_code", a.getStudentUserId() == null ? null
+                : userRepository.findById(a.getStudentUserId()).map(com.rahbar.entity.User::getUserId).orElse(null));
+        app.put("decided_by_name", a.getDecidedBy() == null ? null
+                : userRepository.findById(a.getDecidedBy()).map(com.rahbar.entity.User::getName).orElse(null));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("application", app);
         result.put("history", historyRows(history));
         result.put("documents", documentRows(applicationId));
         result.put("documentTypes", DOCUMENT_TYPES);
+        result.put("statuses", statusOptions());
         return result;
+    }
+
+    /** [{ code, label }] in order, for the screens. */
+    public static List<Map<String, String>> statusOptions() {
+        List<Map<String, String>> out = new ArrayList<>();
+        STATUS_LABELS.forEach((code, label) -> out.add(Map.of("code", code, "label", label)));
+        return out;
     }
 
     // ---------------------------------------------------------------- public tracking
 
     /** Public tracker: needs the application id and one of the three mobile numbers given on the form. */
     public Map<String, Object> track(Long applicationId, String mobile) {
-        GranteeDetails gd = requireForApplicant(applicationId, mobile);
-        List<ApplicationStatus> history = applicationStatusRepository.findByGranteeDetailIdOrderByCreatedAtDesc(applicationId);
+        ScholarshipApplication a = requireForApplicant(applicationId, mobile);
+        List<ApplicationStatus> history = applicationStatusRepository.findByApplicationIdOrderByCreatedAtDescStatusIdDesc(applicationId);
         Map<String, Object> result = new LinkedHashMap<>();
-        result.put("applicationId", gd.getGranteeDetailId());
-        result.put("name", gd.getName());
-        result.put("courseApplied", gd.getCourseApplied());
-        result.put("rccName", gd.getRccName());
-        result.put("submittedAt", gd.getCreatedAt());
-        result.put("status", history.isEmpty() ? "submitted" : history.get(0).getStatus());
-        result.put("interviewAt", gd.getInterviewAt());
-        result.put("interviewVenue", gd.getInterviewVenue());
+        result.put("applicationId", a.getId());
+        result.put("name", a.getName());
+        result.put("courseApplied", a.getCourseApplied());
+        result.put("rccName", a.getRccName());
+        result.put("submittedAt", a.getCreatedAt());
+        result.put("status", label(a.getStatus()));
+        result.put("statusCode", a.getStatus());
+        result.put("interviewAt", a.getInterviewAt());
+        result.put("interviewVenue", a.getInterviewVenue());
         result.put("history", historyRows(history));
         // The public page only lists what was uploaded; files are not linked (they hold ID / income proofs).
         List<Map<String, Object>> documents = new ArrayList<>();
@@ -165,14 +207,14 @@ public class ApplicationService {
         return store(applicationId, docType, file);
     }
 
-    private GranteeDetails requireForApplicant(Long applicationId, String mobile) {
+    private ScholarshipApplication requireForApplicant(Long applicationId, String mobile) {
         String m = mobile == null ? "" : mobile.replaceAll("\\D", "");
-        GranteeDetails gd = applicationId == null ? null : granteeDetailsRepository.findById(applicationId).orElse(null);
-        if (gd == null || m.length() < 7
-                || !(sameMobile(m, gd.getStudentMobile()) || sameMobile(m, gd.getFatherMobile()) || sameMobile(m, gd.getMotherMobile()))) {
+        ScholarshipApplication a = applicationId == null ? null : applications.findById(applicationId).orElse(null);
+        if (a == null || m.length() < 7
+                || !(sameMobile(m, a.getStudentMobile()) || sameMobile(m, a.getFatherMobile()) || sameMobile(m, a.getMotherMobile()))) {
             throw new ApiException(HttpStatus.NOT_FOUND, "No application matches that application number and mobile number.");
         }
-        return gd;
+        return a;
     }
 
     /** Compares digits only, and the last 10 digits when either side has a country code (+91...). */
@@ -194,12 +236,12 @@ public class ApplicationService {
         if (!ALLOWED_EXTENSIONS.contains(ext)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Only PDF, image (JPG, PNG, WEBP) or Word files can be uploaded.");
         }
-        if (documentRepository.countByGranteeDetailId(applicationId) >= MAX_DOCUMENTS) {
+        if (documentRepository.countByApplicationId(applicationId) >= MAX_DOCUMENTS) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "An application can have at most " + MAX_DOCUMENTS + " documents.");
         }
         String stored = fileStorageService.store(file, "app_" + applicationId + "_" + System.currentTimeMillis() + "_" + original);
         ApplicationDocument doc = new ApplicationDocument();
-        doc.setGranteeDetailId(applicationId);
+        doc.setApplicationId(applicationId);
         doc.setDocType(type);
         doc.setFileName(file.getOriginalFilename() == null ? original : file.getOriginalFilename());
         doc.setFilePath(stored);
@@ -215,7 +257,7 @@ public class ApplicationService {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (ApplicationStatus s : history) {
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("status", s.getStatus());
+            row.put("status", label(s.getStatus()));
             row.put("comments", s.getComments());
             row.put("date", s.getCreatedAt());
             rows.add(row);
@@ -225,7 +267,7 @@ public class ApplicationService {
 
     private List<Map<String, Object>> documentRows(Long applicationId) {
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (ApplicationDocument d : documentRepository.findByGranteeDetailIdOrderByDocumentIdDesc(applicationId)) {
+        for (ApplicationDocument d : documentRepository.findByApplicationIdOrderByDocumentIdDesc(applicationId)) {
             rows.add(documentRow(d));
         }
         return rows;

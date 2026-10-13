@@ -59,14 +59,14 @@ public class StudentScope {
         return u;
     }
 
-    /** 404 unless the signed-in user may see this application. */
-    public GranteeDetails requireApplication(GranteeDetails g) {
+    /** 404 unless the signed-in user may see this scholarship application. */
+    public com.rahbar.entity.ScholarshipApplication requireApplication(com.rahbar.entity.ScholarshipApplication a) {
         Scope scope = current();
-        if (scope.all()) return g;
+        if (scope.all()) return a;
         Map<Long, User> users = new HashMap<>();
-        if (g.getUserId() != null) userRepository.findById(g.getUserId()).ifPresent(u -> users.put(u.getId(), u));
-        if (!scope.includesApplication(g, users)) throw new ApiException(HttpStatus.NOT_FOUND, "Application not found.");
-        return g;
+        if (a.getStudentUserId() != null) userRepository.findById(a.getStudentUserId()).ifPresent(u -> users.put(u.getId(), u));
+        if (!scope.includesApplication(a, users)) throw new ApiException(HttpStatus.NOT_FOUND, "Application not found.");
+        return a;
     }
 
     /** 404 unless the signed-in user may see this sponsor. */
@@ -137,12 +137,12 @@ public class StudentScope {
             return all() || (studentId != null && includes(users.get(studentId)));
         }
 
-        /** An application: by its student account when linked, else (RCC scope) by the RCC name on the form. */
-        public boolean includesApplication(GranteeDetails g, Map<Long, User> users) {
+        /** An application: by its student account once accepted, else (RCC scope) by the RCC name on the form. */
+        public boolean includesApplication(com.rahbar.entity.ScholarshipApplication a, Map<Long, User> users) {
             if (all()) return true;
             if (none()) return false;
-            if (g.getUserId() != null && users.get(g.getUserId()) != null) return includes(users.get(g.getUserId()));
-            return rccCenterId != null && rccName.equals(normalize(g.getRccName()));
+            if (a.getStudentUserId() != null && users.get(a.getStudentUserId()) != null) return includes(users.get(a.getStudentUserId()));
+            return rccCenterId != null && rccName.equals(normalize(a.getRccName()));
         }
 
         /** A sponsor (by users.id): chapter scope sees its chapter's sponsors and the sponsors of its students. */

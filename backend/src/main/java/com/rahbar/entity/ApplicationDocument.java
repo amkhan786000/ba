@@ -14,8 +14,9 @@ public class ApplicationDocument extends Modifiable {
     @Column(name = "document_id")
     private Long documentId;
 
-    @Column(name = "grantee_detail_id", nullable = false)
-    private Long granteeDetailId;
+    /** The scholarship application (scholarship_applications.id). Rows from before V45 have grantee_detail_id instead. */
+    @Column(name = "application_id")
+    private Long applicationId;
 
     @Column(name = "doc_type", length = 50)
     private String docType;

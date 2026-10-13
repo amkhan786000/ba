@@ -31,9 +31,9 @@ class DashboardServiceTest {
     }
 
     @Test
-    void openAndAcceptedStatusesDoNotOverlap() {
-        assertTrue(DashboardService.OPEN.stream().noneMatch(DashboardService.ACCEPTED::contains));
+    void openStatusesAreTheUndecidedSteps() {
         assertTrue(DashboardService.OPEN.stream().allMatch(ApplicationService.VALID_STATUSES::contains));
-        assertTrue(DashboardService.ACCEPTED.stream().allMatch(ApplicationService.VALID_STATUSES::contains));
+        assertFalse(DashboardService.OPEN.contains("ACCEPTED"));
+        assertFalse(DashboardService.OPEN.contains("REJECTED"));
     }
 }

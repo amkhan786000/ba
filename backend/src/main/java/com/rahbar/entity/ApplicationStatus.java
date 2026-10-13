@@ -13,8 +13,9 @@ public class ApplicationStatus extends Modifiable {
     @Column(name = "status_id")
     private Long statusId;
 
-    @Column(name = "grantee_detail_id", nullable = false)
-    private Long granteeDetailId;
+    /** The scholarship application (scholarship_applications.id). Rows from before V45 have grantee_detail_id instead. */
+    @Column(name = "application_id")
+    private Long applicationId;
 
     @Column(name = "status")
     private String status = "draft";

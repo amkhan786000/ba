@@ -114,7 +114,8 @@ public class PersonMergeService {
 
         for (String[] m : MOVE_ALL) moveAll(m[0], m[1], keepId, removeId);
         jdbc.update("UPDATE interview_reviews r SET interviewer_id = ? WHERE interviewer_id = ? AND NOT EXISTS ("
-                + "SELECT 1 FROM (SELECT grantee_detail_id FROM interview_reviews WHERE interviewer_id = ?) k WHERE k.grantee_detail_id = r.grantee_detail_id)",
+                + "SELECT 1 FROM (SELECT grantee_detail_id, application_id FROM interview_reviews WHERE interviewer_id = ?) k "
+                + "WHERE k.grantee_detail_id <=> r.grantee_detail_id AND k.application_id <=> r.application_id)",
                 keepId, removeId, keepId);
         for (String[] m : MOVE_IF_MISSING) if (count(m[0], m[1], keepId) == 0) moveAll(m[0], m[1], keepId, removeId);
         if (count("grantor_grantees", "grantee_id", keepId) == 0) moveAll("grantor_grantees", "grantee_id", keepId, removeId);
@@ -185,7 +186,8 @@ public class PersonMergeService {
 
     private long movableReviews(Long keepId, Long removeId) {
         Long n = jdbc.queryForObject("SELECT COUNT(*) FROM interview_reviews r WHERE interviewer_id = ? AND NOT EXISTS ("
-                + "SELECT 1 FROM interview_reviews k WHERE k.interviewer_id = ? AND k.grantee_detail_id = r.grantee_detail_id)", Long.class, removeId, keepId);
+                + "SELECT 1 FROM interview_reviews k WHERE k.interviewer_id = ? AND k.grantee_detail_id <=> r.grantee_detail_id "
+                + "AND k.application_id <=> r.application_id)", Long.class, removeId, keepId);
         return n == null ? 0 : n;
     }
 

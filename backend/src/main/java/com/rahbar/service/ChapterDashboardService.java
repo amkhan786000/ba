@@ -17,8 +17,6 @@ import java.util.*;
 @Service
 public class ChapterDashboardService {
 
-    /** Application statuses that end the process (anything else is still open). */
-    private static final Set<String> FINAL = Set.of("accepted", "admitted", "rejected", "provisional admission letter");
 
     private final ChapterRepository chapterRepository;
     private final UserRepository userRepository;
@@ -27,7 +25,7 @@ public class ChapterDashboardService {
     private final CourseRepository courseRepository;
     private final InstitutionRepository institutionRepository;
     private final GranteeDetailsRepository granteeDetailsRepository;
-    private final ApplicationStatusRepository applicationStatusRepository;
+    private final ScholarshipApplicationRepository scholarshipApplications;
     private final PaymentReminderService paymentReminderService;
 
     public ChapterDashboardService(ChapterRepository chapterRepository, UserRepository userRepository,
@@ -35,7 +33,7 @@ public class ChapterDashboardService {
                                    StudentInstitutionCourseRepository courseAssignmentRepository,
                                    CourseRepository courseRepository, InstitutionRepository institutionRepository,
                                    GranteeDetailsRepository granteeDetailsRepository,
-                                   ApplicationStatusRepository applicationStatusRepository,
+                                   ScholarshipApplicationRepository scholarshipApplications,
                                    PaymentReminderService paymentReminderService) {
         this.chapterRepository = chapterRepository;
         this.userRepository = userRepository;
@@ -44,7 +42,7 @@ public class ChapterDashboardService {
         this.courseRepository = courseRepository;
         this.institutionRepository = institutionRepository;
         this.granteeDetailsRepository = granteeDetailsRepository;
-        this.applicationStatusRepository = applicationStatusRepository;
+        this.scholarshipApplications = scholarshipApplications;
         this.paymentReminderService = paymentReminderService;
     }
 
@@ -123,18 +121,16 @@ public class ChapterDashboardService {
                 .filter(d -> "Overdue".equals(d.get("status")) || "Due soon".equals(d.get("status")))
                 .toList();
 
-        Map<Long, ApplicationStatus> latest = ServiceSupport.latestByApplication(applicationStatusRepository.findLatestPerApplication());
+        // Open scholarship applications of the chapter's students (an application has a student once accepted, so
+        // these are applicants who already had an account, e.g. a sibling's or a re-application).
         List<Map<String, Object>> applications = new ArrayList<>();
-        for (GranteeDetails g : granteeDetailsRepository.findAll()) {
-            if (g.getUserId() == null || !studentIds.contains(g.getUserId())) continue;
-            ApplicationStatus s = latest.get(g.getGranteeDetailId());
-            String status = s == null || s.getStatus() == null ? "submitted" : s.getStatus();
-            if (FINAL.contains(status.toLowerCase(Locale.ROOT))) continue;
+        for (ScholarshipApplication a : scholarshipApplications.findByStudentUserIdIn(studentIds)) {
+            if (!ApplicationService.OPEN_STATUSES.contains(a.getStatus())) continue;
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("grantee_detail_id", g.getGranteeDetailId());
-            row.put("name", g.getName());
-            row.put("status", status);
-            row.put("submitted_at", g.getCreatedAt());
+            row.put("grantee_detail_id", a.getId());
+            row.put("name", a.getName());
+            row.put("status", ApplicationService.label(a.getStatus()));
+            row.put("submitted_at", a.getCreatedAt());
             applications.add(row);
         }
 

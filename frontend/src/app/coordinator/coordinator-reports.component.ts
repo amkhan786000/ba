@@ -6,7 +6,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 
-interface AppPreview { grantee_detail_id: number; name: string; student_mobile: string | null; status: string | null }
+interface AppPreview { id: number; name: string; student_mobile: string | null; status_label: string | null }
 
 /** Port of templates/coordinator/generate_reports.html (report download + searchable applications preview). */
 @Component({
@@ -61,7 +61,7 @@ interface AppPreview { grantee_detail_id: number; name: string; student_mobile: 
                   <tr *ngIf="!apps.length"><td colspan="4" class="text-center">No applications to display. Select a report type and generate.</td></tr>
                   <tr *ngIf="apps.length && !shown.length"><td colspan="4" class="text-center">No matching applications found.</td></tr>
                   <tr *ngFor="let a of shown | paginate: pg.page : pg.size">
-                    <td>{{ a.grantee_detail_id }}</td><td>{{ a.name }}</td><td>{{ a.student_mobile }}</td><td>{{ a.status }}</td>
+                    <td>{{ a.id }}</td><td>{{ a.name }}</td><td>{{ a.student_mobile }}</td><td>{{ a.status_label }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -91,7 +91,7 @@ export class CoordinatorReportsComponent implements OnInit {
   get shown(): AppPreview[] {
     const t = this.search.toLowerCase().trim();
     if (!t) return this.apps;
-    return this.apps.filter((a) => [a.grantee_detail_id, a.name, a.student_mobile, a.status].some((v) => String(v ?? '').toLowerCase().includes(t)));
+    return this.apps.filter((a) => [a.id, a.name, a.student_mobile, a.status_label].some((v) => String(v ?? '').toLowerCase().includes(t)));
   }
 
   generate(): void {

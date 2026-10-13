@@ -16,10 +16,23 @@ public class ApplicationController {
 
     private final ApplicationService applicationService;
     private final com.rahbar.service.InterviewService interviewService;
+    private final com.rahbar.service.ApplicationAcceptService acceptService;
 
-    public ApplicationController(ApplicationService applicationService, com.rahbar.service.InterviewService interviewService) {
+    public ApplicationController(ApplicationService applicationService, com.rahbar.service.InterviewService interviewService,
+                                 com.rahbar.service.ApplicationAcceptService acceptService) {
         this.applicationService = applicationService;
         this.interviewService = interviewService;
+        this.acceptService = acceptService;
+    }
+
+    /**
+     * Accepts the application: makes the student account (temporary password emailed) and copies the family details.
+     * Body: { note } (optional staff note). Sponsor, college / course and payments are completed on the student's profile.
+     */
+    @PostMapping("/accept")
+    @PreAuthorize("hasAuthority('APPLICATIONS:EDIT') or hasRole('3')")
+    public Map<String, Object> accept(@PathVariable Long id, @RequestBody(required = false) Map<String, String> body) {
+        return acceptService.accept(id, body == null ? null : body.get("note"));
     }
 
     /** Every interviewer's scores for this application, the averages and the signed-in user's own review. */

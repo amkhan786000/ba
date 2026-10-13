@@ -6,36 +6,51 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { AppDatePipe } from '../shared/app-date';
 
 export interface ApplicationRow {
-  grantee_detail_id: number;
+  id: number;
   name: string;
+  email: string;
+  student_mobile: string | null;
   father_name: string | null;
-  mother_name: string | null;
+  mother_name?: string | null;
   rcc_name: string | null;
   course_applied: string | null;
   average_annual_salary?: number | null;
-  status: string | null;
-  comments: string | null;
+  status: string;
+  status_label: string;
+  created_at: string | null;
+  interview_at: string | null;
+  student_user_id: number | null;
 }
 
+/** The steps of a scholarship application (code -> label), in order. */
 export const APPLICATION_STATUSES = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'submitted', label: 'Submitted' },
-  { value: 'interviewing', label: 'Interviewing' },
-  { value: 'accepted', label: 'Accepted' },
-  { value: 'waitlisted', label: 'Waitlisted' },
-  { value: 'on hold', label: 'On Hold' },
-  { value: 'provisional admission letter', label: 'Provisional Admission Letter Issued' },
-  { value: 'admitted', label: 'Admitted' },
-  { value: 'rejected', label: 'Rejected' }
+  { value: 'APPLIED', label: 'Applied' },
+  { value: 'IN_PROCESS', label: 'In process' },
+  { value: 'INTERVIEW', label: 'Interview called' },
+  { value: 'ACCEPTED', label: 'Accepted' },
+  { value: 'REJECTED', label: 'Rejected' }
 ];
 
-/** Port of templates/applications.html */
+/** Badge colour of an application status. */
+export function applicationBadge(status: string | null | undefined): string {
+  switch (status) {
+    case 'APPLIED': return 'badge-info';
+    case 'IN_PROCESS': return 'badge-primary';
+    case 'INTERVIEW': return 'badge-warning';
+    case 'ACCEPTED': return 'badge-success';
+    case 'REJECTED': return 'badge-danger';
+    default: return 'badge-secondary';
+  }
+}
+
+/** Students > Applications: scholarship applications from the public form, newest first. */
 @Component({
   selector: 'app-admin-applications',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, CardTableDirective, AppDatePipe],
   template: `
     <div class="row">
       <div class="col-12">
@@ -83,18 +98,21 @@ export const APPLICATION_STATUSES = [
             <h4 class="header-title mb-3">Application List</h4>
             <div class="table-responsive">
               <table class="table table-bordered table-hover">
-                <thead class="thead-dark"><tr><th>ID</th><th>Applicant Name</th><th>RCC Center</th><th>Status</th><th>Action</th></tr></thead>
+                <thead class="thead-dark"><tr><th>ID</th><th>Applicant</th><th>Course applied</th><th>RCC Center</th><th>Applied on</th><th>Status</th><th>Action</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="loading && !shown.length"><td colspan="5" class="text-center text-muted">Loading…</td></tr>
+                  <tr *ngIf="loading && !shown.length"><td colspan="7" class="text-center text-muted">Loading…</td></tr>
                   <tr *ngIf="!loading && !shown.length">
-                    <td colspan="5" class="text-center">{{ filtered ? 'No matching applications found for the current filters.' : 'No applications found.' }}</td>
+                    <td colspan="7" class="text-center">{{ filtered ? 'No matching applications found for the current filters.' : 'No applications found.' }}</td>
                   </tr>
                   <tr *ngFor="let a of shown">
-                    <td>{{ a.grantee_detail_id }}</td>
-                    <td>{{ a.name }}</td>
-                    <td>{{ a.rcc_name }}</td>
-                    <td>{{ a.status }}</td>
-                    <td><a [routerLink]="['/' + section, 'applications', a.grantee_detail_id]" class="btn btn-primary btn-sm">View Details</a></td>
+                    <td>{{ a.id }}</td>
+                    <td>{{ a.name }}<small class="d-block text-muted">{{ a.email }}</small></td>
+                    <td>{{ a.course_applied || '--' }}</td>
+                    <td>{{ a.rcc_name || '--' }}</td>
+                    <td class="text-nowrap">{{ a.created_at | appDate }}</td>
+                    <td><span class="badge" [ngClass]="badge(a.status)">{{ a.status_label }}</span>
+                      <small *ngIf="a.status === 'INTERVIEW' && a.interview_at" class="d-block text-muted">{{ a.interview_at | appDate: 'datetime' }}</small></td>
+                    <td><a [routerLink]="['/' + section, 'applications', a.id]" class="btn btn-primary btn-sm">View Details</a></td>
                   </tr>
                 </tbody>
               </table>
@@ -112,6 +130,7 @@ export class AdminApplicationsComponent implements OnInit {
   get section(): string { return this._section; }
   private _section = 'admin';
   readonly statuses = APPLICATION_STATUSES;
+  readonly badge = applicationBadge;
   /** Current page of applications (the server pages and filters them, newest first). */
   shown: ApplicationRow[] = [];
   total = 0;
@@ -170,8 +189,9 @@ export class AdminApplicationsComponent implements OnInit {
   private saveCsv(rows: ApplicationRow[]): void {
     if (!rows.length) { this.error = 'No data to download based on current filters.'; return; }
     const q = (v: unknown) => '"' + String(v ?? '').trim().replace(/"/g, '""') + '"';
-    const csv = 'ID,Applicant Name,RCC Center,Status\n' +
-      rows.map((a) => [a.grantee_detail_id, a.name, a.rcc_name, a.status].map(q).join(',')).join('\n') + '\n';
+    const csv = 'ID,Applicant Name,Email,Student mobile,Course applied,RCC Center,Applied on,Status\n' +
+      rows.map((a) => [a.id, a.name, a.email, a.student_mobile, a.course_applied, a.rcc_name, (a.created_at || '').slice(0, 10), a.status_label]
+        .map(q).join(',')).join('\n') + '\n';
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
     const link = document.createElement('a');
     link.href = url;

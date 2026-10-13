@@ -24,7 +24,7 @@ public class ConvenorService {
     private final ChapterRepository chapterRepository;
     private final GranteeDetailsRepository granteeDetailsRepository;
     private final GrantorGranteeRepository grantorGranteeRepository;
-    private final ApplicationStatusRepository applicationStatusRepository;
+    private final ScholarshipApplicationRepository applications;
     private final PaymentRepository paymentRepository;
     private final BankDetailsRepository bankDetailsRepository;
     private final StudentInstitutionCourseRepository studentCourseRepository;
@@ -38,7 +38,7 @@ public class ConvenorService {
     public ConvenorService(UserRepository userRepository, ChapterRepository chapterRepository,
                            GranteeDetailsRepository granteeDetailsRepository,
                            GrantorGranteeRepository grantorGranteeRepository,
-                           ApplicationStatusRepository applicationStatusRepository,
+                           ScholarshipApplicationRepository applications,
                            PaymentRepository paymentRepository, BankDetailsRepository bankDetailsRepository,
                            StudentInstitutionCourseRepository studentCourseRepository,
                            StudentProgressRepository studentProgressRepository,
@@ -50,7 +50,7 @@ public class ConvenorService {
         this.chapterRepository = chapterRepository;
         this.granteeDetailsRepository = granteeDetailsRepository;
         this.grantorGranteeRepository = grantorGranteeRepository;
-        this.applicationStatusRepository = applicationStatusRepository;
+        this.applications = applications;
         this.paymentRepository = paymentRepository;
         this.bankDetailsRepository = bankDetailsRepository;
         this.studentCourseRepository = studentCourseRepository;
@@ -75,7 +75,7 @@ public class ConvenorService {
         User convenor = convenor(convenorId);
         Long chapterId = requireChapter(convenor);
 
-        List<Object[]> applicationRows = granteeDetailsRepository.findWithApplicantNameByChapter(chapterId);
+        List<Map<String, Object>> applicationRows = chapterApplications(chapterId);
         List<GrantorGrantee> grantorGrantee = grantorGranteeRepository.findByGrantorId(convenorId);
 
         // Each student is "paid" if they have a payment within the last year.
@@ -91,17 +91,12 @@ public class ConvenorService {
         }
 
         // Chart data: latest application status of the chapter's applications, and sponsors per chapter.
-        Map<Long, ApplicationStatus> latest = latestByApplication(applicationStatusRepository.findLatestPerApplication());
-        List<GranteeDetails> applications = applicationRows.stream().map(r -> (GranteeDetails) r[0]).toList();
-        List<Map<String, Object>> byStatus = countBy(applications, gd -> {
-            ApplicationStatus s = latest.get(gd.getGranteeDetailId());
-            return s == null || s.getStatus() == null ? "no status" : s.getStatus();
-        });
+        List<Map<String, Object>> byStatus = countBy(applicationRows, r -> String.valueOf(r.get("status_label")));
         List<Map<String, Object>> byRegion = countBy(userRepository.findByRoleId(5), u -> chapterLabel(u.getChapterName()));
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("convenor", Rows.of(convenor));
-        result.put("applications", withApplicantName(applicationRows));
+        result.put("applications", applicationRows);
         result.put("grantees", grantees);
         result.put("applicationsByStatus", byStatus);
         result.put("sponsorsByRegion", byRegion);
@@ -110,14 +105,18 @@ public class ConvenorService {
         return result;
     }
 
-    private static List<Map<String, Object>> withApplicantName(List<Object[]> rows) {
-        List<Map<String, Object>> result = new ArrayList<>();
-        for (Object[] r : rows) {
-            Map<String, Object> row = Rows.of(r[0]);
-            row.put("applicant_name", r[1]);
-            result.add(row);
+    /** Applications of the chapter's students (an application belongs to a chapter once it is accepted). */
+    private List<Map<String, Object>> chapterApplications(Long chapterId) {
+        Set<Long> students = new HashSet<>();
+        userRepository.findByChapterId(chapterId).forEach(u -> students.add(u.getId()));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (ScholarshipApplication a : applications.findByStudentUserIdIn(students)) {
+            Map<String, Object> row = Rows.of(a);
+            row.put("applicant_name", a.getName());
+            row.put("status_label", ApplicationService.label(a.getStatus()));
+            rows.add(row);
         }
-        return result;
+        return rows;
     }
 
     /** Applications of the convenor's chapter, sorted by application_id, applicant_name, status or date_submitted. */
@@ -127,9 +126,9 @@ public class ConvenorService {
             case "applicant_name" -> "applicant_name";
             case "status" -> "status";
             case "date_submitted" -> "created_at";
-            default -> "grantee_detail_id";
+            default -> "id";
         };
-        List<Map<String, Object>> rows = new ArrayList<>(withApplicantName(granteeDetailsRepository.findWithApplicantNameByChapter(chapterId)));
+        List<Map<String, Object>> rows = new ArrayList<>(chapterApplications(chapterId));
         rows.sort(byColumn(column, "desc".equalsIgnoreCase(order)));
         return rows;
     }
