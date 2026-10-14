@@ -61,6 +61,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/students-dashboard', label: 'Students Dashboard', icon: 'mdi-chart-bar', section: 'STUDENTS', group: 'students' },
   { path: '/admin/applications-dashboard', label: 'Applications Dashboard', icon: 'mdi-chart-timeline-variant', section: 'APPLICATIONS', group: 'students' },
   { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS', group: 'students' },
+  { path: '/admin/track-application', label: 'Track Application', icon: 'mdi-magnify', section: 'APPLICATIONS', group: 'students' },
   { path: '/admin/application-period', label: 'Application Period', icon: 'mdi-calendar', section: 'APPLICATION_PERIOD', group: 'students' },
   { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS', group: 'students' },
   { path: '/admin/rcc-students', label: 'Coaching Center Students', icon: 'mdi-account-group', section: 'RCC_STUDENTS', group: 'students' },

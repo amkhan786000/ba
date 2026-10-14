@@ -214,6 +214,16 @@ public class AdminController {
         return adminService.applications(page, size, name, status, rcc);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.service.ApplicationService applicationService;
+
+    /** Students > Track Application: by number, mobile, email or name. */
+    @GetMapping("/applications/lookup")
+    @PreAuthorize("hasAuthority('APPLICATIONS:VIEW') or hasAnyRole('3','4')")
+    public List<Map<String, Object>> lookupApplications(@RequestParam String q) {
+        return applicationService.lookup(q);
+    }
+
     @PostMapping("/applications/{granteeDetailId}/status")
     @PreAuthorize("hasAuthority('APPLICATIONS:EDIT') or hasAnyRole('3','4')")
     public Map<String, String> updateApplicationStatus(@PathVariable Long granteeDetailId, @RequestBody Map<String, String> body) {

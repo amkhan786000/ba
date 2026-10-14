@@ -94,27 +94,4 @@ public class PublicService {
 
         return a.getId();
     }
-
-    /** The application plus its status and when it last changed. */
-    public Map<String, Object> applicationStatus(Long applicationId) {
-        ScholarshipApplication a = applications.findById(applicationId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Invalid application ID"));
-        Map<String, Object> row = new LinkedHashMap<>();
-        row.put("id", a.getId());
-        row.put("name", a.getName());
-        row.put("course_applied", a.getCourseApplied());
-        List<ApplicationStatus> history = applicationStatusRepository.findByApplicationIdOrderByCreatedAtDescStatusIdDesc(applicationId);
-        row.put("status", ApplicationService.label(a.getStatus()));
-        row.put("comments", history.isEmpty() ? null : history.get(0).getComments());
-        row.put("status_date", history.isEmpty() ? a.getCreatedAt() : history.get(0).getCreatedAt());
-        return row;
-    }
-
-    public Long findApplicationIdByMobile(String mobile) {
-        List<ScholarshipApplication> found = applications.findByStudentMobileOrFatherMobileOrMotherMobileOrderByIdDesc(mobile, mobile, mobile);
-        if (found.isEmpty()) {
-            throw new ApiException(HttpStatus.NOT_FOUND, "No application found with this mobile number");
-        }
-        return found.get(0).getId();
-    }
 }
