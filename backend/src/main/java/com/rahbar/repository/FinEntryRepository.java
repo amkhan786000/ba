@@ -11,6 +11,7 @@ public interface FinEntryRepository extends JpaRepository<FinEntry, Long> {
     java.util.Optional<FinEntry> findByIdAndBook(Long id, String book);
 
     boolean existsByCategoryId(Long categoryId);
+    boolean existsByPayeeId(Long payeeId);
 
     /** Total of one kind (INCOME / EXPENSE) up to and including a day. */
     @org.springframework.data.jpa.repository.Query("select coalesce(sum(e.amount), 0) from FinEntry e where e.book = :book and e.kind = :kind and e.entryDate <= :upTo")

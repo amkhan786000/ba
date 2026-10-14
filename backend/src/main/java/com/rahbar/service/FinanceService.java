@@ -43,10 +43,14 @@ public class FinanceService {
     private final PaymentRepository sponsorPayments;
     private final RebPaymentRepository rebPayments;
     private final UserRepository users;
+    private final FinPayeeRepository payees;
+    private final ChapterRepository chapters;
 
     public FinanceService(FinCategoryRepository categories, FinEntryRepository entries, FinPublishedYearRepository published,
                           WebProjectRepository projects, PaymentRepository sponsorPayments, RebPaymentRepository rebPayments,
-                          UserRepository users) {
+                          UserRepository users, FinPayeeRepository payees, ChapterRepository chapters) {
+        this.payees = payees;
+        this.chapters = chapters;
         this.categories = categories;
         this.entries = entries;
         this.published = published;
@@ -90,6 +94,54 @@ public class FinanceService {
         FinCategory c = categories.findByIdAndBook(id, book).orElseThrow(() -> notFound("Category"));
         if (entries.existsByCategoryId(id)) throw bad(c.getName() + " has entries; hide it instead (untick Active).");
         categories.delete(c);
+    }
+
+    // ---------------------------------------------------------------- "paid to" list and chapters
+
+    /** The book's "Paid to" list (Income & Expenses > Paid to). */
+    public List<Map<String, Object>> payees(String book) {
+        return Rows.list(payees.findByBookOrderByNameAsc(book));
+    }
+
+    /** Body: { name, phone, note, active }. */
+    @Transactional
+    public FinPayee savePayee(String book, Long id, Map<String, Object> body) {
+        FinPayee p = id == null ? new FinPayee() : payees.findByIdAndBook(id, book).orElseThrow(() -> notFound("Payee"));
+        p.setBook(book);
+        p.setName(text(body.get("name"), "Name", 150, true));
+        if (id == null ? payees.existsByBookAndNameIgnoreCase(book, p.getName())
+                : payees.existsByBookAndNameIgnoreCaseAndIdNot(book, p.getName(), id)) {
+            throw bad(p.getName() + " is already on the list.");
+        }
+        p.setPhone(text(body.get("phone"), "Phone", 30, false));
+        p.setNote(text(body.get("note"), "Note", 300, false));
+        p.setActive(flag(body.get("active"), true));
+        FinPayee saved = payees.save(p);
+        // A new name: entries already paid to it keep their text; a renamed one shows the new name from now on.
+        if (id != null) {
+            entries.findAll().stream().filter(e -> id.equals(e.getPayeeId())).forEach(e -> { e.setParty(saved.getName()); entries.save(e); });
+        }
+        return saved;
+    }
+
+    @Transactional
+    public void deletePayee(String book, Long id) {
+        FinPayee p = payees.findByIdAndBook(id, book).orElseThrow(() -> notFound("Payee"));
+        if (entries.existsByPayeeId(id)) throw bad(p.getName() + " has entries; hide it instead (untick Active).");
+        payees.delete(p);
+    }
+
+    /** Chapters income can be received from. */
+    public List<Map<String, Object>> chapterOptions() {
+        List<Map<String, Object>> out = new ArrayList<>();
+        chapters.findAllByOrderByChapterNameAsc().forEach(c -> {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("id", c.getChapterId());
+            r.put("name", c.getChapterName());
+            r.put("active", !Boolean.FALSE.equals(c.getActive()));
+            out.add(r);
+        });
+        return out;
     }
 
     /** Website projects an entry can belong to. */
@@ -163,7 +215,22 @@ public class FinanceService {
         BigDecimal amount = money(body.get("amount"), "Amount");
         if (amount == null || amount.signum() <= 0) throw bad("Enter the amount.");
         e.setAmount(amount);
-        e.setParty(text(body.get("party"), "INCOME".equals(c.getKind()) ? "Received from" : "Paid to", 150, false));
+        // Received from a chapter / paid to someone on the list; otherwise the name typed in.
+        Long chapterId = "INCOME".equals(c.getKind()) ? id(body.get("chapterId")) : null;
+        Long payeeId = "EXPENSE".equals(c.getKind()) ? id(body.get("payeeId")) : null;
+        e.setChapterId(null);
+        e.setPayeeId(null);
+        if (chapterId != null) {
+            Chapter ch = chapters.findById(chapterId).orElseThrow(() -> bad("Unknown chapter."));
+            e.setChapterId(ch.getChapterId());
+            e.setParty(ch.getChapterName());
+        } else if (payeeId != null) {
+            FinPayee p = payees.findByIdAndBook(payeeId, book).orElseThrow(() -> bad("Choose who was paid from this book's list."));
+            e.setPayeeId(p.getId());
+            e.setParty(p.getName());
+        } else {
+            e.setParty(text(body.get("party"), "INCOME".equals(c.getKind()) ? "Received from" : "Paid to", 150, false));
+        }
         e.setDescription(text(body.get("description"), "Description", 500, false));
         e.setMethod(code(body.get("method"), METHODS, "BANK", "payment method"));
         e.setReference(text(body.get("reference"), "Reference", 100, false));
@@ -227,15 +294,22 @@ public class FinanceService {
         Map<Long, String> projectNames = new HashMap<>();
         projects.findAll().forEach(p -> projectNames.put(p.getId(), p.getName()));
         Map<String, BigDecimal> incomeBy = new TreeMap<>(), expenseBy = new TreeMap<>(), projectSpend = new TreeMap<>();
+        Map<String, BigDecimal> byChapter = new TreeMap<>(), byPayee = new TreeMap<>();
+        Map<Long, String> chapterNames = new HashMap<>();
+        chapters.findAll().forEach(ch -> chapterNames.put(ch.getChapterId(), ch.getChapterName()));
         BigDecimal income = BigDecimal.ZERO, expense = BigDecimal.ZERO;
         for (FinEntry e : entries.findByBookAndEntryDateBetweenOrderByEntryDateDescIdDesc(book, start, end)) {
             String cat = cats.containsKey(e.getCategoryId()) ? cats.get(e.getCategoryId()).getName() : "Other";
             if ("INCOME".equals(e.getKind())) {
                 incomeBy.merge(cat, e.getAmount(), BigDecimal::add);
                 income = income.add(e.getAmount());
+                byChapter.merge(e.getChapterId() == null ? "Others (not a chapter)" : chapterNames.getOrDefault(e.getChapterId(), "Other chapter"),
+                        e.getAmount(), BigDecimal::add);
             } else {
                 expenseBy.merge(cat, e.getAmount(), BigDecimal::add);
                 expense = expense.add(e.getAmount());
+                String who = e.getParty() == null || e.getParty().isBlank() ? "Not recorded" : e.getParty().trim();
+                byPayee.merge(who, e.getAmount(), BigDecimal::add);
                 projectSpend.merge(e.getProjectId() == null ? "General (the organisation)" : projectNames.getOrDefault(e.getProjectId(), "Other project"),
                         e.getAmount(), BigDecimal::add);
             }
@@ -258,6 +332,8 @@ public class FinanceService {
         out.put("income_by_category", rows(incomeBy));
         out.put("expense_by_category", rows(expenseBy));
         out.put("expense_by_project", rows(projectSpend));
+        out.put("income_by_chapter", rows(byChapter));
+        out.put("expense_by_payee", rows(byPayee));
         out.put("income", income);
         out.put("expense", expense);
         out.put("book", book);
@@ -311,6 +387,8 @@ public class FinanceService {
         if (!published.existsByBookAndYear(book, year)) throw new ApiException(HttpStatus.NOT_FOUND, "Not published.");
         Map<String, Object> s = summary(book, year);
         s.remove("published");
+        s.remove("expense_by_payee"); // names stay in Rahbar: the website shows totals only
+        s.remove("income_by_chapter");
         return s;
     }
 }

@@ -24,7 +24,10 @@ class FinanceServiceTest {
     private final WebProjectRepository projects = mock(WebProjectRepository.class);
     private final PaymentRepository sponsorPayments = mock(PaymentRepository.class);
     private final RebPaymentRepository rebPayments = mock(RebPaymentRepository.class);
-    private final FinanceService service = new FinanceService(categories, entries, published, projects, sponsorPayments, rebPayments, mock(UserRepository.class));
+    private final FinPayeeRepository payees = mock(FinPayeeRepository.class);
+    private final ChapterRepository chapters = mock(ChapterRepository.class);
+    private final FinanceService service = new FinanceService(categories, entries, published, projects, sponsorPayments, rebPayments,
+            mock(UserRepository.class), payees, chapters);
 
     private static FinCategory cat(long id, String name, String kind) {
         FinCategory c = new FinCategory();
@@ -83,7 +86,13 @@ class FinanceServiceTest {
         @SuppressWarnings("unchecked") List<Map<String, Object>> byProject = (List<Map<String, Object>>) s.get("expense_by_project");
         assertEquals("Rahbar-e-Banaat", byProject.get(0).get("name"));
         assertEquals(new BigDecimal("25000"), byProject.get(0).get("amount"));
-        assertFalse(s.toString().contains("Somebody private")); // no payees in the summary
+        // Rahbar's own summary says who was paid; the website's never does.
+        assertTrue(s.toString().contains("Somebody private"));
+        when(published.existsByBookAndYear("RAHBAR", 2026)).thenReturn(true);
+        Map<String, Object> web = service.publicSummary("RAHBAR", 2026);
+        assertFalse(web.toString().contains("Somebody private"));
+        assertFalse(web.containsKey("expense_by_payee"));
+        assertFalse(web.containsKey("income_by_chapter"));
     }
 
     @Test
@@ -103,5 +112,42 @@ class FinanceServiceTest {
         assertThrows(ApiException.class, () -> service.saveEntry("RAHBAR", null, new HashMap<>(Map.of("entryDate", LocalDate.now().plusDays(1).toString(), "categoryId", 2, "amount", "1"))));
         // A Rahbar category can't be used in REB's book (and the other way round).
         assertThrows(ApiException.class, () -> service.saveEntry("REB", null, new HashMap<>(Map.of("entryDate", "2026-03-01", "categoryId", 2, "amount", "1000"))));
+    }
+
+    @Test
+    void incomeCanComeFromAChapterAndExpensesGoToTheBooksOwnPaidToList() {
+        when(categories.findByIdAndBook(1L, "RAHBAR")).thenReturn(Optional.of(cat(1, "Donations", "INCOME")));
+        when(categories.findByIdAndBook(2L, "RAHBAR")).thenReturn(Optional.of(cat(2, "Rent", "EXPENSE")));
+        when(entries.save(any())).thenAnswer(i -> i.getArgument(0));
+        Chapter jeddah = new Chapter();
+        jeddah.setChapterId(4L);
+        jeddah.setChapterName("Jeddah Chapter");
+        when(chapters.findById(4L)).thenReturn(Optional.of(jeddah));
+        FinPayee landlord = new FinPayee();
+        landlord.setId(9L);
+        landlord.setBook("RAHBAR");
+        landlord.setName("Office landlord");
+        when(payees.findByIdAndBook(9L, "RAHBAR")).thenReturn(Optional.of(landlord));
+
+        FinEntry in = service.saveEntry("RAHBAR", null, new HashMap<>(Map.of("entryDate", "2026-03-01", "categoryId", 1, "amount", "5000",
+                "chapterId", 4, "party", "ignored")));
+        assertEquals(4L, in.getChapterId());
+        assertEquals("Jeddah Chapter", in.getParty());
+
+        FinEntry out = service.saveEntry("RAHBAR", null, new HashMap<>(Map.of("entryDate", "2026-03-01", "categoryId", 2, "amount", "9000",
+                "payeeId", 9, "chapterId", 4)));
+        assertEquals(9L, out.getPayeeId());
+        assertNull(out.getChapterId()); // an expense is never "received from" a chapter
+        assertEquals("Office landlord", out.getParty());
+
+        // REB's book can't pay someone on Rahbar's list
+        when(categories.findByIdAndBook(2L, "REB")).thenReturn(Optional.of(cat(2, "Rent", "EXPENSE")));
+        assertThrows(ApiException.class, () -> service.saveEntry("REB", null, new HashMap<>(Map.of("entryDate", "2026-03-01", "categoryId", 2,
+                "amount", "1", "payeeId", 9))));
+
+        FinEntry typed = service.saveEntry("RAHBAR", null, new HashMap<>(Map.of("entryDate", "2026-03-01", "categoryId", 1, "amount", "100",
+                "party", "A well-wisher")));
+        assertEquals("A well-wisher", typed.getParty());
+        assertNull(typed.getChapterId());
     }
 }
