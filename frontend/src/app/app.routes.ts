@@ -3,7 +3,7 @@ import { LoginComponent } from './auth/login/login.component';
 import { VerifyOtpComponent } from './auth/verify-otp/verify-otp.component';
 import { RegisterComponent } from './auth/register/register.component';
 import { ResetPasswordComponent } from './auth/reset-password/reset-password.component';
-import { PublicApplyComponent } from './public/apply.component';
+import { toWebsiteApply } from './core/models/website';
 import { ShellComponent } from './shared/layout/shell.component';
 import { AdminDashboardComponent } from './admin/admin-dashboard.component';
 import { AdminStudentsDashboardComponent } from './admin/admin-students-dashboard.component';
@@ -104,7 +104,7 @@ export const routes: Routes = [
   { path: 'verify-otp', component: VerifyOtpComponent },
   { path: 'register', component: RegisterComponent },
   { path: 'reset-password', component: ResetPasswordComponent },
-  { path: 'apply', component: PublicApplyComponent },
+  { path: 'apply', canActivate: [toWebsiteApply], children: [] }, // the form is on the website now
   { path: 'track-application', component: TrackApplicationComponent },
   { path: 'change-password', component: ChangePasswordComponent, canActivate: [authGuard] },
 
