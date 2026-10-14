@@ -132,7 +132,7 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/account/change-password", "Changed own password");
         label("PUT /api/account/profile", "Updated own profile");
         label("POST /api/public/website/scholarship/apply", "Submitted a scholarship application through the website");
-        label("POST /api/public/applications/[^/]+/documents", "Uploaded an application document");
+        label("POST /api/public/website/scholarship/applications/[^/]+/documents", "Uploaded an application document");
         label("POST /api/admin/application-period/start", "Started an application period");
         label("POST /api/admin/application-period/end", "Ended the application period");
         label("POST /api/admin/users", "Created a user");

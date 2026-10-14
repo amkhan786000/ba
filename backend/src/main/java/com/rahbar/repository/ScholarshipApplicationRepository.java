@@ -24,6 +24,10 @@ public interface ScholarshipApplicationRepository extends JpaRepository<Scholars
 
     List<ScholarshipApplication> findAllByOrderByIdDesc();
 
+    /** Staff look-up by email or name (like pattern, lower case), newest first. */
+    @Query("select a from ScholarshipApplication a where lower(a.email) like :q or lower(a.name) like :q order by a.id desc")
+    List<ScholarshipApplication> searchText(@Param("q") String q, Pageable pageable);
+
     List<ScholarshipApplication> findByStudentUserIdIn(java.util.Collection<Long> studentIds);
 
     @Query("select distinct extract(year from a.createdAt) from ScholarshipApplication a where a.createdAt is not null")

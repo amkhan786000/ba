@@ -166,6 +166,55 @@ public class ApplicationService {
         return out;
     }
 
+    // ---------------------------------------------------------------- staff look-up
+
+    /**
+     * Students > Track Application: find applications by number ("123" or "#123"), a mobile on the form (any of the
+     * three, last 10 digits), email or part of the name; at most 20, newest first, only those the user may see. Each
+     * comes with its steps so far, so staff can answer a family's call without opening every application.
+     */
+    public List<Map<String, Object>> lookup(String q) {
+        String text = q == null ? "" : q.trim();
+        if (text.length() < 2) throw new ApiException(HttpStatus.BAD_REQUEST, "Type an application number, a mobile number, an email or a name.");
+        String digits = text.replaceAll("\\D", "");
+        List<ScholarshipApplication> found = new ArrayList<>();
+        if (text.matches("#?\\d{1,9}")) {
+            applications.findById(Long.valueOf(digits)).ifPresent(found::add);
+        } else if (digits.length() >= 10 && text.matches("[+\\d\\s()-]+")) {
+            String m = digits.substring(digits.length() - 10);
+            found.addAll(applications.findByStudentMobileOrFatherMobileOrMotherMobileOrderByIdDesc(m, m, m));
+        } else {
+            found.addAll(applications.searchText("%" + text.toLowerCase(Locale.ROOT) + "%",
+                    org.springframework.data.domain.PageRequest.of(0, 50)));
+        }
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        Map<Long, com.rahbar.entity.User> users = scope.all() ? Map.of() : studentScope.usersById();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (ScholarshipApplication a : found) {
+            if (!scope.includesApplication(a, users)) continue;
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("id", a.getId());
+            r.put("name", a.getName());
+            r.put("email", a.getEmail());
+            r.put("student_mobile", a.getStudentMobile());
+            r.put("father_mobile", a.getFatherMobile());
+            r.put("mother_mobile", a.getMotherMobile());
+            r.put("course_applied", a.getCourseApplied());
+            r.put("rcc_name", a.getRccName());
+            r.put("created_at", a.getCreatedAt());
+            r.put("status", a.getStatus());
+            r.put("status_label", label(a.getStatus()));
+            r.put("interview_at", a.getInterviewAt());
+            r.put("interview_venue", a.getInterviewVenue());
+            r.put("student_user_id", a.getStudentUserId());
+            r.put("documents", documentRepository.countByApplicationId(a.getId()));
+            r.put("history", historyRows(applicationStatusRepository.findByApplicationIdOrderByCreatedAtDescStatusIdDesc(a.getId())));
+            rows.add(r);
+            if (rows.size() == 20) break;
+        }
+        return rows;
+    }
+
     // ---------------------------------------------------------------- public tracking
 
     /** Public tracker: needs the application id and one of the three mobile numbers given on the form. */

@@ -5,6 +5,7 @@ import com.rahbar.entity.RccCenter;
 import com.rahbar.exception.ApiException;
 import com.rahbar.repository.CourseRepository;
 import com.rahbar.repository.RccCenterRepository;
+import com.rahbar.service.ApplicationService;
 import com.rahbar.service.PublicService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
@@ -18,13 +19,14 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/** The website's scholarship form: open only during an Application Period; names only; a link to Rahbar's tracker. */
+/** The website's scholarship form (open only during an Application Period; names only) and "Track your application". */
 class WebsiteScholarshipTest {
 
     private final PublicService publicService = mock(PublicService.class);
     private final RccCenterRepository centers = mock(RccCenterRepository.class);
     private final CourseRepository courses = mock(CourseRepository.class);
-    private final WebsiteScholarshipController controller = new WebsiteScholarshipController(publicService, centers, courses);
+    private final ApplicationService applicationService = mock(ApplicationService.class);
+    private final WebsiteScholarshipController controller = new WebsiteScholarshipController(publicService, applicationService, centers, courses);
 
     private static HttpServletRequest visitor(String ip) {
         HttpServletRequest r = mock(HttpServletRequest.class);
@@ -34,7 +36,6 @@ class WebsiteScholarshipTest {
 
     @Test
     void optionsSayWhetherTheFormIsOpenAndListOnlyNames() {
-        ReflectionTestUtils.setField(controller, "rahbarUrls", "https://rahbar.biharanjuman.com/,http://194.195.87.118");
         RccCenter a = new RccCenter(), b = new RccCenter(), blank = new RccCenter();
         a.setCenterName("RCC Gaya");
         b.setCenterName(" rcc gaya ");
@@ -49,7 +50,7 @@ class WebsiteScholarshipTest {
         assertEquals(false, o.get("open"));
         assertEquals(List.of("RCC Gaya"), o.get("rccCenters"));
         assertEquals(List.of("Diploma in Civil Engineering"), o.get("courses"));
-        assertEquals("https://rahbar.biharanjuman.com/track-application", o.get("trackUrl"));
+        assertFalse(o.containsKey("trackUrl")); // tracking is on the website itself now
     }
 
     @Test
@@ -73,6 +74,21 @@ class WebsiteScholarshipTest {
         when(publicService.apply(any())).thenReturn(1L);
         for (int i = 0; i < 3; i++) controller.apply(Map.of("name", "A"), visitor("4.4.4.4"));
         ApiException limited = assertThrows(ApiException.class, () -> controller.apply(Map.of("name", "A"), visitor("4.4.4.4")));
+        assertEquals(HttpStatus.TOO_MANY_REQUESTS, limited.getStatus());
+    }
+
+    @Test
+    void trackingNeedsTheNumberAndAMobileAndIsLimited() {
+        when(applicationService.track(eq(7L), eq("9000000001"))).thenReturn(Map.of("applicationId", 7L, "status", "In process"));
+        assertEquals("In process", controller.track(Map.of("applicationId", "#7", "mobile", "9000000001"), visitor("5.5.5.5")).get("status"));
+        controller.track(Map.of("applicationId", "abc", "mobile", "1"), visitor("5.5.5.5"));
+        verify(applicationService).track(isNull(), eq("1")); // not a number: ApplicationService answers "no application matches"
+
+        for (int i = 0; i < 28; i++) controller.track(Map.of("applicationId", "7", "mobile", "9000000001"), visitor("6.6.6.6"));
+        controller.track(Map.of("applicationId", "7", "mobile", "9000000001"), visitor("6.6.6.6"));
+        controller.track(Map.of("applicationId", "7", "mobile", "9000000001"), visitor("6.6.6.6"));
+        ApiException limited = assertThrows(ApiException.class,
+                () -> controller.track(Map.of("applicationId", "7", "mobile", "9000000001"), visitor("6.6.6.6")));
         assertEquals(HttpStatus.TOO_MANY_REQUESTS, limited.getStatus());
     }
 }

@@ -3,7 +3,8 @@ import { LoginComponent } from './auth/login/login.component';
 import { VerifyOtpComponent } from './auth/verify-otp/verify-otp.component';
 import { RegisterComponent } from './auth/register/register.component';
 import { ResetPasswordComponent } from './auth/reset-password/reset-password.component';
-import { toWebsiteApply } from './core/models/website';
+import { toWebsiteApply, toWebsiteTrack } from './core/models/website';
+import { AdminTrackApplicationComponent } from './admin/admin-track-application.component';
 import { ShellComponent } from './shared/layout/shell.component';
 import { AdminDashboardComponent } from './admin/admin-dashboard.component';
 import { AdminStudentsDashboardComponent } from './admin/admin-students-dashboard.component';
@@ -92,7 +93,6 @@ import { SponsorRebComponent } from './sponsor/sponsor-reb.component';
 import { RebSponsorshipsComponent } from './admin/reb/reb-sponsorships.component';
 import { StudentAlumniComponent } from './student/student-alumni.component';
 import { ChangePasswordComponent } from './auth/change-password/change-password.component';
-import { TrackApplicationComponent } from './public/track.component';
 import { ProfileComponent } from './shared/profile/profile.component';
 import { authGuard } from './core/guards/auth.guard';
 import { roleGuard } from './core/guards/role.guard';
@@ -105,7 +105,7 @@ export const routes: Routes = [
   { path: 'register', component: RegisterComponent },
   { path: 'reset-password', component: ResetPasswordComponent },
   { path: 'apply', canActivate: [toWebsiteApply], children: [] }, // the form is on the website now
-  { path: 'track-application', component: TrackApplicationComponent },
+  { path: 'track-application', canActivate: [toWebsiteTrack], children: [] }, // the tracker is on the website now
   { path: 'change-password', component: ChangePasswordComponent, canActivate: [authGuard] },
 
   {
@@ -161,6 +161,7 @@ export const routes: Routes = [
       // Not in the Flask sidebar either: reached by URL (manage students) or from coordinator/convenor menus (applications)
       { path: 'manage-students', component: AdminManageStudentsComponent, canActivate: [permissionGuard], data: { permission: 'STUDENTS' } },
       { path: 'applications', component: AdminApplicationsComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
+      { path: 'track-application', component: AdminTrackApplicationComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
       { path: 'applications/ranking', component: AdminInterviewRankingComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
       { path: 'alumni', component: AdminAlumniComponent, canActivate: [permissionGuard], data: { permission: 'ALUMNI' } },
       { path: 'rcc-students', component: AdminRccStudentsComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
