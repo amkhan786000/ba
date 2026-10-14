@@ -52,6 +52,40 @@ public class FinanceController {
         return Map.of("message", "Category deleted.");
     }
 
+    /** The book's "Paid to" list. */
+    @GetMapping("/api/admin/books/{book}/payees")
+    @PreAuthorize(VIEW)
+    public List<Map<String, Object>> payees(@PathVariable String book) {
+        return finance.payees(FinanceService.book(book));
+    }
+
+    /** Body: { name, phone, note, active }. */
+    @PostMapping("/api/admin/books/{book}/payees")
+    @PreAuthorize(EDIT)
+    public Map<String, Object> addPayee(@PathVariable String book, @RequestBody Map<String, Object> body) {
+        return Map.of("message", "Added to the Paid to list.", "data", Rows.of(finance.savePayee(FinanceService.book(book), null, body)));
+    }
+
+    @PutMapping("/api/admin/books/{book}/payees/{id}")
+    @PreAuthorize(EDIT)
+    public Map<String, Object> updatePayee(@PathVariable String book, @PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return Map.of("message", "Saved.", "data", Rows.of(finance.savePayee(FinanceService.book(book), id, body)));
+    }
+
+    @DeleteMapping("/api/admin/books/{book}/payees/{id}")
+    @PreAuthorize(EDIT)
+    public Map<String, String> deletePayee(@PathVariable String book, @PathVariable Long id) {
+        finance.deletePayee(FinanceService.book(book), id);
+        return Map.of("message", "Removed from the Paid to list.");
+    }
+
+    /** Chapters income can be received from. */
+    @GetMapping("/api/admin/books/{book}/chapters")
+    @PreAuthorize(VIEW)
+    public List<Map<String, Object>> chapters(@PathVariable String book) {
+        return finance.chapterOptions();
+    }
+
     @GetMapping("/api/admin/books/{book}/projects")
     @PreAuthorize(VIEW)
     public List<Map<String, Object>> projects(@PathVariable String book) {

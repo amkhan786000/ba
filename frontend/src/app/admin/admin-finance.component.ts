@@ -13,13 +13,18 @@ import { DateInputComponent } from '../shared/date-input.component';
 import { FundBalance, FundSummaryComponent } from '../shared/charts/fund-summary.component';
 
 interface Category { id: number; name: string; kind: string; active: boolean }
+/** Someone on the book's "Paid to" list. */
+interface Payee { id: number; name: string; phone: string | null; note: string | null; active: boolean }
+interface ChapterOption { id: number; name: string; active: boolean }
 interface Entry {
   id: number; entry_date: string; kind: string; category_id: number; category_name: string; project_id: number | null; project_name: string | null;
   amount: number; party: string | null; description: string | null; method: string; reference: string | null; entered_by: string | null;
+  chapter_id: number | null; payee_id: number | null;
 }
 interface Line { name: string; amount: number }
 interface Summary {
   year: number; income_by_category: Line[]; expense_by_category: Line[]; expense_by_project: Line[]; income: number; expense: number;
+  income_by_chapter?: Line[]; expense_by_payee?: Line[];
   scholarships_paid?: number; reb_fees_collected?: number; published: boolean; note?: string;
 }
 
@@ -48,6 +53,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
       <li class="nav-item"><a class="nav-link" href="" [class.active]="tab === 'entries'" (click)="$event.preventDefault(); tab = 'entries'">Entries</a></li>
       <li class="nav-item"><a class="nav-link" href="" [class.active]="tab === 'summary'" (click)="$event.preventDefault(); tab = 'summary'; loadSummary()">Yearly summary</a></li>
       <li class="nav-item"><a class="nav-link" href="" [class.active]="tab === 'categories'" (click)="$event.preventDefault(); tab = 'categories'">Categories</a></li>
+      <li class="nav-item"><a class="nav-link" href="" [class.active]="tab === 'payees'" (click)="$event.preventDefault(); tab = 'payees'">Paid to</a></li>
     </ul>
 
     <!-- entries -->
@@ -115,6 +121,23 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
             </tbody></table>
           </div></div>
         </div>
+        <div class="col-md-6" *ngIf="s.income_by_chapter?.length">
+          <div class="card"><div class="card-body">
+            <h4 class="header-title">Received from (by chapter)</h4>
+            <table class="table table-sm mb-0"><tbody>
+              <tr *ngFor="let l of s.income_by_chapter"><td>{{ l.name }}</td><td class="text-right">₹{{ l.amount | number: '1.0-2' }}</td></tr>
+            </tbody></table>
+          </div></div>
+        </div>
+        <div class="col-md-6" *ngIf="s.expense_by_payee?.length">
+          <div class="card"><div class="card-body">
+            <h4 class="header-title">Paid to</h4>
+            <table class="table table-sm mb-0"><tbody>
+              <tr *ngFor="let l of s.expense_by_payee"><td>{{ l.name }}</td><td class="text-right">₹{{ l.amount | number: '1.0-2' }}</td></tr>
+            </tbody></table>
+            <p class="small text-muted mb-0 mt-2">Names stay in Rahbar: they are never shown on the website.</p>
+          </div></div>
+        </div>
         <div class="col-12">
           <div class="card"><div class="card-body">
             <h4 class="header-title">Where the money went (by project)</h4>
@@ -147,6 +170,44 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
       </div>
     </div></div>
 
+    <!-- paid to -->
+    <div class="card" *ngIf="tab === 'payees'"><div class="card-body">
+      <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
+        <p class="text-muted mb-2 mr-3">People and businesses {{ reb ? 'REB' : 'Rahbar' }} pays (landlord, staff, shops...): choose them in "Paid to" when
+          recording an expense. Income can be "received from" a chapter.</p>
+        <button *ngIf="canEdit" class="btn btn-primary btn-sm" (click)="payee = { id: null, name: '', phone: '', note: '', active: true }"><i class="mdi mdi-plus mr-1"></i>Add</button>
+      </div>
+      <div class="table-responsive"><table class="table table-sm mb-0">
+        <thead><tr><th>Name</th><th>Phone</th><th>Note</th><th></th></tr></thead>
+        <tbody>
+          <tr *ngIf="!payees.length"><td colspan="4" class="text-center text-muted">Nobody on the list yet.</td></tr>
+          <tr *ngFor="let p of payees" [class.text-muted]="!p.active">
+            <td>{{ p.name }}<span *ngIf="!p.active"> (hidden)</span></td><td>{{ p.phone || '--' }}</td><td>{{ p.note || '' }}</td>
+            <td class="text-right text-nowrap"><button *ngIf="canEdit" class="btn btn-xs btn-outline-primary mr-1" (click)="payee = { id: p.id, name: p.name, phone: p.phone || '', note: p.note || '', active: p.active }">Edit</button>
+              <button *ngIf="canEdit" class="btn btn-xs btn-outline-danger" (click)="deletePayee(p)">Delete</button></td>
+          </tr>
+        </tbody>
+      </table></div>
+    </div></div>
+
+    <div *ngIf="payee" class="modal fade show d-block" tabindex="-1" (click)="payee = null">
+      <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">{{ payee.id ? 'Edit' : 'Add to Paid to' }}</h5><button type="button" class="close" (click)="payee = null" aria-label="Close">&times;</button></div>
+          <div class="modal-body">
+            <div class="form-group"><label for="p-name">Name *</label><input id="p-name" class="form-control" maxlength="150" [(ngModel)]="payee.name" placeholder="e.g. Office landlord, Patna"></div>
+            <div class="form-group"><label for="p-phone">Phone</label><input id="p-phone" class="form-control" maxlength="30" [(ngModel)]="payee.phone"></div>
+            <div class="form-group"><label for="p-note">Note</label><input id="p-note" class="form-control" maxlength="300" [(ngModel)]="payee.note" placeholder="e.g. bank account, what for"></div>
+            <div class="custom-control custom-checkbox"><input type="checkbox" class="custom-control-input" id="p-active" [(ngModel)]="payee.active"><label class="custom-control-label" for="p-active">Active (shown in "Paid to")</label></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" (click)="payee = null">Cancel</button>
+            <button type="button" class="btn btn-primary" (click)="savePayee()" [disabled]="busy || !payee.name.trim()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div *ngIf="entry" class="modal fade show d-block" tabindex="-1" (click)="entry = null">
       <div class="modal-dialog" (click)="$event.stopPropagation()">
         <div class="modal-content">
@@ -155,13 +216,31 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
             <div class="col-6 form-group"><label for="e-date">Date *</label><app-date-input id="e-date" [max]="today" [(ngModel)]="entry.entryDate"></app-date-input></div>
             <div class="col-6 form-group"><label for="e-amount">Amount (₹) *</label><input id="e-amount" type="number" min="0" step="0.01" class="form-control" [(ngModel)]="entry.amount"></div>
             <div class="col-12 form-group"><label for="e-cat">Category *</label>
-              <select id="e-cat" class="form-control" [(ngModel)]="entry.categoryId"><option [ngValue]="null">-- Choose --</option>
+              <select id="e-cat" class="form-control" [ngModel]="entry.categoryId" (ngModelChange)="pickCategory($event)"><option [ngValue]="null">-- Choose --</option>
                 <optgroup label="Income"><option *ngFor="let c of activeOf('INCOME')" [ngValue]="c.id">{{ c.name }}</option></optgroup>
                 <optgroup label="Expenses"><option *ngFor="let c of activeOf('EXPENSE')" [ngValue]="c.id">{{ c.name }}</option></optgroup></select></div>
             <div class="col-12 form-group"><label for="e-project">Project</label>
               <select id="e-project" class="form-control" [(ngModel)]="entry.projectId"><option [ngValue]="null">General (the organisation)</option>
                 <option *ngFor="let p of projects" [ngValue]="p.id">{{ p.name }}</option></select></div>
-            <div class="col-12 form-group"><label for="e-party">{{ isIncome ? 'Received from' : 'Paid to' }}</label><input id="e-party" class="form-control" [(ngModel)]="entry.party"></div>
+            <div class="col-12 form-group" *ngIf="isIncome">
+              <label for="e-from">Received from</label>
+              <select id="e-from" class="form-control" [(ngModel)]="entry.who">
+                <option [ngValue]="null">-- Choose --</option>
+                <optgroup label="Chapters"><option *ngFor="let c of activeChapters" [ngValue]="c.id">{{ c.name }}</option></optgroup>
+                <option [ngValue]="'other'">Someone else (type the name)</option>
+              </select>
+              <input *ngIf="entry.who === 'other'" class="form-control mt-2" maxlength="150" [(ngModel)]="entry.party" placeholder="Name">
+            </div>
+            <div class="col-12 form-group" *ngIf="!isIncome">
+              <label for="e-to">Paid to</label>
+              <select id="e-to" class="form-control" [(ngModel)]="entry.who">
+                <option [ngValue]="null">-- Choose --</option>
+                <option *ngFor="let p of activePayees" [ngValue]="p.id">{{ p.name }}</option>
+                <option [ngValue]="'other'">Someone else (type the name)</option>
+              </select>
+              <input *ngIf="entry.who === 'other'" class="form-control mt-2" maxlength="150" [(ngModel)]="entry.party" placeholder="Name">
+              <small class="form-text text-muted">Not on the list? Add them in the <a href="" (click)="$event.preventDefault(); entry = null; tab = 'payees'">Paid to</a> tab.</small>
+            </div>
             <div class="col-6 form-group"><label for="e-method">Mode</label>
               <select id="e-method" class="form-control" [(ngModel)]="entry.method"><option *ngFor="let m of methodKeys" [value]="m">{{ methods[m] }}</option></select></div>
             <div class="col-6 form-group"><label for="e-ref">Reference</label><input id="e-ref" class="form-control" [(ngModel)]="entry.reference"></div>
@@ -199,7 +278,7 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
   readonly methodKeys = Object.keys(METHODS);
   readonly today = isoDate(new Date());
   readonly years = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
-  tab: 'entries' | 'summary' | 'categories' = 'entries';
+  tab: 'entries' | 'summary' | 'categories' | 'payees' = 'entries';
   categories: Category[] = [];
   projects: { id: number; name: string }[] = [];
   from = `${new Date().getFullYear()}-01-01`;
@@ -213,7 +292,12 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
   year = new Date().getFullYear();
   summary: Summary | null = null;
   entry: { id: number | null; entryDate: string; categoryId: number | null; projectId: number | null; amount: number | null; party: string;
-    description: string; method: string; reference: string } | null = null;
+    description: string; method: string; reference: string;
+    /** Received from (a chapter id) or paid to (a payee id), or 'other' with the name typed in party. */
+    who: number | 'other' | null } | null = null;
+  payees: Payee[] = [];
+  chapters: ChapterOption[] = [];
+  payee: { id: number | null; name: string; phone: string; note: string; active: boolean } | null = null;
   cat: { id: number | null; name: string; kind: string; active: boolean } | null = null;
   busy = false;
   message = '';
@@ -240,6 +324,8 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadCategories();
+    this.loadPayees();
+    this.api.get<ChapterOption[]>(`${this.base}/chapters`).subscribe({ next: (r) => (this.chapters = r), error: () => (this.chapters = []) });
     this.load();
     this.loadBalance();
     this.api.get<{ id: number; name: string }[]>(`${this.base}/projects`).subscribe({ next: (r) => (this.projects = r), error: () => (this.projects = []) });
@@ -264,17 +350,59 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
 
   openEntry(e?: Entry): void {
     this.entry = { id: e?.id ?? null, entryDate: e?.entry_date ?? this.today, categoryId: e?.category_id ?? null, projectId: e?.project_id ?? null,
-      amount: e?.amount ?? null, party: e?.party ?? '', description: e?.description ?? '', method: e?.method ?? 'BANK', reference: e?.reference ?? '' };
+      amount: e?.amount ?? null, party: e?.party ?? '', description: e?.description ?? '', method: e?.method ?? 'BANK', reference: e?.reference ?? '',
+      who: e ? (e.chapter_id ?? e.payee_id ?? (e.party ? 'other' : null)) : null };
   }
 
   saveEntry(): void {
     const e = this.entry;
     if (!e) return;
     this.busy = true;
-    const req = e.id ? this.api.put<{ message: string }>(`${this.base}/entries/${e.id}`, e) : this.api.post<{ message: string }>(`${this.base}/entries`, e);
+    // A chapter (income) or someone on the list (expense); otherwise the name typed in.
+    const picked = typeof e.who === 'number' ? e.who : null;
+    const body = { ...e, chapterId: this.isIncome ? picked : null, payeeId: this.isIncome ? null : picked, party: e.who === 'other' ? e.party : '' };
+    const req = e.id ? this.api.put<{ message: string }>(`${this.base}/entries/${e.id}`, body) : this.api.post<{ message: string }>(`${this.base}/entries`, body);
     req.subscribe({
       next: (r) => { this.busy = false; this.entry = null; this.message = r.message; this.load(); this.loadBalance(); },
       error: (err) => { this.busy = false; this.error = errorText(err, 'Could not save the entry.'); }
+    });
+  }
+
+  /** A different kind (income <-> expense): the chapter / payee chosen no longer fits. */
+  pickCategory(id: number | null): void {
+    if (!this.entry) return;
+    const kindOf = (c: number | null) => this.categories.find((x) => x.id === c)?.kind;
+    if (kindOf(id) !== kindOf(this.entry.categoryId) && this.entry.who !== 'other') this.entry.who = null;
+    this.entry.categoryId = id;
+  }
+
+  get activePayees(): Payee[] {
+    return this.payees.filter((p) => p.active || (this.entry && p.id === this.entry.who));
+  }
+  get activeChapters(): ChapterOption[] {
+    return this.chapters.filter((c) => c.active || (this.entry && c.id === this.entry.who));
+  }
+
+  loadPayees(): void {
+    this.api.get<Payee[]>(`${this.base}/payees`).subscribe({ next: (r) => (this.payees = r), error: () => (this.payees = []) });
+  }
+
+  savePayee(): void {
+    const p = this.payee;
+    if (!p) return;
+    this.busy = true;
+    const req = p.id ? this.api.put<{ message: string }>(`${this.base}/payees/${p.id}`, p) : this.api.post<{ message: string }>(`${this.base}/payees`, p);
+    req.subscribe({
+      next: (r) => { this.busy = false; this.payee = null; this.message = r.message; this.loadPayees(); },
+      error: (err) => { this.busy = false; this.error = errorText(err, 'Could not save it.'); }
+    });
+  }
+
+  deletePayee(p: Payee): void {
+    if (!confirm(`Remove ${p.name} from the Paid to list?`)) return;
+    this.api.delete<{ message: string }>(`${this.base}/payees/${p.id}`).subscribe({
+      next: (r) => { this.message = r.message; this.loadPayees(); },
+      error: (err) => (this.error = errorText(err, 'Could not remove it.'))
     });
   }
 
