@@ -145,7 +145,11 @@ class FinanceServiceTest {
         assertThrows(ApiException.class, () -> service.saveEntry("REB", null, new HashMap<>(Map.of("entryDate", "2026-03-01", "categoryId", 2,
                 "amount", "1", "payeeId", 9))));
 
-        FinEntry typed = service.saveEntry("RAHBAR", null, new HashMap<>(Map.of("entryDate", "2026-03-01", "categoryId", 1, "amount", "100",
+        // Rahbar's income always comes from a chapter; REB's may still come from someone typed in.
+        assertThrows(ApiException.class, () -> service.saveEntry("RAHBAR", null, new HashMap<>(Map.of("entryDate", "2026-03-01",
+                "categoryId", 1, "amount", "100", "party", "A well-wisher"))));
+        when(categories.findByIdAndBook(1L, "REB")).thenReturn(Optional.of(cat(1, "Donations", "INCOME")));
+        FinEntry typed = service.saveEntry("REB", null, new HashMap<>(Map.of("entryDate", "2026-03-01", "categoryId", 1, "amount", "100",
                 "party", "A well-wisher")));
         assertEquals("A well-wisher", typed.getParty());
         assertNull(typed.getChapterId());

@@ -215,9 +215,13 @@ public class FinanceService {
         BigDecimal amount = money(body.get("amount"), "Amount");
         if (amount == null || amount.signum() <= 0) throw bad("Enter the amount.");
         e.setAmount(amount);
-        // Received from a chapter / paid to someone on the list; otherwise the name typed in.
+        // Received from a chapter / paid to someone on the list; otherwise the name typed in. Rahbar's own income
+        // always comes from a chapter. (Website donations are booked by DonationBooks with the donor's name.)
         Long chapterId = "INCOME".equals(c.getKind()) ? id(body.get("chapterId")) : null;
         Long payeeId = "EXPENSE".equals(c.getKind()) ? id(body.get("payeeId")) : null;
+        if (RAHBAR.equals(book) && "INCOME".equals(c.getKind()) && chapterId == null) {
+            throw bad("Choose the chapter the money was received from.");
+        }
         e.setChapterId(null);
         e.setPayeeId(null);
         if (chapterId != null) {
