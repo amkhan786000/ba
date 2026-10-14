@@ -10,7 +10,8 @@ TAG="${1:?usage: deploy.sh <image-tag>}"
 COMPOSE=(docker compose -f "$APP_DIR/docker-compose.prod.yml" --env-file "$APP_DIR/.env")
 STATE_FILE="$APP_DIR/.deployed-tag"
 BACKUP_DIR="$APP_DIR/backups"
-HEALTH_URL="http://127.0.0.1:${HEALTH_PORT:-80}/api/public/application-form-options"
+# /api/public/health answers 200 only when the backend and its database are up.
+HEALTH_URL="http://127.0.0.1:${HEALTH_PORT:-80}/api/public/health"
 
 cd "$APP_DIR"
 log() { echo "[deploy $(date '+%F %T')] $*"; }
@@ -93,7 +94,7 @@ case "$(envval COMPOSE_PROFILES)" in *https*)
   case "$HTTP_BIND" in 127.0.0.1:*) ;; *) log "WARNING: HTTPS is on but HTTP_BIND=${HTTP_BIND:-80} is open to the internet. Set HTTP_BIND=127.0.0.1:8081 in /opt/rahbar/.env." ;; esac ;;
 esac
 if [ -n "$HTTP_BIND" ] && [ "$HTTP_BIND" != "80" ]; then
-  HEALTH_URL="http://${HTTP_BIND}/api/public/application-form-options"
+  HEALTH_URL="http://${HTTP_BIND}/api/public/health"
 fi
 
 PREVIOUS_TAG="$(cat "$STATE_FILE" 2>/dev/null || true)"
