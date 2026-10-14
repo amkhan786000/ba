@@ -223,12 +223,13 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
               <select id="e-project" class="form-control" [(ngModel)]="entry.projectId"><option [ngValue]="null">General (the organisation)</option>
                 <option *ngFor="let p of projects" [ngValue]="p.id">{{ p.name }}</option></select></div>
             <div class="col-12 form-group" *ngIf="isIncome">
-              <label for="e-from">Received from</label>
+              <label for="e-from">Received from {{ reb ? '' : '(chapter) *' }}</label>
               <select id="e-from" class="form-control" [(ngModel)]="entry.who">
-                <option [ngValue]="null">-- Choose --</option>
+                <option [ngValue]="null">-- Choose {{ reb ? '' : 'the chapter ' }}--</option>
                 <optgroup label="Chapters"><option *ngFor="let c of activeChapters" [ngValue]="c.id">{{ c.name }}</option></optgroup>
-                <option [ngValue]="'other'">Someone else (type the name)</option>
+                <option *ngIf="reb" [ngValue]="'other'">Someone else (type the name)</option>
               </select>
+              <small *ngIf="!reb" class="form-text text-muted">Rahbar's income comes from the chapters.</small>
               <input *ngIf="entry.who === 'other'" class="form-control mt-2" maxlength="150" [(ngModel)]="entry.party" placeholder="Name">
             </div>
             <div class="col-12 form-group" *ngIf="!isIncome">
@@ -248,7 +249,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
           </div></div>
           <div class="modal-footer">
             <button type="button" class="btn btn-light" (click)="entry = null">Cancel</button>
-            <button type="button" class="btn btn-primary" (click)="saveEntry()" [disabled]="busy || !entry.entryDate || !entry.categoryId || !entry.amount">Save</button>
+            <button type="button" class="btn btn-primary" (click)="saveEntry()" [disabled]="busy || !entry.entryDate || !entry.categoryId || !entry.amount || needsChapter">Save</button>
           </div>
         </div>
       </div>
@@ -351,7 +352,7 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
   openEntry(e?: Entry): void {
     this.entry = { id: e?.id ?? null, entryDate: e?.entry_date ?? this.today, categoryId: e?.category_id ?? null, projectId: e?.project_id ?? null,
       amount: e?.amount ?? null, party: e?.party ?? '', description: e?.description ?? '', method: e?.method ?? 'BANK', reference: e?.reference ?? '',
-      who: e ? (e.chapter_id ?? e.payee_id ?? (e.party ? 'other' : null)) : null };
+      who: e ? (e.chapter_id ?? e.payee_id ?? (e.party && (this.reb || e.kind === 'EXPENSE') ? 'other' : null)) : null };
   }
 
   saveEntry(): void {
@@ -374,6 +375,11 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
     const kindOf = (c: number | null) => this.categories.find((x) => x.id === c)?.kind;
     if (kindOf(id) !== kindOf(this.entry.categoryId) && this.entry.who !== 'other') this.entry.who = null;
     this.entry.categoryId = id;
+  }
+
+  /** Rahbar's income must say which chapter sent it. */
+  get needsChapter(): boolean {
+    return !this.reb && this.isIncome && typeof this.entry?.who !== 'number';
   }
 
   get activePayees(): Payee[] {
