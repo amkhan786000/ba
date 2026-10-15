@@ -191,12 +191,12 @@ class DataQualityServiceTest {
         assertEquals(1, checks.get("blog_posts_without_summary").get("count"));
     }
 
-    private static com.rahbar.entity.GranteeDetails application(long userId, String father, String mobile) {
+    private static com.rahbar.entity.GranteeDetails application(long userId, String father, String fatherMobile) {
         var g = new com.rahbar.entity.GranteeDetails();
         g.setGranteeDetailId(userId);
         g.setUserId(userId);
         g.setFatherName(father);
-        g.setStudentMobile(mobile);
+        g.setFatherMobile(fatherMobile);
         return g;
     }
 
@@ -206,23 +206,34 @@ class DataQualityServiceTest {
     }
 
     @Test
-    void aSameNameAloneIsNotADuplicate() {
-        User a = user(30, 6, "S-30"); a.setName("Ayesha Khan"); a.setPhone("9876543210");
-        User b = user(31, 6, "S-31"); b.setName("ayesha  khan"); b.setPhone("+91 98765 43210"); // same name and phone
-        User c = user(32, 6, "S-32"); c.setName("Ayesha Khan"); // same name only, different father
-        User d = user(33, 6, "S-33"); d.setName("Aysha Khan"); // different spelling, same father and mobile as e
-        User e = user(34, 6, "S-34"); e.setName("Ayesha Begum");
-        when(users.findByRoleId(6)).thenReturn(List.of(a, b, c, d, e));
-        when(applications.findAll()).thenReturn(List.of(application(30, "Imran", null), application(32, "Salim", null),
-                application(33, "Md. Rafiq", "9000000001"), application(34, "md rafiq", "9000000001")));
+    void aStudentDuplicateNeedsTheNameFatherFatherMobileAndEmail() {
+        // a+b: same name, father, father's mobile and email (spelling/format aside)
+        User a = user(30, 6, "S-30"); a.setName("Ayesha Khan"); a.setEmail("ayesha@example.com");
+        User b = user(31, 6, "S-31"); b.setName("ayesha  khan"); b.setEmail("AYESHA@example.com ");
+        // c+d: sisters (different names), same father, his mobile and an email: never a duplicate
+        User c = user(32, 6, "PVT078-2025"); c.setName("Rahma Khatun"); c.setEmail("PVT078-2025@rahbar.com");
+        User d = user(33, 6, "PVT066-2025"); d.setName("Sana Tabassum"); d.setEmail("PVT066-2025@rahbar.com");
+        // e: same name and father as a, other father's mobile
+        User e = user(34, 6, "S-34"); e.setName("Ayesha Khan"); e.setEmail("ayesha@example.com");
+        // f: same name, father and mobile as a, but another real email
+        User f = user(35, 6, "S-35"); f.setName("Ayesha Khan"); f.setEmail("other@example.com");
+        // g+h: same name, father and mobile; only placeholder emails, so the email doesn't tell them apart
+        User g = user(36, 6, "S-36"); g.setName("Zoya"); g.setEmail("S-36@rahbar.com");
+        User h = user(37, 6, "S-37"); h.setName("Zoya");
+        when(users.findByRoleId(6)).thenReturn(List.of(a, b, c, d, e, f, g, h));
+        when(applications.findAll()).thenReturn(List.of(application(30, "Md. Imran", "9000000001"),
+                application(31, "md imran", "+91 90000 00001"), application(32, "MD AKBAR", "6209175137"),
+                application(33, "MD AKBAR", "6209175137"), application(34, "Md Imran", "9000000002"),
+                application(35, "Md Imran", "9000000001"), application(36, "Salim", "9111111111"),
+                application(37, "Salim", "9111111111")));
 
         var check = byKey().get("possible_duplicate_students");
-        assertEquals(4, check.get("count")); // a+b (name, phone), d+e (father, phone); c is not flagged
         var r = rows(check);
-        assertEquals(Set.of(30L, 31L, 33L, 34L), new HashSet<>(r.stream().map(x -> (Long) x.get("id")).toList()));
+        assertEquals(Set.of(30L, 31L, 36L, 37L), new HashSet<>(r.stream().map(x -> (Long) x.get("id")).toList()));
         assertEquals(r.get(0).get("group"), r.get(1).get("group"));
         assertNotEquals(r.get(0).get("group"), r.get(2).get("group"));
-        assertEquals("name, phone", r.get(0).get("matched_on"));
+        assertEquals("name, father's name, father's mobile, email", r.get(0).get("matched_on"));
+        assertEquals("name, father's name, father's mobile", r.get(2).get("matched_on"));
     }
 
     @Test

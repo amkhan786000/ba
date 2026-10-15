@@ -464,9 +464,10 @@ public class DataQualityService {
     }
 
     /**
-     * Possible duplicate students. A matching name alone is not enough: two accounts are flagged when the name matches
-     * and at least one of father's name, phone (account or application mobile) or email also matches, or when two of
-     * those match even though the names differ (a misspelt name). Rows of one person share a "group".
+     * Possible duplicate students: the same name, the same father's name and the same father's mobile (from the
+     * application), and the same email. Generated @rahbar.com placeholder emails don't count either way, so two
+     * records only differ on email when both have a real one. Different names are never flagged (siblings share a
+     * father, his mobile and often an email). Rows of one person share a "group".
      */
     private Map<String, Object> duplicateStudents(List<User> students) {
         Map<Long, GranteeDetails> applications = new HashMap<>();
@@ -474,28 +475,47 @@ public class DataQualityService {
                 .filter(g -> g.getUserId() != null)
                 .sorted(Comparator.comparing(GranteeDetails::getGranteeDetailId))
                 .forEach(g -> applications.putIfAbsent(g.getUserId(), g));
-        List<Person> people = new ArrayList<>();
+        // Only students with a name, a father's name and a father's mobile can match.
+        Map<String, List<User>> byKey = new LinkedHashMap<>();
         for (User u : students) {
             GranteeDetails g = applications.get(u.getId());
-            Person p = new Person(u);
-            p.add("father's name", text(g == null ? null : g.getFatherName()));
-            p.add("phone", phone(u.getPhone()));
-            p.add("phone", phone(g == null ? null : g.getStudentMobile()));
-            p.add("email", email(u.getEmail()));
-            people.add(p);
+            String name = text(u.getName());
+            String father = text(g == null ? null : g.getFatherName());
+            String fatherPhone = phone(g == null ? null : g.getFatherMobile());
+            if (name == null || father == null || fatherPhone == null) continue;
+            byKey.computeIfAbsent(name + "\u0000" + father + "\u0000" + fatherPhone, k -> new ArrayList<>()).add(u);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
-        for (Duplicate d : duplicates(people)) {
-            User u = d.person().user;
-            GranteeDetails g = applications.get(u.getId());
-            rows.add(row("group", d.group(), "id", u.getId(), "user_id", u.getUserId(), "name", u.getName(),
-                    "father_name", g == null ? null : g.getFatherName(), "phone", u.getPhone(), "email", u.getEmail(),
-                    "matched_on", d.matchedOn(), "study_status", StudyStatus.label(u.getStudyStatus()),
-                    "chapter", u.getChapterName(), "joined", u.getCreatedAt()));
+        int group = 0;
+        for (List<User> same : byKey.values()) {
+            // Within one name/father/mobile, the emails split them: real emails that differ are different people.
+            Map<String, List<User>> byEmail = new LinkedHashMap<>();
+            List<User> noEmail = new ArrayList<>();
+            for (User u : same) {
+                String e = email(u.getEmail());
+                if (e == null) noEmail.add(u); else byEmail.computeIfAbsent(e, k -> new ArrayList<>()).add(u);
+            }
+            List<List<User>> groups = new ArrayList<>();
+            if (byEmail.isEmpty()) groups.add(noEmail);
+            else if (byEmail.size() == 1) { List<User> one = new ArrayList<>(byEmail.values().iterator().next()); one.addAll(noEmail); groups.add(one); }
+            else groups.addAll(byEmail.values()); // which real email a placeholder record belongs to is unknown
+            for (List<User> g : groups) {
+                if (g.size() < 2) continue;
+                group++;
+                boolean emailMatched = g.stream().allMatch(u -> email(u.getEmail()) != null);
+                String matchedOn = "name, father's name, father's mobile" + (emailMatched ? ", email" : "");
+                for (User u : g) {
+                    GranteeDetails a = applications.get(u.getId());
+                    rows.add(row("group", group, "id", u.getId(), "user_id", u.getUserId(), "name", u.getName(),
+                            "father_name", a.getFatherName(), "father_mobile", a.getFatherMobile(), "phone", u.getPhone(),
+                            "email", u.getEmail(), "matched_on", matchedOn, "study_status", StudyStatus.label(u.getStudyStatus()),
+                            "chapter", u.getChapterName(), "joined", u.getCreatedAt()));
+                }
+            }
         }
         return check("possible_duplicate_students", "Possible duplicate students",
-                "Active students with the same name and the same father's name, phone or email (or two of those with a "
-                        + "different spelling of the name); check whether they were entered twice.", rows);
+                "Active students with the same name, the same father's name, the same father's mobile and the same email "
+                        + "(placeholder @rahbar.com emails aside); check whether they were entered twice.", rows);
     }
 
     /**
