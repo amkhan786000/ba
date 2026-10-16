@@ -7,6 +7,7 @@ import com.rahbar.security.Section;
 import com.rahbar.service.StudyStatus;
 import com.rahbar.service.StudentDirectorySearch;
 import com.rahbar.service.AdminService;
+import com.rahbar.service.PaymentInstallmentService;
 import com.rahbar.service.BulkUploadReport;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -117,10 +118,12 @@ public class AdminController {
         int year = Integer.parseInt(String.valueOf(body.get("year")));
         Object frequency = body.get("frequencyMonths");
         Object notice = body.get("dueNoticeDays");
-        adminService.saveSchedule(year, new BigDecimal(String.valueOf(body.get("amount"))),
+        String type = adminService.saveSchedule(year, body.get("collegeType") == null ? null : String.valueOf(body.get("collegeType")),
+                new BigDecimal(String.valueOf(body.get("amount"))),
                 frequency == null || String.valueOf(frequency).isBlank() ? null : Integer.valueOf(String.valueOf(frequency)),
                 notice == null || String.valueOf(notice).isBlank() ? null : Integer.valueOf(String.valueOf(notice)));
-        return Map.of("message", "Payment config for " + year + " saved. Unpaid installments of students from " + year + " were updated.");
+        return Map.of("message", "Payment config for " + year + " (" + PaymentInstallmentService.collegeLabel(type)
+                + ") saved. Unpaid installments of students from " + year + " were updated.");
     }
 
     // ---------------------------------------------------------------- RCC centers

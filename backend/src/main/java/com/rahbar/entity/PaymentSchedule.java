@@ -21,6 +21,11 @@ public class PaymentSchedule extends Modifiable {
     @Column(name = "year", nullable = false)
     private Integer year;
 
+    /** GOVT or PRIVATE college students' config, or ANY: everyone of the year without a config of their own. */
+    @Column(name = "college_type", nullable = false, length = 10)
+    @org.hibernate.annotations.ColumnDefault("'ANY'")
+    private String collegeType = "ANY";
+
     @Column(name = "status", nullable = false)
     private Integer status = 1;
 

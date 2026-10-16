@@ -76,6 +76,13 @@ public class User extends Modifiable {
     @Column(name = "payment_start_date")
     private java.time.LocalDate paymentStartDate;
 
+    /**
+     * BA Details > College type: GOVT, PRIVATE or ANY ("doesn't matter"); null = not set yet (treated like ANY).
+     * Picks the student's Payment Config together with the session year.
+     */
+    @Column(name = "college_type", length = 10)
+    private String collegeType;
+
     /** Students: STUDYING, ON_HOLD, GRADUATED or DROPPED_OUT (see service.StudyStatus); NULL counts as studying. */
     @Column(name = "study_status", length = 20)
     private String studyStatus;

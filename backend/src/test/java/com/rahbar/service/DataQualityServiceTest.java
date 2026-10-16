@@ -83,7 +83,7 @@ class DataQualityServiceTest {
     void everyCheckHasAMenuGroupAndAScreen() {
         Set<String> groups = Set.of("students", "sponsors", "community", "website", "administration");
         var checks = service.checks();
-        assertEquals(33, checks.size()); // 23 before, duplicate sponsors, 8 payment set-up checks, same person / two accounts
+        assertEquals(35, checks.size()); // 23 before, duplicate sponsors, 10 payment set-up checks, same person / two accounts
         for (var c : checks) {
             assertTrue(groups.contains((String) c.get("group")), c.get("key") + " has group " + c.get("group"));
             assertTrue(String.valueOf(c.get("link")).startsWith("/admin/"), c.get("key") + " has link " + c.get("link"));
