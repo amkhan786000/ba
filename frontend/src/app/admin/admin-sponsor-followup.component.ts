@@ -10,7 +10,7 @@ import { AppDatePipe } from '../shared/app-date';
 interface Last { at: string; channel: string; kind: string; by: string; note: string }
 interface Row {
   sponsor_id: number; name: string; user_id: string | null; chapter: string | null; has_email: boolean; last_followup: Last | null;
-  students?: number; overdue_count?: number; overdue_amount?: number; oldest_due?: string;
+  students?: number; overdue_count?: number; oldest_due?: string;
   since?: string | null; last_student?: string | null; never_sponsored?: boolean;
 }
 
@@ -54,7 +54,7 @@ interface Row {
             <td *ngIf="canEdit"><input type="checkbox" [checked]="selected.has(r.sponsor_id)" (change)="toggle(r.sponsor_id)" [disabled]="!r.has_email" [attr.aria-label]="'Choose ' + r.name"></td>
             <td><strong>{{ r.name }}</strong><div class="small text-muted">{{ r.user_id }}{{ r.chapter ? ' · ' + r.chapter : '' }}<span *ngIf="!r.has_email"> · no email</span></div></td>
             <ng-container *ngIf="tab === 'LAPSED'">
-              <td>{{ r.students }}</td><td>{{ r.overdue_count }} · ₹{{ r.overdue_amount | number: '1.0-0' }}</td><td>{{ r.oldest_due | appDate }}</td>
+              <td>{{ r.students }}</td><td>{{ r.overdue_count }} installment{{ r.overdue_count === 1 ? '' : 's' }}</td><td>{{ r.oldest_due | appDate }}</td>
             </ng-container>
             <ng-container *ngIf="tab === 'AVAILABLE'">
               <td>{{ r.never_sponsored ? 'Never had a student' : r.last_student }}</td><td>{{ r.since ? (r.since | appDate) : '--' }}</td>

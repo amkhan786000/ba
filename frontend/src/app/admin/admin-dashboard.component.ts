@@ -128,13 +128,13 @@ export const MODULE_DASHBOARDS: { path: string; label: string; icon: string; sec
                        [sub]="k('onHold') + ' on hold · ' + k('graduated') + ' graduated'"></app-stat-tile>
         <app-stat-tile *ngIf="has('activeSponsors')" label="Active sponsors" icon="mdi-account-heart" tone="purple" [value]="k('activeSponsors')"
                        [sub]="k('sponsorsWithStudents') + ' with a student now'"></app-stat-tile>
-        <app-stat-tile *ngIf="has('paidThisYear')" label="Paid to students" icon="mdi-cash" tone="success" [value]="money(k('paidThisYear'))"
+        <app-stat-tile *ngIf="has('paidThisYear')" label="Installments paid" icon="mdi-cash" tone="success" [value]="k('paidThisYear')"
                        [sub]="growth('paidThisYear', 'paidLastYear')" [trend]="trend('paidThisYear', 'paidLastYear')"></app-stat-tile>
         <app-stat-tile *ngIf="has('dueSoFar')" label="Collection rate" icon="mdi-percent" [tone]="rateTone(k('collectionRate'))"
                        [value]="k('collectionRate') === null ? '–' : k('collectionRate') + '%'"
-                       [sub]="money(k('paidOfDue')) + ' of ' + money(k('dueSoFar')) + ' due so far'"></app-stat-tile>
-        <app-stat-tile *ngIf="has('overdueAmount')" label="Overdue" icon="mdi-alarm" [tone]="+(k('overdueAmount') || 0) ? 'danger' : 'success'"
-                       [value]="money(k('overdueAmount'))" [sub]="k('overdueStudents') + ' students affected'"></app-stat-tile>
+                       [sub]="k('paidOfDue') + ' of ' + k('dueSoFar') + ' installments due so far are paid'"></app-stat-tile>
+        <app-stat-tile *ngIf="has('overdueInstallments')" label="Overdue installments" icon="mdi-alarm" [tone]="+(k('overdueInstallments') || 0) ? 'danger' : 'success'"
+                       [value]="k('overdueInstallments')" [sub]="k('overdueStudents') + ' students affected'"></app-stat-tile>
         <app-stat-tile *ngIf="has('donations')" label="Online donations" icon="mdi-hand-heart" tone="info" [value]="money(k('donations'))"
                        [sub]="k('donationsCount') + ' donations'"></app-stat-tile>
         <app-stat-tile *ngIf="has('alumni')" label="Alumni" icon="mdi-account-star" tone="purple" [value]="k('alumni')" link="/admin/alumni"></app-stat-tile>
@@ -152,8 +152,8 @@ export const MODULE_DASHBOARDS: { path: string; label: string; icon: string; sec
       <div class="row">
         <div class="col-xl-8" *ngIf="d.charts.collectedByMonth">
           <div class="card"><div class="card-body">
-            <h4 class="header-title mb-3">Paid to students per month <small>{{ d.year }} next to {{ d.year - 1 }}</small></h4>
-            <app-column-chart [data]="d.charts.collectedByMonth" [money]="true" [colours]="['#cfe0a8', '#4f7a00']"></app-column-chart>
+            <h4 class="header-title mb-3">Installments paid per month <small>{{ d.year }} next to {{ d.year - 1 }}</small></h4>
+            <app-column-chart [data]="d.charts.collectedByMonth" [colours]="['#cfe0a8', '#4f7a00']"></app-column-chart>
           </div></div>
         </div>
         <div [class]="d.charts.collectedByMonth ? 'col-xl-4' : 'col-xl-6'">
@@ -172,7 +172,7 @@ export const MODULE_DASHBOARDS: { path: string; label: string; icon: string; sec
         <div class="col-xl-6" *ngIf="d.charts.overdueAgeing">
           <div class="card"><div class="card-body">
             <h4 class="header-title mb-3">Overdue by how late <small>unpaid installments</small></h4>
-            <app-bar-chart [data]="d.charts.overdueAgeing" [money]="true" colour="#c0262d" emptyText="Nothing overdue."></app-bar-chart>
+            <app-bar-chart [data]="d.charts.overdueAgeing" colour="#c0262d" emptyText="Nothing overdue."></app-bar-chart>
           </div></div>
         </div>
 
@@ -252,7 +252,7 @@ export class AdminDashboardComponent implements OnInit {
     const a = Number(this.k(now)) || 0, b = Number(this.k(before)) || 0;
     if (!b) return a ? 'nothing paid by now last year' : 'nothing yet';
     const pct = Math.round(((a - b) / b) * 100);
-    return (pct >= 0 ? '▲ ' : '▼ ') + Math.abs(pct) + '% vs same time last year (' + inr(b) + ')';
+    return (pct >= 0 ? '▲ ' : '▼ ') + Math.abs(pct) + '% vs same time last year (' + b + ')';
   }
   trend(now: string, before: string): 'up' | 'down' | null {
     const a = Number(this.k(now)) || 0, b = Number(this.k(before)) || 0;

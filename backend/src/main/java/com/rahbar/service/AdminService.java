@@ -699,8 +699,6 @@ public class AdminService {
         profile.put("study_status_date", user.getStudyStatusDate());
         profile.put("study_status_note", user.getStudyStatusNote());
         profile.put("name", user.getName());
-        profile.put("annual_schedule_amount", user.getYear() == null ? 0 : paymentScheduleRepository
-                .findFirstByYearAndStatus(user.getYear(), 1).map(s -> (Object) s.getAmount()).orElse(0));
 
         List<Payment> payments = paymentRepository.findByGranteeIdOrderByPaymentDateDesc(userId);
         Map<Long, String> grantorNames = userNames(userRepository, payments.stream().map(Payment::getGrantorId).toList());
@@ -708,6 +706,7 @@ public class AdminService {
         for (Payment p : payments) {
             Map<String, Object> row = Rows.of(p);
             row.put("grantor_name", grantorNames.get(p.getGrantorId()));
+            row.put("installment", installmentService.label(p.getPaymentId()));
             paymentRows.add(row);
         }
 
@@ -1179,17 +1178,20 @@ public class AdminService {
                     + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());
             payment.setReceiptUrl(fileStorageService.store(receipt, filename));
         }
-        payment.setAmount(amount);
+        // The amount is typed from the bank receipt and kept, but never shown back; editing without one keeps it.
+        if (amount != null) payment.setAmount(amount);
+        else if (create) throw new ApiException(HttpStatus.BAD_REQUEST, "Enter the amount paid.");
         payment.setPaymentDate(parseDateTime(paymentDate));
         payment.setStatus(status);
         paymentRepository.saveAndFlush(payment);
         installmentService.afterPayment(payment, create ? installmentId : null);
         if (create) {
-            String text = "A payment of " + amount + " was recorded for you (status: " + status + ").";
+            String which = installmentService.label(payment.getPaymentId());
+            String text = "Your sponsor's " + which + " was recorded (status: " + status + ").";
             notificationService.notify(granteeId, "Payment recorded", text, NotificationService.PAYMENT, "/student/payments", false);
             String student = userRepository.findById(granteeId).map(User::getName).orElse("your student");
             notificationService.notify(payment.getGrantorId(), "Payment recorded",
-                    "The office recorded a payment of " + amount + " for " + student + ".",
+                    "The office recorded " + which + " for " + student + ".",
                     NotificationService.PAYMENT, "/sponsor/payments", false);
         }
         return create ? "Payment recorded and linked to the student's sponsor successfully." : "Payment updated successfully.";

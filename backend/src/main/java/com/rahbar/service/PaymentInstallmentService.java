@@ -281,6 +281,23 @@ public class PaymentInstallmentService {
         return out;
     }
 
+    /**
+     * How a payment is named on screens and in emails: "installment 3" (amounts are never shown), or "a payment"
+     * when it doesn't pay an installment.
+     */
+    @Transactional(readOnly = true)
+    public String label(Long paymentId) {
+        return paymentId == null ? "a payment" : installmentRepository.findByPaymentId(paymentId)
+                .map(i -> "installment " + i.getInstallmentNo()).orElse("a payment");
+    }
+
+    /** Just the number for an email's {{installment}} ("3"), or "" when the payment pays none. */
+    @Transactional(readOnly = true)
+    public String number(Long paymentId) {
+        return paymentId == null ? "" : installmentRepository.findByPaymentId(paymentId)
+                .map(i -> String.valueOf(i.getInstallmentNo())).orElse("");
+    }
+
     /** A student's installments (all sponsors) as rows, with the payment that paid each one. */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> forStudent(Long studentId) {
@@ -366,7 +383,8 @@ public class PaymentInstallmentService {
     /**
      * Admin > Payment Records: installments of every student the user may see (chapter-scoped users: their
      * chapter's students), filtered by text (student / sponsor name or code) and status, one page at a time, with
-     * the count and amount of each status for the cards above the table.
+     * the number of installments in each status for the cards above the table. Amounts stay in the database but are
+     * never sent to a screen: everyone sees installments (installment 2 paid, installment 3 due).
      */
     @Transactional(readOnly = true)
     public Map<String, Object> search(String q, String status, Integer page, Integer size) {
@@ -379,21 +397,14 @@ public class PaymentInstallmentService {
         Map<Long, User> users = new HashMap<>();
         userRepository.findAllById(all.stream().flatMap(i -> java.util.stream.Stream.of(i.getGranteeId(), i.getGrantorId()))
                 .filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet())).forEach(u -> users.put(u.getId(), u));
-        Map<Long, Payment> payments = new HashMap<>();
-        paymentRepository.findAllById(all.stream().map(PaymentInstallment::getPaymentId).filter(Objects::nonNull).toList())
-                .forEach(p -> payments.put(p.getPaymentId(), p));
 
         // Cards above the table: every status of the installments the user may see (search and status filter aside).
         Map<String, long[]> counts = new LinkedHashMap<>();
-        Map<String, BigDecimal> amounts = new LinkedHashMap<>();
-        for (String st : List.of(OVERDUE, DUE, NOT_DUE, PAID)) { counts.put(st, new long[1]); amounts.put(st, BigDecimal.ZERO); }
+        for (String st : List.of(OVERDUE, DUE, NOT_DUE, PAID)) counts.put(st, new long[1]);
         List<PaymentInstallment> filtered = new ArrayList<>();
         for (PaymentInstallment i : all) {
             String st = status(i, today, notice.getOrDefault(i.getGranteeId(), DEFAULT_NOTICE_DAYS));
-            Payment p = i.getPaymentId() == null ? null : payments.get(i.getPaymentId());
-            BigDecimal amount = PAID.equals(st) ? (p == null || p.getAmount() == null ? BigDecimal.ZERO : p.getAmount()) : i.getAmount() == null ? BigDecimal.ZERO : i.getAmount();
             counts.computeIfAbsent(st, k -> new long[1])[0]++;
-            amounts.merge(st, amount, BigDecimal::add);
             if (status != null && !status.isBlank() && !status.equalsIgnoreCase(st)) continue;
             User s = users.get(i.getGranteeId()), sp = users.get(i.getGrantorId());
             if (!com.rahbar.util.Paging.matches(q, s == null ? null : s.getName(), s == null ? null : s.getUserId(),
@@ -406,7 +417,7 @@ public class PaymentInstallmentService {
             return rows;
         });
         List<Map<String, Object>> summary = new ArrayList<>();
-        counts.forEach((st, c) -> summary.add(Map.of("status", st, "count", c[0], "amount", amounts.get(st))));
+        counts.forEach((st, c) -> summary.add(Map.of("status", st, "count", c[0])));
         body.put("summary", summary);
         return body;
     }
@@ -432,7 +443,6 @@ public class PaymentInstallmentService {
             row.put("installment_id", i.getInstallmentId());
             row.put("installment_no", i.getInstallmentNo());
             row.put("due_date", i.getDueDate());
-            row.put("amount", i.getAmount());
             row.put("status", status(i, today, notice.getOrDefault(i.getGranteeId(), DEFAULT_NOTICE_DAYS)));
             row.put("student_id", i.getGranteeId());
             row.put("sponsor_id", i.getGrantorId());
@@ -446,7 +456,6 @@ public class PaymentInstallmentService {
             }
             Payment p = i.getPaymentId() == null ? null : payments.get(i.getPaymentId());
             row.put("payment_id", p == null ? null : p.getPaymentId());
-            row.put("paid_amount", p == null ? null : p.getAmount());
             row.put("paid_date", p == null ? null : p.getPaymentDate());
             row.put("receipt_url", p == null ? null : p.getReceiptUrl());
             row.put("student_proof_url", p == null ? null : p.getStudentProofUrl());

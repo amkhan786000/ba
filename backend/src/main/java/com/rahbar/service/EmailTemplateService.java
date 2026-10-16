@@ -128,7 +128,7 @@ public class EmailTemplateService {
             Map.entry("name", "Ayesha Khan"), Map.entry("code", "123456"), Map.entry("minutes", "15"),
             Map.entry("password", "Temp#4821"), Map.entry("email", "admin@example.org"), Map.entry("site", " (https://rahbar.example.org)"),
             Map.entry("student_name", "Ayesha Khan"), Map.entry("student_code", "STU-1001"), Map.entry("sponsor_name", "Rahman Sponsor"),
-            Map.entry("amount", "14000.00"), Map.entry("count", "2"), Map.entry("due_date", "10 Jan 2027"),
+            Map.entry("amount", "14000.00"), Map.entry("installment", "3"), Map.entry("count", "2"), Map.entry("due_date", "10 Jan 2027"),
             Map.entry("reviewer", "Rahman Sponsor"), Map.entry("session", "Semester 2"), Map.entry("year", "2026"),
             Map.entry("comment", "Please upload the full marks sheet."), Map.entry("title", "Semester 2 results"),
             Map.entry("note", "Upload the marks sheet as a PDF."), Map.entry("application_id", "152"), Map.entry("status", "approved"),

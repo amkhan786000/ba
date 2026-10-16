@@ -252,7 +252,7 @@ interface FeeRow {
         <div class="modal-content">
           <div class="modal-header"><h5 class="modal-title">Yearly statement: {{ statement.sponsor.name }}</h5><button type="button" class="close" (click)="statement = null">&times;</button></div>
           <div class="modal-body">
-            <p class="text-muted small">Installments due, payments made and outstanding amounts for the calendar year, with each student's latest progress report.</p>
+            <p class="text-muted small">Installments due, paid and outstanding for the calendar year, with each student's latest progress report.</p>
             <label for="sy">Year</label>
             <select id="sy" class="form-control" [(ngModel)]="statement.year">
               <option *ngFor="let y of years" [ngValue]="y">{{ y }}</option>

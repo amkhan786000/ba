@@ -30,7 +30,7 @@ import { DateInputComponent } from '../shared/date-input.component';
         <div class="card-box clickable" [class.selected]="status === s.status" (click)="status = status === s.status ? '' : s.status; table.filter()">
           <h4 class="header-title mt-0"><span class="badge mr-1" [ngClass]="badge(s.status)">&nbsp;</span>{{ s.status }}</h4>
           <h2>{{ s.count }}</h2>
-          <small class="text-muted">₹{{ s.amount | number: '1.0-2' }}</small>
+          <small class="text-muted">installment{{ s.count === 1 ? '' : 's' }}</small>
         </div>
       </div>
     </div>
@@ -46,19 +46,18 @@ import { DateInputComponent } from '../shared/date-input.component';
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-centered mb-0">
-            <thead><tr><th>Student</th><th>Sponsor</th><th>#</th><th>Due date</th><th>Amount</th><th>Status</th><th>Paid</th><th class="tablet-hide">Receipt</th><th *ngIf="canEdit"></th></tr></thead>
+            <thead><tr><th>Student</th><th>Sponsor</th><th>Installment</th><th>Due date</th><th>Status</th><th>Paid on</th><th class="tablet-hide">Receipt</th><th *ngIf="canEdit"></th></tr></thead>
             <tbody>
-              <tr *ngIf="table.loading && !table.rows.length"><td colspan="9" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
-              <tr *ngIf="!table.loading && !table.rows.length"><td colspan="9" class="text-center text-muted">No installments.</td></tr>
+              <tr *ngIf="table.loading && !table.rows.length"><td colspan="8" class="text-center"><span class="spinner-border spinner-border-sm"></span></td></tr>
+              <tr *ngIf="!table.loading && !table.rows.length"><td colspan="8" class="text-center text-muted">No installments.</td></tr>
               <tr *ngFor="let r of table.rows">
                 <td><strong>{{ r.student_name }}</strong><div class="small text-muted">{{ r.student_code }}</div></td>
                 <td>{{ r.sponsor_name || '--' }}<div class="small text-muted">{{ r.sponsor_code }}</div></td>
-                <td>{{ r.installment_no }}</td>
+                <td class="font-weight-bold">Installment {{ r.installment_no }}</td>
                 <td>{{ r.due_date | appDate }}</td>
-                <td>₹{{ r.amount | number: '1.2-2' }}</td>
                 <td><span class="badge" [ngClass]="badge(r.status)">{{ r.status }}</span></td>
                 <td>
-                  <ng-container *ngIf="r.payment_id; else dash">₹{{ r.paid_amount | number: '1.2-2' }}<div class="small text-muted">{{ r.paid_date | appDate }}</div></ng-container>
+                  <ng-container *ngIf="r.payment_id; else dash">{{ r.paid_date | appDate }}</ng-container>
                 </td>
                 <td class="tablet-hide">
                   <a *ngIf="link(r.receipt_url) as l; else dash" [href]="l" target="_blank" rel="noopener">View</a>
@@ -78,13 +77,14 @@ import { DateInputComponent } from '../shared/date-input.component';
       <div class="modal-dialog modal-dialog-centered" (click)="$event.stopPropagation()">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Record payment: {{ pay.row.student_name }}, installment #{{ pay.row.installment_no }}</h5>
+            <h5 class="modal-title">Record payment: {{ pay.row.student_name }}, installment {{ pay.row.installment_no }}</h5>
             <button type="button" class="close" (click)="pay = null">&times;</button>
           </div>
           <div class="modal-body">
             <p class="text-muted small">Credited to {{ pay.row.sponsor_name }} ({{ pay.row.sponsor_code }}); due {{ pay.row.due_date | appDate }}.</p>
             <div class="form-group"><label>Payment date</label><app-date-input [(ngModel)]="pay.paymentDate"></app-date-input></div>
-            <div class="form-group"><label>Amount (₹)</label><input type="number" step="0.01" min="0" class="form-control" [(ngModel)]="pay.amount"></div>
+            <div class="form-group"><label>Amount paid (INR)</label><input type="number" step="0.01" min="1" class="form-control" [(ngModel)]="pay.amount">
+              <small class="text-muted">As on the bank receipt. Rahbar keeps it; pages show the installment, not the amount.</small></div>
             <div class="form-group"><label>Receipt <span class="text-muted">(optional)</span></label>
               <input type="file" class="form-control-file" accept="image/*,application/pdf" (change)="pay.receipt = fileOf($event)">
             </div>
@@ -101,7 +101,7 @@ import { DateInputComponent } from '../shared/date-input.component';
 export class AdminPaymentRecordsComponent implements OnInit, OnDestroy {
   q = '';
   status = '';
-  readonly table = new ServerTable<InstallmentRow, PagedResult<InstallmentRow> & { summary: { status: string; count: number; amount: number }[] }>(
+  readonly table = new ServerTable<InstallmentRow, PagedResult<InstallmentRow> & { summary: { status: string; count: number }[] }>(
     (p) => this.api.get('/admin/payment-records', { q: this.q, status: this.status, ...p }),
     (e) => (this.error = errorText(e, 'Could not load payment records.')));
   saving = false;
@@ -116,15 +116,15 @@ export class AdminPaymentRecordsComponent implements OnInit, OnDestroy {
   ngOnInit(): void { this.table.load(); }
   ngOnDestroy(): void { this.table.destroy(); }
 
-  /** Count and amount of each status (of everything the user may see; search and status filter aside). */
-  get summary(): { status: string; count: number; amount: number }[] { return this.table.last?.summary ?? []; }
+  /** Installments in each status (of everything the user may see; search and status filter aside). */
+  get summary(): { status: string; count: number }[] { return this.table.last?.summary ?? []; }
 
   badge(status: string): string { return installmentBadge(status); }
   link(path: string | null): string | null { return uploadUrl(path); }
   fileOf(e: Event): File | null { return (e.target as HTMLInputElement).files?.[0] ?? null; }
 
   openPay(r: InstallmentRow): void {
-    this.pay = { row: r, paymentDate: isoDate(new Date()), amount: Number(r.amount), receipt: null };
+    this.pay = { row: r, paymentDate: isoDate(new Date()), amount: null, receipt: null };
   }
 
   savePay(): void {

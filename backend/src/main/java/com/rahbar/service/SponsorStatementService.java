@@ -15,10 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
-import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -34,7 +32,6 @@ import com.rahbar.dto.EmailAttachment;
 public class SponsorStatementService {
 
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMM yyyy");
-    private static final DecimalFormat MONEY = new DecimalFormat("#,##0.00");
     private static final Color HEAD = new Color(0xEE, 0xF2, 0xEC);
 
     private final UserRepository userRepository;
@@ -55,9 +52,8 @@ public class SponsorStatementService {
         this.emailService = emailService;
     }
 
-    /** One student's line on the statement. */
-    private record Line(User student, String course, int dueCount, BigDecimal dueAmount, int paidCount, BigDecimal paidAmount,
-                        BigDecimal outstanding, StudentProgress latestProgress) {}
+    /** One student's line on the statement, in installments (amounts are never shown). */
+    private record Line(User student, String course, int dueCount, int paidCount, int outstanding, StudentProgress latestProgress) {}
 
     /** The sponsor's statement for the year as a PDF. */
     @Transactional(readOnly = true)
@@ -73,9 +69,12 @@ public class SponsorStatementService {
                 .filter(p -> !p.getPaymentDate().toLocalDate().isBefore(from) && !p.getPaymentDate().toLocalDate().isAfter(to))
                 .sorted(Comparator.comparing(Payment::getPaymentDate))
                 .toList();
-        // Installments between this sponsor and their students that fall in the year.
-        List<PaymentInstallment> installments = installmentRepository.findByGrantorIdOrderByGranteeIdAscInstallmentNoAsc(sponsorId).stream()
+        // Installments between this sponsor and their students that fall in the year; which installment each payment paid.
+        List<PaymentInstallment> all = installmentRepository.findByGrantorIdOrderByGranteeIdAscInstallmentNoAsc(sponsorId);
+        List<PaymentInstallment> installments = all.stream()
                 .filter(i -> !i.getDueDate().isBefore(from) && !i.getDueDate().isAfter(to)).toList();
+        Map<Long, Integer> installmentNo = new HashMap<>();
+        all.forEach(i -> { if (i.getPaymentId() != null) installmentNo.put(i.getPaymentId(), i.getInstallmentNo()); });
 
         Set<Long> studentIds = new LinkedHashSet<>();
         installments.forEach(i -> studentIds.add(i.getGranteeId()));
@@ -95,18 +94,15 @@ public class SponsorStatementService {
             User s = students.get(id);
             if (s == null) continue;
             List<PaymentInstallment> mine = installments.stream().filter(i -> i.getGranteeId().equals(id)).toList();
-            BigDecimal dueAmount = mine.stream().map(PaymentInstallment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
             List<Payment> paid = payments.stream().filter(p -> p.getGranteeId().equals(id)).toList();
-            BigDecimal paidAmount = paid.stream().map(Payment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal outstanding = mine.stream().filter(i -> i.getPaymentId() == null && !i.getDueDate().isAfter(asOf))
-                    .map(PaymentInstallment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+            int outstanding = (int) mine.stream().filter(i -> i.getPaymentId() == null && !i.getDueDate().isAfter(asOf)).count();
             Map<String, Object> course = Rows.first(studentCourseRepository.findCourseDetails(id));
             String courseText = course == null ? "" : course.get("course_name") + " - " + course.get("institution_name");
-            lines.add(new Line(s, courseText, mine.size(), dueAmount, paid.size(), paidAmount, outstanding, latest.get(id)));
+            lines.add(new Line(s, courseText, mine.size(), paid.size(), outstanding, latest.get(id)));
         }
         lines.sort(Comparator.comparing(l -> String.valueOf(l.student().getName()), String.CASE_INSENSITIVE_ORDER));
         try {
-            return render(sponsor, year, asOf, lines, payments, students);
+            return render(sponsor, year, asOf, lines, payments, students, installmentNo);
         } catch (DocumentException e) {
             throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Could not create the statement.");
         }
@@ -150,8 +146,12 @@ public class SponsorStatementService {
 
     // ------------------------------------------------------------------------------------ PDF
 
+    private static String installments(int n) {
+        return n + (n == 1 ? " installment" : " installments");
+    }
+
     private static byte[] render(User sponsor, int year, LocalDate asOf, List<Line> lines, List<Payment> payments,
-                                 Map<Long, User> students) throws DocumentException {
+                                 Map<Long, User> students, Map<Long, Integer> installmentNo) throws DocumentException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document doc = new Document(PageSize.A4, 36, 36, 36, 36);
         PdfWriter.getInstance(doc, out);
@@ -167,19 +167,19 @@ public class SponsorStatementService {
         doc.add(new Paragraph("Sponsorship statement " + year + " (1 Jan - 31 Dec " + year + ")", title));
         doc.add(new Paragraph("Sponsor: " + sponsor.getName() + " (" + sponsor.getUserId() + ")", text));
         doc.add(new Paragraph("Generated on " + LocalDate.now().format(DAY)
-                + (asOf.getYear() == year && asOf.isBefore(LocalDate.of(year, 12, 31)) ? ". Outstanding amounts are as of " + asOf.format(DAY) + "." : "."), small));
+                + (asOf.getYear() == year && asOf.isBefore(LocalDate.of(year, 12, 31)) ? ". Outstanding installments are as of " + asOf.format(DAY) + "." : "."), small));
         doc.add(new Paragraph(" "));
 
-        BigDecimal totalDue = lines.stream().map(Line::dueAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalPaid = lines.stream().map(Line::paidAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal totalOutstanding = lines.stream().map(Line::outstanding).reduce(BigDecimal.ZERO, BigDecimal::add);
+        int totalDue = lines.stream().mapToInt(Line::dueCount).sum();
+        int totalPaid = lines.stream().mapToInt(Line::paidCount).sum();
+        int totalOutstanding = lines.stream().mapToInt(Line::outstanding).sum();
         PdfPTable summary = new PdfPTable(4);
         summary.setWidthPercentage(100);
         for (String h : List.of("Students", "Due in " + year, "Paid in " + year, "Outstanding")) summary.addCell(head(h, bold));
         summary.addCell(cell(String.valueOf(lines.size()), text));
-        summary.addCell(cell("INR " + MONEY.format(totalDue), text));
-        summary.addCell(cell("INR " + MONEY.format(totalPaid), text));
-        summary.addCell(cell("INR " + MONEY.format(totalOutstanding), text));
+        summary.addCell(cell(installments(totalDue), text));
+        summary.addCell(cell(installments(totalPaid), text));
+        summary.addCell(cell(installments(totalOutstanding), text));
         doc.add(summary);
         doc.add(new Paragraph(" "));
 
@@ -195,9 +195,9 @@ public class SponsorStatementService {
             for (Line l : lines) {
                 t.addCell(cell(l.student().getName() + "\n" + l.student().getUserId(), text));
                 t.addCell(cell(l.course(), text));
-                t.addCell(cell(l.dueCount() + " installment(s)\nINR " + MONEY.format(l.dueAmount()), text));
-                t.addCell(cell(l.paidCount() + " payment(s)\nINR " + MONEY.format(l.paidAmount()), text));
-                t.addCell(cell("INR " + MONEY.format(l.outstanding()), text));
+                t.addCell(cell(installments(l.dueCount()), text));
+                t.addCell(cell(installments(l.paidCount()), text));
+                t.addCell(cell(installments(l.outstanding()), text));
                 StudentProgress p = l.latestProgress();
                 t.addCell(cell(p == null ? "None uploaded in " + year
                         : (p.getSession() == null ? "" : p.getSession() + " ") + "(year " + p.getYear() + "): " + p.getMarks()
@@ -214,12 +214,13 @@ public class SponsorStatementService {
             PdfPTable t = new PdfPTable(new float[]{2f, 4f, 2f});
             t.setWidthPercentage(100);
             t.setHeaderRows(1);
-            for (String h : List.of("Date", "Student", "Amount")) t.addCell(head(h, bold));
+            for (String h : List.of("Date", "Student", "Installment")) t.addCell(head(h, bold));
             for (Payment p : payments) {
                 User s = students.get(p.getGranteeId());
                 t.addCell(cell(p.getPaymentDate().toLocalDate().format(DAY), text));
                 t.addCell(cell(s == null ? "" : s.getName() + " (" + s.getUserId() + ")", text));
-                t.addCell(cell("INR " + MONEY.format(p.getAmount()), text));
+                Integer no = installmentNo.get(p.getPaymentId());
+                t.addCell(cell(no == null ? "-" : "Installment " + no, text));
             }
             doc.add(t);
         }

@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { uploadUrl } from '../shared/format';
-import { InstallmentRow, installmentBadge } from '../shared/installments';
+import { InstallmentRow, installmentBadge, installmentSummary } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
 
@@ -26,23 +26,22 @@ type Row = Record<string, any>;
           <div class="card-body">
             <h4 class="header-title">Payment Schedule</h4>
             <p class="text-muted">Your installments from your sponsor. Please upload utilization proof for each installment received.</p>
+            <p *ngIf="installments.length" class="font-weight-bold mb-2">{{ installments.length }} installments: {{ summary(installments) }}</p>
             <div class="text-right mb-3">
               <button type="button" class="btn btn-primary waves-effect waves-light" (click)="openBank()"><i class="mdi mdi-bank mr-1"></i> My Bank Details</button>
             </div>
             <div class="table-responsive">
               <table class="table table-centered table-hover mb-0">
-                <thead class="thead-light"><tr><th>#</th><th>Due Date</th><th>Amount</th><th>Status</th><th>Received</th><th>Bank Receipt</th><th>Your Spent Proof</th></tr></thead>
+                <thead class="thead-light"><tr><th>Installment</th><th>Due Date</th><th>Status</th><th>Bank Receipt</th><th>Your Spent Proof</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="loading"><td colspan="7" class="text-center">Loading...</td></tr>
-                  <tr *ngIf="!loading && !installments.length"><td colspan="7" class="text-center text-warning">
+                  <tr *ngIf="loading"><td colspan="5" class="text-center">Loading...</td></tr>
+                  <tr *ngIf="!loading && !installments.length"><td colspan="5" class="text-center text-warning">
                     Your payment schedule is not ready yet{{ problem ? ': ' + problem : '.' }}
                   </td></tr>
                   <tr *ngFor="let i of installments">
-                    <td>{{ i.installment_no }}</td>
+                    <td class="font-weight-bold">Installment {{ i.installment_no }}</td>
                     <td>{{ i.due_date | appDate }}</td>
-                    <td>₹{{ i.amount | number: '1.2-2' }}</td>
-                    <td><span class="badge" [ngClass]="badge(i.status)">{{ i.status }}</span></td>
-                    <td>{{ i.paid_amount !== null ? '₹' + (i.paid_amount | number: '1.2-2') : '—' }}</td>
+                    <td><span class="badge" [ngClass]="badge(i.status)">{{ i.status }}</span><div *ngIf="i.paid_date" class="small text-muted">received {{ i.paid_date | appDate }}</div></td>
                     <td><a *ngIf="link(i.receipt_url) as r; else dash" [href]="r" target="_blank">View</a></td>
                     <td>
                       <ng-container *ngIf="i.payment_id; else dash">
@@ -122,6 +121,7 @@ export class StudentPaymentsComponent implements OnInit {
   }
 
   badge(status: string): string { return installmentBadge(status); }
+  summary = installmentSummary;
   link(path: string | null): string | null { return uploadUrl(path); }
 
   fileOf(e: Event): File | null { return (e.target as HTMLInputElement).files?.[0] ?? null; }

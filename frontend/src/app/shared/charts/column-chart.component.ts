@@ -67,7 +67,9 @@ export class ColumnChartComponent {
     if (this.max100) return 100;
     const m = Math.max(1, ...this.data!.series.flatMap((s) => s.values.map((v) => Number(v) || 0)));
     const step = Math.pow(10, Math.floor(Math.log10(m)));
-    return Math.ceil(m / step) * step;
+    const nice = Math.ceil(m / step) * step;
+    // Counts (e.g. installments): a multiple of 4, so the gridlines fall on whole numbers (not 0, 0, 1, 1, 1).
+    return this.money ? nice : Math.ceil(nice / 4) * 4;
   }
   get ticks(): number[] { const m = this.max; return [0, m / 4, m / 2, (3 * m) / 4, m]; }
 

@@ -19,7 +19,7 @@ interface SponsorDashboard {
   grantees: Grantee[];
   performanceByYear: BarDatum[];
   /** Students this sponsor sponsored before (now with another sponsor or finished). */
-  pastStudents: { id: number; user_id: string; name: string; sponsored_from: string | null; sponsored_until: string | null; total_paid: number }[];
+  pastStudents: { id: number; user_id: string; name: string; sponsored_from: string | null; sponsored_until: string | null; installments_paid: number }[];
 }
 
 /** One student's study picture and latest news (GET /sponsor/overview). */
@@ -27,14 +27,14 @@ interface StudentNews {
   id: number; user_id: string; name: string; study_status: string; course: string | null; institution: string | null;
   semesters: number | null; semester_now: number | null; course_start: string | null; expected_completion: string | null;
   latest_progress: { session: string; year: string; marks: string; review_status: string; uploaded_at: string } | null;
-  last_payment: { date: string; amount: number; spent_proof: boolean } | null;
+  last_payment: { date: string; installment: string; spent_proof: boolean } | null;
   last_activity: string | null; quiet: boolean;
   /** Past students only. */
   sponsored_from?: string | null; sponsored_until?: string | null;
   now?: { status: string; organisation: string; role: string; city: string } | null;
 }
 interface Overview {
-  impact: { total_given: number; payments: number; students_supported: number; studying_now: number; graduated: number; since_year: number | null };
+  impact: { payments: number; students_supported: number; studying_now: number; graduated: number; since_year: number | null };
   students: StudentNews[];
   past: StudentNews[];
 }
@@ -66,8 +66,8 @@ interface Overview {
     <!-- My impact -->
     <div class="row" *ngIf="overview?.impact as im">
       <div class="col-6 col-xl-3"><div class="card-box">
-        <h4 class="header-title mt-0">Given so far</h4><h2>₹{{ im.total_given | number: '1.0-0' }}</h2>
-        <small class="text-muted">{{ im.payments }} payment{{ im.payments === 1 ? '' : 's' }}{{ im.since_year ? ' since ' + im.since_year : '' }}</small></div></div>
+        <h4 class="header-title mt-0">Given so far</h4><h2>{{ im.payments }} installment{{ im.payments === 1 ? '' : 's' }}</h2>
+        <small class="text-muted">paid{{ im.since_year ? ' since ' + im.since_year : '' }}</small></div></div>
       <div class="col-6 col-xl-3"><div class="card-box">
         <h4 class="header-title mt-0">Students supported</h4><h2>{{ im.students_supported }}</h2>
         <small class="text-muted">all the years together</small></div></div>
@@ -98,7 +98,7 @@ interface Overview {
               · marks {{ lp.marks || '—' }} · {{ lp.uploaded_at | appDate }}</ng-container>
             <ng-template #noProgress><span class="text-muted">none uploaded yet</span></ng-template></p>
           <p class="mb-1 small"><strong>Your last payment:</strong>
-            <ng-container *ngIf="s.last_payment as lpay; else noPay">₹{{ lpay.amount | number: '1.0-0' }} on {{ lpay.date | appDate }} ·
+            <ng-container *ngIf="s.last_payment as lpay; else noPay">{{ lpay.installment | titlecase }} on {{ lpay.date | appDate }} ·
               <span [class.text-success]="lpay.spent_proof" [class.text-muted]="!lpay.spent_proof">{{ lpay.spent_proof ? 'spent proof received' : 'spent proof pending' }}</span></ng-container>
             <ng-template #noPay><span class="text-muted">none yet</span></ng-template></p>
           <p *ngIf="s.quiet" class="mb-0 small text-warning"><i class="mdi mdi-clock-alert-outline mr-1"></i>No news for a while{{ s.last_activity ? ' (last: ' + (s.last_activity | date: 'MMM yyyy') + ')' : '' }}. The office can follow up.</p>
@@ -162,7 +162,7 @@ interface Overview {
             <p class="text-muted small">Students you sponsored before. Their payments and progress reports from your period stay visible to you.</p>
             <div class="table-responsive">
               <table class="table table-sm table-centered mb-0">
-                <thead><tr><th>Student</th><th>Sponsored</th><th>Now</th><th class="text-right">You paid</th></tr></thead>
+                <thead><tr><th>Student</th><th>Sponsored</th><th>Now</th><th class="text-right">Installments you paid</th></tr></thead>
                 <tbody>
                   <tr *ngFor="let p of data!.pastStudents">
                     <td><span class="font-weight-bold d-block text-dark">{{ p.name }}</span><small class="text-muted">ID: {{ p.user_id }}</small></td>
@@ -171,7 +171,7 @@ interface Overview {
                       <span class="badge" [ngClass]="studyBadge(n.study_status)">{{ n.study_status }}</span>
                       <div *ngIf="n.now as w" class="small">{{ w.status }}{{ w.role ? ' · ' + w.role : '' }}{{ w.organisation ? ', ' + w.organisation : '' }}{{ w.city ? ' (' + w.city + ')' : '' }}</div>
                     </ng-container></td>
-                    <td class="text-right">₹{{ p.total_paid | number: '1.0-2' }}</td>
+                    <td class="text-right">{{ p.installments_paid }}</td>
                   </tr>
                 </tbody>
               </table>

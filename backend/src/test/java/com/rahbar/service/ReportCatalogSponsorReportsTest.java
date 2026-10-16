@@ -109,13 +109,14 @@ class ReportCatalogSponsorReportsTest {
 
         Map<String, Object> bina = rows.get(3);
         assertEquals(LocalDate.of(2025, 7, 1), bina.get("sponsored_since"));
-        assertEquals(0, new BigDecimal("6000").compareTo((BigDecimal) bina.get("paid")));
+        assertEquals(1L, bina.get("installments_paid"));
         Map<String, Object> aman = rows.get(2);
         assertEquals(2L, aman.get("overdue_installments"));
         Map<String, Object> zaraTotal = rows.get(4);
         assertEquals("Subtotal: 2 students", zaraTotal.get("student_name"));
-        assertEquals(0, new BigDecimal("6000").compareTo((BigDecimal) zaraTotal.get("paid")));
-        assertEquals(0, new BigDecimal("6000").compareTo((BigDecimal) zaraTotal.get("overdue_amount")));
+        assertEquals(1L, zaraTotal.get("installments_paid"));
+        assertEquals(2L, zaraTotal.get("overdue_installments"));
+        assertFalse(zaraTotal.containsKey("overdue_amount")); // amounts are never shown
         assertEquals("Subtotal: 1 student", rows.get(6).get("student_name"));
     }
 

@@ -18,7 +18,6 @@ interface Detail {
   bankDetails: Row | null;
   payments: Row[];
   courseInfo: Row | null;
-  annualScheduleAmount: number | string | null;
   /** Installments between this sponsor and the student (created when the student was mapped to the sponsor). */
   installments: InstallmentRow[];
   /** Why there are no (more) installments, e.g. no payment start date yet. */
@@ -35,7 +34,8 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
 /**
  * Sponsor > Payments: every installment of every sponsored student on one list (what needs paying first), with
  * cards for what is due now, the next payment and what was paid this year, and filters by student, status and
- * calendar year (a sponsor may get students in different years). Recording a payment works as before.
+ * calendar year (a sponsor may get students in different years). Everything is in installments ("Installment 2 ·
+ * Paid"); amounts are typed when paying and kept by Rahbar, but never shown.
  */
 @Component({
   selector: 'app-sponsor-payments',
@@ -54,16 +54,16 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
       <div class="col-12 col-md-4">
         <div class="card-box clickable" (click)="status = 'NOW'; studentId = ''; year = ''" title="Show what to pay now">
           <h4 class="header-title mt-0">Due now</h4>
-          <h2 [class.text-danger]="dueNow.count">₹{{ dueNow.amount | number: '1.0-2' }}</h2>
-          <small class="text-muted">{{ dueNow.count ? dueNow.count + ' installment' + (dueNow.count === 1 ? '' : 's') + (dueNow.overdue ? ', ' + dueNow.overdue + ' overdue' : '') : 'Nothing to pay right now' }}</small>
+          <h2 [class.text-danger]="dueNow.count">{{ dueNow.count }} installment{{ dueNow.count === 1 ? '' : 's' }}</h2>
+          <small class="text-muted">{{ dueNow.count ? (dueNow.overdue ? dueNow.overdue + ' overdue' : 'due now') : 'Nothing to pay right now' }}</small>
         </div>
       </div>
       <div class="col-12 col-md-4">
         <div class="card-box">
           <h4 class="header-title mt-0">Next payment</h4>
           <ng-container *ngIf="next as n; else noNext">
-            <h2>₹{{ n.amount | number: '1.0-2' }}</h2>
-            <small class="text-muted">{{ n.date | appDate }} · {{ n.names.length === 1 ? n.names[0] : n.names.length + ' students (' + n.names.join(', ') + ')' }}</small>
+            <h2>{{ n.date | appDate }}</h2>
+            <small class="text-muted">{{ n.label }} · {{ n.names.length === 1 ? n.names[0] : n.names.length + ' students (' + n.names.join(', ') + ')' }}</small>
           </ng-container>
           <ng-template #noNext><h2>—</h2><small class="text-muted">No upcoming installments</small></ng-template>
         </div>
@@ -71,8 +71,8 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
       <div class="col-12 col-md-4">
         <div class="card-box">
           <h4 class="header-title mt-0">Paid in {{ thisYear }}</h4>
-          <h2>₹{{ paidThisYear.amount | number: '1.0-2' }}</h2>
-          <small class="text-muted">{{ paidThisYear.count }} installment{{ paidThisYear.count === 1 ? '' : 's' }}</small>
+          <h2>{{ paidThisYear }} installment{{ paidThisYear === 1 ? '' : 's' }}</h2>
+          <small class="text-muted">paid this year</small>
         </div>
       </div>
     </div>
@@ -134,7 +134,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
             (UPI, Indian cards or net banking). You get an 80G receipt by email, and the office sends the money on to your student.
             <span *ngIf="online?.test_mode" class="badge badge-warning ml-1">Test mode: no real money</span>
             <div *ngIf="chosen.size" class="mt-2"><button type="button" class="btn btn-success btn-sm" (click)="openOnline()">
-              <i class="mdi mdi-cash-fast mr-1"></i>Pay online ₹{{ chosenTotal | number: '1.0-2' }} for {{ chosen.size }} installment{{ chosen.size === 1 ? '' : 's' }}</button>
+              <i class="mdi mdi-cash-fast mr-1"></i>Pay online for {{ chosen.size }} installment{{ chosen.size === 1 ? '' : 's' }}</button>
               <button type="button" class="btn btn-link btn-sm" (click)="chosen.clear()">Clear</button></div>
           </ng-container>
           <ng-template #notOpen>You pay through Rahbar. Online payment opens soon; meanwhile please contact the office to pay.</ng-template>
@@ -142,18 +142,17 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
 
         <div class="table-responsive">
           <table class="table table-sm table-schedule mb-0">
-            <thead><tr><th *ngIf="canPayOnline" style="width: 30px"></th><th>Student</th><th>#</th><th>Due date</th><th>Amount</th><th>Status</th><th>Paid on</th><th>Receipts</th><th></th></tr></thead>
+            <thead><tr><th *ngIf="canPayOnline" style="width: 30px"></th><th>Student</th><th>Installment</th><th>Due date</th><th>Status</th><th>Paid on</th><th>Receipts</th><th></th></tr></thead>
             <tbody>
-              <tr *ngIf="loaded && !rows.length"><td [attr.colspan]="canPayOnline ? 9 : 8" class="text-center text-muted">{{ items.length ? 'Nothing matches these filters.' : 'No installments yet.' }}</td></tr>
+              <tr *ngIf="loaded && !rows.length"><td [attr.colspan]="canPayOnline ? 8 : 7" class="text-center text-muted">{{ items.length ? 'Nothing matches these filters.' : 'No installments yet.' }}</td></tr>
               <tr *ngFor="let r of rows" [class.needs-pay]="!r.i.payment_id && (r.i.status === 'Overdue' || r.i.status === 'Due') && !r.d.former">
                 <td *ngIf="canPayOnline"><input *ngIf="payableOnline(r)" type="checkbox" [checked]="chosen.has(r.i.installment_id)"
                   (change)="toggleChosen(r)" [attr.aria-label]="'Choose installment ' + r.i.installment_no"></td>
                 <td><strong>{{ r.d.grantee['name'] }}</strong><div class="small text-muted">{{ r.d.grantee['user_id'] }}<span *ngIf="r.d.former"> · no longer yours</span></div></td>
-                <td>{{ r.i.installment_no }}</td>
+                <td class="font-weight-bold">Installment {{ r.i.installment_no }}</td>
                 <td>{{ r.i.due_date | appDate }}</td>
-                <td>₹{{ r.i.amount | number: '1.2-2' }}</td>
                 <td><span class="badge" [ngClass]="badge(r.i.status)">{{ r.i.status === 'Not Due' ? 'Upcoming' : r.i.status }}</span></td>
-                <td>{{ r.i.paid_date ? (r.i.paid_date | appDate) : '—' }}<div *ngIf="r.i.paid_amount !== null" class="small text-muted">₹{{ r.i.paid_amount | number: '1.2-2' }}</div></td>
+                <td>{{ r.i.paid_date ? (r.i.paid_date | appDate) : '—' }}</td>
                 <td>
                   <span *ngIf="!r.i.payment_id">—</span>
                   <div *ngIf="r.i.payment_id" class="d-flex flex-column">
@@ -179,11 +178,11 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
       <div class="modal-dialog modal-dialog-centered" (click)="$event.stopPropagation()">
         <div class="modal-content">
           <div class="modal-header bg-success text-white">
-            <h5 class="modal-title text-white">Pay online ₹{{ chosenTotal | number: '1.0-2' }}</h5>
+            <h5 class="modal-title text-white">Pay online: {{ chosen.size }} installment{{ chosen.size === 1 ? '' : 's' }}</h5>
             <button type="button" class="close text-white" (click)="onlineForm = null" aria-label="Close">&times;</button>
           </div>
           <div class="modal-body">
-            <ul class="small mb-3"><li *ngFor="let x of chosenItems">{{ x.d.grantee['name'] }}: installment #{{ x.i.installment_no }}, ₹{{ x.i.amount | number: '1.0-2' }} (due {{ x.i.due_date | appDate }})</li></ul>
+            <ul class="small mb-3"><li *ngFor="let x of chosenItems">{{ x.d.grantee['name'] }}: installment {{ x.i.installment_no }} (due {{ x.i.due_date | appDate }})</li></ul>
             <div class="form-group">
               <label for="o-pan">Your PAN</label>
               <input id="o-pan" class="form-control text-uppercase" maxlength="10" [(ngModel)]="onlineForm.pan" placeholder="ABCDE1234F">
@@ -208,7 +207,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
       <div class="modal-dialog modal-dialog-centered" (click)="$event.stopPropagation()">
         <div class="modal-content">
           <div class="modal-header bg-success text-white">
-            <h5 class="modal-title text-white">Recording Payment: Installment #{{ pay.installment }}</h5>
+            <h5 class="modal-title text-white">Recording Payment: Installment {{ pay.installment }}</h5>
             <button type="button" class="close text-white" (click)="pay = null">&times;</button>
           </div>
           <form #pf="ngForm" (ngSubmit)="submitPay()">
@@ -222,7 +221,8 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
                 <p class="mb-0">IFSC: {{ pay.d.bankDetails?.['ifsc_code'] || 'N/A' }}</p>
               </div>
               <div class="form-group"><label>Actual Date of Payment</label><app-date-input name="paymentDate" [(ngModel)]="pay.paymentDate" [required]="true"></app-date-input></div>
-              <div class="form-group"><label>Installment Amount (INR)</label><input type="number" step="0.01" class="form-control" name="amount" [(ngModel)]="pay.amount" required></div>
+              <div class="form-group"><label>Amount you paid (INR)</label><input type="number" step="0.01" min="1" class="form-control" name="amount" [(ngModel)]="pay.amount" required>
+                <small class="text-muted">As on your bank receipt. Rahbar keeps it with the receipt; pages show the installment, not the amount.</small></div>
               <div class="form-group"><label>Upload Foundation Receipt</label><input type="file" class="form-control-file" (change)="pay.receipt = fileOf($event)" required></div>
             </div>
             <div class="modal-footer">
@@ -273,8 +273,6 @@ export class SponsorPaymentsComponent implements OnInit {
   }
 
   get chosenItems(): Item[] { return this.items.filter((x) => this.chosen.has(x.i.installment_id)); }
-
-  get chosenTotal(): number { return this.chosenItems.reduce((s, x) => s + Number(x.i.amount), 0); }
 
   openOnline(): void {
     if (!this.chosen.size) return;
@@ -332,27 +330,26 @@ export class SponsorPaymentsComponent implements OnInit {
   /** Students whose schedule is missing or ended early (shown when all students are listed). */
   get problems(): Detail[] { return this.details.filter((d) => !d.former && d.installmentProblem); }
 
-  get dueNow(): { count: number; amount: number; overdue: number } {
+  get dueNow(): { count: number; overdue: number } {
     const now = this.items.filter((x) => this.toPay(x));
-    return { count: now.length, amount: now.reduce((s, x) => s + Number(x.i.amount), 0), overdue: now.filter((x) => x.i.status === 'Overdue').length };
+    return { count: now.length, overdue: now.filter((x) => x.i.status === 'Overdue').length };
   }
 
-  /** Everything due on the next due date (all students together): the date, total amount and whose installments. */
-  get next(): { date: string; amount: number; names: string[] } | null {
+  /** Everything due on the next due date (all students together): the date, which installment(s) and whose. */
+  get next(): { date: string; label: string; names: string[] } | null {
     const upcoming = this.items.filter((x) => !x.i.payment_id && !x.d.former && x.i.status === 'Not Due');
     if (!upcoming.length) return null;
     const date = upcoming.map((x) => x.i.due_date).sort()[0];
     const same = upcoming.filter((x) => x.i.due_date === date);
     return {
       date,
-      amount: same.reduce((sum, x) => sum + Number(x.i.amount), 0),
+      label: same.length === 1 ? 'Installment ' + same[0].i.installment_no : same.length + ' installments',
       names: [...new Set(same.map((x) => String(x.d.grantee['name'])))]
     };
   }
 
-  get paidThisYear(): { count: number; amount: number } {
-    const paid = this.items.filter((x) => x.i.payment_id && x.i.paid_date && new Date(x.i.paid_date).getFullYear() === this.thisYear);
-    return { count: paid.length, amount: paid.reduce((s, x) => s + Number(x.i.paid_amount ?? 0), 0) };
+  get paidThisYear(): number {
+    return this.items.filter((x) => x.i.payment_id && x.i.paid_date && new Date(x.i.paid_date).getFullYear() === this.thisYear).length;
   }
 
   /** The chosen year, or last year (a full year) when all years are shown. */
@@ -401,7 +398,7 @@ export class SponsorPaymentsComponent implements OnInit {
   }
 
   openPay(x: Item): void {
-    this.pay = { d: x.d, sid: x.sid, installment: x.i.installment_no, installmentId: x.i.installment_id, amount: Number(x.i.amount),
+    this.pay = { d: x.d, sid: x.sid, installment: x.i.installment_no, installmentId: x.i.installment_id, amount: null,
       paymentDate: isoDate(new Date()), receipt: null };
   }
 
@@ -410,7 +407,7 @@ export class SponsorPaymentsComponent implements OnInit {
     const f = new FormData();
     f.append('granteeId', this.pay.sid);
     f.append('installmentId', String(this.pay.installmentId));
-    f.append('amount', String(this.pay.amount ?? 0));
+    f.append('amount', String(this.pay.amount));
     f.append('paymentDate', this.pay.paymentDate);
     f.append('receipt', this.pay.receipt);
     this.saving = true;

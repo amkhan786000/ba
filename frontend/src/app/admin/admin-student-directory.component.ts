@@ -295,16 +295,14 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
               </div>
               <div class="table-responsive" *ngIf="installments.length">
                 <table class="table table-bordered table-schedule text-center">
-                  <thead><tr><th>#</th><th>Due date</th><th>Amount</th><th>Status</th><th>Sponsor</th><th>Paid on</th><th>Paid</th><th>Receipt</th><th>Spent</th><th *ngIf="canPay">Action</th></tr></thead>
+                  <thead><tr><th>Installment</th><th>Due date</th><th>Status</th><th>Sponsor</th><th>Paid on</th><th>Receipt</th><th>Spent</th><th *ngIf="canPay">Action</th></tr></thead>
                   <tbody>
                     <tr *ngFor="let i of installments">
-                      <td>{{ i.installment_no }}</td>
+                      <td class="font-weight-bold">Installment {{ i.installment_no }}</td>
                       <td>{{ fmt(i.due_date) }}</td>
-                      <td>₹{{ i.amount | number: '1.2-2' }}</td>
                       <td><span class="badge" [ngClass]="installmentBadge(i.status)">{{ i.status }}</span></td>
                       <td><small>{{ sponsorLabel(i.sponsor_id) }}</small></td>
                       <td>{{ i.paid_date ? fmt(i.paid_date) : '--' }}</td>
-                      <td>{{ i.paid_amount !== null ? '₹' + (i.paid_amount | number: '1.2-2') : '--' }}</td>
                       <td><a *ngIf="link(i.receipt_url) as l; else dash" [href]="l" target="_blank">View</a></td>
                       <td><a *ngIf="link(i.student_proof_url) as l; else dash" [href]="l" target="_blank">View</a></td>
                       <td *ngIf="canPay">
@@ -356,7 +354,8 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
           <div class="modal-header bg-success text-white"><h5 class="text-white m-0">Process Payment</h5><button type="button" class="close text-white" (click)="pay = null">&times;</button></div>
           <form #pf="ngForm" (ngSubmit)="savePayment()">
             <div class="modal-body">
-              <div class="form-group"><label>Amount (INR)</label><input type="number" class="form-control" name="amount" [(ngModel)]="pay.amount" required></div>
+              <div class="form-group"><label>Amount paid (INR)</label><input type="number" step="0.01" min="1" class="form-control" name="amount" [(ngModel)]="pay.amount" [required]="pay.actionType === 'create'">
+                <small class="text-muted">{{ pay.actionType === 'edit' ? 'Leave empty to keep the amount saved with this payment. ' : 'As on the bank receipt. ' }}Rahbar keeps it; pages show the installment, not the amount.</small></div>
               <div class="form-group"><label>Date</label><app-date-input name="paymentDate" [(ngModel)]="pay.paymentDate" [required]="true"></app-date-input></div>
               <div class="form-group"><label>Receipt</label><input type="file" class="form-control-file" (change)="pay.receipt = fileOf($event)"></div>
             </div>
@@ -711,8 +710,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   openPayment(i: InstallmentRow): void {
     this.pay = i.payment_id
-      ? { actionType: 'edit', paymentId: i.payment_id, amount: Number(i.paid_amount), paymentDate: isoDate(i.paid_date), receipt: null }
-      : { actionType: 'create', installmentId: i.installment_id, amount: Number(i.amount), paymentDate: isoDate(new Date()), receipt: null };
+      ? { actionType: 'edit', paymentId: i.payment_id, amount: null, paymentDate: isoDate(i.paid_date), receipt: null }
+      : { actionType: 'create', installmentId: i.installment_id, amount: null, paymentDate: isoDate(new Date()), receipt: null };
   }
 
   savePayment(): void {
@@ -722,7 +721,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     if (this.pay.paymentId !== undefined) f.append('paymentId', String(this.pay.paymentId));
     if (this.pay.installmentId !== undefined) f.append('installmentId', String(this.pay.installmentId));
     f.append('granteeId', this.currentId);
-    f.append('amount', String(this.pay.amount ?? 0));
+    if (this.pay.amount != null) f.append('amount', String(this.pay.amount)); // editing without one keeps the saved amount
     f.append('paymentDate', this.pay.paymentDate);
     if (this.pay.receipt) f.append('receipt', this.pay.receipt);
     this.busy = true;
