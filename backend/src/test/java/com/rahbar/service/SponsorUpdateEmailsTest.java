@@ -23,9 +23,10 @@ class SponsorUpdateEmailsTest {
     private final StudentProgressRepository progress = mock(StudentProgressRepository.class);
     private final NotificationService notifications = mock(NotificationService.class);
     private final FileStorageService files = mock(FileStorageService.class);
+    private final PaymentInstallmentService installmentService = mock(PaymentInstallmentService.class);
     private final StudentService service = new StudentService(users, mappings, payments, mock(BankDetailsRepository.class),
             mock(StudentInstitutionCourseRepository.class), progress, files, notifications,
-            mock(PaymentInstallmentService.class));
+            installmentService);
 
     private final MultipartFile file = mock(MultipartFile.class);
 
@@ -57,9 +58,11 @@ class SponsorUpdateEmailsTest {
         p.setGranteeId(11L);
         p.setAmount(new BigDecimal("6000.00"));
         when(payments.findByPaymentIdAndGranteeId(9L, 11L)).thenReturn(Optional.of(p));
+        when(installmentService.number(9L)).thenReturn("2");
+        when(installmentService.label(9L)).thenReturn("installment 2");
         service.uploadPaymentProof(11L, 9L, file);
         verify(notifications).notify(eq(5L), anyString(), anyString(), eq(NotificationService.PAYMENT), eq("/sponsor/payments"),
-                eq(EmailType.SPONSOR_SPENT_PROOF_UPLOADED), argThat(v -> "6000".equals(v.get("amount"))));
+                eq(EmailType.SPONSOR_SPENT_PROOF_UPLOADED), argThat(v -> "2".equals(v.get("installment")) && !v.containsKey("amount")));
         assertNotNull(p.getStudentProofUrl());
     }
 }

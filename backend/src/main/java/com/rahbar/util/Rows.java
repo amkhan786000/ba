@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Turns JPA entities into the snake_case row maps the frontend has always received
  * (the same keys a "SELECT *" used to return), e.g. {@code user_id}, {@code created_at}.
- * The users.password_hash column is never included.
+ * The users.password_hash column is never included, nor columns marked {@link NotShown}.
  */
 public final class Rows {
 
@@ -82,7 +82,7 @@ public final class Rows {
             List<Map.Entry<String, Field>> result = new ArrayList<>();
             for (Class<?> c : hierarchy) {
                 for (Field f : c.getDeclaredFields()) {
-                    if (Modifier.isStatic(f.getModifiers()) || f.isAnnotationPresent(Transient.class)) continue;
+                    if (Modifier.isStatic(f.getModifiers()) || f.isAnnotationPresent(Transient.class) || f.isAnnotationPresent(NotShown.class)) continue;
                     Column col = f.getAnnotation(Column.class);
                     String name = col != null && !col.name().isEmpty() ? col.name() : snake(f.getName());
                     if (HIDDEN.contains(name)) continue;

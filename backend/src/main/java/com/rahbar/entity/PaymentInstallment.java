@@ -36,6 +36,8 @@ public class PaymentInstallment extends Modifiable {
     @Column(name = "due_date", nullable = false)
     private LocalDate dueDate;
 
+    /** From the Payment Config. Kept, never shown: screens show installments (see util.NotShown). */
+    @com.rahbar.util.NotShown @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "amount", nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 

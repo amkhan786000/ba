@@ -85,8 +85,8 @@ public class SponsorService {
                     "review_status", latest.getReviewStatus() == null ? "" : latest.getReviewStatus(),
                     "uploaded_at", latest.getCreatedAt() == null ? "" : latest.getCreatedAt().toString()));
             Payment last = mine.stream().filter(p -> u.getId().equals(p.getGranteeId())).findFirst().orElse(null);
-            r.put("last_payment", last == null ? null : Map.of("date", String.valueOf(last.getPaymentDate()), "amount", last.getAmount(),
-                    "spent_proof", last.getStudentProofUrl() != null && !last.getStudentProofUrl().isBlank()));
+            r.put("last_payment", last == null ? null : Map.of("date", String.valueOf(last.getPaymentDate()),
+                    "installment", installmentService.label(last.getPaymentId()), "spent_proof", last.getStudentProofUrl() != null && !last.getStudentProofUrl().isBlank()));
             LocalDateTime activity = latestOf(latest == null ? null : latest.getCreatedAt(), last == null ? null : last.getPaymentDate());
             r.put("last_activity", activity);
             r.put("quiet", activity == null || activity.toLocalDate().isBefore(today.minusDays(QUIET_DAYS)));
@@ -111,7 +111,6 @@ public class SponsorService {
             pastNow.add(r);
         }
 
-        BigDecimal given = mine.stream().map(Payment::getAmount).filter(Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
         LocalDateTime since = mine.stream().map(Payment::getPaymentDate).filter(Objects::nonNull).min(Comparator.naturalOrder()).orElse(null);
         for (com.rahbar.entity.SponsorMappingHistory h : historyRepository.findByGrantorIdOrderByStartedAtDesc(sponsorId)) {
             if (h.getStartedAt() != null && (since == null || h.getStartedAt().isBefore(since))) since = h.getStartedAt();
@@ -119,8 +118,7 @@ public class SponsorService {
         long graduated = supported.stream().map(userRepository::findById).flatMap(Optional::stream)
                 .filter(u -> StudyStatus.GRADUATED.equals(u.getStudyStatus())).count();
         Map<String, Object> impact = new LinkedHashMap<>();
-        impact.put("total_given", given);
-        impact.put("payments", mine.size());
+        impact.put("payments", mine.size()); // installments paid (amounts are never shown)
         impact.put("students_supported", supported.size());
         impact.put("studying_now", students.size());
         impact.put("graduated", graduated);
@@ -204,18 +202,18 @@ public class SponsorService {
         return past;
     }
 
-    /** Past students for the dashboard: who, when, and what this sponsor paid for them. */
+    /** Past students for the dashboard: who, when, and how many installments this sponsor paid for them. */
     private List<Map<String, Object>> pastStudents(Long sponsorId) {
-        Map<Long, BigDecimal> paid = new HashMap<>();
+        Map<Long, Long> paid = new HashMap<>();
         for (Payment p : paymentRepository.findByGrantorIdOrderByPaymentDateDesc(sponsorId)) {
-            if ("Paid".equalsIgnoreCase(p.getStatus()) && p.getAmount() != null) paid.merge(p.getGranteeId(), p.getAmount(), BigDecimal::add);
+            if ("Paid".equalsIgnoreCase(p.getStatus())) paid.merge(p.getGranteeId(), 1L, Long::sum);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         for (Past p : past(sponsorId).values()) {
             Map<String, Object> row = new LinkedHashMap<>(StudentService.studentCard(p.student()));
             row.put("sponsored_from", p.from());
             row.put("sponsored_until", p.until());
-            row.put("total_paid", paid.getOrDefault(p.student().getId(), BigDecimal.ZERO));
+            row.put("installments_paid", paid.getOrDefault(p.student().getId(), 0L));
             rows.add(row);
         }
         return rows;
@@ -257,15 +255,11 @@ public class SponsorService {
         Map<String, Object> studentDataMap = new LinkedHashMap<>();
         for (User student : userRepository.findGranteesOf(sponsorId)) {
             Long sId = student.getId();
-            Object annualAmount = student.getYear() == null ? 0 : paymentScheduleRepository
-                    .findFirstByYearAndStatus(student.getYear(), 1).map(s -> (Object) s.getAmount()).orElse(0);
-
             Map<String, Object> detail = new LinkedHashMap<>();
             detail.put("grantee", StudentService.studentCard(student));
             detail.put("bankDetails", bankDetailsRepository.findFirstByUserId(sId).map(Rows::of).orElse(null));
             detail.put("payments", Rows.list(paymentRepository.findByGranteeIdAndStatusOrderByPaymentDateDesc(sId, "Paid")));
             detail.put("courseInfo", Rows.first(studentCourseRepository.findCourseInfo(sId)));
-            detail.put("annualScheduleAmount", annualAmount);
             detail.put("installments", installmentService.forSponsorAndStudent(sponsorId, sId));
             detail.put("installmentProblem", installmentService.problem(sId));
             detail.put("former", false);
@@ -283,7 +277,6 @@ public class SponsorService {
                 detail.put("bankDetails", null);
                 detail.put("payments", List.of());
                 detail.put("courseInfo", null);
-                detail.put("annualScheduleAmount", null);
                 detail.put("installments", installmentService.forSponsorAndStudent(sponsorId, formerId));
                 detail.put("installmentProblem", null);
                 detail.put("former", true);
@@ -321,9 +314,9 @@ public class SponsorService {
         installmentService.afterPayment(payment, installmentId); // without one: the earliest unpaid installment
         String sponsorName = userRepository.findById(sponsorId).map(User::getName).orElse("Your sponsor");
         notificationService.notify(granteeId, "Payment received",
-                sponsorName + " recorded a payment of " + amount + " for you. Please upload your proof of receipt.",
-                NotificationService.PAYMENT, "/student/payments",
-                EmailType.PAYMENT_RECEIVED, ServiceSupport.vars("sponsor_name", sponsorName, "amount", amount));
+                sponsorName + " paid " + installmentService.label(payment.getPaymentId()) + " for you. Please upload your proof of receipt.",
+                NotificationService.PAYMENT, "/student/payments", EmailType.PAYMENT_RECEIVED,
+                ServiceSupport.vars("sponsor_name", sponsorName, "installment", installmentService.number(payment.getPaymentId())));
     }
 
     /**
@@ -365,6 +358,7 @@ public class SponsorService {
             if (!names.containsKey(p.getGranteeId())) continue;
             Map<String, Object> row = Rows.of(p);
             row.put("grantee_name", names.get(p.getGranteeId()));
+            row.put("installment", installmentService.label(p.getPaymentId()));
             rows.add(row);
         }
         return rows;

@@ -59,14 +59,12 @@ interface StudentData {
                 <p class="text-muted small">Payments you record stay pending until the office approves them; then they pay the earliest unpaid installment.</p>
                 <div class="table-responsive">
                   <table class="table table-hover table-centered">
-                    <thead class="thead-light"><tr><th>#</th><th>Due Date</th><th>Amount</th><th>Status</th><th>Paid</th><th>Paid On</th><th>Action</th></tr></thead>
+                    <thead class="thead-light"><tr><th>Installment</th><th>Due Date</th><th>Status</th><th>Paid On</th><th>Action</th></tr></thead>
                     <tbody>
                       <tr *ngFor="let i of current.installments">
-                        <td>{{ i.installment_no }}</td>
+                        <td class="font-weight-bold">Installment {{ i.installment_no }}</td>
                         <td>{{ i.due_date | appDate }}</td>
-                        <td>₹{{ i.amount | number: '1.2-2' }}</td>
                         <td><span class="badge" [ngClass]="badge(i.status)">{{ i.status }}</span></td>
-                        <td>{{ i.paid_amount !== null ? '₹' + (i.paid_amount | number: '1.2-2') : '—' }}</td>
                         <td>{{ i.paid_date ? (i.paid_date | appDate) : '—' }}</td>
                         <td>
                           <button *ngIf="i.payment_id" class="btn btn-sm btn-light" disabled>Paid</button>
@@ -91,12 +89,12 @@ interface StudentData {
             <p class="text-muted">This table shows all payments recorded by you.</p>
             <div class="table-responsive mt-4">
               <table class="table table-centered mb-0">
-                <thead><tr><th>Student Name</th><th>Amount</th><th>Date</th><th>Status</th><th>Receipt</th></tr></thead>
+                <thead><tr><th>Student Name</th><th>Installment</th><th>Date</th><th>Status</th><th>Receipt</th></tr></thead>
                 <tbody>
                   <tr *ngIf="!history.length"><td colspan="5" class="text-center">No past payments found.</td></tr>
                   <tr *ngFor="let p of history | paginate: pg.page : pg.size">
                     <td>{{ p['grantee_name'] }}</td>
-                    <td>₹{{ p['amount'] | number: '1.2-2' }}</td>
+                    <td>{{ p['installment'] | titlecase }}</td>
                     <td>{{ p['payment_date'] ? (iso(p['payment_date'])) : 'N/A' }}</td>
                     <td>
                       <span *ngIf="lower(p['status']) === 'paid'" class="badge badge-success">Paid</span>
@@ -118,7 +116,7 @@ interface StudentData {
       <div class="modal-dialog" (click)="$event.stopPropagation()">
         <div class="modal-content">
           <div class="modal-header">
-            <h5 class="modal-title">Record Payment: Installment #{{ pay.installment }}</h5>
+            <h5 class="modal-title">Record Payment: Installment {{ pay.installment }}</h5>
             <button type="button" class="close" (click)="pay = null">&times;</button>
           </div>
           <form (ngSubmit)="submitPay()">
@@ -132,12 +130,13 @@ interface StudentData {
                 <p class="mb-0">IFSC Code: {{ current?.bankDetails?.['ifsc_code'] || 'N/A' }}</p>
               </div>
               <hr />
-              <div class="form-group"><label>Amount (INR)</label><input type="text" class="form-control" [value]="pay.amount" readonly /></div>
+              <div class="form-group"><label>Amount paid (INR)</label><input type="number" step="0.01" min="1" class="form-control" name="amount" [(ngModel)]="pay.amount" required />
+                <small class="text-muted">As on the receipt. Rahbar keeps it; pages show the installment, not the amount.</small></div>
               <div class="form-group"><label>Upload Receipt</label><input type="file" class="form-control-file" (change)="pay.receipt = fileOf($event)" required /></div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" (click)="pay = null">Cancel</button>
-              <button type="submit" class="btn btn-success" [disabled]="!pay.receipt || saving">Confirm and Submit</button>
+              <button type="submit" class="btn btn-success" [disabled]="!pay.receipt || !pay.amount || saving">Confirm and Submit</button>
             </div>
           </form>
         </div>
@@ -155,7 +154,7 @@ export class ConvenorPaymentsComponent implements OnInit {
   current: StudentData | null = null;
   currentStatus = '';
   lastPayment = '';
-  pay: { installment: number; amount: string; receipt: File | null } | null = null;
+  pay: { installment: number; amount: number | null; receipt: File | null } | null = null;
   saving = false;
   message = '';
   error = '';
@@ -181,10 +180,11 @@ export class ConvenorPaymentsComponent implements OnInit {
     if (!this.current) return;
     const records = this.current.paidRecords ?? [];
     const last = records[records.length - 1];
-    this.lastPayment = last
-      ? `Last Payment: ₹${parseFloat(String(last['amount'])).toFixed(2)} on ${localDate(last['payment_date'])} (Status: ${last['status']})`
-      : 'Last Payment: No payments yet';
     const rows = this.current.installments ?? [];
+    const paid = rows.filter((r) => r.payment_id).map((r) => r.installment_no);
+    this.lastPayment = last
+      ? `Last Payment: ${localDate(last['payment_date'])} (Status: ${last['status']})${paid.length ? ' · installment ' + Math.max(...paid) + ' paid' : ''}`
+      : 'Last Payment: No payments yet';
     this.currentStatus = !rows.length ? 'No schedule yet'
       : rows.every((r) => r.status === 'Paid') ? 'All Paid'
       : rows.some((r) => r.status === 'Overdue') ? 'Overdue'
@@ -193,13 +193,13 @@ export class ConvenorPaymentsComponent implements OnInit {
 
   badge(status: string): string { return installmentBadge(status); }
 
-  openPay(i: InstallmentRow): void { this.pay = { installment: i.installment_no, amount: String(i.amount), receipt: null }; }
+  openPay(i: InstallmentRow): void { this.pay = { installment: i.installment_no, amount: null, receipt: null }; }
 
   submitPay(): void {
     if (!this.pay?.receipt || !this.selectedId) return;
     const f = new FormData();
     f.append('granteeId', this.selectedId);
-    f.append('amount', this.pay.amount);
+    f.append('amount', String(this.pay.amount ?? ''));
     f.append('receipt', this.pay.receipt);
     this.saving = true;
     this.api.post<{ message: string }>('/convenor/payments', f).subscribe({

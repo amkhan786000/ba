@@ -18,7 +18,7 @@ import com.rahbar.dto.ReportFile;
 @Service
 public class CoordinatorService {
 
-    private static final List<String> PAYMENT_SORT_COLUMNS = List.of("grantee_name", "grantor_name", "amount", "status", "receipt_url");
+    private static final List<String> PAYMENT_SORT_COLUMNS = List.of("grantee_name", "grantor_name", "installment", "status", "receipt_url");
 
     private final UserRepository userRepository;
     private final ChapterRepository chapterRepository;
@@ -28,12 +28,13 @@ public class CoordinatorService {
     private final PaymentRepository paymentRepository;
     private final SponsorMappingService sponsorMappingService;
     private final ReportService reportService;
+    private final com.rahbar.repository.PaymentInstallmentRepository installmentRepository;
 
     public CoordinatorService(UserRepository userRepository, ChapterRepository chapterRepository, RoleRepository roleRepository,
                               ScholarshipApplicationRepository applications,
                               GrantorGranteeRepository grantorGranteeRepository,
                               PaymentRepository paymentRepository, SponsorMappingService sponsorMappingService,
-                              ReportService reportService) {
+                              ReportService reportService, com.rahbar.repository.PaymentInstallmentRepository installmentRepository) {
         this.userRepository = userRepository;
         this.chapterRepository = chapterRepository;
         this.roleRepository = roleRepository;
@@ -42,6 +43,7 @@ public class CoordinatorService {
         this.paymentRepository = paymentRepository;
         this.sponsorMappingService = sponsorMappingService;
         this.reportService = reportService;
+        this.installmentRepository = installmentRepository;
     }
 
     public Map<String, Object> dashboard(Long coordinatorId, Integer year) {
@@ -164,6 +166,9 @@ public class CoordinatorService {
     public Map<String, Object> monitorPayments(int start, int length, String search, String orderBy, String orderDir) {
         String column = PAYMENT_SORT_COLUMNS.contains(orderBy) ? orderBy : "grantee_name";
         List<Map<String, Object>> rows = new ArrayList<>();
+        // Which installment each payment paid (amounts are never shown).
+        Map<Long, Integer> installmentNo = new HashMap<>();
+        installmentRepository.findAll().forEach(i -> { if (i.getPaymentId() != null) installmentNo.put(i.getPaymentId(), i.getInstallmentNo()); });
         for (Object[] r : paymentRepository.findAllWithUsers()) {
             Payment p = (Payment) r[0];
             User grantee = (User) r[1];
@@ -184,7 +189,7 @@ public class CoordinatorService {
             row.put("grantor_code", grantor == null ? null : grantor.getUserId());
             row.put("grantor_phone", grantor == null ? null : grantor.getPhone());
             row.put("payment_date", p.getPaymentDate());
-            row.put("amount", p.getAmount());
+            row.put("installment", installmentNo.get(p.getPaymentId()));
             row.put("status", p.getStatus());
             row.put("receipt_url", p.getReceiptUrl());
             row.put("payment_id", p.getPaymentId());

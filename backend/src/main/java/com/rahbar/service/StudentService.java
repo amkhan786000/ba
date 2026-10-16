@@ -64,6 +64,7 @@ public class StudentService {
         for (Payment p : paymentRepository.findByGranteeIdOrderByPaymentDateAsc(userId)) {
             Map<String, Object> row = Rows.of(p);
             row.put("receiptLink", p.getReceiptUrl() != null ? "/uploads/" + p.getReceiptUrl() : null);
+            row.put("installment", installmentService.label(p.getPaymentId()));
             payments.add(row);
         }
         Map<String, Object> result = new LinkedHashMap<>();
@@ -145,9 +146,9 @@ public class StudentService {
         paymentRepository.save(payment);
         String studentName = userRepository.findById(userId).map(User::getName).orElse("A student");
         notificationService.notify(payment.getGrantorId(), "Payment proof uploaded",
-                studentName + " uploaded proof of receipt for a payment of " + payment.getAmount() + ".",
+                studentName + " uploaded proof of how " + installmentService.label(paymentId) + " was spent.",
                 NotificationService.PAYMENT, "/sponsor/payments", EmailType.SPONSOR_SPENT_PROOF_UPLOADED,
-                ServiceSupport.vars("student_name", studentName, "amount", payment.getAmount() == null ? "" : payment.getAmount().stripTrailingZeros().toPlainString()));
+                ServiceSupport.vars("student_name", studentName, "installment", installmentService.number(paymentId)));
     }
 
     /** Picks the safe user columns shown on student cards. */

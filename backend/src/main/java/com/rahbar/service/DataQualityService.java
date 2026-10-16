@@ -182,7 +182,7 @@ public class DataQualityService {
             noReceipt.add(row("payment_id", p.getPaymentId(), "payment_date", p.getPaymentDate(),
                     "student", st == null ? null : st.getName() + " (" + st.getUserId() + ")",
                     "sponsor", sp == null ? null : sp.getName() + " (" + sp.getUserId() + ")",
-                    "amount", p.getAmount(), "status", p.getStatus()));
+                    "status", p.getStatus()));
         }
         checks.add(in(SPONSORS, "/admin/payment-records", check("payments_without_receipt", "Payments without a receipt",
                 "No receipt was uploaded for these payments.", noReceipt)));

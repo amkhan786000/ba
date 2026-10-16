@@ -371,10 +371,12 @@ public class OnlinePaymentService {
         it.setPassedOnRef(ref.strip().length() > 100 ? ref.strip().substring(0, 100) : ref.strip());
         it.setPassedOnBy(Access.current().getUser().getId());
         items.save(it);
+        // To the student: which installment, never the amount.
         users.findById(it.getStudentUserId()).ifPresent(st -> notifications.notify(st.getId(), "Money sent to your bank account",
-                "Rs. " + money(it.getAmount()) + " from your sponsor was sent to your bank account on " + date.format(DAY) + ".",
+                "Your sponsor's " + installmentService.label(it.getPaymentId()) + " was sent to your bank account on " + date.format(DAY) + ".",
                 NotificationService.PAYMENT, "/student/payments", EmailType.STUDENT_PAID_THROUGH_RAHBAR,
-                ServiceSupport.vars("amount", money(it.getAmount()), "date", date.format(DAY), "reference", it.getPassedOnRef())));
+                ServiceSupport.vars("installment", installmentService.number(it.getPaymentId()), "date", date.format(DAY),
+                        "reference", it.getPassedOnRef())));
     }
 
     /** Sponsors who pay through Rahbar, and active sponsors to choose from. */

@@ -19,9 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
-import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.text.DecimalFormat;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -37,7 +35,6 @@ import java.util.List;
 public class SponsorFilesService {
 
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("d MMMM yyyy");
-    private static final DecimalFormat MONEY = new DecimalFormat("#,##0.00");
 
     private final PaymentRepository payments;
     private final PaymentInstallmentRepository installments;
@@ -95,10 +92,9 @@ public class SponsorFilesService {
         t.setWidthPercentage(100);
         row(t, "Receipt no.", receiptNo(p.getPaymentId()), bold, text);
         row(t, "Received from", sponsor.getName() + " (" + sponsor.getUserId() + ")", bold, text);
-        row(t, "Amount", "INR " + MONEY.format(p.getAmount() == null ? BigDecimal.ZERO : p.getAmount()), bold, bold);
         row(t, "Payment date", p.getPaymentDate() == null ? "-" : p.getPaymentDate().toLocalDate().format(DAY), bold, text);
         row(t, "For the education of", student == null ? "-" : student.getName() + " (" + student.getUserId() + ")", bold, text);
-        if (installmentNo != null) row(t, "Installment", "#" + installmentNo, bold, text);
+        if (installmentNo != null) row(t, "Installment", "Installment " + installmentNo, bold, bold);
         doc.add(t);
         doc.add(new Paragraph(" "));
         doc.add(new Paragraph("Thank you for supporting a student's education through Rahbar.", text));
@@ -143,7 +139,6 @@ public class SponsorFilesService {
             r.put("student_id", s == null ? null : s.getUserId());
             r.put("student_name", s == null ? null : s.getName());
             r.put("installment", installmentNo.get(p.getPaymentId()));
-            r.put("amount", p.getAmount());
             r.put("spent_proof", p.getStudentProofUrl() != null && !p.getStudentProofUrl().isBlank() ? "Received" : "Pending");
             rows.add(r);
         }
@@ -179,14 +174,13 @@ public class SponsorFilesService {
         line(b, "X-WR-CALNAME:Rahbar sponsorship payments");
         for (PaymentInstallment i : upcoming) {
             String student = names.getOrDefault(i.getGranteeId(), "your student");
-            String amount = "INR " + MONEY.format(i.getAmount() == null ? BigDecimal.ZERO : i.getAmount());
             line(b, "BEGIN:VEVENT");
             line(b, "UID:rahbar-installment-" + i.getInstallmentId() + "@rahbar");
             line(b, "DTSTAMP:" + stamp);
             line(b, "DTSTART;VALUE=DATE:" + i.getDueDate().format(date));
             line(b, "DTEND;VALUE=DATE:" + i.getDueDate().plusDays(1).format(date));
-            line(b, "SUMMARY:" + escape("Rahbar: installment #" + i.getInstallmentNo() + " for " + student + " (" + amount + ")"));
-            line(b, "DESCRIPTION:" + escape("Installment #" + i.getInstallmentNo() + " of " + amount + " for " + student
+            line(b, "SUMMARY:" + escape("Rahbar: installment " + i.getInstallmentNo() + " for " + student));
+            line(b, "DESCRIPTION:" + escape("Installment " + i.getInstallmentNo() + " for " + student
                     + " is due. Pay and upload the receipt on your Rahbar Payments page."));
             line(b, "BEGIN:VALARM");
             line(b, "TRIGGER:-P3D");

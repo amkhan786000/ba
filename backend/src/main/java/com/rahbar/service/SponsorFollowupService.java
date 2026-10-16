@@ -5,7 +5,6 @@ import com.rahbar.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -103,14 +102,12 @@ public class SponsorFollowupService {
                 Map<String, Object> n = base(s, last);
                 n.put("students", new HashSet<Long>());
                 n.put("overdue_count", 0);
-                n.put("overdue_amount", BigDecimal.ZERO);
                 n.put("oldest_due", i.getDueDate());
                 return n;
             });
             @SuppressWarnings("unchecked") Set<Long> st = (Set<Long>) r.get("students");
             st.add(i.getGranteeId());
             r.put("overdue_count", (Integer) r.get("overdue_count") + 1);
-            r.put("overdue_amount", ((BigDecimal) r.get("overdue_amount")).add(i.getAmount() == null ? BigDecimal.ZERO : i.getAmount()));
             if (i.getDueDate().isBefore((LocalDate) r.get("oldest_due"))) r.put("oldest_due", i.getDueDate());
         }
         List<Map<String, Object>> rows = new ArrayList<>(byGrantor.values());
@@ -204,7 +201,6 @@ public class SponsorFollowupService {
                 type = EmailType.SPONSOR_FOLLOWUP_OVERDUE;
                 values.put("overdue_count", r.get("overdue_count"));
                 values.put("oldest_due", ((LocalDate) r.get("oldest_due")).format(DAY));
-                values.put("overdue_amount", ((BigDecimal) r.get("overdue_amount")).stripTrailingZeros().toPlainString());
             } else {
                 Map<String, Object> r = available.get(s.getId());
                 if (r == null) { skipped.add(s.getName() + ": has a student now"); continue; }

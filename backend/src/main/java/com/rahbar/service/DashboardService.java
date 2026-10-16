@@ -75,7 +75,7 @@ public class DashboardService {
             kpis.put("paidLastYear", paidLastYear(scope, year, today));
             kpis.putAll(collection(scope, year, today));
             Map<String, Object> overdue = overdue(scope, today);
-            kpis.put("overdueAmount", overdue.get("amount"));
+            kpis.put("overdueInstallments", overdue.get("installments"));
             kpis.put("overdueStudents", overdue.get("students"));
         }
         if (can(Section.ONLINE_PAYMENTS)) {
@@ -129,13 +129,13 @@ public class DashboardService {
         }
         if (can(Section.PAYMENT_RECORDS)) {
             Map<String, Object> p = jdbc.queryForMap("""
-                    SELECT COUNT(*) n, COALESCE(SUM(p.amount), 0) amount FROM payments p JOIN users s ON s.id = p.grantee_id
+                    SELECT COUNT(*) n FROM payments p JOIN users s ON s.id = p.grantee_id
                     WHERE LOWER(p.status) = 'pending'""" + scope);
-            items.add(item("pendingPayments", "Payments waiting for approval", num(p.get("n")), (BigDecimal) p.get("amount"), "/admin/payment-records"));
+            items.add(item("pendingPayments", "Payments waiting for approval", num(p.get("n")), null, "/admin/payment-records"));
         }
         if (can(Section.PAYMENT_DUES) || can(Section.PAYMENT_RECORDS)) {
             Map<String, Object> o = overdue(scope, today);
-            items.add(item("overdue", "Overdue installments", num(o.get("installments")), (BigDecimal) o.get("amount"), "/admin/payment-dues"));
+            items.add(item("overdue", "Overdue installments", num(o.get("installments")), null, "/admin/payment-dues"));
         }
         if (can(Section.SPONSORSHIPS)) {
             items.add(item("withoutSponsor", "Studying students without a sponsor", withoutSponsor(scope), null, "/admin/sponsorships"));
@@ -325,7 +325,6 @@ public class DashboardService {
             kpis.put("paidLastYear", paidLastYear(scope, year, today));
             kpis.putAll(collection(scope, year, today));
             Map<String, Object> overdue = overdue(scope, today);
-            kpis.put("overdueAmount", overdue.get("amount"));
             kpis.put("overdueInstallments", overdue.get("installments"));
             kpis.put("overdueSponsors", overdue.get("sponsors"));
 
@@ -345,16 +344,16 @@ public class DashboardService {
             charts.put("methods", labelled("""
                     SELECT CASE UPPER(COALESCE(p.method, '')) WHEN '' THEN 'Not recorded' WHEN 'BANK' THEN 'Bank transfer'
                                 WHEN 'UPI' THEN 'UPI' WHEN 'CASH' THEN 'Cash' WHEN 'CHEQUE' THEN 'Cheque' ELSE p.method END label,
-                           COALESCE(SUM(p.amount), 0) value
+                           COUNT(*) value
                     FROM payments p JOIN users s ON s.id = p.grantee_id
                     WHERE LOWER(p.status) = 'paid' AND p.payment_date >= ? AND p.payment_date < ?%s
                     GROUP BY label ORDER BY value DESC""".formatted(scope), yearStart(year), yearStart(year + 1)));
             body.put("mostOverdue", jdbc.queryForList("""
                     SELECT sp.user_id, sp.name, COUNT(DISTINCT i.grantee_id) students, COUNT(*) installments,
-                           SUM(i.amount) amount, MIN(i.due_date) oldest_due
+                           MIN(i.due_date) oldest_due
                     FROM payment_installments i JOIN users sp ON sp.id = i.grantor_id JOIN users s ON s.id = i.grantee_id
                     WHERE i.payment_id IS NULL AND i.due_date < ? AND s.merged_into_id IS NULL%s%s
-                    GROUP BY sp.id, sp.user_id, sp.name ORDER BY amount DESC LIMIT 10""".formatted(IN_PROGRAMME, scope), today));
+                    GROUP BY sp.id, sp.user_id, sp.name ORDER BY installments DESC, oldest_due LIMIT 10""".formatted(IN_PROGRAMME, scope), today));
         }
         if (can(Section.ONLINE_PAYMENTS)) {
             charts.put("onlineByPurpose", labelled("""
@@ -380,12 +379,11 @@ public class DashboardService {
         return series(months(), List.of(serie("Started", toList(started)), serie("Ended", toList(ended))));
     }
 
-    /** Installments falling due in each month of the year: how much was due and how much of it is paid. */
+    /** Installments falling due in each month of the year: how many were due and how many of them are paid. */
     private Map<String, Object> dueVsPaid(String scope, int year) {
         BigDecimal[] due = zeros(), paid = zeros();
         jdbc.queryForList("""
-                SELECT MONTH(i.due_date) m, SUM(i.amount) due,
-                       COALESCE(SUM(CASE WHEN i.payment_id IS NOT NULL THEN i.amount END), 0) paid
+                SELECT MONTH(i.due_date) m, COUNT(*) due, COUNT(i.payment_id) paid
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
                 WHERE i.due_date >= ? AND i.due_date < ? AND s.merged_into_id IS NULL%s GROUP BY m"""
                 .formatted(scope), LocalDate.of(year, 1, 1), LocalDate.of(year + 1, 1, 1))
@@ -400,10 +398,10 @@ public class DashboardService {
     /** Unpaid installments due within 7 / 30 / 60 / 90 days (each includes the shorter ones). */
     private List<Map<String, Object>> upcoming(String scope, LocalDate today) {
         Map<String, Object> r = jdbc.queryForMap("""
-                SELECT COALESCE(SUM(CASE WHEN i.due_date <= ? THEN i.amount END), 0) d7,
-                       COALESCE(SUM(CASE WHEN i.due_date <= ? THEN i.amount END), 0) d30,
-                       COALESCE(SUM(CASE WHEN i.due_date <= ? THEN i.amount END), 0) d60,
-                       COALESCE(SUM(i.amount), 0) d90
+                SELECT COALESCE(SUM(CASE WHEN i.due_date <= ? THEN 1 ELSE 0 END), 0) d7,
+                       COALESCE(SUM(CASE WHEN i.due_date <= ? THEN 1 ELSE 0 END), 0) d30,
+                       COALESCE(SUM(CASE WHEN i.due_date <= ? THEN 1 ELSE 0 END), 0) d60,
+                       COUNT(*) d90
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
                 WHERE i.payment_id IS NULL AND i.due_date >= ? AND i.due_date <= ? AND s.merged_into_id IS NULL%s%s"""
                 .formatted(IN_PROGRAMME, scope), today.plusDays(7), today.plusDays(30), today.plusDays(60), today, today.plusDays(90));
@@ -558,17 +556,16 @@ public class DashboardService {
 
     private Map<String, Object> overdue(String scope, LocalDate today) {
         return jdbc.queryForMap("""
-                SELECT COUNT(*) installments, COALESCE(SUM(i.amount), 0) amount,
-                       COUNT(DISTINCT i.grantee_id) students, COUNT(DISTINCT i.grantor_id) sponsors
+                SELECT COUNT(*) installments, COUNT(DISTINCT i.grantee_id) students, COUNT(DISTINCT i.grantor_id) sponsors
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
                 WHERE i.payment_id IS NULL AND i.due_date < ? AND s.merged_into_id IS NULL%s%s""".formatted(IN_PROGRAMME, scope), today);
     }
 
-    /** How much of what fell due this year (up to today) has been paid. */
+    /** How many of the installments that fell due this year (up to today) are paid. */
     private Map<String, Object> collection(String scope, int year, LocalDate today) {
         LocalDate end = year < today.getYear() ? LocalDate.of(year, 12, 31) : today;
         Map<String, Object> r = jdbc.queryForMap("""
-                SELECT COALESCE(SUM(i.amount), 0) due, COALESCE(SUM(CASE WHEN i.payment_id IS NOT NULL THEN i.amount END), 0) paid
+                SELECT COUNT(*) due, COUNT(i.payment_id) paid
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
                 WHERE i.due_date >= ? AND i.due_date <= ? AND s.merged_into_id IS NULL%s""".formatted(scope),
                 LocalDate.of(year, 1, 1), end);
@@ -580,10 +577,10 @@ public class DashboardService {
         return out;
     }
 
-    /** Paid from {@code from} up to (not including) {@code to}. */
+    /** Installments paid (paid payments) from {@code from} up to (not including) {@code to}. Amounts are never shown. */
     private BigDecimal paidBetween(String scope, LocalDate from, LocalDate to) {
         return money(jdbc.queryForObject("""
-                SELECT COALESCE(SUM(p.amount), 0) FROM payments p JOIN users s ON s.id = p.grantee_id
+                SELECT COUNT(*) FROM payments p JOIN users s ON s.id = p.grantee_id
                 WHERE LOWER(p.status) = 'paid' AND p.payment_date >= ? AND p.payment_date < ?%s""".formatted(scope),
                 BigDecimal.class, from.atStartOfDay(), to.atStartOfDay()));
     }
@@ -597,11 +594,11 @@ public class DashboardService {
         return paidBetween(scope, LocalDate.of(year - 1, 1, 1), end);
     }
 
-    /** Paid per month: the chosen year next to the year before. */
+    /** Installments paid per month: the chosen year next to the year before. */
     private Map<String, Object> collectedByMonth(String scope, int year) {
         BigDecimal[] current = zeros(), previous = zeros();
         jdbc.queryForList("""
-                SELECT YEAR(p.payment_date) y, MONTH(p.payment_date) m, SUM(p.amount) amount
+                SELECT YEAR(p.payment_date) y, MONTH(p.payment_date) m, COUNT(*) amount
                 FROM payments p JOIN users s ON s.id = p.grantee_id
                 WHERE LOWER(p.status) = 'paid' AND p.payment_date >= ? AND p.payment_date < ?%s GROUP BY y, m""".formatted(scope),
                 yearStart(year - 1), yearStart(year + 1))
@@ -609,13 +606,13 @@ public class DashboardService {
         return series(months(), List.of(serie(String.valueOf(year - 1), Arrays.asList(previous)), serie(String.valueOf(year), Arrays.asList(current))));
     }
 
-    /** Overdue installment amounts by how late they are. */
+    /** Overdue installments by how late they are. */
     private List<Map<String, Object>> overdueAgeing(String scope, LocalDate today) {
         Map<String, Object> r = jdbc.queryForMap("""
-                SELECT COALESCE(SUM(CASE WHEN i.due_date >= ? THEN i.amount END), 0) b1,
-                       COALESCE(SUM(CASE WHEN i.due_date < ? AND i.due_date >= ? THEN i.amount END), 0) b2,
-                       COALESCE(SUM(CASE WHEN i.due_date < ? AND i.due_date >= ? THEN i.amount END), 0) b3,
-                       COALESCE(SUM(CASE WHEN i.due_date < ? THEN i.amount END), 0) b4
+                SELECT COALESCE(SUM(CASE WHEN i.due_date >= ? THEN 1 ELSE 0 END), 0) b1,
+                       COALESCE(SUM(CASE WHEN i.due_date < ? AND i.due_date >= ? THEN 1 ELSE 0 END), 0) b2,
+                       COALESCE(SUM(CASE WHEN i.due_date < ? AND i.due_date >= ? THEN 1 ELSE 0 END), 0) b3,
+                       COALESCE(SUM(CASE WHEN i.due_date < ? THEN 1 ELSE 0 END), 0) b4
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
                 WHERE i.payment_id IS NULL AND i.due_date < ? AND s.merged_into_id IS NULL%s%s""".formatted(IN_PROGRAMME, scope),
                 today.minusDays(30), today.minusDays(30), today.minusDays(90), today.minusDays(90), today.minusDays(180),

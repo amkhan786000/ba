@@ -9,7 +9,6 @@ import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.compo
 import { ColumnChartComponent, SeriesData } from '../shared/charts/column-chart.component';
 import { DonutChartComponent } from '../shared/charts/donut-chart.component';
 import { StatTileComponent } from '../shared/charts/stat-tile.component';
-import { inr } from '../shared/charts/money';
 
 interface SponsorsDashboard {
   year: number;
@@ -21,7 +20,7 @@ interface SponsorsDashboard {
     collectedByMonth?: SeriesData; dueVsPaid?: SeriesData; overdueAgeing?: BarDatum[]; upcoming?: BarDatum[];
     methods?: BarDatum[]; onlineByPurpose?: BarDatum[];
   };
-  mostOverdue?: { user_id: string; name: string; students: number; installments: number; amount: number; oldest_due: string }[];
+  mostOverdue?: { user_id: string; name: string; students: number; installments: number; oldest_due: string }[];
 }
 
 /** Sponsors & Payments > Sponsors Dashboard: the sponsors, what they pay, how punctually, and who is behind. */
@@ -67,47 +66,47 @@ interface SponsorsDashboard {
       </div>
 
       <ng-container *ngIf="has('paidThisYear')">
-        <h5 class="mb-2">Money {{ d.year }}</h5>
+        <h5 class="mb-2">Installments {{ d.year }}</h5>
         <div class="tiles">
-          <app-stat-tile label="Paid to students" icon="mdi-cash" tone="success" [value]="money(k('paidThisYear'))"
+          <app-stat-tile label="Installments paid" icon="mdi-cash" tone="success" [value]="k('paidThisYear')"
                          [sub]="growth()" [trend]="trend()"></app-stat-tile>
           <app-stat-tile label="Collection rate" icon="mdi-percent" [tone]="rateTone(k('collectionRate'), 90, 70)"
-                         [value]="pct(k('collectionRate'))" [sub]="money(k('paidOfDue')) + ' of ' + money(k('dueSoFar')) + ' due so far'"></app-stat-tile>
+                         [value]="pct(k('collectionRate'))" [sub]="k('paidOfDue') + ' of ' + k('dueSoFar') + ' installments due so far are paid'"></app-stat-tile>
           <app-stat-tile label="Paid on time" icon="mdi-clock-check" [tone]="rateTone(k('onTimeRate'), 80, 60)" [value]="pct(k('onTimeRate'))"
                          [sub]="k('avgDaysLate') === null ? 'of installments paid' : 'late ones: ' + k('avgDaysLate') + ' days late on average'"></app-stat-tile>
-          <app-stat-tile label="Overdue now" icon="mdi-alarm" [tone]="+(k('overdueAmount') || 0) ? 'danger' : 'success'" [value]="money(k('overdueAmount'))"
-                         [sub]="k('overdueInstallments') + ' installments · ' + k('overdueSponsors') + ' sponsors'" link="/admin/payment-dues" linkText="Dues"></app-stat-tile>
+          <app-stat-tile label="Overdue installments" icon="mdi-alarm" [tone]="+(k('overdueInstallments') || 0) ? 'danger' : 'success'" [value]="k('overdueInstallments')"
+                         [sub]="k('overdueSponsors') + ' sponsors'" link="/admin/payment-dues" linkText="Dues"></app-stat-tile>
         </div>
 
         <div class="row">
           <div class="col-xl-8">
             <div class="card"><div class="card-body">
-              <h4 class="header-title mb-3">Paid per month <small>{{ d.year }} next to {{ d.year - 1 }}</small></h4>
-              <app-column-chart [data]="d.charts.collectedByMonth" [money]="true" [colours]="['#cfe0a8', '#4f7a00']"></app-column-chart>
+              <h4 class="header-title mb-3">Installments paid per month <small>{{ d.year }} next to {{ d.year - 1 }}</small></h4>
+              <app-column-chart [data]="d.charts.collectedByMonth" [colours]="['#cfe0a8', '#4f7a00']"></app-column-chart>
             </div></div>
           </div>
           <div class="col-xl-4">
             <div class="card"><div class="card-body">
-              <h4 class="header-title mb-3">Coming due <small>not paid yet</small></h4>
-              <app-bar-chart [data]="d.charts.upcoming || []" [money]="true" colour="#d97706" emptyText="Nothing due in the next 90 days."></app-bar-chart>
+              <h4 class="header-title mb-3">Coming due <small>installments not paid yet</small></h4>
+              <app-bar-chart [data]="d.charts.upcoming || []" colour="#d97706" emptyText="Nothing due in the next 90 days."></app-bar-chart>
             </div></div>
           </div>
           <div class="col-xl-8">
             <div class="card"><div class="card-body">
               <h4 class="header-title mb-3">Due and paid by due month <small>installments falling due in {{ d.year }}</small></h4>
-              <app-column-chart [data]="d.charts.dueVsPaid" [money]="true" [colours]="['#d97706', '#15803d']"></app-column-chart>
+              <app-column-chart [data]="d.charts.dueVsPaid" [colours]="['#d97706', '#15803d']"></app-column-chart>
             </div></div>
           </div>
           <div class="col-xl-4">
             <div class="card"><div class="card-body">
-              <h4 class="header-title mb-3">Overdue by how late</h4>
-              <app-bar-chart [data]="d.charts.overdueAgeing || []" [money]="true" colour="#c0262d" emptyText="Nothing overdue."></app-bar-chart>
+              <h4 class="header-title mb-3">Overdue by how late <small>installments</small></h4>
+              <app-bar-chart [data]="d.charts.overdueAgeing || []" colour="#c0262d" emptyText="Nothing overdue."></app-bar-chart>
             </div></div>
           </div>
           <div class="col-xl-4 col-md-6">
             <div class="card"><div class="card-body">
               <h4 class="header-title mb-3">How sponsors paid <small>{{ d.year }}</small></h4>
-              <app-donut-chart [data]="d.charts.methods || []" [money]="true" caption="paid" emptyText="No payments this year."></app-donut-chart>
+              <app-donut-chart [data]="d.charts.methods || []" caption="installments" emptyText="No payments this year."></app-donut-chart>
             </div></div>
           </div>
           <div class="col-xl-4 col-md-6" *ngIf="d.charts.onlineByPurpose">
@@ -122,13 +121,13 @@ interface SponsorsDashboard {
           <div class="card-body">
             <h4 class="header-title mb-3">Most overdue sponsors <small><a routerLink="/admin/sponsor-followup">follow up</a></small></h4>
             <div class="table-responsive"><table class="table table-sm table-centered mb-0">
-              <thead><tr><th>Sponsor</th><th class="text-right">Students</th><th class="text-right">Installments</th><th class="text-right">Amount</th><th>Oldest due</th></tr></thead>
+              <thead><tr><th>Sponsor</th><th class="text-right">Students</th><th class="text-right">Installments</th><th>Oldest due</th></tr></thead>
               <tbody>
-                <tr *ngIf="!d.mostOverdue.length"><td colspan="5" class="text-center text-muted">No sponsor is behind. </td></tr>
+                <tr *ngIf="!d.mostOverdue.length"><td colspan="4" class="text-center text-muted">No sponsor is behind. </td></tr>
                 <tr *ngFor="let s of d.mostOverdue">
                   <td>{{ s.name }} <small class="text-muted">{{ s.user_id }}</small></td>
                   <td class="text-right">{{ s.students }}</td><td class="text-right">{{ s.installments }}</td>
-                  <td class="text-right text-danger">{{ money(s.amount) }}</td><td>{{ s.oldest_due | appDate }}</td>
+                  <td>{{ s.oldest_due | appDate }}</td>
                 </tr>
               </tbody>
             </table></div>
@@ -170,7 +169,6 @@ export class AdminSponsorsDashboardComponent implements OnInit {
   d: SponsorsDashboard | null = null;
   year: number | null = null;
   error = '';
-  readonly money = inr;
 
   constructor(private api: ApiService) {}
 
@@ -192,7 +190,7 @@ export class AdminSponsorsDashboardComponent implements OnInit {
     const a = Number(this.k('paidThisYear')) || 0, b = Number(this.k('paidLastYear')) || 0;
     if (!b) return a ? 'nothing paid by now last year' : 'nothing yet';
     const p = Math.round(((a - b) / b) * 100);
-    return (p >= 0 ? '▲ ' : '▼ ') + Math.abs(p) + '% vs same time last year (' + inr(b) + ')';
+    return (p >= 0 ? '▲ ' : '▼ ') + Math.abs(p) + '% vs same time last year (' + b + ')';
   }
   trend(): 'up' | 'down' | null {
     const a = Number(this.k('paidThisYear')) || 0, b = Number(this.k('paidLastYear')) || 0;

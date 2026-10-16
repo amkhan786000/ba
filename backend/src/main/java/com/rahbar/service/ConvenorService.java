@@ -232,6 +232,7 @@ public class ConvenorService {
             if (!names.containsKey(p.getGranteeId())) continue;
             Map<String, Object> row = Rows.of(p);
             row.put("grantee_name", names.get(p.getGranteeId()));
+            row.put("installment", installmentService.label(p.getPaymentId()));
             pastPayments.add(row);
         }
 
@@ -258,7 +259,7 @@ public class ConvenorService {
         paymentRepository.saveAndFlush(payment);
         installmentService.afterPayment(payment, null); // pays an installment once approved (status Paid)
         notificationService.notify(granteeId, "Payment recorded",
-                "A payment of " + amount + " was recorded for you and is awaiting approval.",
+                "A payment was recorded for you and is awaiting approval.",
                 NotificationService.PAYMENT, "/student/payments", false);
     }
 

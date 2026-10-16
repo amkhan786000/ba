@@ -93,7 +93,7 @@ class SponsorFollowupServiceTest {
         assertEquals(1L, r.get("sponsor_id"));
         assertEquals(2, r.get("students"));
         assertEquals(2, r.get("overdue_count"));
-        assertEquals(0, new BigDecimal("1500").compareTo((BigDecimal) r.get("overdue_amount")));
+        assertNull(r.get("overdue_amount")); // amounts are never shown
         assertEquals(today.minusDays(90), r.get("oldest_due"));
 
         assertEquals(List.of(1L, 2L), service.lapsed(0).stream().map(x -> x.get("sponsor_id")).toList());
@@ -145,7 +145,8 @@ class SponsorFollowupServiceTest {
         Map<String, Object> res = service.email(Map.of("kind", "LAPSED", "sponsorIds", List.of(1, 2)));
         assertEquals(1, res.get("sent"));
         verify(email).send(eq(EmailType.SPONSOR_FOLLOWUP_OVERDUE), eq("asha@example.com"),
-                argThat(v -> "1200".equals(v.get("overdue_amount")) && "5 January 2026".equals(v.get("oldest_due"))));
+                argThat(v -> Integer.valueOf(1).equals(v.get("overdue_count")) && !v.containsKey("overdue_amount")
+                        && "5 January 2026".equals(v.get("oldest_due"))));
         assertTrue(((List<?>) res.get("skipped")).contains("Bilal: nothing overdue"));
 
         reset(followups);

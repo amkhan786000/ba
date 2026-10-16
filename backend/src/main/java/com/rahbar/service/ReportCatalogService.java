@@ -71,16 +71,16 @@ public class ReportCatalogService {
             new ReportDefinition("sponsors_without_student", "Sponsors", "Sponsors without a student",
                     "Active sponsors with no student now: when their last student left and who it was, or that they never had one.", false),
             new ReportDefinition("sponsors_overdue", "Sponsors", "Sponsors with overdue installments",
-                    "Sponsors whose students have installments unpaid after the due date: how many, how much and the oldest due date.", false),
+                    "Sponsors whose students have installments unpaid after the due date: how many and the oldest due date.", false),
             new ReportDefinition("sponsorship_changes", "Sponsors", "Sponsorship changes",
                     "Students mapped to a sponsor, or moved off one, in the period (from the mapping history).", true),
 
             new ReportDefinition("payments", "Payments", "All payments",
-                    "Every payment with student, sponsor, amount, status and date.", true),
+                    "Every payment with student, sponsor, installment, status and date.", true),
             new ReportDefinition("payments_by_month", "Payments", "Payments by month",
-                    "Number and total of paid payments per month.", true),
+                    "Number of installments paid per month.", true),
             new ReportDefinition("payments_by_sponsor", "Payments", "Payments by sponsor",
-                    "Number and total of paid payments per sponsor.", true),
+                    "Number of installments paid per sponsor.", true),
             new ReportDefinition("pending_payments", "Payments", "Payments awaiting approval",
                     "Payments recorded with a pending status.", true),
             new ReportDefinition("payment_dues", "Payments", "Payment dues",
@@ -602,7 +602,7 @@ public class ReportCatalogService {
     private List<Map<String, Object>> sponsors() {
         Map<Long, Long> studentCount = grantorGranteeRepository.findAll().stream()
                 .collect(Collectors.groupingBy(GrantorGrantee::getGrantorId, Collectors.counting()));
-        Map<Long, BigDecimal> paid = paidTotalsByGrantor(DateRange.ALL);
+        Map<Long, Long> paid = paidCountsByGrantor(DateRange.ALL);
         Map<Integer, String> roleNames = roleNames();
         List<Map<String, Object>> rows = new ArrayList<>();
         for (User u : sorted(userRepository.findByRoleIdIn(ServiceSupport.SPONSOR_CONVENOR_ROLES), User::getName)) {
@@ -616,7 +616,7 @@ public class ReportCatalogService {
                     "chapter", u.getChapterName(),
                     "status", u.getStatus(),
                     "students", studentCount.getOrDefault(u.getId(), 0L),
-                    "total_paid", paid.getOrDefault(u.getId(), BigDecimal.ZERO),
+                    "installments_paid", paid.getOrDefault(u.getId(), 0L),
                     "joined", u.getCreatedAt()));
         }
         return rows;
@@ -625,19 +625,19 @@ public class ReportCatalogService {
     private List<Map<String, Object>> sponsorsByChapter() {
         Map<Long, Long> studentCount = grantorGranteeRepository.findAll().stream()
                 .collect(Collectors.groupingBy(GrantorGrantee::getGrantorId, Collectors.counting()));
-        Map<Long, BigDecimal> paid = paidTotalsByGrantor(DateRange.ALL);
+        Map<Long, Long> paid = paidCountsByGrantor(DateRange.ALL);
         Map<String, long[]> counts = new TreeMap<>();
-        Map<String, BigDecimal> totals = new TreeMap<>();
+        Map<String, Long> totals = new TreeMap<>();
         for (User u : userRepository.findByRoleId(5)) {
             String chapter = ServiceSupport.chapterLabel(u.getChapterName());
             long[] c = counts.computeIfAbsent(chapter, r -> new long[2]);
             c[0]++;
             c[1] += studentCount.getOrDefault(u.getId(), 0L);
-            totals.merge(chapter, paid.getOrDefault(u.getId(), BigDecimal.ZERO), BigDecimal::add);
+            totals.merge(chapter, paid.getOrDefault(u.getId(), 0L), Long::sum);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         counts.forEach((chapter, c) -> rows.add(row("chapter", chapter, "sponsors", c[0], "students", c[1],
-                "total_paid", totals.getOrDefault(chapter, BigDecimal.ZERO))));
+                "installments_paid", totals.getOrDefault(chapter, 0L))));
         return rows;
     }
 
@@ -645,7 +645,7 @@ public class ReportCatalogService {
 
     /**
      * Each sponsor (by name) with their students, a subtotal row per sponsor, then the students without a sponsor
-     * ("Unassigned"). Paid = this sponsor's paid payments for the student; overdue = installments unpaid after the due date.
+     * ("Unassigned"). Paid = installments this sponsor paid for the student; overdue = installments unpaid after the due date.
      */
     private List<Map<String, Object>> studentsBySponsor() {
         Map<Long, Long> sponsorOf = sponsorIdByStudent();
@@ -660,19 +660,17 @@ public class ReportCatalogService {
         for (SponsorMappingHistory h : mappingHistoryRepository.findAll()) {
             if (h.getEndedAt() == null && h.getStartedAt() != null) since.merge(h.getGrantorId() + ":" + h.getGranteeId(), h.getStartedAt(), (a, b) -> a.isAfter(b) ? a : b);
         }
-        Map<String, BigDecimal> paid = new HashMap<>();
+        Map<String, Long> paid = new HashMap<>();
         for (Payment p : visiblePayments()) {
             if (!"Paid".equalsIgnoreCase(p.getStatus()) || p.getGrantorId() == null) continue;
-            paid.merge(p.getGrantorId() + ":" + p.getGranteeId(), p.getAmount() == null ? BigDecimal.ZERO : p.getAmount(), BigDecimal::add);
+            paid.merge(p.getGrantorId() + ":" + p.getGranteeId(), 1L, Long::sum);
         }
         Map<String, long[]> overdueCount = new HashMap<>();
-        Map<String, BigDecimal> overdueAmount = new HashMap<>();
         LocalDate today = LocalDate.now();
         for (PaymentInstallment i : installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc()) {
             if (i.getPaymentId() != null || i.getDueDate() == null || !i.getDueDate().isBefore(today)) continue;
             String k = i.getGrantorId() + ":" + i.getGranteeId();
             overdueCount.computeIfAbsent(k, x -> new long[1])[0]++;
-            overdueAmount.merge(k, i.getAmount() == null ? BigDecimal.ZERO : i.getAmount(), BigDecimal::add);
         }
 
         // sponsor users.id (null = unassigned) -> their students, sponsors by name, unassigned last
@@ -693,18 +691,15 @@ public class ReportCatalogService {
             String code = sponsorId == null ? null : sp == null ? null : sp.getUserId();
             String name = sponsorId == null ? "Unassigned" : sp == null ? "(unknown sponsor)" : sp.getName();
             String chapter = sp == null ? null : sp.getChapterName();
-            BigDecimal paidSum = BigDecimal.ZERO, overdueSum = BigDecimal.ZERO;
-            long overdueN = 0;
+            long paidSum = 0, overdueN = 0;
             List<User> students = sorted(bySponsor.get(sponsorId), User::getName);
             for (User u : students) {
                 String k = sponsorId + ":" + u.getId();
                 StudentInstitutionCourse sic = enrolment.get(u.getId());
                 Course course = sic == null ? null : courses.get(sic.getCourseId());
-                BigDecimal p = sponsorId == null ? BigDecimal.ZERO : paid.getOrDefault(k, BigDecimal.ZERO);
+                long p = sponsorId == null ? 0 : paid.getOrDefault(k, 0L);
                 long on = sponsorId == null ? 0 : overdueCount.getOrDefault(k, new long[1])[0];
-                BigDecimal oa = sponsorId == null ? BigDecimal.ZERO : overdueAmount.getOrDefault(k, BigDecimal.ZERO);
-                paidSum = paidSum.add(p);
-                overdueSum = overdueSum.add(oa);
+                paidSum += p;
                 overdueN += on;
                 java.time.LocalDateTime from = sponsorId == null ? null : since.get(k);
                 rows.add(row("sponsor_id", code, "sponsor_name", name, "sponsor_chapter", chapter,
@@ -713,12 +708,12 @@ public class ReportCatalogService {
                         "course", course == null ? null : course.getCourseName(),
                         "study_status", StudyStatus.label(u.getStudyStatus()), "status", u.getStatus(),
                         "sponsored_since", from == null ? null : from.toLocalDate(),
-                        "paid", p, "overdue_installments", on, "overdue_amount", oa));
+                        "installments_paid", p, "overdue_installments", on));
             }
             rows.add(row("sponsor_id", code, "sponsor_name", name, "sponsor_chapter", chapter,
                     "student_id", null, "student_name", "Subtotal: " + students.size() + " student" + (students.size() == 1 ? "" : "s"),
                     "student_chapter", null, "institution", null, "course", null, "study_status", null, "status", null,
-                    "sponsored_since", null, "paid", paidSum, "overdue_installments", overdueN, "overdue_amount", overdueSum));
+                    "sponsored_since", null, "installments_paid", paidSum, "overdue_installments", overdueN));
         }
         return rows;
     }
@@ -753,24 +748,23 @@ public class ReportCatalogService {
     private List<Map<String, Object>> sponsorsOverdue() {
         LocalDate today = LocalDate.now();
         Map<Long, User> users = scopeUsers();
-        Map<Long, Object[]> bySponsor = new LinkedHashMap<>(); // students, count, amount, oldest
+        Map<Long, Object[]> bySponsor = new LinkedHashMap<>(); // students, count, oldest
         for (PaymentInstallment i : installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc()) {
             if (i.getPaymentId() != null || i.getDueDate() == null || !i.getDueDate().isBefore(today) || i.getGrantorId() == null) continue;
             if (!seesStudent(i.getGranteeId())) continue;
-            Object[] a = bySponsor.computeIfAbsent(i.getGrantorId(), k -> new Object[]{new HashSet<Long>(), 0L, BigDecimal.ZERO, i.getDueDate()});
+            Object[] a = bySponsor.computeIfAbsent(i.getGrantorId(), k -> new Object[]{new HashSet<Long>(), 0L, i.getDueDate()});
             @SuppressWarnings("unchecked") Set<Long> st = (Set<Long>) a[0];
             st.add(i.getGranteeId());
             a[1] = (Long) a[1] + 1;
-            a[2] = ((BigDecimal) a[2]).add(i.getAmount() == null ? BigDecimal.ZERO : i.getAmount());
-            if (i.getDueDate().isBefore((LocalDate) a[3])) a[3] = i.getDueDate();
+            if (i.getDueDate().isBefore((LocalDate) a[2])) a[2] = i.getDueDate();
         }
         List<Map<String, Object>> rows = new ArrayList<>();
         bySponsor.forEach((id, a) -> {
             User s = users.get(id);
             rows.add(row("sponsor_id", s == null ? null : s.getUserId(), "sponsor_name", s == null ? null : s.getName(),
                     "sponsor_chapter", s == null ? null : s.getChapterName(), "students", ((Set<?>) a[0]).size(),
-                    "overdue_installments", a[1], "overdue_amount", a[2], "oldest_due", a[3],
-                    "days_overdue", java.time.temporal.ChronoUnit.DAYS.between((LocalDate) a[3], today)));
+                    "overdue_installments", a[1], "oldest_due", a[2],
+                    "days_overdue", java.time.temporal.ChronoUnit.DAYS.between((LocalDate) a[2], today)));
         });
         rows.sort(Comparator.comparing((Map<String, Object> r) -> (LocalDate) r.get("oldest_due")));
         return rows;
@@ -871,6 +865,8 @@ public class ReportCatalogService {
     private List<Map<String, Object>> payments(DateRange range, String onlyStatus) {
         Map<Long, String> names = userNames();
         Map<Long, String> codes = userCodes();
+        Map<Long, Integer> installmentNo = new HashMap<>(); // which installment each payment paid (amounts are never shown)
+        installmentRepository.findAll().forEach(i -> { if (i.getPaymentId() != null) installmentNo.put(i.getPaymentId(), i.getInstallmentNo()); });
         List<Map<String, Object>> rows = new ArrayList<>();
         visiblePayments().stream()
                 .filter(p -> range.contains(p.getPaymentDate()))
@@ -883,7 +879,7 @@ public class ReportCatalogService {
                         "student_name", names.get(p.getGranteeId()),
                         "sponsor_id", codes.get(p.getGrantorId()),
                         "sponsor_name", names.get(p.getGrantorId()),
-                        "amount", p.getAmount(),
+                        "installment", installmentNo.get(p.getPaymentId()),
                         "status", p.getStatus(),
                         "receipt", p.getReceiptUrl(),
                         "student_proof", p.getStudentProofUrl(),
@@ -893,41 +889,34 @@ public class ReportCatalogService {
 
     private List<Map<String, Object>> paymentsByMonth(DateRange range) {
         Map<YearMonth, long[]> counts = new TreeMap<>(Comparator.reverseOrder());
-        Map<YearMonth, BigDecimal> totals = new HashMap<>();
         for (Payment p : visiblePayments()) {
             if (p.getPaymentDate() == null || !"Paid".equalsIgnoreCase(p.getStatus()) || !range.contains(p.getPaymentDate())) continue;
             YearMonth month = YearMonth.from(p.getPaymentDate());
             counts.computeIfAbsent(month, m -> new long[1])[0]++;
-            totals.merge(month, p.getAmount() == null ? BigDecimal.ZERO : p.getAmount(), BigDecimal::add);
         }
         List<Map<String, Object>> rows = new ArrayList<>();
-        counts.forEach((month, c) -> rows.add(row("month", month.toString(), "payments", c[0], "total_amount", totals.get(month))));
+        counts.forEach((month, c) -> rows.add(row("month", month.toString(), "installments_paid", c[0])));
         return rows;
     }
 
     private List<Map<String, Object>> paymentsBySponsor(DateRange range) {
         Map<Long, String> names = userNames();
         Map<Long, String> codes = userCodes();
-        Map<Long, long[]> counts = new HashMap<>();
-        Map<Long, BigDecimal> totals = paidTotalsByGrantor(range);
-        for (Payment p : visiblePayments()) {
-            if (!"Paid".equalsIgnoreCase(p.getStatus()) || !range.contains(p.getPaymentDate())) continue;
-            counts.computeIfAbsent(p.getGrantorId(), g -> new long[1])[0]++;
-        }
         List<Map<String, Object>> rows = new ArrayList<>();
-        counts.forEach((sponsorId, c) -> rows.add(row("sponsor_id", codes.get(sponsorId), "sponsor_name", names.get(sponsorId),
-                "payments", c[0], "total_amount", totals.getOrDefault(sponsorId, BigDecimal.ZERO))));
-        rows.sort(Comparator.comparing((Map<String, Object> r) -> (BigDecimal) r.get("total_amount")).reversed());
+        paidCountsByGrantor(range).forEach((sponsorId, n) -> rows.add(row("sponsor_id", codes.get(sponsorId),
+                "sponsor_name", names.get(sponsorId), "installments_paid", n)));
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> (Long) r.get("installments_paid")).reversed());
         return rows;
     }
 
-    private Map<Long, BigDecimal> paidTotalsByGrantor(DateRange range) {
-        Map<Long, BigDecimal> totals = new HashMap<>();
+    /** Installments (paid payments) per sponsor. */
+    private Map<Long, Long> paidCountsByGrantor(DateRange range) {
+        Map<Long, Long> counts = new HashMap<>();
         for (Payment p : visiblePayments()) {
             if (!"Paid".equalsIgnoreCase(p.getStatus()) || !range.contains(p.getPaymentDate()) || p.getGrantorId() == null) continue;
-            totals.merge(p.getGrantorId(), p.getAmount() == null ? BigDecimal.ZERO : p.getAmount(), BigDecimal::add);
+            counts.merge(p.getGrantorId(), 1L, Long::sum);
         }
-        return totals;
+        return counts;
     }
 
     private List<Map<String, Object>> paymentSchedules() {

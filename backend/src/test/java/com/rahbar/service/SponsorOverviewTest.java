@@ -23,9 +23,10 @@ class SponsorOverviewTest {
     private final SponsorMappingHistoryRepository history = mock(SponsorMappingHistoryRepository.class);
     private final AlumniProfileRepository alumni = mock(AlumniProfileRepository.class);
     private final GrantorGranteeRepository mappings = mock(GrantorGranteeRepository.class);
+    private final PaymentInstallmentService installments = mock(PaymentInstallmentService.class);
     private final SponsorService service = new SponsorService(users, mappings, payments, mock(PaymentScheduleRepository.class),
             mock(BankDetailsRepository.class), courses, progress, mock(FileStorageService.class), mock(NotificationService.class),
-            mock(PaymentInstallmentService.class), history, alumni);
+            installments, history, alumni);
 
     private static User student(long id, String name, String status) {
         User u = new User();
@@ -87,6 +88,7 @@ class SponsorOverviewTest {
         a.setConsentToContact(true);
         when(alumni.findById(13L)).thenReturn(Optional.of(a));
 
+        when(installments.label(org.mockito.ArgumentMatchers.any())).thenReturn("installment 2");
         Map<String, Object> o = service.overview(1L);
 
         List<Map<String, Object>> students = (List<Map<String, Object>>) o.get("students");
@@ -104,7 +106,10 @@ class SponsorOverviewTest {
         assertNull(((List<Map<String, Object>>) service.overview(1L).get("past")).get(0).get("now"));
 
         Map<String, Object> impact = (Map<String, Object>) o.get("impact");
-        assertEquals(0, new BigDecimal("21000").compareTo((BigDecimal) impact.get("total_given")));
+        assertNull(impact.get("total_given")); // amounts are never shown: installments paid instead
+        assertEquals(3, impact.get("payments"));
+        assertEquals("installment 2", ((Map<String, Object>) first.get("last_payment")).get("installment"));
+        assertNull(((Map<String, Object>) first.get("last_payment")).get("amount"));
         assertEquals(3, impact.get("students_supported"));
         assertEquals(2, impact.get("studying_now"));
         assertEquals(1L, impact.get("graduated"));

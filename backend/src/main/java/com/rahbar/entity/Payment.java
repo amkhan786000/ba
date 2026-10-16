@@ -22,6 +22,8 @@ public class Payment extends Modifiable {
     @Column(name = "grantee_id", nullable = false)
     private Long granteeId;
 
+    /** What the sponsor paid. Kept, never shown: screens show installments (see util.NotShown). */
+    @com.rahbar.util.NotShown @com.fasterxml.jackson.annotation.JsonIgnore
     @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 

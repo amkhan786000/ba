@@ -12,10 +12,11 @@ interface PaymentRow {
   payment_id: number;
   grantee_id: number; grantee_code: string | null; grantee_name: string | null; grantee_phone: string | null;
   grantor_id: number | null; grantor_code: string | null; grantor_name: string | null; grantor_phone: string | null;
-  amount: number | null; status: string | null; receipt_url: string | null;
+  /** Which installment the payment paid (amounts are never shown). */
+  installment: number | null; status: string | null; receipt_url: string | null;
 }
 
-type SortCol = 'grantee_name' | 'grantor_name' | 'amount' | 'status';
+type SortCol = 'grantee_name' | 'grantor_name' | 'installment' | 'status';
 
 /** Port of templates/coordinator/monitor_payments.html (server-side paged table, search, sort, CSV). */
 @Component({
@@ -56,7 +57,7 @@ type SortCol = 'grantee_name' | 'grantor_name' | 'amount' | 'status';
                   <tr>
                     <th class="sortable" (click)="sort('grantee_name')">Student Detail <i class="mdi" [ngClass]="icon('grantee_name')"></i></th>
                     <th class="sortable" (click)="sort('grantor_name')">Sponsor Detail <i class="mdi" [ngClass]="icon('grantor_name')"></i></th>
-                    <th class="sortable" (click)="sort('amount')">Amount <i class="mdi" [ngClass]="icon('amount')"></i></th>
+                    <th class="sortable" (click)="sort('installment')">Installment <i class="mdi" [ngClass]="icon('installment')"></i></th>
                     <th class="sortable" (click)="sort('status')">Status <i class="mdi" [ngClass]="icon('status')"></i></th>
                     <th>Receipt</th>
                   </tr>
@@ -69,7 +70,7 @@ type SortCol = 'grantee_name' | 'grantor_name' | 'amount' | 'status';
                     <td>
                       <strong>ID:</strong> {{ r.grantor_code || 'N/A' }}<br><strong>Name:</strong> {{ r.grantor_name || 'N/A' }}<br><strong>Phone:</strong> {{ r.grantor_phone || 'N/A' }}
                     </td>
-                    <td>{{ r.amount ?? 'N/A' }}</td>
+                    <td>{{ r.installment ? 'Installment ' + r.installment : '—' }}</td>
                     <td><span class="badge" [ngClass]="'badge-' + badge(r.status)">{{ r.status || 'N/A' }}</span></td>
                     <td>
                       <a *ngIf="r.receipt_url; else noReceipt" [href]="receipt(r.receipt_url)" target="_blank" class="btn btn-sm btn-info">Download Receipt</a>
@@ -147,19 +148,19 @@ export class CoordinatorPaymentsComponent implements OnInit, OnDestroy {
 
   receipt(path: string): string { return uploadUrl(path) ?? '#'; }
 
-  /** Exports every row matching the current search (Student, Sponsor, Amount, Status), like the page's CSV button. */
+  /** Exports every row matching the current search (Student, Sponsor, Installment, Status), like the page's CSV button. */
   downloadCsv(): void {
     this.exporting = true;
     this.query(0, Math.max(this.filtered, 1)).subscribe({
       next: (r) => {
         this.exporting = false;
         const q = (v: unknown) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-        const lines = ['Student Detail,Sponsor Detail,Amount,Status'];
+        const lines = ['Student Detail,Sponsor Detail,Installment,Status'];
         for (const p of r.data) {
           lines.push([
             `ID: ${p.grantee_code ?? 'N/A'} Name: ${p.grantee_name ?? 'N/A'} Phone: ${p.grantee_phone ?? 'N/A'}`,
             `ID: ${p.grantor_code ?? 'N/A'} Name: ${p.grantor_name ?? 'N/A'} Phone: ${p.grantor_phone ?? 'N/A'}`,
-            p.amount, p.status
+            p.installment ? 'Installment ' + p.installment : '', p.status
           ].map(q).join(','));
         }
         const url = URL.createObjectURL(new Blob([lines.join('\n') + '\n'], { type: 'text/csv;charset=utf-8;' }));

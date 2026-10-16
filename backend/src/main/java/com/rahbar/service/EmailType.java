@@ -79,10 +79,10 @@ public enum EmailType {
             "Sent from Sponsor Follow-up to a sponsor whose installments are overdue (a personal note, besides the automatic reminders).",
             "Rahbar: a gentle reminder about your student",
             "Dear {{name}},\n\nWe hope you are well. We noticed that {{overdue_count}} installment(s) for your sponsored "
-                    + "student(s) are still unpaid (oldest due on {{oldest_due}}, Rs. {{overdue_amount}} in all).\n\n{{message}}\n\n"
+                    + "student(s) are still unpaid (the oldest was due on {{oldest_due}}).\n\n{{message}}\n\n"
                     + "If you have already paid, please let us know so we can update our records. If anything has changed for you, "
                     + "just reply to this email.\n\nThank you for supporting education,\nRahbar - Bihar Anjuman",
-            List.of("name", "overdue_count", "oldest_due", "overdue_amount", "message"), List.of()),
+            List.of("name", "overdue_count", "oldest_due", "message"), List.of()),
     SPONSOR_INVITE_ANOTHER("Sponsorship", "Follow-up: would you sponsor another student?",
             "Sent from Sponsor Follow-up to a sponsor who has no student at the moment.",
             "Rahbar: would you sponsor another student?",
@@ -98,10 +98,10 @@ public enum EmailType {
             List.of("name", "student_name", "marks", "session", "year"), List.of()),
     SPONSOR_SPENT_PROOF_UPLOADED("Sponsorship", "To sponsor: spent proof uploaded",
             "Sent to a sponsor when their student uploads proof of how a payment was spent.",
-            "Rahbar: {{student_name}} sent proof for your payment",
-            "Dear {{name}},\n\n{{student_name}} uploaded proof of how your payment of Rs. {{amount}} was spent. You can open it "
+            "Rahbar: {{student_name}} sent proof for installment {{installment}}",
+            "Dear {{name}},\n\n{{student_name}} uploaded proof of how installment {{installment}} was spent. You can open it "
                     + "on your Payments page.\n\nThank you for your support,\nRahbar - Bihar Anjuman",
-            List.of("name", "student_name", "amount"), List.of()),
+            List.of("name", "student_name", "installment"), List.of()),
     SPONSOR_STUDENT_GRADUATED("Sponsorship", "To sponsor: student graduated",
             "Sent to a student's sponsor when the office marks the student as graduated.",
             "Rahbar: {{student_name}} has graduated",
@@ -125,9 +125,9 @@ public enum EmailType {
     PAYMENT_RECEIVED("Payments", "To student: payment received",
             "Sent to a student when their sponsor records a payment.",
             "Rahbar: Payment received",
-            "Dear {{name}},\n\n{{sponsor_name}} recorded a payment of {{amount}} for you. Please upload your proof of receipt."
+            "Dear {{name}},\n\n{{sponsor_name}} paid installment {{installment}} for you. Please upload your proof of receipt."
                     + "\n\nRegards,\nRahbar - Bihar Anjuman",
-            List.of("name", "sponsor_name", "amount"), List.of()),
+            List.of("name", "sponsor_name", "installment"), List.of()),
     PAYMENT_OVERDUE("Payments", "To sponsor: payment overdue",
             "Daily reminder to a sponsor, once per overdue installment.",
             "Rahbar: Payment overdue",
@@ -149,11 +149,11 @@ public enum EmailType {
             List.of("name", "amount", "date", "receipt_no", "details"), List.of()),
     STUDENT_PAID_THROUGH_RAHBAR("Payments", "To student: money passed on by Rahbar",
             "Sent to a student when the office sends them money their sponsor paid online through Rahbar.",
-            "Rahbar: Rs. {{amount}} sent to your bank account",
-            "Dear {{name}},\n\nYour sponsor paid Rs. {{amount}} for your studies through Rahbar. We sent it to your bank account on "
+            "Rahbar: installment {{installment}} sent to your bank account",
+            "Dear {{name}},\n\nYour sponsor paid installment {{installment}} for your studies through Rahbar. We sent it to your bank account on "
                     + "{{date}} (reference {{reference}}).\n\nPlease upload proof of how it was spent on your Payments page.\n\n"
                     + "Regards,\nRahbar - Bihar Anjuman",
-            List.of("name", "amount", "date", "reference"), List.of()),
+            List.of("name", "installment", "date", "reference"), List.of()),
     SPONSOR_STATEMENT("Payments", "To sponsor: yearly statement",
             "Sent with the sponsor's yearly statement (PDF attached) when the office emails it.",
             "Rahbar: your sponsorship statement for {{year}}",
