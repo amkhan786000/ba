@@ -25,26 +25,24 @@ interface Line { name: string; amount: number }
 interface Summary {
   year: number; income_by_category: Line[]; expense_by_category: Line[]; expense_by_project: Line[]; income: number; expense: number;
   income_by_chapter?: Line[]; expense_by_payee?: Line[];
-  scholarships_paid?: number; reb_fees_collected?: number; published: boolean; note?: string;
+  reb_fees_collected?: number; published: boolean; note?: string;
 }
 
 const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank transfer', CHEQUE: 'Cheque' };
 
 /**
- * One book of income & expenses (route data "book"): Administration > Rahbar Income & Expenses or Rahbar-e-Banaat >
- * REB Income & Expenses, each with its own entries and categories. Record money in and out by category (and project),
- * see a year's summary (Rahbar's adds sponsors' scholarship payments, REB's the REB fees collected), and choose whether
- * that summary is shown on biharanjuman.com.
+ * Rahbar-e-Banaat > REB Income & Expenses: record money in and out by category (and project), see a year's summary
+ * (with the REB fees collected), and choose whether that summary is shown on biharanjuman.com. (Rahbar's own book of
+ * income & expenses was removed; the tables keep a book column, so this page names its book.)
  */
 @Component({
   selector: 'app-admin-finance',
   standalone: true,
   imports: [FundSummaryComponent, DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective, PagerComponent],
   template: `
-    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">{{ reb ? 'REB' : 'Rahbar' }} Income &amp; Expenses</h4></div></div></div>
+    <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">REB Income &amp; Expenses</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
-    <p class="text-muted">{{ reb ? "Rahbar-e-Banaat's own book: money received for the school and what it spends. Kept apart from Rahbar's book."
-      : "Rahbar's own money: funds received for the office and the work, and what is spent. Kept apart from REB's book." }}
+    <p class="text-muted">Rahbar-e-Banaat's own book: money received for the school and what it spends.
       <span *ngIf="!canEdit" class="badge badge-light ml-1"><i class="mdi mdi-eye mr-1"></i>View only</span></p>
 
     <app-fund-summary [fund]="fund" [link]="false"></app-fund-summary>
@@ -117,7 +115,6 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
             <table class="table table-sm mb-0"><tbody>
               <tr *ngFor="let l of s.expense_by_category"><td>{{ l.name }}</td><td class="text-right">₹{{ l.amount | number: '1.0-2' }}</td></tr>
               <tr class="font-weight-bold"><td>Total recorded here</td><td class="text-right">₹{{ s.expense | number: '1.0-2' }}</td></tr>
-              <tr *ngIf="s.scholarships_paid != null"><td>Scholarships paid by sponsors to students <span class="small text-muted">(Payment Records)</span></td><td class="text-right">₹{{ s.scholarships_paid | number: '1.0-2' }}</td></tr>
             </tbody></table>
           </div></div>
         </div>
@@ -173,7 +170,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
     <!-- paid to -->
     <div class="card" *ngIf="tab === 'payees'"><div class="card-body">
       <div class="d-flex justify-content-between align-items-start flex-wrap mb-2">
-        <p class="text-muted mb-2 mr-3">People and businesses {{ reb ? 'REB' : 'Rahbar' }} pays (landlord, staff, shops...): choose them in "Paid to" when
+        <p class="text-muted mb-2 mr-3">People and businesses REB pays (landlord, staff, shops...): choose them in "Paid to" when
           recording an expense. Income can be "received from" a chapter.</p>
         <button *ngIf="canEdit" class="btn btn-primary btn-sm" (click)="payee = { id: null, name: '', phone: '', note: '', active: true }"><i class="mdi mdi-plus mr-1"></i>Add</button>
       </div>
@@ -223,13 +220,12 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
               <select id="e-project" class="form-control" [(ngModel)]="entry.projectId"><option [ngValue]="null">General (the organisation)</option>
                 <option *ngFor="let p of projects" [ngValue]="p.id">{{ p.name }}</option></select></div>
             <div class="col-12 form-group" *ngIf="isIncome">
-              <label for="e-from">Received from {{ reb ? '' : '(chapter) *' }}</label>
+              <label for="e-from">Received from</label>
               <select id="e-from" class="form-control" [(ngModel)]="entry.who">
-                <option [ngValue]="null">-- Choose {{ reb ? '' : 'the chapter ' }}--</option>
+                <option [ngValue]="null">-- Choose --</option>
                 <optgroup label="Chapters"><option *ngFor="let c of activeChapters" [ngValue]="c.id">{{ c.name }}</option></optgroup>
-                <option *ngIf="reb" [ngValue]="'other'">Someone else (type the name)</option>
+                <option [ngValue]="'other'">Someone else (type the name)</option>
               </select>
-              <small *ngIf="!reb" class="form-text text-muted">Rahbar's income comes from the chapters.</small>
               <input *ngIf="entry.who === 'other'" class="form-control mt-2" maxlength="150" [(ngModel)]="entry.party" placeholder="Name">
             </div>
             <div class="col-12 form-group" *ngIf="!isIncome">
@@ -249,7 +245,7 @@ const METHODS: Record<string, string> = { CASH: 'Cash', UPI: 'UPI', BANK: 'Bank 
           </div></div>
           <div class="modal-footer">
             <button type="button" class="btn btn-light" (click)="entry = null">Cancel</button>
-            <button type="button" class="btn btn-primary" (click)="saveEntry()" [disabled]="busy || !entry.entryDate || !entry.categoryId || !entry.amount || needsChapter">Save</button>
+            <button type="button" class="btn btn-primary" (click)="saveEntry()" [disabled]="busy || !entry.entryDate || !entry.categoryId || !entry.amount">Save</button>
           </div>
         </div>
       </div>
@@ -308,12 +304,11 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
 
   fund: FundBalance | null = null;
 
-  /** Which book this page shows: Rahbar's (Administration) or REB's (Rahbar-e-Banaat); set from the route. */
-  @Input() book: 'rahbar' | 'reb' = 'rahbar';
-  get reb(): boolean { return this.book === 'reb'; }
+  /** The book this page shows: REB's (the only one; set from the route). */
+  @Input() book: 'reb' = 'reb';
   get base(): string { return `/admin/books/${this.book}`; }
 
-  get canEdit(): boolean { return this.auth.can(this.reb ? 'REB_FINANCE' : 'FINANCE', 'EDIT'); }
+  get canEdit(): boolean { return this.auth.can('REB_FINANCE', 'EDIT'); }
 
   loadBalance(): void {
     this.api.get<FundBalance>(`${this.base}/balance`).subscribe({ next: (r) => (this.fund = r), error: () => (this.fund = null) });
@@ -352,7 +347,7 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
   openEntry(e?: Entry): void {
     this.entry = { id: e?.id ?? null, entryDate: e?.entry_date ?? this.today, categoryId: e?.category_id ?? null, projectId: e?.project_id ?? null,
       amount: e?.amount ?? null, party: e?.party ?? '', description: e?.description ?? '', method: e?.method ?? 'BANK', reference: e?.reference ?? '',
-      who: e ? (e.chapter_id ?? e.payee_id ?? (e.party && (this.reb || e.kind === 'EXPENSE') ? 'other' : null)) : null };
+      who: e ? (e.chapter_id ?? e.payee_id ?? (e.party ? 'other' : null)) : null };
   }
 
   saveEntry(): void {
@@ -375,11 +370,6 @@ export class AdminFinanceComponent implements OnInit, OnDestroy {
     const kindOf = (c: number | null) => this.categories.find((x) => x.id === c)?.kind;
     if (kindOf(id) !== kindOf(this.entry.categoryId) && this.entry.who !== 'other') this.entry.who = null;
     this.entry.categoryId = id;
-  }
-
-  /** Rahbar's income must say which chapter sent it. */
-  get needsChapter(): boolean {
-    return !this.reb && this.isIncome && typeof this.entry?.who !== 'number';
   }
 
   get activePayees(): Payee[] {

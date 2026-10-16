@@ -13,7 +13,6 @@ import { DonutChartComponent } from '../shared/charts/donut-chart.component';
 import { FunnelChartComponent } from '../shared/charts/funnel-chart.component';
 import { StatTileComponent } from '../shared/charts/stat-tile.component';
 import { inr } from '../shared/charts/money';
-import { FundBalance, FundSummaryComponent } from '../shared/charts/fund-summary.component';
 
 interface AttentionItem { key: string; label: string; count: number; amount?: number; link: string }
 
@@ -29,12 +28,10 @@ interface Overview {
     overdueAgeing?: BarDatum[];
     applicationFunnel?: BarDatum[];
     studentsByChapter: BarDatum[];
-    finance?: SeriesData;
   };
   reb?: { activeGirls: number; openInvoices: number; openAmount: number; attendanceMarked: number; attendanceToday: number | null };
   applicationPeriod?: { is_active?: boolean | number; start_date?: string; end_date?: string } | null;
   recentActivity?: { user_name: string; action: string; created_at: string }[];
-  fund?: FundBalance;
 }
 
 /** The module dashboards linked from the overview (each shown only with its permission). */
@@ -43,8 +40,7 @@ export const MODULE_DASHBOARDS: { path: string; label: string; icon: string; sec
   { path: '/admin/sponsors-dashboard', label: 'Sponsors & Payments', icon: 'mdi-account-heart', section: 'SPONSORSHIPS' },
   { path: '/admin/applications-dashboard', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS' },
   { path: '/admin/chapter-dashboard', label: 'Chapters', icon: 'mdi-view-quilt', section: 'CHAPTER_DASHBOARD' },
-  { path: '/admin/reb/dashboard', label: 'REB', icon: 'mdi-view-dashboard-outline', section: 'REB_DASHBOARD' },
-  { path: '/admin/finance', label: 'Income & Expenses', icon: 'mdi-cash-multiple', section: 'FINANCE' }
+  { path: '/admin/reb/dashboard', label: 'REB', icon: 'mdi-view-dashboard-outline', section: 'REB_DASHBOARD' }
 ];
 
 /**
@@ -55,7 +51,7 @@ export const MODULE_DASHBOARDS: { path: string; label: string; icon: string; sec
   selector: 'app-admin-dashboard',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, BarChartComponent, ColumnChartComponent,
-    DonutChartComponent, FunnelChartComponent, StatTileComponent, FundSummaryComponent],
+    DonutChartComponent, FunnelChartComponent, StatTileComponent],
   styles: [`
     .modules { display: flex; flex-wrap: wrap; gap: 8px; }
     .modules a { border: 1px solid #e5e9e4; border-radius: 20px; padding: 4px 12px; font-size: 13px; color: #3d4a43; background: #fff; }
@@ -142,12 +138,6 @@ export const MODULE_DASHBOARDS: { path: string; label: string; icon: string; sec
                        link="/admin/mentoring"></app-stat-tile>
       </div>
 
-      <!-- Rahbar's own money -->
-      <ng-container *ngIf="d.fund">
-        <h5 class="mb-2">Rahbar funds <small class="text-muted">office and work: received, spent, in hand</small></h5>
-        <app-fund-summary [fund]="d.fund" [chart]="false" [showLast]="false"></app-fund-summary>
-      </ng-container>
-
       <!-- Charts -->
       <div class="row">
         <div class="col-xl-8" *ngIf="d.charts.collectedByMonth">
@@ -180,13 +170,6 @@ export const MODULE_DASHBOARDS: { path: string; label: string; icon: string; sec
           <div class="card"><div class="card-body">
             <h4 class="header-title mb-3">Students in the programme by chapter</h4>
             <app-bar-chart [data]="d.charts.studentsByChapter" emptyText="No students yet."></app-bar-chart>
-          </div></div>
-        </div>
-        <div class="col-xl-6" *ngIf="d.charts.finance">
-          <div class="card"><div class="card-body">
-            <h4 class="header-title mb-3">Rahbar income and expenses {{ d.year }} <small><a routerLink="/admin/finance">books</a></small></h4>
-            <app-column-chart [data]="d.charts.finance" [money]="true" [colours]="['#15803d', '#c0262d']"
-                              emptyText="Nothing entered in the books for this year."></app-column-chart>
           </div></div>
         </div>
 

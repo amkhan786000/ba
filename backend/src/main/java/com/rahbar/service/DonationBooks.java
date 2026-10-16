@@ -9,9 +9,9 @@ import com.rahbar.repository.WebProjectRepository;
 import org.springframework.stereotype.Service;
 
 /**
- * Books each paid website donation (category "Online donations", the chosen project if any) in the right book of
- * income & expenses: donations for the Rahbar-e-Banaat project in REB's book, all others in Rahbar's. Sponsors'
- * online payments are not booked here: they become payments to students, which Rahbar's summary counts as scholarships.
+ * Books each paid website donation for the Rahbar-e-Banaat project in REB's book of income & expenses (category
+ * "Online donations"). Other donations are not booked anywhere since Rahbar's own book was removed (V48); they stay
+ * in Online Payments with their 80G receipts. Sponsors' online payments are never booked here.
  */
 @Service
 public class DonationBooks {
@@ -30,16 +30,17 @@ public class DonationBooks {
         this.projects = projects;
     }
 
-    /** REB for donations to the Rahbar-e-Banaat project, else RAHBAR. */
+    /** REB for donations to the Rahbar-e-Banaat project, else null (not booked). */
     String bookFor(Long projectId) {
-        if (projectId == null) return FinanceService.RAHBAR;
+        if (projectId == null) return null;
         return projects.findById(projectId).filter(p -> REB_PROJECT_SLUG.equalsIgnoreCase(p.getSlug()))
-                .map(p -> FinanceService.REB).orElse(FinanceService.RAHBAR);
+                .map(p -> FinanceService.REB).orElse(null);
     }
 
     public void record(OnlinePayment p, Long projectId) {
         if (!OnlinePayment.DONATION.equals(p.getPurpose()) || !OnlinePayment.PAID.equals(p.getStatus())) return;
         String book = bookFor(projectId);
+        if (book == null) return;
         FinCategory c = categories.findByBookOrderByKindAscNameAsc(book).stream()
                 .filter(x -> "INCOME".equals(x.getKind()) && CATEGORY.equalsIgnoreCase(x.getName())).findFirst()
                 .orElseGet(() -> {

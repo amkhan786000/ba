@@ -11,9 +11,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The two books of income & expenses: /api/admin/books/rahbar/... (Administration > Rahbar Income & Expenses,
- * permission FINANCE) and /api/admin/books/reb/... (Rahbar-e-Banaat > REB Income & Expenses, permission REB_FINANCE),
- * and their published yearly summaries for biharanjuman.com.
+ * REB's book of income & expenses: /api/admin/books/reb/... (Rahbar-e-Banaat > REB Income & Expenses, permission
+ * REB_FINANCE), and its published yearly summaries for biharanjuman.com. Rahbar's own book was removed (V48):
+ * /books/rahbar/... answers 404 "Unknown book.".
  */
 @RestController
 public class FinanceController {
@@ -155,12 +155,12 @@ public class FinanceController {
 
     /** Published years of a book (?book=rahbar, the default, or reb). */
     @GetMapping("/api/public/website/finance/years")
-    public List<Integer> publicYears(@RequestParam(defaultValue = "rahbar") String book) {
+    public List<Integer> publicYears(@RequestParam(defaultValue = "reb") String book) {
         return finance.publicYears(FinanceService.book(book));
     }
 
     @GetMapping("/api/public/website/finance/{year}")
-    public Map<String, Object> publicSummary(@PathVariable int year, @RequestParam(defaultValue = "rahbar") String book) {
+    public Map<String, Object> publicSummary(@PathVariable int year, @RequestParam(defaultValue = "reb") String book) {
         return finance.publicSummary(FinanceService.book(book), year);
     }
 }

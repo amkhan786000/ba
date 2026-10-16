@@ -10,7 +10,6 @@ import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
 import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.component';
 import { DonutChartComponent } from '../shared/charts/donut-chart.component';
-import { FundBalance, FundSummaryComponent } from '../shared/charts/fund-summary.component';
 
 interface Counts {
   students: number; studying: number; withoutSponsor: number; sponsors: number; paymentsOverdue: number; openApplications: number;
@@ -31,7 +30,6 @@ interface Dashboard {
   chapter: { chapter_id: number; chapter_name: string; lead_name: string | null; lead_phone: string | null; lead_email: string | null } | null;
   counts: Counts | null;
   students?: StudentRow[]; sponsors?: SponsorRow[]; dues?: DueRow[]; applications?: ApplicationRow[];
-  fund?: FundBalance;
 }
 
 type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
@@ -43,7 +41,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
 @Component({
   selector: 'app-admin-chapter-dashboard',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective, BarChartComponent, DonutChartComponent, FundSummaryComponent],
+  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective, BarChartComponent, DonutChartComponent],
   styles: [`
     .stat { cursor: pointer; }
     .stat.selected { box-shadow: 0 0 0 2px var(--primary, #3bafda) inset; }
@@ -105,10 +103,6 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
         </div>
       </div>
 
-      <ng-container *ngIf="data!.fund as f">
-        <h5 class="mb-2">Rahbar funds <small class="text-muted">the whole organisation: received, spent, in hand</small></h5>
-        <app-fund-summary [fund]="f" [chart]="false" [showLast]="false"></app-fund-summary>
-      </ng-container>
 
       <div class="row" *ngIf="charts">
         <div class="col-xl-3 col-md-6"><div class="card"><div class="card-body">

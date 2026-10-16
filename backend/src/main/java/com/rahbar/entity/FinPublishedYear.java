@@ -14,9 +14,9 @@ public class FinPublishedYear extends Modifiable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** RAHBAR or REB: each book publishes its own years. */
+    /** REB (Rahbar's own book was removed in V48): each book publishes its own years. */
     @Column(nullable = false, length = 10)
-    private String book = "RAHBAR";
+    private String book = "REB";
 
     @Column(nullable = false)
     private Integer year;
