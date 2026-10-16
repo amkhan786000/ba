@@ -6,7 +6,7 @@ import { ColumnChartComponent, SeriesData } from './column-chart.component';
 import { StatTileComponent } from './stat-tile.component';
 import { inr } from './money';
 
-/** GET /admin/books/{rahbar|reb}/balance: one book's money (Rahbar's or REB's, never both). */
+/** GET /admin/books/reb/balance: REB's money (its book of income & expenses). */
 export interface FundBalance {
   received: number; spent: number; balance: number;
   receivedThisYear: number; spentThisYear: number; receivedThisMonth: number; spentThisMonth: number;
@@ -14,8 +14,8 @@ export interface FundBalance {
 }
 
 /**
- * Rahbar funds at a glance: balance in hand, received and spent (since the first entry, this year, this month) and
- * the last 12 months. Used on Rahbar Income & Expenses, the Dashboard and the Chapter Dashboard.
+ * A book's money at a glance: balance in hand, received and spent (since the first entry, this year, this month) and
+ * the last 12 months. Used on REB Income & Expenses and the REB Dashboard.
  */
 @Component({
   selector: 'app-fund-summary',
@@ -52,10 +52,10 @@ export class FundSummaryComponent {
   @Input() fund: FundBalance | null | undefined;
   /** Show the 12-month chart. */
   @Input() chart = true;
-  /** Link the balance tile to Rahbar Income & Expenses. */
+  /** Link the balance tile to the book's Income & Expenses page. */
   @Input() link = true;
-  /** The book's page: Rahbar's or REB's Income & Expenses. */
-  @Input() linkPath = '/admin/finance';
+  /** The book's page. */
+  @Input() linkPath = '/admin/reb/finance';
   @Input() showLast = true;
   readonly money = inr;
 }

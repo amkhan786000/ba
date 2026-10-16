@@ -174,7 +174,6 @@ export const routes: Routes = [
       { path: 'sponsor-followup', component: AdminSponsorFollowupComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
       { path: 'student-notes', component: AdminStudentNotesComponent, canActivate: [permissionGuard], data: { permission: 'STUDENT_NOTES' } },
       { path: 'mentoring', component: AdminMentoringComponent, canActivate: [permissionGuard], data: { permission: 'MENTORING' } },
-      { path: 'finance', component: AdminFinanceComponent, canActivate: [permissionGuard], data: { permission: 'FINANCE', book: 'rahbar' } },
       // Rahbar-e-Banaat
       { path: 'reb/finance', component: AdminFinanceComponent, canActivate: [permissionGuard], data: { permission: 'REB_FINANCE', book: 'reb' } },
       { path: 'reb/dashboard', component: RebDashboardComponent, canActivate: [permissionGuard], data: { permission: 'REB_DASHBOARD' } },

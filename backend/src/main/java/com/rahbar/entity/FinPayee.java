@@ -13,9 +13,9 @@ public class FinPayee extends Modifiable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** RAHBAR or REB. */
+    /** REB (Rahbar's own book was removed in V48). */
     @Column(nullable = false, length = 10)
-    private String book = "RAHBAR";
+    private String book = "REB";
 
     @Column(nullable = false, length = 150)
     private String name;

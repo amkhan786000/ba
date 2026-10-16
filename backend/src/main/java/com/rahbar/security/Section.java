@@ -101,11 +101,6 @@ public enum Section {
     APP_SETTINGS("Application settings (date format, ...)"),
     /** The categories of Admin > Documents. */
     DOCUMENT_CATEGORIES("Document categories"),
-    /**
-     * Administration > Rahbar Income & Expenses: Rahbar's own money (office funds received and spent), categories,
-     * balance and what is published on the website. EDIT records entries (Super Admin by default); VIEW is read only.
-     */
-    FINANCE("Rahbar income & expenses"),
     /** Rahbar-e-Banaat (the girls' Madrasa-cum-School): its dashboard. */
     REB_DASHBOARD("REB: dashboard"),
     /** Sessions, classes, sections, subjects, curriculum and settings. EDIT changes them. */

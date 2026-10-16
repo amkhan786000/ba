@@ -16,23 +16,16 @@ import java.util.*;
 import static com.rahbar.util.RebSupport.*;
 
 /**
- * Two separate books of income & expenses (donations, zakat, salaries, rent, ...) by category and, optionally, by
- * website project:
- * <ul>
- *   <li>RAHBAR: Administration > Rahbar Income & Expenses (permission FINANCE). Its yearly summary also counts the
- *       scholarships sponsors paid to students (Payment Records, status Paid).</li>
- *   <li>REB: Rahbar-e-Banaat > REB Income & Expenses (permission REB_FINANCE). Its yearly summary also counts the REB
- *       fees collected.</li>
- * </ul>
- * Every method works on one book only; categories, entries and published years of the other are never read or
- * changed. A book's yearly summary (totals only, no names) can be published on biharanjuman.com.
+ * REB's book of income & expenses (donations, zakat, salaries, rent, ...) by category and, optionally, by website
+ * project: Rahbar-e-Banaat > REB Income & Expenses (permission REB_FINANCE). Its yearly summary also counts the REB
+ * fees collected, and can be published on biharanjuman.com (totals only, no names). The tables keep a book column:
+ * Rahbar's own book was removed with its data (V48), so REB is the only book.
  */
 @Service
 public class FinanceService {
 
-    public static final String RAHBAR = "RAHBAR";
     public static final String REB = "REB";
-    static final Set<String> BOOKS = Set.of(RAHBAR, REB);
+    static final Set<String> BOOKS = Set.of(REB);
     static final Set<String> KINDS = Set.of("INCOME", "EXPENSE");
     static final Set<String> METHODS = Set.of("CASH", "UPI", "BANK", "CHEQUE");
 
@@ -40,14 +33,13 @@ public class FinanceService {
     private final FinEntryRepository entries;
     private final FinPublishedYearRepository published;
     private final WebProjectRepository projects;
-    private final PaymentRepository sponsorPayments;
     private final RebPaymentRepository rebPayments;
     private final UserRepository users;
     private final FinPayeeRepository payees;
     private final ChapterRepository chapters;
 
     public FinanceService(FinCategoryRepository categories, FinEntryRepository entries, FinPublishedYearRepository published,
-                          WebProjectRepository projects, PaymentRepository sponsorPayments, RebPaymentRepository rebPayments,
+                          WebProjectRepository projects, RebPaymentRepository rebPayments,
                           UserRepository users, FinPayeeRepository payees, ChapterRepository chapters) {
         this.payees = payees;
         this.chapters = chapters;
@@ -55,14 +47,13 @@ public class FinanceService {
         this.entries = entries;
         this.published = published;
         this.projects = projects;
-        this.sponsorPayments = sponsorPayments;
         this.rebPayments = rebPayments;
         this.users = users;
     }
 
     // ---------------------------------------------------------------- categories
 
-    /** RAHBAR or REB (from the address, e.g. /books/reb/...). */
+    /** REB (from the address, /books/reb/...); anything else, including Rahbar's removed book, is not found. */
     public static String book(String value) {
         String b = value == null ? "" : value.trim().toUpperCase(Locale.ROOT);
         if (!BOOKS.contains(b)) throw new ApiException(HttpStatus.NOT_FOUND, "Unknown book.");
@@ -215,13 +206,10 @@ public class FinanceService {
         BigDecimal amount = money(body.get("amount"), "Amount");
         if (amount == null || amount.signum() <= 0) throw bad("Enter the amount.");
         e.setAmount(amount);
-        // Received from a chapter / paid to someone on the list; otherwise the name typed in. Rahbar's own income
-        // always comes from a chapter. (Website donations are booked by DonationBooks with the donor's name.)
+        // Received from a chapter / paid to someone on the list; otherwise the name typed in. (Website donations are
+        // booked by DonationBooks with the donor's name.)
         Long chapterId = "INCOME".equals(c.getKind()) ? id(body.get("chapterId")) : null;
         Long payeeId = "EXPENSE".equals(c.getKind()) ? id(body.get("payeeId")) : null;
-        if (RAHBAR.equals(book) && "INCOME".equals(c.getKind()) && chapterId == null) {
-            throw bad("Choose the chapter the money was received from.");
-        }
         e.setChapterId(null);
         e.setPayeeId(null);
         if (chapterId != null) {
@@ -249,7 +237,7 @@ public class FinanceService {
     // ---------------------------------------------------------------- balance
 
     /**
-     * Rahbar's money at a glance (entries recorded here only): received, spent and the balance in hand since the
+     * The book's money at a glance (entries recorded here only): received, spent and the balance in hand since the
      * first entry, the same for this calendar year and this month, and the last 12 months for a chart.
      */
     public Map<String, Object> balance(String book) {
@@ -288,8 +276,7 @@ public class FinanceService {
     // ---------------------------------------------------------------- summary
 
     /**
-     * A year's summary: income and expenses by category and by project, plus the scholarships sponsors paid to
-     * students through Rahbar and the REB fees collected. names: false for the website (no parties anyway).
+     * A year's summary: income and expenses by category and by project, plus the REB fees collected.
      */
     public Map<String, Object> summary(String book, int year) {
         LocalDate start = LocalDate.of(year, 1, 1), end = LocalDate.of(year, 12, 31);
@@ -318,18 +305,10 @@ public class FinanceService {
                         e.getAmount(), BigDecimal::add);
             }
         }
-        // What each book's work also moved through Rahbar's other screens (never the other book's).
-        BigDecimal scholarships = null, rebFees = null;
-        if (RAHBAR.equals(book)) {
-            scholarships = BigDecimal.ZERO;
-            for (Payment p : sponsorPayments.findByStatusIgnoreCaseOrderByPaymentDateDesc("Paid")) {
-                if (p.getPaymentDate() != null && p.getPaymentDate().getYear() == year && p.getAmount() != null) scholarships = scholarships.add(p.getAmount());
-            }
-        } else {
-            rebFees = BigDecimal.ZERO;
-            for (RebPayment p : rebPayments.findByPaidOnBetweenOrderByPaidOnAscIdAsc(start, end)) {
-                if ("VALID".equals(p.getStatus())) rebFees = rebFees.add(p.getAmount());
-            }
+        // The REB fees collected in the year (REB Fees screens).
+        BigDecimal rebFees = BigDecimal.ZERO;
+        for (RebPayment p : rebPayments.findByPaidOnBetweenOrderByPaidOnAscIdAsc(start, end)) {
+            if ("VALID".equals(p.getStatus())) rebFees = rebFees.add(p.getAmount());
         }
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("year", year);
@@ -341,8 +320,7 @@ public class FinanceService {
         out.put("income", income);
         out.put("expense", expense);
         out.put("book", book);
-        if (scholarships != null) out.put("scholarships_paid", scholarships);
-        if (rebFees != null) out.put("reb_fees_collected", rebFees);
+        out.put("reb_fees_collected", rebFees);
         out.put("published", published.existsByBookAndYear(book, year));
         published.findByBookAndYear(book, year).ifPresent(p -> out.put("note", p.getNote()));
         return out;

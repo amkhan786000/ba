@@ -14,9 +14,9 @@ public class FinEntry extends Modifiable {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Whose books: RAHBAR or REB (never shown in the other's screens). */
+    /** Whose books: REB (Rahbar's own book was removed in V48) (never shown in the other's screens). */
     @Column(nullable = false, length = 10)
-    private String book = "RAHBAR";
+    private String book = "REB";
 
     @Column(nullable = false)
     private java.time.LocalDate entryDate;

@@ -35,7 +35,7 @@ export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTER
   | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
-  | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES' | 'FAQS' | 'APP_SETTINGS' | 'FINANCE'
+  | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES' | 'FAQS' | 'APP_SETTINGS'
   | 'REB_DASHBOARD' | 'REB_FINANCE' | 'REB_SETUP' | 'REB_STAFF' | 'REB_STUDENTS' | 'REB_STUDENT_PRIVATE' | 'REB_REPORTS'
   | 'REB_FEES' | 'REB_FEE_APPROVALS' | 'REB_SPONSORSHIPS' | 'REB_ATTENDANCE' | 'REB_EXAMS' | 'REB_ENQUIRIES' | 'REB_QURAN' | 'REB_HOSTEL';
 
@@ -115,7 +115,6 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS', group: 'administration' },
   { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES', group: 'administration' },
   { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS', group: 'administration' },
-  { path: '/admin/finance', label: 'Rahbar Income & Expenses', icon: 'mdi-scale-balance', section: 'FINANCE', group: 'administration' },
   { path: '/admin/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline', group: 'administration' },
   { path: '/admin/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline', group: 'administration' },
   { path: '/admin/app-settings', label: 'Application Settings', icon: 'mdi-tune-variant', section: 'APP_SETTINGS', group: 'administration' },

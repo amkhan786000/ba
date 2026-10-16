@@ -103,8 +103,8 @@ class OnlineDonationServiceTest {
         new DonationBooks(categories, entries, projects).record(p, null);
         verify(entries, times(1)).save(any());
 
-        p.setPurpose("DONATION"); // a general donation goes into Rahbar's book
+        p.setPurpose("DONATION"); // a general donation isn't booked: Rahbar's own book was removed (V48)
         new DonationBooks(categories, entries, projects).record(p, null);
-        verify(entries).save(argThat((FinEntry e) -> "RAHBAR".equals(e.getBook())));
+        verify(entries, times(1)).save(any());
     }
 }
