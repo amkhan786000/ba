@@ -55,6 +55,49 @@ public class PaymentInstallmentService {
     public static final int DEFAULT_NOTICE_DAYS = 30;
     public static final String NOT_DUE = "Not Due";
 
+    /** College types (BA Details > College type, and Payment Config). */
+    public static final String GOVT = "GOVT";
+    public static final String PRIVATE = "PRIVATE";
+    public static final String ANY = "ANY";
+    public static final Set<String> COLLEGE_TYPES = Set.of(GOVT, PRIVATE, ANY);
+
+    /** The Payment Config chosen for a student, or why there is none. */
+    public record ConfigChoice(PaymentSchedule config, String problem) {}
+
+    /**
+     * Which of a session year's (active) Payment Configs a student gets:
+     * <ul>
+     *   <li>a Govt / Private student: their type's config, else the year's "Any" config;</li>
+     *   <li>"Doesn't matter" (or not set yet): the "Any" config; when the year has only one config, that one; when it
+     *       has separate Govt and Private configs and no "Any" one, none (the college type must be chosen).</li>
+     * </ul>
+     */
+    public static ConfigChoice choose(List<PaymentSchedule> yearConfigs, Integer year, String collegeType) {
+        List<PaymentSchedule> active = yearConfigs.stream().filter(c -> c.getAmount() != null).toList();
+        if (active.isEmpty()) return new ConfigChoice(null, "There is no Payment Config for " + year + ".");
+        PaymentSchedule any = active.stream().filter(c -> ANY.equals(type(c.getCollegeType()))).findFirst().orElse(null);
+        String type = type(collegeType);
+        if (GOVT.equals(type) || PRIVATE.equals(type)) {
+            PaymentSchedule own = active.stream().filter(c -> type.equals(type(c.getCollegeType()))).findFirst().orElse(any);
+            return own != null ? new ConfigChoice(own, null)
+                    : new ConfigChoice(null, "There is no Payment Config for " + year + " for " + collegeLabel(type).toLowerCase(Locale.ROOT) + " colleges.");
+        }
+        if (any != null) return new ConfigChoice(any, null);
+        if (active.size() == 1) return new ConfigChoice(active.get(0), null);
+        return new ConfigChoice(null, "Set the student's college type (Govt or Private) in BA Details: " + year
+                + " has separate Payment Configs for government and private colleges.");
+    }
+
+    /** GOVT / PRIVATE / ANY; null and anything else count as ANY. */
+    public static String type(String collegeType) {
+        String t = collegeType == null ? "" : collegeType.trim().toUpperCase(Locale.ROOT);
+        return GOVT.equals(t) || PRIVATE.equals(t) ? t : ANY;
+    }
+
+    public static String collegeLabel(String collegeType) {
+        return switch (type(collegeType)) { case GOVT -> "Govt"; case PRIVATE -> "Private"; default -> "Any college"; };
+    }
+
     private final PaymentInstallmentRepository installmentRepository;
     private final GrantorGranteeRepository grantorGranteeRepository;
     private final UserRepository userRepository;
@@ -94,8 +137,9 @@ public class PaymentInstallmentService {
         int semesters = course != null && course.get("number_of_semesters") instanceof Number n ? n.intValue() : 0;
         if (semesters <= 0) return problem("No course (with its number of semesters) is assigned to the student.");
         if (student.getYear() == null) return problem("The student has no session year.");
-        PaymentSchedule config = paymentScheduleRepository.findFirstByYearAndStatus(student.getYear(), 1).orElse(null);
-        if (config == null || config.getAmount() == null) return problem("There is no Payment Config for " + student.getYear() + ".");
+        ConfigChoice choice = choose(paymentScheduleRepository.findByYearAndStatus(student.getYear(), 1), student.getYear(), student.getCollegeType());
+        if (choice.config() == null) return problem(choice.problem());
+        PaymentSchedule config = choice.config();
         if (student.getPaymentStartDate() == null) return problem("The student has no payment start date.");
         int frequency = config.getFrequencyMonths() == null || config.getFrequencyMonths() <= 0 ? 3 : config.getFrequencyMonths();
         // Each semester is 6 months: 8 semesters every 4 months -> 48 / 4 = 12 installments.
@@ -270,14 +314,16 @@ public class PaymentInstallmentService {
         return i.getDueDate().isAfter(today.plusDays(noticeDays)) ? NOT_DUE : DUE;
     }
 
-    /** "Show as due" lead time (days) per student, from the Payment Config of their session year. */
+    /** "Show as due" lead time (days) per student, from their Payment Config (session year and college type). */
     public Map<Long, Integer> noticeDays(Collection<Long> studentIds) {
-        Map<Integer, Integer> byYear = new HashMap<>();
-        paymentScheduleRepository.findAll().forEach(ps -> byYear.put(ps.getYear(),
-                ps.getDueNoticeDays() == null ? DEFAULT_NOTICE_DAYS : ps.getDueNoticeDays()));
+        Map<Integer, List<PaymentSchedule>> byYear = new HashMap<>();
+        paymentScheduleRepository.findAll().stream().filter(ps -> Integer.valueOf(1).equals(ps.getStatus()))
+                .forEach(ps -> byYear.computeIfAbsent(ps.getYear(), y -> new ArrayList<>()).add(ps));
         Map<Long, Integer> out = new HashMap<>();
-        userRepository.findAllById(studentIds).forEach(u ->
-                out.put(u.getId(), u.getYear() == null ? DEFAULT_NOTICE_DAYS : byYear.getOrDefault(u.getYear(), DEFAULT_NOTICE_DAYS)));
+        userRepository.findAllById(studentIds).forEach(u -> {
+            PaymentSchedule c = u.getYear() == null ? null : choose(byYear.getOrDefault(u.getYear(), List.of()), u.getYear(), u.getCollegeType()).config();
+            out.put(u.getId(), c == null || c.getDueNoticeDays() == null ? DEFAULT_NOTICE_DAYS : c.getDueNoticeDays());
+        });
         return out;
     }
 

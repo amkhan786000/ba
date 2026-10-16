@@ -43,7 +43,7 @@ interface StudentDetails {
 interface SponsorOption { id: number; user_id: string; name: string }
 
 /** BA (Rahbar) details of a student: RCC center, sponsor and chapter - all optional. */
-interface BaDetails { rccName: string; sponsorId: number | null; chapterId: number | null }
+interface BaDetails { rccName: string; sponsorId: number | null; chapterId: number | null; collegeType: string; }
 
 /** Port of templates/admin/student_directory.html (server-side table, profile modal with 5 tabs, payments, CSV upload, manual registration). */
 @Component({
@@ -201,7 +201,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
               </div>
               <div class="col-md-6 form-group"><label>Session Year</label>
                 <input type="number" min="1990" max="2100" class="form-control" [(ngModel)]="edit.year" [disabled]="!editing" placeholder="e.g. 2025">
-                <small class="text-muted">Picks the Payment Config (amount and frequency).</small>
+                <small class="text-muted">With the college type (BA Details), picks the Payment Config (amount and frequency).</small>
               </div>
               <div class="col-md-6 form-group"><label>Payment Start Date</label>
                 <app-date-input [(ngModel)]="edit.paymentStartDate" [disabled]="!editing"></app-date-input>
@@ -230,6 +230,15 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                   <option [ngValue]="null">No chapter</option>
                   <option *ngFor="let c of chapterOptions(details.profile['chapter_id'])" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
                 </select>
+              </div>
+              <div class="col-md-4 form-group"><label>College Type</label>
+                <select class="form-control" [(ngModel)]="ba.collegeType" [disabled]="!editing">
+                  <option value="">Not set</option>
+                  <option value="GOVT">Govt</option>
+                  <option value="PRIVATE">Private</option>
+                  <option value="ANY">Doesn't matter</option>
+                </select>
+                <small class="text-muted">With the session year, picks the Payment Config (Govt or Private college) for the installments.</small>
               </div>
             </div>
 
@@ -517,7 +526,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   tab = 'profile';
   editing = false;
   edit: Record<string, string> = {};
-  ba: BaDetails = { rccName: '', sponsorId: null, chapterId: null };
+  ba: BaDetails = { rccName: '', sponsorId: null, chapterId: null, collegeType: '' };
   installments: InstallmentRow[] = [];
   installmentProblem: string | null = null;
   readonly installmentBadge = installmentBadge;
@@ -626,7 +635,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
         this.editing = false;
         const p = res.profile, b = res.bank ?? {}, c = res.course ?? {};
         const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
-        this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null };
+        this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null, collegeType: s(p['college_type']) };
         this.edit = {
           name: s(p['name']), refId: s(p['user_id']), email: s(p['email']), phone: s(p['phone']),
           fatherName: s(p['father_name']), motherName: s(p['mother_name']), address: s(p['address']),
@@ -672,7 +681,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     const e = this.edit;
     const body: Record<string, unknown> = {
       name: e['name'], refId: e['refId'], email: e['email'], phone: e['phone'],
-      rccName: this.ba.rccName, sponsorId: this.ba.sponsorId, chapterId: this.ba.chapterId,
+      rccName: this.ba.rccName, sponsorId: this.ba.sponsorId, chapterId: this.ba.chapterId, collegeType: this.ba.collegeType,
       fatherName: e['fatherName'], motherName: e['motherName'], address: e['address'],
       fatherProfession: e['fatherProfession'], motherProfession: e['motherProfession'],
       fatherMobile: e['fatherMobile'], motherMobile: e['motherMobile'], averageAnnualSalary: e['averageAnnualSalary'],

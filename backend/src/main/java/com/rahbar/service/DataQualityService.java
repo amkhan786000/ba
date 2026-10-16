@@ -233,15 +233,19 @@ public class DataQualityService {
     private static final java.util.regex.Pattern IFSC = java.util.regex.Pattern.compile("[A-Z]{4}0[A-Z0-9]{6}");
 
     /**
-     * Things that stop installments or payments from working: missing session year / start date, years without a
-     * payment config, finished students still mapped, inactive sponsors, bad bank details, wrong RCC names and
+     * Things that stop installments or payments from working: missing session year / start date / college type, years
+     * without a payment config, students whose payment config can't be chosen, finished students still mapped, inactive sponsors, bad bank details, wrong RCC names and
      * students' phone numbers that aren't Indian mobiles.
      */
     private List<Map<String, Object>> paymentSetupChecks(List<User> students, Set<Long> sponsored, Long unassigned) {
         Map<Long, User> users = new HashMap<>();
         userRepository.findAll().forEach(u -> users.put(u.getId(), u));
 
-        List<Map<String, Object>> noYear = new ArrayList<>(), noStart = new ArrayList<>(), badPhone = new ArrayList<>();
+        List<Map<String, Object>> noYear = new ArrayList<>(), noStart = new ArrayList<>(), badPhone = new ArrayList<>(),
+                noCollegeType = new ArrayList<>(), noMatchingConfig = new ArrayList<>();
+        Map<Integer, List<com.rahbar.entity.PaymentSchedule>> configsByYear = new HashMap<>();
+        paymentScheduleRepository.findAll().stream().filter(c -> Integer.valueOf(1).equals(c.getStatus()))
+                .forEach(c -> configsByYear.computeIfAbsent(c.getYear(), y -> new ArrayList<>()).add(c));
         Map<Integer, Integer> studentsByYear = new TreeMap<>();
         for (User u : students) {
             if (sponsored.contains(u.getId()) && u.getYear() == null) {
@@ -255,6 +259,22 @@ public class DataQualityService {
                         "sponsored", sponsored.contains(u.getId()) ? "Yes" : "No"));
             }
             if (u.getYear() != null) studentsByYear.merge(u.getYear(), 1, Integer::sum);
+            // BA Details > College type (Govt / Private / Doesn't matter) not chosen yet
+            if (blank(u.getCollegeType())) {
+                noCollegeType.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "chapter", u.getChapterName(),
+                        "study_status", StudyStatus.label(u.getStudyStatus()), "session_year", u.getYear(),
+                        "sponsored", sponsored.contains(u.getId()) ? "Yes" : "No"));
+            }
+            // the year has payment configs, but none fits the student's college type
+            List<com.rahbar.entity.PaymentSchedule> yearConfigs = u.getYear() == null ? List.of() : configsByYear.getOrDefault(u.getYear(), List.of());
+            if (!yearConfigs.isEmpty()) {
+                PaymentInstallmentService.ConfigChoice choice = PaymentInstallmentService.choose(yearConfigs, u.getYear(), u.getCollegeType());
+                if (choice.config() == null) {
+                    noMatchingConfig.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "chapter", u.getChapterName(),
+                            "session_year", u.getYear(), "college_type", u.getCollegeType() == null ? "Not set" : PaymentInstallmentService.collegeLabel(u.getCollegeType()),
+                            "why", choice.problem()));
+                }
+            }
             String digits = u.getPhone() == null ? "" : u.getPhone().replaceAll("\\D", "");
             if (digits.length() == 12 && digits.startsWith("91")) digits = digits.substring(2);
             if (!blank(u.getPhone()) && !digits.matches("[6-9]\\d{9}")) {
@@ -265,7 +285,7 @@ public class DataQualityService {
 
         List<Map<String, Object>> noConfig = new ArrayList<>();
         studentsByYear.forEach((year, count) -> {
-            if (paymentScheduleRepository.findFirstByYearAndStatus(year, 1).isEmpty()) {
+            if (configsByYear.getOrDefault(year, List.of()).isEmpty()) {
                 noConfig.add(row("session_year", year, "current_students", count));
             }
         });
@@ -317,8 +337,14 @@ public class DataQualityService {
                         "No date for the first installment, so no fee schedule can be made once they are sponsored (Student Directory > BA Details).", noStart))),
                 byStudy(in(SPONSORS, "/admin/students", check("sponsored_students_without_session_year", "Sponsored students without a session year",
                         "The session year picks their Payment Config (amount and frequency); no fee schedule until it is set (Student Directory > BA Details).", noYear))),
+                byStudy(in(SPONSORS, "/admin/students", check("students_without_college_type", "Students without a college type",
+                        "Govt, Private or Doesn't matter is not chosen yet (Student Directory > BA Details). With it the right Payment Config "
+                                + "(Govt or Private college) is used; until then they get the year's Payment Config for any college.", noCollegeType))),
                 byStudy(in(ADMINISTRATION, "/admin/system-configuration", check("session_years_without_payment_config", "Session years without a payment config",
                         "Students of these years get no installments until a Payment Config is added for the year.", noConfig))),
+                byStudy(in(SPONSORS, "/admin/students", check("students_without_matching_payment_config", "Students whose Payment Config can't be chosen",
+                        "Their session year has Payment Configs, but none for their college type (see why). Set the college type in BA "
+                                + "Details, or add the missing Payment Config.", noMatchingConfig))),
                 in(SPONSORS, "/admin/sponsorships", check("finished_students_still_mapped", "Graduated or dropped-out students still mapped to a sponsor",
                         "The sponsor still sees them as current; unmap them so the sponsor can take a new student.", finishedMapped)),
                 byStudy(in(SPONSORS, "/admin/sponsorships", check("students_with_inactive_sponsor", "Current students mapped to an inactive sponsor",

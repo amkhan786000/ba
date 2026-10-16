@@ -352,13 +352,13 @@ public class AdminService {
 
     // --------------------------------------------------------- system configuration
 
-    /** Payment amount per year, newest first, with the name of who last changed it. */
+    /** Payment configs (per year and college type), newest year first, with the name of who last changed each. */
     public Map<String, Object> systemConfiguration() {
         List<PaymentSchedule> schedules = paymentScheduleRepository.findAllByOrderByYearDesc();
         Map<Long, String> names = userNames(userRepository, schedules.stream().map(PaymentSchedule::getUpdatedBy).toList());
         List<Map<String, Object>> rows = new ArrayList<>();
         for (PaymentSchedule s : schedules) {
-            Map<String, Object> row = Rows.pick(s, "schedule_id", "amount", "year", "frequency_months", "due_notice_days", "updated_at");
+            Map<String, Object> row = Rows.pick(s, "schedule_id", "amount", "year", "college_type", "frequency_months", "due_notice_days", "updated_at");
             row.put("updated_by_name", s.getUpdatedBy() == null ? null : names.get(s.getUpdatedBy()));
             rows.add(row);
         }
@@ -368,10 +368,15 @@ public class AdminService {
     }
 
     /**
-     * Amount of each installment for students of this session year, and how often one is due (every 3 or 4 months).
-     * Unpaid installments of those students are rebuilt with the new values.
+     * Amount of each installment for students of this session year and college type (GOVT, PRIVATE or ANY: everyone
+     * of the year without a config of their own), and how often one is due (every 3 or 4 months). Unpaid installments
+     * of the year's students are rebuilt with the new values. Returns the college type saved.
      */
-    public void saveSchedule(int year, BigDecimal amount, Integer frequencyMonths, Integer dueNoticeDays) {
+    public String saveSchedule(int year, String collegeType, BigDecimal amount, Integer frequencyMonths, Integer dueNoticeDays) {
+        String type = collegeType == null || collegeType.isBlank() ? PaymentInstallmentService.ANY : collegeType.trim().toUpperCase(Locale.ROOT);
+        if (!PaymentInstallmentService.COLLEGE_TYPES.contains(type)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "College type must be Govt, Private or Any college.");
+        }
         if (amount.signum() < 0) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Amount cannot be negative.");
         }
@@ -379,8 +384,9 @@ public class AdminService {
         if (frequency != 3 && frequency != 4) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Frequency must be every 3 or every 4 months.");
         }
-        PaymentSchedule schedule = paymentScheduleRepository.findByYear(year).orElseGet(PaymentSchedule::new);
+        PaymentSchedule schedule = paymentScheduleRepository.findByYearAndCollegeType(year, type).orElseGet(PaymentSchedule::new);
         schedule.setYear(year);
+        schedule.setCollegeType(type);
         schedule.setAmount(amount);
         schedule.setFrequencyMonths(frequency);
         int notice = dueNoticeDays == null ? PaymentInstallmentService.DEFAULT_NOTICE_DAYS : dueNoticeDays;
@@ -389,6 +395,7 @@ public class AdminService {
         schedule.setStatus(1);
         paymentScheduleRepository.saveAndFlush(schedule);
         installmentService.syncYear(year);
+        return type;
     }
 
     // ---------------------------------------------------------------- RCC centers
@@ -696,6 +703,7 @@ public class AdminService {
         profile.put("study_status", StudyStatus.of(user.getStudyStatus()));
         profile.put("session_year", user.getYear());
         profile.put("payment_start_date", user.getPaymentStartDate());
+        profile.put("college_type", user.getCollegeType());
         profile.put("study_status_date", user.getStudyStatusDate());
         profile.put("study_status_note", user.getStudyStatusNote());
         profile.put("name", user.getName());
@@ -736,6 +744,7 @@ public class AdminService {
             if (data.get("status") != null) { user.setStatus(str(data.get("status"))); changed = true; }
             if (data.containsKey("year")) { user.setYear(sessionYear(data.get("year"))); changed = true; }
             if (data.containsKey("paymentStartDate")) { user.setPaymentStartDate(parseDate(data.get("paymentStartDate"), "Payment start date")); changed = true; }
+            if (data.containsKey("collegeType")) { user.setCollegeType(collegeType(data.get("collegeType"))); changed = true; }
             if (changed) userRepository.save(user);
         });
 
@@ -750,7 +759,15 @@ public class AdminService {
         if (data.get("institutionId") != null && data.get("courseId") != null) {
             saveStudentCourse(userId, str(data.get("institutionId")), toLong(data.get("courseId")));
         }
-        installmentService.sync(userId); // course, session year or start date may have changed
+        installmentService.sync(userId); // course, session year, college type or start date may have changed
+    }
+
+    /** BA Details > College type: GOVT, PRIVATE or ANY ("doesn't matter"); empty = not set yet. */
+    private static String collegeType(Object value) {
+        String t = value == null ? "" : String.valueOf(value).trim().toUpperCase(Locale.ROOT);
+        if (t.isEmpty()) return null;
+        if (!PaymentInstallmentService.COLLEGE_TYPES.contains(t)) throw new ApiException(HttpStatus.BAD_REQUEST, "College type must be Govt, Private or Doesn't matter.");
+        return t;
     }
 
     /** Fields kept on the student's application row (grantee_details): family details and the RCC center. */

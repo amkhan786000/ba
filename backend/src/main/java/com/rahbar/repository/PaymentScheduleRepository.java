@@ -7,7 +7,7 @@ import java.util.List;
 import java.util.Optional;
 
 public interface PaymentScheduleRepository extends JpaRepository<PaymentSchedule, Long> {
-    Optional<PaymentSchedule> findByYear(Integer year);
-    Optional<PaymentSchedule> findFirstByYearAndStatus(Integer year, Integer status);
+    Optional<PaymentSchedule> findByYearAndCollegeType(Integer year, String collegeType);
+    List<PaymentSchedule> findByYearAndStatus(Integer year, Integer status);
     List<PaymentSchedule> findAllByOrderByYearDesc();
 }
