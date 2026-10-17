@@ -90,8 +90,15 @@ import { RccCenter } from './admin-rcc-centers.component';
                   </div>
                 </div>
               </div>
+              <div *ngIf="deleteReasons?.length" class="alert alert-warning mt-3 mb-0" role="alert">
+                <strong>This user can't be deleted:</strong>
+                <ul class="mb-1 mt-1"><li *ngFor="let r of deleteReasons">{{ r }}</li></ul>
+                <small>Deactivate the account instead (Status: Inactive).</small>
+              </div>
               <div class="d-flex justify-content-between mt-3">
                 <a routerLink="/admin/users" class="btn btn-light btn-lg">Back</a>
+                <button *ngIf="canDelete" type="button" class="btn btn-outline-danger btn-lg ml-auto mr-2" (click)="remove()" [disabled]="deleting">
+                  <i class="mdi mdi-delete-outline mr-1"></i>{{ deleting ? 'Checking…' : 'Delete user' }}</button>
                 <button type="submit" class="btn btn-primary btn-lg waves-effect waves-light" [disabled]="f.invalid || saving">
                   {{ saving ? 'Saving…' : 'Save Changes' }}
                 </button>
@@ -116,6 +123,9 @@ export class AdminUserEditComponent implements OnInit {
   masked = false;
   error = '';
   saving = false;
+  deleting = false;
+  /** What still links the user (shown when Delete is refused). */
+  deleteReasons: string[] | null = null;
 
   constructor(private api: ApiService, private router: Router, private auth: AuthService, private chapterList: ChapterService) {}
 
@@ -153,6 +163,28 @@ export class AdminUserEditComponent implements OnInit {
 
   toggleExtra(f: { additionalRoleIds: number[] }, roleId: number): void {
     f.additionalRoleIds = f.additionalRoleIds.includes(roleId) ? f.additionalRoleIds.filter((r) => r !== roleId) : [...f.additionalRoleIds, roleId];
+  }
+
+  /** Only the Super Admin deletes users, and never their own account. */
+  get canDelete(): boolean { return this.auth.isSuperAdmin() && String(this.auth.currentUser()?.id) !== this.id; }
+
+  /** Checks what links the user; deletes after a confirmation only when nothing does. */
+  remove(): void {
+    this.deleting = true;
+    this.deleteReasons = null;
+    this.error = '';
+    const path = `/admin/users/${encodeURIComponent(this.id)}`;
+    this.api.get<{ canDelete: boolean; reasons: string[] }>(`${path}/delete-check`).subscribe({
+      next: (c) => {
+        if (!c.canDelete) { this.deleting = false; this.deleteReasons = c.reasons; return; }
+        if (!confirm(`Delete ${this.form?.name || 'this user'} permanently? This can't be undone.`)) { this.deleting = false; return; }
+        this.api.delete<{ message: string }>(path).subscribe({
+          next: () => this.router.navigate(['/admin/users']),
+          error: (err) => { this.deleting = false; this.error = err?.error?.error ?? 'Could not delete the user.'; }
+        });
+      },
+      error: (err) => { this.deleting = false; this.error = err?.error?.error ?? 'Could not check the user.'; }
+    });
   }
 
   save(): void {

@@ -97,6 +97,25 @@ public class AdminController {
         return adminService.resetUserPassword(userId);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.service.UserDeletionService userDeletion;
+
+    /** Users > Edit > Delete (Super Admin): what still links the user ([] = can be deleted). */
+    @GetMapping("/users/{userId}/delete-check")
+    @PreAuthorize("hasAuthority('USERS:EDIT')")
+    public Map<String, Object> deleteCheck(@PathVariable Long userId) {
+        List<String> why = userDeletion.blockers(userId);
+        return Map.of("canDelete", why.isEmpty(), "reasons", why);
+    }
+
+    /** Deletes a user with nothing linked to them (Super Admin only). */
+    @DeleteMapping("/users/{userId}")
+    @PreAuthorize("hasAuthority('USERS:EDIT')")
+    public Map<String, String> deleteUser(@PathVariable Long userId) {
+        userDeletion.delete(userId);
+        return Map.of("message", "User deleted.");
+    }
+
     @PutMapping("/users/{userId}")
     @PreAuthorize("hasAuthority('USERS:EDIT')")
     public Map<String, String> updateUser(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
