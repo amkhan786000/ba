@@ -14,7 +14,8 @@ import java.util.Objects;
 /**
  * Every change to which sponsor a student is mapped to goes through here (grantor_grantees has one row per student).
  * On a change the new sponsor and the student get an email (and a notification), the previous sponsor is told the
- * student moved on, and the student's payment installments are rebuilt (unpaid ones move to the new sponsor).
+ * student moved on, the student takes the new sponsor's chapter (when the sponsor has one), and the student's payment
+ * installments are rebuilt (unpaid ones move to the new sponsor).
  */
 @Service
 public class SponsorMappingService {
@@ -90,11 +91,28 @@ public class SponsorMappingService {
 
     private void changed(Long granteeId, Long previous, Long current) {
         if (!Objects.equals(previous, current)) {
+            takeSponsorsChapter(granteeId, current);
             recordHistory(granteeId, current);
             notifyMapped(granteeId, current);
             notifyUnmapped(granteeId, previous, current);
         }
         installmentService.sync(granteeId);
+    }
+
+    /**
+     * A student mapped to a sponsor belongs to the sponsor's chapter. A sponsor without a chapter (or the
+     * "unassigned" grantor, or no sponsor) leaves the student's chapter as it is; the sponsor's chapter never changes.
+     */
+    private void takeSponsorsChapter(Long granteeId, Long sponsorId) {
+        if (sponsorId == null || sponsorId.equals(ServiceSupport.unassignedGrantorId(userRepository))) return;
+        Long chapterId = userRepository.findById(sponsorId).map(User::getChapterId).orElse(null);
+        if (chapterId == null) return;
+        userRepository.findById(granteeId).ifPresent(student -> {
+            if (!chapterId.equals(student.getChapterId())) {
+                student.setChapterId(chapterId);
+                userRepository.save(student);
+            }
+        });
     }
 
     /** Closes the student's open mapping period and opens one with the new sponsor (none for "unassigned" / unmap). */
