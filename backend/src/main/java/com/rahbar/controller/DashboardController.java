@@ -31,8 +31,8 @@ public class DashboardController {
 
     @GetMapping("/dashboards/students")
     @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
-    public Map<String, Object> students() {
-        return dashboards.students();
+    public Map<String, Object> students(@RequestParam(required = false) Integer sessionYear) {
+        return dashboards.students(sessionYear);
     }
 
     @GetMapping("/dashboards/sponsors")

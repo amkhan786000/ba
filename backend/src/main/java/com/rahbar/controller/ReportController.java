@@ -29,13 +29,21 @@ public class ReportController {
         return reportCatalogService.catalog();
     }
 
+    /** Session years of the students the user may see (newest first), for the year dropdown. */
+    @GetMapping("/session-years")
+    @PreAuthorize("hasAuthority('REPORTS:VIEW')")
+    public java.util.List<Integer> sessionYears() {
+        return reportCatalogService.sessionYears();
+    }
+
     /** The report's rows to view on screen: { key, title, columns, rows }. */
     @GetMapping("/{type}/data")
     @PreAuthorize("hasAuthority('REPORTS:VIEW')")
     public java.util.Map<String, Object> view(@PathVariable String type,
                                               @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return reportCatalogService.data(type, from, to);
+                                              @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                              @RequestParam(required = false) Integer sessionYear) {
+        return reportCatalogService.data(type, from, to, sessionYear);
     }
 
     /** format = csv (default) | excel | pdf; from / to (yyyy-MM-dd) only apply to reports with a date. */
@@ -44,7 +52,8 @@ public class ReportController {
     public ResponseEntity<ByteArrayResource> download(@PathVariable String type,
                                                       @RequestParam(defaultValue = "csv") String format,
                                                       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-                                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
-        return Downloads.of(reportCatalogService.build(type, format, from, to));
+                                                      @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+                                                      @RequestParam(required = false) Integer sessionYear) {
+        return Downloads.of(reportCatalogService.build(type, format, from, to, sessionYear));
     }
 }

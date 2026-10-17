@@ -433,7 +433,7 @@ public class PaymentInstallmentService {
      * never sent to a screen: everyone sees installments (installment 2 paid, installment 3 due).
      */
     @Transactional(readOnly = true)
-    public Map<String, Object> search(String q, String status, Integer page, Integer size) {
+    public Map<String, Object> search(String q, String status, Integer year, Integer page, Integer size) {
         com.rahbar.security.StudentScope.Scope scope = studentScope.current(); // chapter / RCC-scoped: own students only
         Map<Long, User> scopeUsers = scope.all() ? Map.of() : studentScope.usersById();
         List<PaymentInstallment> all = installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc().stream()
@@ -444,11 +444,16 @@ public class PaymentInstallmentService {
         userRepository.findAllById(all.stream().flatMap(i -> java.util.stream.Stream.of(i.getGranteeId(), i.getGrantorId()))
                 .filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet())).forEach(u -> users.put(u.getId(), u));
 
-        // Cards above the table: every status of the installments the user may see (search and status filter aside).
+        // Year dropdown: session (start) years of the students the user may see; the year filter itself doesn't narrow it.
+        List<Integer> years = users.values().stream().filter(u -> all.stream().anyMatch(i -> i.getGranteeId().equals(u.getId())))
+                .map(User::getYear).filter(Objects::nonNull).distinct().sorted(Comparator.reverseOrder()).toList();
+
+        // Cards above the table: every status of the installments the user may see (search and status filter aside; the year filter applies).
         Map<String, long[]> counts = new LinkedHashMap<>();
         for (String st : List.of(OVERDUE, DUE, NOT_DUE, PAID)) counts.put(st, new long[1]);
         List<PaymentInstallment> filtered = new ArrayList<>();
         for (PaymentInstallment i : all) {
+            if (year != null && !year.equals(Optional.ofNullable(users.get(i.getGranteeId())).map(User::getYear).orElse(null))) continue;
             String st = status(i, today, notice.getOrDefault(i.getGranteeId(), DEFAULT_NOTICE_DAYS));
             counts.computeIfAbsent(st, k -> new long[1])[0]++;
             if (status != null && !status.isBlank() && !status.equalsIgnoreCase(st)) continue;
@@ -465,6 +470,7 @@ public class PaymentInstallmentService {
         List<Map<String, Object>> summary = new ArrayList<>();
         counts.forEach((st, c) -> summary.add(Map.of("status", st, "count", c[0])));
         body.put("summary", summary);
+        body.put("years", years);
         return body;
     }
 

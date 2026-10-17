@@ -115,6 +115,18 @@ public class DataQualityService {
      *                    students still mapped, possible duplicates) always look at everyone.
      */
     public List<Map<String, Object>> checks(Collection<String> studyStatus) {
+        return checks(studyStatus, null);
+    }
+
+    /** Session years of the active scholarship students, newest first (the page's year dropdown). */
+    public List<Integer> sessionYears() {
+        return userRepository.findByRoleId(6).stream()
+                .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && !coachingOnly(u))
+                .map(User::getYear).filter(Objects::nonNull).distinct().sorted(Comparator.reverseOrder()).toList();
+    }
+
+    /** @param sessionYear only students who started in that session year in the missing-data checks (null = all years). */
+    public List<Map<String, Object>> checks(Collection<String> studyStatus, Integer sessionYear) {
         if (com.rahbar.security.Access.chapterScoped() || com.rahbar.security.Access.rccScoped()) {
             throw com.rahbar.security.Access.forbidden("Data quality checks cover the whole organisation and aren't available for chapter or RCC roles.");
         }
@@ -123,6 +135,7 @@ public class DataQualityService {
         List<User> students = userRepository.findByRoleId(6).stream()
                 .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && statuses.contains(StudyStatus.of(u.getStudyStatus())))
                 .filter(u -> !coachingOnly(u))
+                .filter(u -> sessionYear == null || sessionYear.equals(u.getYear()))
                 .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
         List<User> sponsors = userRepository.findByRoleId(5).stream()

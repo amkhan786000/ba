@@ -79,6 +79,11 @@ const HIDDEN = new Set(['role_id', 'group']);
                  [disabled]="loading || (study.has(s.code) && study.size === 1)" (change)="toggleStudy(s.code)">
           <label class="custom-control-label" [for]="'dq-study-' + s.code">{{ s.label }}</label>
         </div>
+        <label for="dq-year" class="ml-md-4 mr-2 mb-0 font-weight-semibold">Session year</label>
+        <select id="dq-year" class="form-control form-control-sm" style="width: 120px" [(ngModel)]="sessionYear" (ngModelChange)="load()" [disabled]="loading">
+          <option value="">All years</option>
+          <option *ngFor="let y of sessionYears" [value]="y">{{ y }}</option>
+        </select>
         <small class="text-muted ml-md-auto">Student checks marked <span class="badge badge-light border">{{ studyText }}</span> follow this choice.</small>
       </div>
     </div>
@@ -188,6 +193,9 @@ export class AdminDataQualityComponent implements OnInit {
   message = '';
   /** Study statuses of the students the checks look at; studying only unless chosen otherwise (remembered). */
   study = new Set<string>(this.savedStudy());
+  /** Only students who started in this session year ('' = all years). */
+  sessionYear = '';
+  sessionYears: number[] = [];
 
   merge: {
     api: { path: string; what: string };
@@ -232,7 +240,10 @@ export class AdminDataQualityComponent implements OnInit {
     });
   }
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.load();
+    this.api.get<number[]>('/admin/data-quality/session-years').subscribe({ next: (y) => (this.sessionYears = y), error: () => {} });
+  }
 
   /** "Studying", "Studying + On hold", or "All study statuses". */
   get studyText(): string {
@@ -260,7 +271,7 @@ export class AdminDataQualityComponent implements OnInit {
     this.loading = true;
     this.error = '';
     const studyStatus = [...this.study].join(',');
-    this.api.get<Check[]>('/admin/data-quality', { studyStatus }).subscribe({
+    this.api.get<Check[]>('/admin/data-quality', this.sessionYear ? { studyStatus, sessionYear: this.sessionYear } : { studyStatus }).subscribe({
       next: (c) => { this.loading = false; this.checks = c; this.groups = this.group(c); },
       error: (e) => { this.loading = false; this.error = errorText(e, 'Could not run the data checks.'); }
     });

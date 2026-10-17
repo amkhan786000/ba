@@ -12,7 +12,7 @@ interface MapScreen {
   mappedStudents: { id: number; user_id: string; name: string; email: string | null }[];
   availableStudents: {
     id: number; user_id: string; name: string; email: string | null;
-    current_sponsor_name: string | null; current_sponsor_id: number | null; current_sponsor_code: string | null;
+    current_sponsor_name: string | null; current_sponsor_id: number | null; current_sponsor_code: string | null; year: number | null;
   }[];
 }
 
@@ -39,8 +39,16 @@ interface MapScreen {
         <div class="card">
           <div class="card-body">
             <h4 class="header-title mb-3">1. Select Students to Assign</h4>
-            <div class="form-group">
-              <input type="text" class="form-control" placeholder="Search students..." [(ngModel)]="search">
+            <div class="form-row">
+              <div class="form-group col-8 col-md-9">
+                <input type="text" class="form-control" placeholder="Search students..." [(ngModel)]="search">
+              </div>
+              <div class="form-group col-4 col-md-3">
+                <select class="form-control" [(ngModel)]="year" [ngModelOptions]="{standalone: true}" aria-label="Session year">
+                  <option value="">All years</option>
+                  <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+                </select>
+              </div>
             </div>
             <form (ngSubmit)="submit()">
               <p class="text-muted small">Students ticked below will be assigned to <strong>{{ data.sponsor.name }}</strong>. Students who already have another sponsor will be moved.</p>
@@ -126,6 +134,7 @@ export class AdminSponsorMapComponent implements OnInit {
 
   data: MapScreen | null = null;
   search = '';
+  year = '';
   /** users.id of the ticked students. */
   selected = new Set<number>();
   saving = false;
@@ -143,9 +152,15 @@ export class AdminSponsorMapComponent implements OnInit {
     });
   }
 
+  /** Session years of the students that can be mapped (newest first). */
+  get years(): number[] {
+    const ys = new Set((this.data?.availableStudents ?? []).map((s) => s.year).filter((y): y is number => y != null));
+    return [...ys].sort((a, b) => b - a);
+  }
+
   get visible() {
     const f = this.search.toLowerCase();
-    return (this.data?.availableStudents ?? []).filter((s) =>
+    return (this.data?.availableStudents ?? []).filter((s) => !this.year || String(s.year) === this.year).filter((s) =>
       [s.name, s.user_id, s.current_sponsor_name, s.current_sponsor_code].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 

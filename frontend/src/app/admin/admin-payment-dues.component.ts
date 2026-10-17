@@ -51,7 +51,13 @@ interface Due {
             Reminders go out automatically every morning: once per overdue installment, and once when the next one becomes due
             (the "show as due" days in Payment Config, 30 by default).
           </p>
-          <input class="form-control" style="max-width: 260px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+          <div class="d-flex">
+            <select class="form-control mr-2" style="max-width: 160px" [(ngModel)]="year" (ngModelChange)="table.filter()" aria-label="Session year">
+              <option value="">All years</option>
+              <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+            </select>
+            <input class="form-control" style="max-width: 260px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+          </div>
         </div>
         <div class="table-responsive">
           <table class="table mb-0">
@@ -86,8 +92,9 @@ interface Due {
 export class AdminPaymentDuesComponent implements OnInit, OnDestroy {
   q = '';
   filter = '';
-  readonly table = new ServerTable<Due, PagedResult<Due> & { summary: Record<string, number> }>(
-    (p) => this.api.get('/admin/payments/dues', { q: this.q, status: this.filter, ...p }),
+  year = '';
+  readonly table = new ServerTable<Due, PagedResult<Due> & { summary: Record<string, number>; years: number[] }>(
+    (p) => this.api.get('/admin/payments/dues', { q: this.q, status: this.filter, year: this.year, ...p }),
     (e) => (this.error = errorText(e, 'Could not load payment dues.')), 10);
   sending = false;
   message = '';
@@ -99,6 +106,9 @@ export class AdminPaymentDuesComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void { this.table.load(); }
   ngOnDestroy(): void { this.table.destroy(); }
+
+  /** Session years of the students (newest first). */
+  get years(): number[] { return this.table.last?.years ?? []; }
 
   get summary(): { status: string; count: number }[] {
     // "On hold" (students whose studies are paused) only shows when there are any.

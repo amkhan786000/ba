@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
@@ -10,6 +11,7 @@ import { StatTileComponent } from '../shared/charts/stat-tile.component';
 
 interface StudentsDashboard {
   scope: 'all' | 'chapter' | 'rcc';
+  years: number[];
   kpis: Record<string, number | null>;
   progress: { year: number; students: number; reports: number; pending: number; expected: number };
   charts: {
@@ -22,14 +24,21 @@ interface StudentsDashboard {
 @Component({
   selector: 'app-admin-students-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertsComponent, BarChartComponent, ColumnChartComponent, DonutChartComponent, StatTileComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, BarChartComponent, ColumnChartComponent, DonutChartComponent, StatTileComponent],
   styles: [`
     .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
     .card .header-title small { text-transform: none; font-weight: normal; color: #6b776f; }
     .progress { height: 10px; }
   `],
   template: `
-    <div class="row mt-2"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Students Dashboard</h4></div></div></div>
+    <div class="row mt-2"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Students Dashboard</h4>
+      <div class="page-title-right d-flex align-items-center">
+        <label for="sessionYear" class="mr-2 mb-0">Session year</label>
+        <select class="form-control form-control-sm" id="sessionYear" [(ngModel)]="sessionYear" (ngModelChange)="load()" style="width: 120px">
+          <option value="">All years</option>
+          <option *ngFor="let y of d?.years" [value]="y">{{ y }}</option>
+        </select>
+      </div></div></div></div>
     <app-alerts [(error)]="error"></app-alerts>
 
     <ng-container *ngIf="d">
@@ -114,11 +123,14 @@ interface StudentsDashboard {
 export class AdminStudentsDashboardComponent implements OnInit {
   d: StudentsDashboard | null = null;
   error = '';
+  sessionYear = '';
 
   constructor(private api: ApiService) {}
 
-  ngOnInit(): void {
-    this.api.get<StudentsDashboard>('/admin/dashboards/students').subscribe({
+  ngOnInit(): void { this.load(); }
+
+  load(): void {
+    this.api.get<StudentsDashboard>('/admin/dashboards/students', this.sessionYear ? { sessionYear: this.sessionYear } : undefined).subscribe({
       next: (d) => (this.d = d),
       error: (e) => (this.error = errorText(e, 'Could not load the dashboard.'))
     });

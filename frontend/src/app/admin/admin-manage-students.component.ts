@@ -36,6 +36,14 @@ interface ManagedStudent {
                   <input type="text" class="form-control" placeholder="Name, Email, Phone..." [(ngModel)]="search" (ngModelChange)="table.search()">
                 </div>
               </div>
+              <div class="col-12 col-md-2">
+                <div class="form-group"><label>Session year</label>
+                  <select class="form-control" [(ngModel)]="fYear">
+                    <option value="">All years</option>
+                    <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+                  </select>
+                </div>
+              </div>
               <div class="col-12 col-md-3">
                 <div class="form-group"><label>Institution</label>
                   <select class="form-control" [(ngModel)]="fInst">
@@ -130,8 +138,9 @@ export class AdminManageStudentsComponent implements OnInit, OnDestroy {
   search = '';
   fInst = '';
   fCourse = '';
-  readonly table = new ServerTable<ManagedStudent>(
-    (p) => this.api.get<PagedResult<ManagedStudent>>('/admin/manage-students', { q: this.search, institutionId: this.fInst, courseId: this.fCourse, ...p }),
+  fYear = '';
+  readonly table = new ServerTable<ManagedStudent, PagedResult<ManagedStudent> & { years: number[] }>(
+    (p) => this.api.get<PagedResult<ManagedStudent>>('/admin/manage-students', { q: this.search, institutionId: this.fInst, courseId: this.fCourse, year: this.fYear, ...p }),
     (e) => (this.error = errorText(e, 'Could not load students.')), 10);
   /** id: the student's users.id. */
   assign: { id: number; institutionId: string; courseId: string } | null = null;
@@ -154,7 +163,10 @@ export class AdminManageStudentsComponent implements OnInit, OnDestroy {
   /** Institution + course dropdowns, plus text search across the row (on the server). */
   applyFilters(): void { this.table.filter(); }
 
-  reset(): void { this.search = ''; this.fInst = ''; this.fCourse = ''; this.table.filter(); }
+  /** Session years of the students (newest first). */
+  get years(): number[] { return this.table.last?.years ?? []; }
+
+  reset(): void { this.search = ''; this.fInst = ''; this.fCourse = ''; this.fYear = ''; this.table.filter(); }
 
   coursesFor(instId: string): CourseRow[] {
     return instId ? this.courses.filter((c) => String(c.institution_id) === String(instId)) : [];
