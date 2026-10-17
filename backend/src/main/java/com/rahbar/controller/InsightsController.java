@@ -32,7 +32,15 @@ public class InsightsController {
     /** studyStatus: the students' study statuses to check (repeat or comma separated); default STUDYING. */
     @GetMapping("/data-quality")
     @PreAuthorize("hasAuthority('DATA_QUALITY:VIEW')")
-    public List<Map<String, Object>> dataQuality(@RequestParam(required = false) List<String> studyStatus) {
-        return dataQualityService.checks(studyStatus);
+    public List<Map<String, Object>> dataQuality(@RequestParam(required = false) List<String> studyStatus,
+                                                 @RequestParam(required = false) Integer sessionYear) {
+        return dataQualityService.checks(studyStatus, sessionYear);
+    }
+
+    /** Session years of the students, newest first, for the year dropdown. */
+    @GetMapping("/data-quality/session-years")
+    @PreAuthorize("hasAuthority('DATA_QUALITY:VIEW')")
+    public List<Integer> dataQualityYears() {
+        return dataQualityService.sessionYears();
     }
 }

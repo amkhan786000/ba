@@ -29,6 +29,7 @@ public class PaymentDuesController {
     @PreAuthorize("hasAuthority('PAYMENT_DUES:VIEW')")
     public Map<String, Object> dues(@RequestParam(required = false) String q,
                                     @RequestParam(required = false) String status,
+                                    @RequestParam(required = false) Integer year,
                                     @RequestParam(required = false) Integer page,
                                     @RequestParam(required = false) Integer size) {
         // Chapter / RCC-scoped users: only their own students' dues.
@@ -36,6 +37,9 @@ public class PaymentDuesController {
         Map<Long, com.rahbar.entity.User> users = scope.all() ? Map.of() : studentScope.usersById();
         List<Map<String, Object>> all = paymentReminderService.dues().stream()
                 .filter(d -> scope.includesId(((Number) d.get("student_id")).longValue(), users)).toList();
+        List<Integer> years = all.stream().map(d -> d.get("session_year")).filter(Integer.class::isInstance).map(Integer.class::cast)
+                .distinct().sorted(java.util.Comparator.reverseOrder()).toList();
+        all = all.stream().filter(d -> year == null || year.equals(d.get("session_year"))).toList();
         Map<String, Long> counts = new LinkedHashMap<>();
         for (String s : List.of("Overdue", "Due soon", "On schedule", "Completed", "On hold")) counts.put(s, 0L);
         all.forEach(d -> counts.merge(String.valueOf(d.get("status")), 1L, Long::sum));
@@ -45,6 +49,7 @@ public class PaymentDuesController {
                 .toList();
         Map<String, Object> body = Paging.of(filtered, page, size);
         body.put("summary", counts);
+        body.put("years", years);
         return body;
     }
 

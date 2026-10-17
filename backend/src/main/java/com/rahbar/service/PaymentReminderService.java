@@ -92,6 +92,7 @@ public class PaymentReminderService {
             row.put("student_id", student.getId());
             row.put("student_code", student.getUserId());
             row.put("student_name", student.getName());
+            row.put("session_year", student.getYear());
             row.put("student_phone", student.getPhone());
             row.put("sponsor_id", gg.getGrantorId());
             row.put("sponsor_code", sponsor == null ? null : sponsor.getUserId());

@@ -579,8 +579,12 @@ public class AdminService {
     // ------------------------------------------------------------------ manage students
 
     /** One page of students with their sponsor, institution and course, filtered by institution, course and text. */
-    public Map<String, Object> manageStudents(String q, String institutionId, Long courseId, Integer page, Integer size) {
-        List<Map<String, Object>> rows = visibleStudentRows(userRepository.findStudentOverview()).stream()
+    public Map<String, Object> manageStudents(String q, String institutionId, Long courseId, Integer year, Integer page, Integer size) {
+        List<Map<String, Object>> visible = visibleStudentRows(userRepository.findStudentOverview());
+        List<Integer> years = visible.stream().map(r -> r.get("year")).filter(Integer.class::isInstance).map(Integer.class::cast)
+                .distinct().sorted(Comparator.reverseOrder()).toList();
+        List<Map<String, Object>> rows = visible.stream()
+                .filter(r -> year == null || year.equals(r.get("year")))
                 .filter(r -> institutionId == null || institutionId.isBlank() || institutionId.equals(String.valueOf(r.get("institution_id"))))
                 .filter(r -> courseId == null || courseId.equals(toLong(r.get("course_id"))))
                 .filter(r -> com.rahbar.util.Paging.matches(q, r.get("student_name"), r.get("student_email"), r.get("student_phone"),
@@ -588,7 +592,9 @@ public class AdminService {
                         r.get("institution_name") == null ? "Unassigned" : r.get("institution_name"),
                         r.get("course_name") == null ? "Unassigned" : r.get("course_name")))
                 .toList();
-        return com.rahbar.util.Paging.of(rows, page, size);
+        Map<String, Object> body = com.rahbar.util.Paging.of(rows, page, size);
+        body.put("years", years);
+        return body;
     }
 
     public void assignStudentCourse(Long userId, String institutionId, Long courseId) {
@@ -676,12 +682,17 @@ public class AdminService {
     /** One page of the directory: institution / course filtered in the query, the rest in {@link StudentDirectorySearch}. */
     public Map<String, Object> listStudents(int start, int length, String search, String institutionId, Long courseId,
                                             StudentDirectorySearch.Filters filters) {
-        List<Map<String, Object>> filtered = StudentDirectorySearch.apply(visibleStudentRows(userRepository.searchStudentDirectory(
-                isBlank(institutionId) ? null : institutionId, courseId, null)), search, filters);
+        List<Map<String, Object>> visible = visibleStudentRows(userRepository.searchStudentDirectory(
+                isBlank(institutionId) ? null : institutionId, courseId, null));
+        // Year dropdown: every session year among the students the user may see (not narrowed by the year filter itself).
+        List<Integer> years = visible.stream().map(r -> r.get("year")).filter(Integer.class::isInstance).map(Integer.class::cast)
+                .distinct().sorted(Comparator.reverseOrder()).toList();
+        List<Map<String, Object>> filtered = StudentDirectorySearch.apply(visible, search, filters);
         int from = Math.min(Math.max(start, 0), filtered.size());
         int to = Math.min(from + Math.max(length, 0), filtered.size());
         return Map.of("recordsTotal", studentScope.current().all() ? userRepository.countByRoleId(STUDENT_ROLE) : (long) filtered.size(),
                 "recordsFiltered", (long) filtered.size(),
+                "years", years,
                 "data", new ArrayList<>(filtered.subList(from, to)));
     }
 

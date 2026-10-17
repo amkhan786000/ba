@@ -42,7 +42,13 @@ import { DateInputComponent } from '../shared/date-input.component';
             Installments are created when a student is mapped to a sponsor, from the course's semesters, the Payment Config
             of the student's session year and the student's payment start date. <strong>Due</strong> = due soon (see "Show as due" in Payment Config), <strong>Overdue</strong> = the date has passed and it isn't paid.
           </p>
-          <input class="form-control" style="max-width: 280px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+          <div class="d-flex">
+            <select class="form-control mr-2" style="max-width: 160px" [(ngModel)]="year" (ngModelChange)="table.filter()" aria-label="Session year">
+              <option value="">All years</option>
+              <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+            </select>
+            <input class="form-control" style="max-width: 280px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+          </div>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-centered mb-0">
@@ -101,8 +107,9 @@ import { DateInputComponent } from '../shared/date-input.component';
 export class AdminPaymentRecordsComponent implements OnInit, OnDestroy {
   q = '';
   status = '';
-  readonly table = new ServerTable<InstallmentRow, PagedResult<InstallmentRow> & { summary: { status: string; count: number }[] }>(
-    (p) => this.api.get('/admin/payment-records', { q: this.q, status: this.status, ...p }),
+  year = '';
+  readonly table = new ServerTable<InstallmentRow, PagedResult<InstallmentRow> & { summary: { status: string; count: number }[]; years: number[] }>(
+    (p) => this.api.get('/admin/payment-records', { q: this.q, status: this.status, year: this.year, ...p }),
     (e) => (this.error = errorText(e, 'Could not load payment records.')));
   saving = false;
   message = '';
@@ -115,6 +122,9 @@ export class AdminPaymentRecordsComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void { this.table.load(); }
   ngOnDestroy(): void { this.table.destroy(); }
+
+  /** Session years of the students (the year a student started), newest first. */
+  get years(): number[] { return this.table.last?.years ?? []; }
 
   /** Installments in each status (of everything the user may see; search and status filter aside). */
   get summary(): { status: string; count: number }[] { return this.table.last?.summary ?? []; }

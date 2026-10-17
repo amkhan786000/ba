@@ -33,9 +33,10 @@ public class PaymentRecordsController {
     @PreAuthorize("hasAuthority('PAYMENT_RECORDS:VIEW')")
     public Map<String, Object> paymentRecords(@RequestParam(required = false) String q,
                                               @RequestParam(required = false) String status,
+                                              @RequestParam(required = false) Integer year,
                                               @RequestParam(required = false) Integer page,
                                               @RequestParam(required = false) Integer size) {
-        return installmentService.search(q, status, page, size);
+        return installmentService.search(q, status, year, page, size);
     }
 
     /** One student's installments (all sponsors), and why there are none when there are none. */

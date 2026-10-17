@@ -15,8 +15,11 @@ public final class StudentDirectorySearch {
     private static final String[] TEXT_COLUMNS = {"user_id", "name", "email", "phone", "sponsor_code", "sponsor_name",
             "chapter_name", "institution_name", "course_name"};
 
-    /** Filters (null / blank = no filter). sponsored: "yes" (has a sponsor) or "no". */
-    public record Filters(Long chapterId, String studyStatus, String status, String sponsored) {
+    /** Filters (null / blank = no filter). sponsored: "yes" (has a sponsor) or "no". year: the student's session (start) year. */
+    public record Filters(Long chapterId, String studyStatus, String status, String sponsored, Integer year) {
+        public Filters(Long chapterId, String studyStatus, String status, String sponsored) {
+            this(chapterId, studyStatus, status, sponsored, null);
+        }
     }
 
     private StudentDirectorySearch() {
@@ -32,6 +35,7 @@ public final class StudentDirectorySearch {
         if (f.chapterId() != null && !f.chapterId().equals(number(r.get("chapter_id")))) return false;
         if (!blank(f.studyStatus()) && !f.studyStatus().equals(StudyStatus.of((String) r.get("study_status")))) return false;
         if (!blank(f.status()) && !f.status().equalsIgnoreCase(String.valueOf(r.get("status")))) return false;
+        if (f.year() != null && !f.year().equals(r.get("year"))) return false;
         if ("yes".equalsIgnoreCase(f.sponsored()) && r.get("sponsor_id") == null) return false;
         if ("no".equalsIgnoreCase(f.sponsored()) && r.get("sponsor_id") != null) return false;
         return true;

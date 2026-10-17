@@ -207,13 +207,35 @@ public class ReportCatalogService {
         return users;
     }
 
+    /** Session year chosen for the report being built (set in rows()); null = all years. */
+    private static final ThreadLocal<Integer> SESSION_YEAR = new ThreadLocal<>();
+
+    private boolean inSessionYear(User u) {
+        Integer y = SESSION_YEAR.get();
+        return y == null || (u != null && y.equals(u.getYear()));
+    }
+
     private boolean seesStudent(Long studentId) {
+        if (SESSION_YEAR.get() != null && !inSessionYear(scopeUsers().get(studentId))) return false;
         return scope().all() || scope().includesId(studentId, scopeUsers());
     }
 
     private List<User> visibleStudents() {
         List<User> all = userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE);
-        return scope().all() ? all : all.stream().filter(scope()::includes).toList();
+        List<User> inScope = scope().all() ? all : all.stream().filter(scope()::includes).toList();
+        return inScope.stream().filter(this::inSessionYear).toList();
+    }
+
+    /** Session years of the students the user may see, newest first (the Reports page dropdown). */
+    public List<Integer> sessionYears() {
+        SCOPE.set(studentScope.current());
+        try {
+            return userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE).stream()
+                    .filter(u -> scope().all() || scope().includes(u)).map(User::getYear).filter(Objects::nonNull)
+                    .distinct().sorted(Comparator.reverseOrder()).toList();
+        } finally {
+            SCOPE.remove();
+        }
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -232,17 +254,17 @@ public class ReportCatalogService {
     }
 
     /** Builds a report download. from / to are optional inclusive days (ignored by reports without a date). */
-    public ReportFile build(String key, String format, LocalDate from, LocalDate to) {
+    public ReportFile build(String key, String format, LocalDate from, LocalDate to, Integer sessionYear) {
         ReportDefinition def = definition(key);
         String name = key + "_report" + (def.dateRange() && (from != null || to != null)
                 ? "_" + (from == null ? "start" : from) + "_to_" + (to == null ? "today" : to) : "");
-        return reportService.build(privateRows(key, from, to), name, format, def.title());
+        return reportService.build(privateRows(key, from, to, sessionYear), name + (sessionYear == null ? "" : "_" + sessionYear), format, def.title());
     }
 
     /** The report's rows for viewing on screen: { title, columns, rows } (an empty report has no columns). */
-    public Map<String, Object> data(String key, LocalDate from, LocalDate to) {
+    public Map<String, Object> data(String key, LocalDate from, LocalDate to, Integer sessionYear) {
         ReportDefinition def = definition(key);
-        List<Map<String, Object>> rows = privateRows(key, from, to);
+        List<Map<String, Object>> rows = privateRows(key, from, to, sessionYear);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("key", key);
         body.put("title", def.title());
@@ -263,8 +285,8 @@ public class ReportCatalogService {
 
     /** Report rows with sponsors' details blanked unless the user may see them (see SponsorPrivacy). */
     @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> privateRows(String key, LocalDate from, LocalDate to) {
-        List<Map<String, Object>> rows = rows(key, from, to);
+    private List<Map<String, Object>> privateRows(String key, LocalDate from, LocalDate to, Integer sessionYear) {
+        List<Map<String, Object>> rows = rows(key, from, to, sessionYear);
         if (!sponsorPrivacy.hidesDetails()) return rows;
         List<Map<String, Object>> masked = (List<Map<String, Object>>) sponsorPrivacy.mask(rows);
         masked.forEach(r -> r.remove("masked")); // marker for screens, not a report column
@@ -272,12 +294,14 @@ public class ReportCatalogService {
     }
 
     /** Rows of the report; from / to are optional inclusive days (ignored by reports without a date). */
-    private List<Map<String, Object>> rows(String key, LocalDate from, LocalDate to) {
+    /** sessionYear: only students who started in that session year (reports about students and their payments). */
+    private List<Map<String, Object>> rows(String key, LocalDate from, LocalDate to, Integer sessionYear) {
         if (from != null && to != null && to.isBefore(from)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "The 'to' date cannot be before the 'from' date.");
         }
         DateRange range = new DateRange(from, to);
         SCOPE.set(studentScope.current());
+        SESSION_YEAR.set(sessionYear);
         try {
             return switch (key) {
                 case "applications" -> applications(range);
@@ -320,6 +344,7 @@ public class ReportCatalogService {
         } finally {
             SCOPE.remove();
             USERS.remove();
+            SESSION_YEAR.remove();
         }
     }
 

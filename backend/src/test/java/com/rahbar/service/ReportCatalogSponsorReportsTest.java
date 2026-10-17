@@ -97,7 +97,7 @@ class ReportCatalogSponsorReportsTest {
 
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> rows(String key) {
-        return (List<Map<String, Object>>) service.data(key, null, null).get("rows");
+        return (List<Map<String, Object>>) service.data(key, null, null, null).get("rows");
     }
 
     @Test

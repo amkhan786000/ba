@@ -169,9 +169,13 @@ public class DashboardService {
 
     // ================================================================ Students
 
-    public Map<String, Object> students() {
+    /** sessionYear: only the students who started in that session year (null = all years). */
+    public Map<String, Object> students(Integer sessionYear) {
         LocalDate today = LocalDate.now();
-        String scope = scope("s");
+        String baseScope = scope("s");
+        String scope = sessionYear == null ? baseScope : baseScope + " AND s.year = " + sessionYear; // an Integer, so safe to inline
+        List<Long> years = jdbc.queryForList("SELECT DISTINCT s.year FROM users s WHERE " + STUDENT + baseScope
+                + " AND s.year IS NOT NULL ORDER BY s.year DESC", Long.class);
         Map<String, Long> study = studyStatusCounts(scope);
         long inProgramme = study.getOrDefault(StudyStatus.STUDYING, 0L) + study.getOrDefault(StudyStatus.ON_HOLD, 0L);
         long graduated = study.getOrDefault(StudyStatus.GRADUATED, 0L);
@@ -235,6 +239,7 @@ public class DashboardService {
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("scope", scopeLabel());
+        body.put("years", years);
         body.put("kpis", kpis);
         body.put("progress", progress);
         body.put("charts", charts);

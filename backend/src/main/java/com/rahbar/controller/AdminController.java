@@ -239,9 +239,9 @@ public class AdminController {
     @GetMapping("/manage-students")
     @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
     public Map<String, Object> manageStudents(@RequestParam(required = false) String q, @RequestParam(required = false) String institutionId,
-                                              @RequestParam(required = false) Long courseId, @RequestParam(required = false) Integer page,
-                                              @RequestParam(required = false) Integer size) {
-        return adminService.manageStudents(q, institutionId, courseId, page, size);
+                                              @RequestParam(required = false) Long courseId, @RequestParam(required = false) Integer year,
+                                              @RequestParam(required = false) Integer page, @RequestParam(required = false) Integer size) {
+        return adminService.manageStudents(q, institutionId, courseId, year, page, size);
     }
 
     @PostMapping("/manage-students/assign")
@@ -293,9 +293,10 @@ public class AdminController {
                                             @RequestParam(required = false) Long chapterId,
                                             @RequestParam(required = false) String studyStatus,
                                             @RequestParam(required = false) String status,
-                                            @RequestParam(required = false) String sponsored) {
+                                            @RequestParam(required = false) String sponsored,
+                                            @RequestParam(required = false) Integer year) {
         return adminService.listStudents(start, length, search, institutionId, courseId,
-                new StudentDirectorySearch.Filters(chapterId, studyStatus, status, sponsored));
+                new StudentDirectorySearch.Filters(chapterId, studyStatus, status, sponsored, year));
     }
 
     /** The study statuses ({ code, label }), so every screen shows the same list and labels. */

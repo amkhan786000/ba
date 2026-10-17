@@ -50,6 +50,13 @@ const CATEGORY_ICONS: Record<string, string> = {
           <label for="q">Find a report</label>
           <input id="q" class="form-control" [(ngModel)]="q" placeholder="e.g. overdue, sponsor, progress">
         </div>
+        <div class="form-group mb-lg-0 mr-lg-3" *ngIf="hasSessionYears">
+          <label for="sy">Session year</label>
+          <select id="sy" class="form-control" [(ngModel)]="sessionYear" (ngModelChange)="viewing && view(viewing)">
+            <option value="">All years</option>
+            <option *ngFor="let y of sessionYears" [value]="y">{{ y }}</option>
+          </select>
+        </div>
         <div class="form-group mb-lg-0 mr-lg-3">
           <label for="from">From</label>
           <app-date-input id="from" [(ngModel)]="from"></app-date-input>
@@ -61,6 +68,7 @@ const CATEGORY_ICONS: Record<string, string> = {
       </div>
       <div class="card-body pt-0 small text-muted">
         The date range applies to reports marked <span class="badge badge-info">Date range</span>; leave it empty for everything.
+        <ng-container *ngIf="hasSessionYears">The session year limits reports about students and their payments to the students who started that year.</ng-container>
       </div>
     </div>
 
@@ -163,6 +171,8 @@ export class AdminReportsComponent implements OnInit {
   reports: ReportDef[] = [];
   q = '';
   from = '';
+  sessionYear = '';
+  sessionYears: number[] = [];
   to = '';
   /** Report key + format being downloaded, e.g. "paymentscsv". */
   busy = '';
@@ -185,7 +195,11 @@ export class AdminReportsComponent implements OnInit {
     this.title = route.snapshot.data['title'] ?? 'Reports';
   }
 
+  /** Only the main Reports page has the session-year filter (the REB reports are a separate set). */
+  get hasSessionYears(): boolean { return this.base === '/admin/reports' && this.sessionYears.length > 0; }
+
   ngOnInit(): void {
+    if (this.base === '/admin/reports') this.api.get<number[]>(`${this.base}/session-years`).subscribe({ next: (y) => (this.sessionYears = y), error: () => {} });
     this.api.get<ReportDef[]>(this.base).subscribe({
       next: (r) => (this.reports = r),
       error: (e) => (this.error = errorText(e, 'Could not load the list of reports.'))
@@ -207,7 +221,9 @@ export class AdminReportsComponent implements OnInit {
   icon(category: string): string { return CATEGORY_ICONS[category] ?? 'mdi-file-chart'; }
 
   private params(r: ReportDef): Record<string, string> {
-    return r.dateRange ? { from: this.from, to: this.to } : {};
+    const p: Record<string, string> = r.dateRange ? { from: this.from, to: this.to } : {};
+    if (this.sessionYear && this.base === '/admin/reports') p['sessionYear'] = this.sessionYear;
+    return p;
   }
 
   view(r: ReportDef): void {
