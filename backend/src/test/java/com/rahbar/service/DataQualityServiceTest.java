@@ -39,9 +39,11 @@ class DataQualityServiceTest {
     private final WebBlogPostRepository posts = mock(WebBlogPostRepository.class);
     private final WebProjectRepository projects = mock(WebProjectRepository.class);
     private final GranteeDetailsRepository applications = mock(GranteeDetailsRepository.class);
-    private final DataQualityService service = new DataQualityService(users, mock(GrantorGranteeRepository.class),
+    private final GrantorGranteeRepository mappings = mock(GrantorGranteeRepository.class);
+    private final PaymentRepository payments = mock(PaymentRepository.class);
+    private final DataQualityService service = new DataQualityService(users, mappings,
             mock(BankDetailsRepository.class), mock(StudentInstitutionCourseRepository.class), applications,
-            mock(PaymentRepository.class), mock(ChapterRepository.class), roles, centers, volunteers, messages,
+            payments, mock(ChapterRepository.class), roles, centers, volunteers, messages,
             mock(WebMemberRepository.class), posts, mock(WebStoryRepository.class), projects, mock(PaymentScheduleRepository.class));
 
     private static User user(long id, int role, String ref) {
@@ -83,7 +85,7 @@ class DataQualityServiceTest {
     void everyCheckHasAMenuGroupAndAScreen() {
         Set<String> groups = Set.of("students", "sponsors", "community", "website", "administration");
         var checks = service.checks();
-        assertEquals(35, checks.size()); // 23 before, duplicate sponsors, 10 payment set-up checks, same person / two accounts
+        assertEquals(39, checks.size()); // 27 before (incl. sponsor chapter / phone, other chapter, spent proof), duplicate sponsors, 10 payment set-up checks, same person / two accounts
         for (var c : checks) {
             assertTrue(groups.contains((String) c.get("group")), c.get("key") + " has group " + c.get("group"));
             assertTrue(String.valueOf(c.get("link")).startsWith("/admin/"), c.get("key") + " has link " + c.get("link"));
@@ -306,5 +308,35 @@ class DataQualityServiceTest {
         Set<Object> out = new HashSet<>();
         rows(check).forEach(r -> out.add(r.get("user_id")));
         return out;
+    }
+
+    @Test
+    void sponsorPhoneOtherChapterAndSpentProof() {
+        User sp = user(60, 5, "SP-60"); sp.setName("Sara Sponsor"); sp.setChapterId(1L); sp.setPhone("12"); // too short
+        User ok = user(61, 5, "SP-61"); ok.setName("Omar Sponsor"); ok.setChapterId(2L); ok.setPhone("+91 98765 43210");
+        User st = user(62, 6, "ST-62"); st.setName("Ayesha"); st.setChapterId(2L); st.setStudyStatus("STUDYING");
+        when(users.findByRoleId(5)).thenReturn(List.of(sp, ok));
+        when(users.findByRoleId(6)).thenReturn(List.of(st));
+        var gg = new com.rahbar.entity.GrantorGrantee();
+        gg.setGrantorId(60L);
+        gg.setGranteeId(62L);
+        when(mappings.findAll()).thenReturn(List.of(gg));
+        var old = new com.rahbar.entity.Payment();
+        old.setPaymentId(1L); old.setGrantorId(60L); old.setGranteeId(62L); old.setStatus("Paid");
+        old.setPaymentDate(java.time.LocalDateTime.now().minusDays(45));
+        var recent = new com.rahbar.entity.Payment();
+        recent.setPaymentId(2L); recent.setGrantorId(60L); recent.setGranteeId(62L); recent.setStatus("Paid");
+        recent.setPaymentDate(java.time.LocalDateTime.now().minusDays(5));
+        var proved = new com.rahbar.entity.Payment();
+        proved.setPaymentId(3L); proved.setGrantorId(60L); proved.setGranteeId(62L); proved.setStatus("Paid");
+        proved.setPaymentDate(java.time.LocalDateTime.now().minusDays(90)); proved.setStudentProofUrl("proof.pdf");
+        when(payments.findAll()).thenReturn(List.of(old, recent, proved));
+
+        var checks = byKey();
+        assertEquals(List.of(60L), rows(checks.get("sponsors_without_phone")).stream().map(r -> r.get("id")).toList());
+        var other = rows(checks.get("students_sponsor_other_chapter"));
+        assertEquals(1, other.size()); // student in chapter 2, sponsor in chapter 1
+        assertEquals(62L, other.get(0).get("id"));
+        assertEquals(List.of(1L), rows(checks.get("payments_without_spent_proof")).stream().map(r -> r.get("payment_id")).toList());
     }
 }

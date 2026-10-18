@@ -76,6 +76,8 @@ public class DataQualityService {
     }
 
     // groups, the same as the admin menu
+    /** A paid payment gets this many days for the student's spent proof before Data Quality lists it. */
+    static final int SPENT_PROOF_DAYS = 30;
     static final String STUDENTS = "students", SPONSORS = "sponsors", COMMUNITY = "community", WEBSITE = "website",
             ADMINISTRATION = "administration";
 
@@ -125,11 +127,12 @@ public class DataQualityService {
                 .filter(u -> !coachingOnly(u))
                 .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
+        Long unassigned = ServiceSupport.unassignedGrantorId(userRepository);
+        // Active sponsors; the "unassigned" placeholder and merged accounts aren't real sponsors.
         List<User> sponsors = userRepository.findByRoleId(5).stream()
-                .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()))
+                .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && u.getMergedIntoId() == null && !u.getId().equals(unassigned))
                 .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
                 .toList();
-        Long unassigned = ServiceSupport.unassignedGrantorId(userRepository);
         Set<Long> sponsored = new HashSet<>(), sponsorsWithStudents = new HashSet<>();
         for (GrantorGrantee gg : grantorGranteeRepository.findAll()) {
             if (gg.getGrantorId() != null && !gg.getGrantorId().equals(unassigned)) {
@@ -163,6 +166,27 @@ public class DataQualityService {
                 "They can't get payment reminders or broadcast emails.", sponsors, u -> !usableEmail(u.getEmail()))));
         checks.add(in(SPONSORS, "/admin/sponsorships", userCheck("sponsors_without_students", "Sponsors without students",
                 "Active sponsors with no student mapped to them.", sponsors, u -> !sponsorsWithStudents.contains(u.getId()))));
+        checks.add(in(SPONSORS, "/admin/users", userCheck("sponsors_without_phone", "Sponsors without a valid phone number",
+                "No phone, or too short to be a real number: the office can't call them or reach them on WhatsApp.",
+                sponsors, u -> phone(u.getPhone()) == null)));
+        Map<Long, User> sponsorById = new HashMap<>();
+        sponsors.forEach(sp -> sponsorById.put(sp.getId(), sp));
+        Map<Long, Long> sponsorOf = new HashMap<>();
+        grantorGranteeRepository.findAll().forEach(gg -> { if (gg.getGrantorId() != null) sponsorOf.put(gg.getGranteeId(), gg.getGrantorId()); });
+        List<Map<String, Object>> otherChapter = new ArrayList<>();
+        for (User st : students) {
+            User sp = sponsorById.get(sponsorOf.get(st.getId()));
+            if (sp == null || sp.getChapterId() == null || st.getChapterId() == null || sp.getChapterId().equals(st.getChapterId())) continue;
+            otherChapter.add(row("id", st.getId(), "user_id", st.getUserId(), "name", st.getName(), "student_chapter", st.getChapterName(),
+                    "sponsor", sp.getName() + " (" + sp.getUserId() + ")", "sponsor_chapter", sp.getChapterName(),
+                    "study_status", StudyStatus.label(st.getStudyStatus())));
+        }
+        checks.add(byStudy(in(SPONSORS, "/admin/students", check("students_sponsor_other_chapter", "Students in a different chapter from their sponsor",
+                "For review: the student's chapter isn't the sponsor's. Fine when the sponsor supports students of several "
+                        + "chapters; otherwise correct the student's chapter (BA Details) or the sponsor's.", otherChapter))));
+        checks.add(in(SPONSORS, "/admin/users", userCheck("sponsors_without_chapter", "Sponsors without a chapter",
+                "Active sponsors not assigned to a chapter: they show on no chapter dashboard and in no chapter's follow-ups "
+                        + "(Users > Edit > Chapter).", sponsors, u -> u.getChapterId() == null)));
 
         List<Map<String, Object>> unlinked = new ArrayList<>();
         for (GranteeDetails g : granteeDetailsRepository.findAll()) {
@@ -176,7 +200,18 @@ public class DataQualityService {
         Map<Long, User> people = new HashMap<>();
         userRepository.findAll().forEach(u -> people.put(u.getId(), u));
         List<Map<String, Object>> noReceipt = new ArrayList<>();
+        List<Map<String, Object>> noSpentProof = new ArrayList<>();
+        java.time.LocalDateTime proofDue = java.time.LocalDateTime.now().minusDays(SPENT_PROOF_DAYS);
         for (Payment p : paymentRepository.findAll()) {
+            // paid a while ago, and the student hasn't shown how the money was spent
+            if ("Paid".equalsIgnoreCase(p.getStatus()) && blank(p.getStudentProofUrl()) && p.getPaymentDate() != null
+                    && p.getPaymentDate().isBefore(proofDue)) {
+                User st = people.get(p.getGranteeId()), sp = people.get(p.getGrantorId());
+                noSpentProof.add(row("payment_id", p.getPaymentId(), "payment_date", p.getPaymentDate(),
+                        "student", st == null ? null : st.getName() + " (" + st.getUserId() + ")",
+                        "sponsor", sp == null ? null : sp.getName() + " (" + sp.getUserId() + ")",
+                        "days_since_payment", java.time.temporal.ChronoUnit.DAYS.between(p.getPaymentDate().toLocalDate(), java.time.LocalDate.now())));
+            }
             if (p.getReceiptUrl() != null && !p.getReceiptUrl().isBlank()) continue;
             User st = people.get(p.getGranteeId()), sp = people.get(p.getGrantorId());
             noReceipt.add(row("payment_id", p.getPaymentId(), "payment_date", p.getPaymentDate(),
@@ -186,6 +221,9 @@ public class DataQualityService {
         }
         checks.add(in(SPONSORS, "/admin/payment-records", check("payments_without_receipt", "Payments without a receipt",
                 "No receipt was uploaded for these payments.", noReceipt)));
+        checks.add(in(SPONSORS, "/admin/payment-records", check("payments_without_spent_proof", "Payments without the student's spent proof",
+                "Paid more than " + SPENT_PROOF_DAYS + " days ago, and the student hasn't uploaded proof of how the money was spent "
+                        + "(Student > Payments). Sponsors see this as \"spent proof pending\".", noSpentProof)));
 
         List<Map<String, Object>> noLead = new ArrayList<>();
         for (Chapter c : chapterRepository.findAllByOrderByChapterNameAsc()) {
