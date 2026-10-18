@@ -8,6 +8,7 @@ import { AppDatePipe } from '../shared/app-date';
 import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.component';
 import { ColumnChartComponent, SeriesData } from '../shared/charts/column-chart.component';
 import { DonutChartComponent } from '../shared/charts/donut-chart.component';
+import { LineChartComponent } from '../shared/charts/line-chart.component';
 import { StatTileComponent } from '../shared/charts/stat-tile.component';
 
 interface SponsorsDashboard {
@@ -17,6 +18,8 @@ interface SponsorsDashboard {
   kpis: Record<string, number | null>;
   charts: {
     studentsPerSponsor: BarDatum[]; sponsorsByChapter: BarDatum[]; mappings: SeriesData; sponsorshipLength: BarDatum[];
+    /** Sponsored students now, by the student's chapter; and per year, per chapter (largest chapters + Others). */
+    sponsoredByChapter?: BarDatum[]; sponsoredByChapterByYear?: SeriesData;
     collectedByMonth?: SeriesData; dueVsPaid?: SeriesData; overdueAgeing?: BarDatum[]; upcoming?: BarDatum[];
     methods?: BarDatum[]; onlineByPurpose?: BarDatum[];
   };
@@ -27,7 +30,7 @@ interface SponsorsDashboard {
 @Component({
   selector: 'app-admin-sponsors-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, BarChartComponent, ColumnChartComponent,
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, BarChartComponent, ColumnChartComponent, LineChartComponent,
     DonutChartComponent, StatTileComponent],
   styles: [`
     .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
@@ -153,6 +156,19 @@ interface SponsorsDashboard {
           <div class="card"><div class="card-body">
             <h4 class="header-title mb-3">Active sponsors by chapter</h4>
             <app-bar-chart [data]="d.charts.sponsorsByChapter" emptyText="No sponsors yet."></app-bar-chart>
+          </div></div>
+        </div>
+        <div class="col-xl-4 col-md-6">
+          <div class="card"><div class="card-body">
+            <h4 class="header-title mb-3">Sponsored students by chapter <small>now, the student's chapter</small></h4>
+            <app-donut-chart [data]="d.charts.sponsoredByChapter || []" caption="sponsored" emptyText="No sponsored students yet."></app-donut-chart>
+          </div></div>
+        </div>
+        <div class="col-xl-8">
+          <div class="card"><div class="card-body">
+            <h4 class="header-title mb-3">Students sponsored each year, by chapter <small>sponsored at any time in the year; ▲▼ vs the year before</small></h4>
+            <app-line-chart [data]="d.charts.sponsoredByChapterByYear" ariaLabel="Students sponsored each year by chapter"
+                            emptyText="No sponsorship history yet."></app-line-chart>
           </div></div>
         </div>
         <div class="col-12">

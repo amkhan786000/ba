@@ -297,6 +297,12 @@ public class DashboardService {
                 LEFT JOIN chapters c ON c.chapter_id = u.chapter_id
                 WHERE u.status = 'Active' AND u.merged_into_id IS NULL AND %s%s
                 GROUP BY label ORDER BY value DESC LIMIT 12""".formatted(isSponsor("u"), scope("u"))));
+        // Students sponsored now, by the student's own chapter (pie).
+        charts.put("sponsoredByChapter", labelled("""
+                SELECT COALESCE(c.chapter_name, 'No chapter') label, COUNT(*) value
+                FROM grantor_grantees gg JOIN users s ON s.id = gg.grantee_id LEFT JOIN chapters c ON c.chapter_id = s.chapter_id
+                WHERE %s%s%s%s GROUP BY label ORDER BY value DESC""".formatted(STUDENT, IN_PROGRAMME, scope, realSponsor)));
+        charts.put("sponsoredByChapterByYear", sponsoredByChapterByYear(scope, unassigned, today.getYear()));
         charts.put("mappings", mappingsByMonth(scope, year));
         // How long the current sponsor-student pairs have been together.
         charts.put("sponsorshipLength", labelled("""
@@ -357,6 +363,65 @@ public class DashboardService {
         }
         body.put("charts", charts);
         return body;
+    }
+
+    /** Chapters drawn as their own line; the rest are added up as "Others". */
+    static final int TREND_CHAPTERS = 6;
+    /** Years shown at most (the latest ones). */
+    static final int TREND_YEARS = 10;
+
+    /**
+     * Students sponsored in each year, per chapter (the student's chapter): a student counts in every year in which
+     * they had a sponsor at some point (from the mapping history). The chapters with the most students get their own
+     * line, the rest are "Others", so a chapter's sponsorship growing or falling shows year by year.
+     */
+    private Map<String, Object> sponsoredByChapterByYear(String scope, Long unassigned, int thisYear) {
+        List<Map<String, Object>> periods = jdbc.queryForList("""
+                SELECT h.grantee_id student, COALESCE(c.chapter_name, 'No chapter') chapter, h.started_at, h.ended_at
+                FROM sponsor_mapping_history h JOIN users s ON s.id = h.grantee_id LEFT JOIN chapters c ON c.chapter_id = s.chapter_id
+                WHERE h.started_at IS NOT NULL AND s.role_id = 6 AND s.merged_into_id IS NULL%s%s"""
+                .formatted(scope, unassigned == null ? "" : " AND h.grantor_id <> " + unassigned));
+        int first = thisYear;
+        for (Map<String, Object> p : periods) first = Math.min(first, toDateTime(p.get("started_at")).getYear());
+        first = Math.max(first, thisYear - TREND_YEARS + 1);
+        int years = thisYear - first + 1;
+        // chapter -> per year: the students sponsored that year
+        Map<String, List<Set<Long>>> byChapter = new HashMap<>();
+        for (Map<String, Object> p : periods) {
+            int from = Math.max(first, toDateTime(p.get("started_at")).getYear());
+            int to = p.get("ended_at") == null ? thisYear : Math.min(thisYear, toDateTime(p.get("ended_at")).getYear());
+            List<Set<Long>> perYear = byChapter.computeIfAbsent((String) p.get("chapter"), k -> {
+                List<Set<Long>> l = new ArrayList<>();
+                for (int i = 0; i < years; i++) l.add(new HashSet<>());
+                return l;
+            });
+            for (int y = from; y <= to; y++) perYear.get(y - first).add(num(p.get("student")));
+        }
+        // the biggest chapters (students over all the years) get a line each
+        List<String> chapters = new ArrayList<>(byChapter.keySet());
+        chapters.sort(Comparator.comparingLong((String ch) -> byChapter.get(ch).stream().mapToLong(Set::size).sum()).reversed()
+                .thenComparing(Comparator.naturalOrder()));
+        List<Map<String, Object>> lines = new ArrayList<>();
+        long[] others = new long[years];
+        for (int i = 0; i < chapters.size(); i++) {
+            List<Set<Long>> perYear = byChapter.get(chapters.get(i));
+            if (i < TREND_CHAPTERS) {
+                lines.add(serie(chapters.get(i), perYear.stream().map(st -> (long) st.size()).toList()));
+            } else {
+                for (int y = 0; y < years; y++) others[y] += perYear.get(y).size();
+            }
+        }
+        if (chapters.size() > TREND_CHAPTERS) lines.add(serie("Others", toList(others)));
+        List<String> labels = new ArrayList<>();
+        for (int y = first; y <= thisYear; y++) labels.add(String.valueOf(y));
+        return series(labels, lines);
+    }
+
+    private static java.time.LocalDateTime toDateTime(Object v) {
+        if (v instanceof java.time.LocalDateTime t) return t;
+        if (v instanceof java.sql.Timestamp t) return t.toLocalDateTime();
+        if (v instanceof java.time.LocalDate d) return d.atStartOfDay();
+        return java.time.LocalDateTime.parse(String.valueOf(v).replace(' ', 'T'));
     }
 
     /** Sponsor-student pairings started and ended per month of the year (from the mapping history). */
