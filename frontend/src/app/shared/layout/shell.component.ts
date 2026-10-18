@@ -19,6 +19,8 @@ export interface NavLink {
   section?: Section;
   /** Key of a NAV_GROUPS entry: the link is shown under that group's heading, which opens and closes. */
   group?: string;
+  /** Shown to the Super Admin only. */
+  superAdmin?: boolean;
 }
 
 /** One line of the sidebar: a link, or a group of links. */
@@ -142,7 +144,9 @@ export class ShellComponent implements OnDestroy {
   @Input() title = '';
   @Input() set links(v: NavLink[] | undefined) { this._links = v ?? []; this.updateLabel(); this.openActiveGroup(); }
   /** Menu entries the user may open (admin entries carry the section they need VIEW on). */
-  get links(): NavLink[] { return this._links.filter((l) => !l.section || this.auth.can(l.section)); }
+  get links(): NavLink[] {
+    return this._links.filter((l) => (!l.section || this.auth.can(l.section)) && (!l.superAdmin || this.auth.isSuperAdmin()));
+  }
 
   /** The sidebar: plain links, and groups (in the order of their first link) holding the links the user may open. */
   get entries(): NavEntry[] {
