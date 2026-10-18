@@ -138,6 +138,7 @@ public class ActivityLogInterceptor implements HandlerInterceptor {
         label("POST /api/admin/users", "Created a user");
         label("PUT /api/admin/users/[^/]+", "Updated a user");
         label("DELETE /api/admin/users/[^/]+", "Deleted a user");
+        label("POST /api/admin/bulk-password-reset", "Started a bulk password reset");
         label("POST /api/admin/users/[^/]+/reset-password", "Reset a user's password");
         label("POST /api/admin/broadcasts", "Sent or scheduled a broadcast message");
         label("POST /api/admin/broadcasts/[0-9]+/cancel", "Cancelled a scheduled broadcast");

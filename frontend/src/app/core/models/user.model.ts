@@ -55,7 +55,7 @@ export const NAV_GROUPS: Record<string, { label: string; icon: string }> = {
 
 /** Admin menu, in order; each entry needs VIEW on its section. Entries of a group stay together. */
 /** Entries without a section are shown to everyone in the admin area (e.g. Documents, which filters per document). */
-export const ADMIN_LINKS: { path: string; label: string; icon: string; section?: Section; group?: string }[] = [
+export const ADMIN_LINKS: { path: string; label: string; icon: string; section?: Section; group?: string; superAdmin?: boolean }[] = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard', section: 'DASHBOARD' },
 
   { path: '/admin/students-dashboard', label: 'Students Dashboard', icon: 'mdi-chart-bar', section: 'STUDENTS', group: 'students' },
@@ -119,7 +119,8 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline', group: 'administration' },
   { path: '/admin/app-settings', label: 'Application Settings', icon: 'mdi-tune-variant', section: 'APP_SETTINGS', group: 'administration' },
   { path: '/admin/data-quality', label: 'Data Quality', icon: 'mdi-clipboard-check-outline', section: 'DATA_QUALITY', group: 'administration' },
-  { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY', group: 'administration' }
+  { path: '/admin/activity', label: 'Activity Log', icon: 'mdi-history', section: 'ACTIVITY', group: 'administration' },
+  { path: '/admin/bulk-password-reset', label: 'Bulk Password Reset', icon: 'mdi-lock-reset', section: 'USERS', group: 'administration', superAdmin: true }
 ];
 
 /** True when the user has the role, as their main role or an additional one. */

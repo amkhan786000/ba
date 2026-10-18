@@ -13,6 +13,7 @@ import { AdminApplicationsDashboardComponent } from './admin/admin-applications-
 import { AdminUsersComponent } from './admin/admin-users.component';
 import { AdminBroadcastsComponent } from './admin/admin-broadcasts.component';
 import { AdminUserEditComponent } from './admin/admin-user-edit.component';
+import { AdminBulkPasswordResetComponent } from './admin/admin-bulk-password-reset.component';
 import { AdminRolesComponent } from './admin/admin-roles.component';
 import { AdminRoleEditComponent } from './admin/admin-role-edit.component';
 import { AdminSystemConfigComponent } from './admin/admin-system-config.component';
@@ -142,6 +143,7 @@ export const routes: Routes = [
       { path: 'email-templates/:key', component: AdminEmailTemplateEditComponent, canActivate: [permissionGuard], data: { permission: 'EMAIL_TEMPLATES' } },
       { path: 'institutions/:id/edit', component: AdminInstitutionAddComponent, canActivate: [permissionGuard], data: { permission: 'COURSES' } },
       { path: 'activity', component: AdminActivityLogComponent, canActivate: [permissionGuard], data: { permission: 'ACTIVITY' } },
+      { path: 'bulk-password-reset', component: AdminBulkPasswordResetComponent, canActivate: [permissionGuard], data: { permission: 'USERS' } },
       { path: 'broadcasts', component: AdminBroadcastsComponent, canActivate: [permissionGuard], data: { permission: 'MESSAGES' } },
       { path: 'reports', component: AdminReportsComponent, canActivate: [permissionGuard], data: { permission: 'REPORTS' } },
       { path: 'application-period', component: AdminApplicationPeriodComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATION_PERIOD' } },
