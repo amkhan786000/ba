@@ -31,7 +31,7 @@ public class SponsorPrivacyAdvice implements ResponseBodyAdvice<Object> {
     public Object beforeBodyWrite(Object body, MethodParameter returnType, MediaType contentType,
                                   Class<? extends HttpMessageConverter<?>> converterType,
                                   ServerHttpRequest request, ServerHttpResponse response) {
-        if ((body instanceof Map<?, ?> || body instanceof Collection<?>) && sponsorPrivacy.hidesDetails()) {
+        if ((body instanceof Map<?, ?> || body instanceof Collection<?>) && sponsorPrivacy.appliesNow()) {
             return sponsorPrivacy.mask(body);
         }
         return body;

@@ -1,5 +1,6 @@
 package com.rahbar.service;
 
+import com.rahbar.security.Access;
 import com.rahbar.util.UserRoles;
 import com.rahbar.entity.WebBlogPost;
 import com.rahbar.repository.WebBlogPostRepository;
@@ -178,7 +179,7 @@ public class DataQualityService {
             User sp = sponsorById.get(sponsorOf.get(st.getId()));
             if (sp == null || sp.getChapterId() == null || st.getChapterId() == null || sp.getChapterId().equals(st.getChapterId())) continue;
             otherChapter.add(row("id", st.getId(), "user_id", st.getUserId(), "name", st.getName(), "student_chapter", st.getChapterName(),
-                    "sponsor", sp.getName() + " (" + sp.getUserId() + ")", "sponsor_chapter", sp.getChapterName(),
+                    "sponsor", sponsorText(sp), "sponsor_chapter", hidden(sp) ? null : sp.getChapterName(),
                     "study_status", StudyStatus.label(st.getStudyStatus())));
         }
         checks.add(byStudy(in(SPONSORS, "/admin/students", check("students_sponsor_other_chapter", "Students in a different chapter from their sponsor",
@@ -209,14 +210,14 @@ public class DataQualityService {
                 User st = people.get(p.getGranteeId()), sp = people.get(p.getGrantorId());
                 noSpentProof.add(row("payment_id", p.getPaymentId(), "payment_date", p.getPaymentDate(),
                         "student", st == null ? null : st.getName() + " (" + st.getUserId() + ")",
-                        "sponsor", sp == null ? null : sp.getName() + " (" + sp.getUserId() + ")",
+                        "sponsor", sponsorText(sp),
                         "days_since_payment", java.time.temporal.ChronoUnit.DAYS.between(p.getPaymentDate().toLocalDate(), java.time.LocalDate.now())));
             }
             if (p.getReceiptUrl() != null && !p.getReceiptUrl().isBlank()) continue;
             User st = people.get(p.getGranteeId()), sp = people.get(p.getGrantorId());
             noReceipt.add(row("payment_id", p.getPaymentId(), "payment_date", p.getPaymentDate(),
                     "student", st == null ? null : st.getName() + " (" + st.getUserId() + ")",
-                    "sponsor", sp == null ? null : sp.getName() + " (" + sp.getUserId() + ")",
+                    "sponsor", sponsorText(sp),
                     "status", p.getStatus()));
         }
         checks.add(in(SPONSORS, "/admin/payment-records", check("payments_without_receipt", "Payments without a receipt",
@@ -337,7 +338,7 @@ public class DataQualityService {
             if (st == null || sp == null || "Inactive".equalsIgnoreCase(st.getStatus())) continue;
             String study = StudyStatus.of(st.getStudyStatus());
             Map<String, Object> r = row("id", st.getId(), "user_id", st.getUserId(), "name", st.getName(),
-                    "study_status", StudyStatus.label(study), "sponsor", sp.getName() + " (" + ServiceSupport.refOf(sp) + ")");
+                    "study_status", StudyStatus.label(study), "sponsor", sponsorText(sp));
             if (StudyStatus.GRADUATED.equals(study) || StudyStatus.DROPPED_OUT.equals(study)) finishedMapped.add(r);
             else if ("Inactive".equalsIgnoreCase(sp.getStatus()) && current.contains(st.getId())) inactiveSponsor.add(r);
         }
@@ -503,6 +504,16 @@ public class DataQualityService {
 
     private static boolean older(LocalDateTime when, LocalDateTime before) {
         return when != null && when.isBefore(before);
+    }
+
+    /** "Name (code)" of a sponsor in a row; an anonymous sponsor stays anonymous except to the Super Admin. */
+    private static String sponsorText(User sp) {
+        if (sp == null) return null;
+        return (hidden(sp) ? com.rahbar.security.SponsorPrivacy.ANONYMOUS : sp.getName()) + " (" + ServiceSupport.refOf(sp) + ")";
+    }
+
+    private static boolean hidden(User sp) {
+        return sp != null && Boolean.TRUE.equals(sp.getAnonymousSponsor()) && !Access.isSuperAdmin();
     }
 
     private static boolean blank(String s) {

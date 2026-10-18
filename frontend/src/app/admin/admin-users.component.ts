@@ -27,6 +27,8 @@ export interface UserRow {
   additional_role_ids?: number[];
   additional_role_names?: string[];
   status: string;
+  /** Shown as "Anonymous sponsor" to everyone but the Super Admin and the sponsor (Super Admin sets it). */
+  anonymous_sponsor?: boolean | null;
   chapter_id?: number | null;
   rcc_center_id?: number | null;
   /** A sponsor whose contact / personal details the viewer may not see (they come back blank). */

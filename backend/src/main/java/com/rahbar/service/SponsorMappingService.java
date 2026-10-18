@@ -101,11 +101,14 @@ public class SponsorMappingService {
 
     /**
      * A student mapped to a sponsor belongs to the sponsor's chapter. A sponsor without a chapter (or the
-     * "unassigned" grantor, or no sponsor) leaves the student's chapter as it is; the sponsor's chapter never changes.
+     * "unassigned" grantor, or no sponsor) leaves the student's chapter as it is; so does an anonymous sponsor (they
+     * pass on support from several chapters: the student keeps their own). The sponsor's chapter never changes.
      */
     private void takeSponsorsChapter(Long granteeId, Long sponsorId) {
         if (sponsorId == null || sponsorId.equals(ServiceSupport.unassignedGrantorId(userRepository))) return;
-        Long chapterId = userRepository.findById(sponsorId).map(User::getChapterId).orElse(null);
+        User sponsor = userRepository.findById(sponsorId).orElse(null);
+        if (sponsor == null || Boolean.TRUE.equals(sponsor.getAnonymousSponsor())) return;
+        Long chapterId = sponsor.getChapterId();
         if (chapterId == null) return;
         userRepository.findById(granteeId).ifPresent(student -> {
             if (!chapterId.equals(student.getChapterId())) {
@@ -147,9 +150,9 @@ public class SponsorMappingService {
                 NotificationService.MAPPING, UserRoles.has(sponsor, 5, userRepository) ? "/sponsor/dashboard" : null,
                 EmailType.SPONSOR_STUDENT_MAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", ServiceSupport.refOf(student)));
         notificationService.notify(granteeId, "You have a sponsor",
-                sponsor.getName() + " is now your sponsor. You can see your payment schedule on your Payments page.",
+                com.rahbar.security.SponsorPrivacy.forStudent(sponsor, student) + " is now your sponsor. You can see your payment schedule on your Payments page.",
                 NotificationService.MAPPING, "/student/dashboard",
-                EmailType.STUDENT_SPONSOR_ASSIGNED, ServiceSupport.vars("sponsor_name", sponsor.getName()));
+                EmailType.STUDENT_SPONSOR_ASSIGNED, ServiceSupport.vars("sponsor_name", com.rahbar.security.SponsorPrivacy.forStudent(sponsor, student)));
     }
 
     /** Emails the previous sponsor that the student is no longer mapped to them. */

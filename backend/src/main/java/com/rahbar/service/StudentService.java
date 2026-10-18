@@ -52,9 +52,13 @@ public class StudentService {
 
     public Map<String, Object> dashboard(Long userId) {
         Map<String, Object> student = Rows.pick(requireUser(userRepository, userId, "Student not found"), STUDENT_COLUMNS);
+        User me = userRepository.findById(userId).orElse(null);
         Map<String, Object> sponsor = grantorGranteeRepository.findFirstByGranteeId(userId)
                 .flatMap(gg -> userRepository.findById(gg.getGrantorId()))
-                .map(u -> Rows.pick(u, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name"))
+                // an anonymous sponsor: only "A sponsor from <your chapter>", nothing that says who they are
+                .map(u -> Boolean.TRUE.equals(u.getAnonymousSponsor())
+                        ? Map.<String, Object>of("name", com.rahbar.security.SponsorPrivacy.forStudent(u, me), "anonymous", true)
+                        : Rows.pick(u, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name"))
                 .orElse(Map.of());
         return Map.of("student", student, "sponsor", sponsor);
     }

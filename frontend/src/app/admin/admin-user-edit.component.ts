@@ -89,6 +89,16 @@ import { RccCenter } from './admin-rcc-centers.component';
                     </select>
                   </div>
                 </div>
+                <div class="col-12" *ngIf="showAnonymous">
+                  <div class="custom-control custom-checkbox mb-2">
+                    <input type="checkbox" class="custom-control-input" id="anon" name="anonymousSponsor" [(ngModel)]="form.anonymousSponsor">
+                    <label class="custom-control-label" for="anon"><strong>Anonymous sponsor</strong></label>
+                  </div>
+                  <small class="text-muted d-block mb-2">
+                    Only you (Super Admin) and the sponsor see who they are. Students see "A sponsor from &lt;their chapter&gt;";
+                    chapter users and office staff see "Anonymous sponsor". Students mapped to them keep their own chapter.
+                  </small>
+                </div>
               </div>
               <div *ngIf="deleteReasons?.length" class="alert alert-warning mt-3 mb-0" role="alert">
                 <strong>This user can't be deleted:</strong>
@@ -115,7 +125,7 @@ export class AdminUserEditComponent implements OnInit {
   @Input() id = '';
 
   roles: RoleOption[] = [];
-  form: { name: string; email: string; roleId: number; additionalRoleIds: number[]; status: string; chapterId: number | null; rccCenterId: number | null } | null = null;
+  form: { name: string; email: string; roleId: number; additionalRoleIds: number[]; status: string; chapterId: number | null; rccCenterId: number | null; anonymousSponsor: boolean } | null = null;
   chapters: Chapter[] = [];
   rccCenters: RccCenter[] = [];
   private originalChapterId: number | null = null;
@@ -149,7 +159,7 @@ export class AdminUserEditComponent implements OnInit {
         this.originalChapterId = u.chapter_id ?? null;
         this.masked = !!u.masked;
         this.form = { name: u.name, email: u.email ?? '', roleId: u.role_id, additionalRoleIds: u.additional_role_ids ?? [], status: u.status,
-                      chapterId: u.chapter_id ?? null, rccCenterId: u.rcc_center_id ?? null };
+                      chapterId: u.chapter_id ?? null, rccCenterId: u.rcc_center_id ?? null, anonymousSponsor: !!u.anonymous_sponsor };
       },
       error: (err) => (this.error = err?.error?.error ?? 'Could not load user.')
     });
@@ -163,6 +173,12 @@ export class AdminUserEditComponent implements OnInit {
 
   toggleExtra(f: { additionalRoleIds: number[] }, roleId: number): void {
     f.additionalRoleIds = f.additionalRoleIds.includes(roleId) ? f.additionalRoleIds.filter((r) => r !== roleId) : [...f.additionalRoleIds, roleId];
+  }
+
+  /** The Super Admin marks sponsors as anonymous (main or extra Sponsor role). */
+  get showAnonymous(): boolean {
+    const f = this.form;
+    return !!f && this.auth.isSuperAdmin() && (f.roleId === 5 || f.additionalRoleIds.includes(5));
   }
 
   /** Only the Super Admin deletes users, and never their own account. */

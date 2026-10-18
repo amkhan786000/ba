@@ -52,6 +52,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("select u.id from User u where (u.roleId = 5 or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId = 5))")
     List<Long> findSponsorIds();
 
+    /** users.id and user_id (code) of the anonymous sponsors (see security.SponsorPrivacy). */
+    @Query("select u.id from User u where u.anonymousSponsor = true")
+    List<Long> findAnonymousSponsorIds();
+
+    @Query("select u.userId from User u where u.anonymousSponsor = true and u.userId is not null")
+    List<String> findAnonymousSponsorCodes();
+
     @Query("select u.userId from User u")
     List<String> findAllUserIds();
 

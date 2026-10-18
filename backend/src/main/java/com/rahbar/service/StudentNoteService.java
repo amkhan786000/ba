@@ -60,7 +60,9 @@ public class StudentNoteService {
     public Map<String, Object> mine(Long studentId) {
         Optional<GrantorGrantee> sponsor = currentSponsor(studentId);
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("sponsor_name", sponsor.flatMap(g -> users.findById(g.getGrantorId())).map(User::getName).orElse(null));
+        User me = users.findById(studentId).orElse(null);
+        body.put("sponsor_name", sponsor.flatMap(g -> users.findById(g.getGrantorId()))
+                .map(sp -> com.rahbar.security.SponsorPrivacy.forStudent(sp, me)).orElse(null));
         body.put("notes", notes.findByStudentUserIdOrderByIdDesc(studentId).stream().map(n -> row(n, Map.of())).toList());
         body.put("kinds", KINDS);
         body.put("max_length", MAX_LENGTH);

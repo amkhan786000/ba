@@ -265,7 +265,7 @@ public class ReportCatalogService {
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> privateRows(String key, LocalDate from, LocalDate to) {
         List<Map<String, Object>> rows = rows(key, from, to);
-        if (!sponsorPrivacy.hidesDetails()) return rows;
+        if (!sponsorPrivacy.appliesNow()) return rows;
         List<Map<String, Object>> masked = (List<Map<String, Object>>) sponsorPrivacy.mask(rows);
         masked.forEach(r -> r.remove("masked")); // marker for screens, not a report column
         return masked;

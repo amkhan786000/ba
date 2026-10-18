@@ -312,7 +312,9 @@ public class SponsorService {
         payment.setStatus("Paid");
         paymentRepository.saveAndFlush(payment);
         installmentService.afterPayment(payment, installmentId); // without one: the earliest unpaid installment
-        String sponsorName = userRepository.findById(sponsorId).map(User::getName).orElse("Your sponsor");
+        User student = userRepository.findById(granteeId).orElse(null);
+        String sponsorName = userRepository.findById(sponsorId).map(sp -> com.rahbar.security.SponsorPrivacy.forStudent(sp, student))
+                .orElse("Your sponsor");
         notificationService.notify(granteeId, "Payment received",
                 sponsorName + " paid " + installmentService.label(payment.getPaymentId()) + " for you. Please upload your proof of receipt.",
                 NotificationService.PAYMENT, "/student/payments", EmailType.PAYMENT_RECEIVED,

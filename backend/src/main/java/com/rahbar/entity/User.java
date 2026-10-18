@@ -83,6 +83,14 @@ public class User extends Modifiable {
     @Column(name = "college_type", length = 10)
     private String collegeType;
 
+    /**
+     * Anonymous sponsor (Users > Edit, Super Admin only): only the Super Admin and the sponsor themselves see who they
+     * are; everyone else sees "Anonymous sponsor" (see security.SponsorPrivacy).
+     */
+    @Column(name = "anonymous_sponsor", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("0")
+    private Boolean anonymousSponsor = false;
+
     /** Students: STUDYING, ON_HOLD, GRADUATED or DROPPED_OUT (see service.StudyStatus); NULL counts as studying. */
     @Column(name = "study_status", length = 20)
     private String studyStatus;

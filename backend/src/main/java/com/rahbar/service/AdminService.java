@@ -288,6 +288,8 @@ public class AdminService {
         if (body.get("status") != null) user.setStatus(String.valueOf(body.get("status")));
         if (!hidden && body.containsKey("chapterId")) user.setChapterId(requireChapter(chapterRepository, body.get("chapterId")));
         if (!hidden && body.containsKey("rccCenterId")) user.setRccCenterId(requireRccCenter(body.get("rccCenterId")));
+        // Anonymous sponsor: only the Super Admin sets it (and only they still see who the sponsor is).
+        if (body.containsKey("anonymousSponsor") && Access.isSuperAdmin()) user.setAnonymousSponsor(Boolean.TRUE.equals(body.get("anonymousSponsor")));
         userRepository.save(user);
         if (body.get("additionalRoleIds") instanceof Collection<?> more) additionalRoles.set(user, more);
         else additionalRoles.dropMain(user); // a new main role that was an additional one isn't listed twice
