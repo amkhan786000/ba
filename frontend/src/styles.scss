@@ -445,6 +445,9 @@ input[type='checkbox'], input[type='radio'] { accent-color: var(--brand); }
 .nav-tabs { border-bottom: 1px solid var(--line); gap: 4px; }
 .nav-tabs .nav-link { border: 0; border-bottom: 2px solid transparent; color: var(--muted); font-weight: 600; padding: 10px 14px; }
 .nav-tabs .nav-link.active, .nav-tabs .nav-item.show .nav-link { color: var(--brand); border-bottom-color: var(--brand); background: transparent; }
+/* Pill tabs (e.g. the student profile's Personal / Family / ... tabs): the theme's pale grey was hard to read. */
+.nav-pills .nav-link:not(.active) { color: var(--ink-2); font-weight: 500; }
+.nav-pills .nav-link:not(.active):hover { color: var(--brand-700); background: var(--brand-50); }
 
 .list-group-item { border-color: var(--line); }
 .progress { height: 8px; border-radius: 999px; background: #eef1ee; }
