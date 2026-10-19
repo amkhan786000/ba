@@ -169,7 +169,7 @@ public class ApplicationService {
     // ---------------------------------------------------------------- staff look-up
 
     /**
-     * Students > Track Application: find applications by number ("123" or "#123"), a mobile on the form (any of the
+     * Applications > Track Application: find applications by number ("123" or "#123"), a mobile on the form (any of the
      * three, last 10 digits), email or part of the name; at most 20, newest first, only those the user may see. Each
      * comes with its steps so far, so staff can answer a family's call without opening every application.
      */

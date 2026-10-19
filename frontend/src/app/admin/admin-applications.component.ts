@@ -46,7 +46,7 @@ export function applicationBadge(status: string | null | undefined): string {
   }
 }
 
-/** Students > Applications: scholarship applications from the public form, newest first. */
+/** Applications > Applications: scholarship applications from the public form, newest first. */
 @Component({
   selector: 'app-admin-applications',
   standalone: true,
