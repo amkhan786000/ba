@@ -9,4 +9,6 @@ public interface SponsorMappingHistoryRepository extends JpaRepository<SponsorMa
     List<SponsorMappingHistory> findByGrantorIdOrderByStartedAtDesc(Long grantorId);
 
     List<SponsorMappingHistory> findByGranteeIdAndEndedAtIsNull(Long granteeId);
+
+    List<SponsorMappingHistory> findByGranteeIdOrderByStartedAtDesc(Long granteeId);
 }
