@@ -172,7 +172,42 @@ public class ReportCatalogService {
     /** The reports the signed-in user may open: chapter / RCC-scoped users get the ones filtered to their students. */
     public List<ReportDefinition> catalog() {
         boolean all = studentScope.current().all();
-        return CATALOG.stream().filter(d -> all || !ORGANISATION_WIDE.contains(d.key())).filter(d -> allowed(d.key())).toList();
+        return CATALOG.stream().filter(d -> all || !ORGANISATION_WIDE.contains(d.key())).filter(d -> allowed(d.key()))
+                .map(d -> SESSION_YEAR.contains(d.key()) ? d.withSessionYear() : d).toList();
+    }
+
+    /** Reports about students where the page's Year picks students of that session year. */
+    private static final Set<String> SESSION_YEAR = Set.of("grantees", "students_without_sponsor", "students_without_bank",
+            "student_progress", "students_by_institution", "students_by_course", "students_by_chapter", "students_by_study_status",
+            "students_by_sponsor", "sponsors_overdue", "payment_dues");
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.jdbc.core.JdbcTemplate jdbc;
+
+    /**
+     * The years to offer on the Reports page: every students' session year and every year that has applications,
+     * payments, sponsorship changes, progress reports, volunteers, online payments or activity, newest first.
+     */
+    public List<Integer> years() {
+        TreeSet<Integer> years = new TreeSet<>(Comparator.reverseOrder());
+        String[] sql = {
+                "SELECT DISTINCT year FROM users WHERE role_id = 6 AND year IS NOT NULL",
+                "SELECT DISTINCT YEAR(created_at) FROM scholarship_applications WHERE created_at IS NOT NULL",
+                "SELECT DISTINCT YEAR(payment_date) FROM payments WHERE payment_date IS NOT NULL",
+                "SELECT DISTINCT YEAR(started_at) FROM sponsor_mapping_history WHERE started_at IS NOT NULL",
+                "SELECT DISTINCT YEAR(created_at) FROM student_progress WHERE created_at IS NOT NULL",
+                "SELECT DISTINCT YEAR(created_at) FROM volunteer_applications WHERE created_at IS NOT NULL",
+                "SELECT DISTINCT YEAR(paid_at) FROM online_payments WHERE paid_at IS NOT NULL",
+                "SELECT DISTINCT YEAR(created_at) FROM activity_log WHERE created_at IS NOT NULL"};
+        for (String q : sql) {
+            try {
+                years.addAll(jdbc.queryForList(q, Integer.class));
+            } catch (org.springframework.dao.DataAccessException e) {
+                // a table this database doesn't have: its years are simply not offered
+            }
+        }
+        years.removeIf(y -> y == null || y < 2000 || y > LocalDate.now().getYear() + 1);
+        return new ArrayList<>(years);
     }
 
     /** Reports about the whole organisation (not filtered per chapter / RCC center): not for scoped users. */
@@ -195,6 +230,9 @@ public class ReportCatalogService {
     /** The scope of the report being built (set in rows(); unscoped users see everything). */
     private static final ThreadLocal<com.rahbar.security.StudentScope.Scope> SCOPE = new ThreadLocal<>();
     private static final ThreadLocal<Map<Long, User>> USERS = new ThreadLocal<>();
+    /** The Year chosen for a session-year report (null: all years), and those students' ids. */
+    private static final ThreadLocal<Integer> YEAR = new ThreadLocal<>();
+    private static final ThreadLocal<Set<Long>> YEAR_STUDENTS = new ThreadLocal<>();
 
     private com.rahbar.security.StudentScope.Scope scope() {
         com.rahbar.security.StudentScope.Scope s = SCOPE.get();
@@ -212,12 +250,27 @@ public class ReportCatalogService {
     }
 
     private boolean seesStudent(Long studentId) {
-        return scope().all() || scope().includesId(studentId, scopeUsers());
+        return (scope().all() || scope().includesId(studentId, scopeUsers())) && inYear(studentId);
     }
 
     private List<User> visibleStudents() {
         List<User> all = userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE);
-        return scope().all() ? all : all.stream().filter(scope()::includes).toList();
+        Integer year = YEAR.get();
+        return all.stream().filter(u -> scope().all() || scope().includes(u))
+                .filter(u -> year == null || year.equals(u.getYear())).toList();
+    }
+
+    /** True when no Year is chosen, or the student is of that session year. */
+    private boolean inYear(Long studentId) {
+        Integer year = YEAR.get();
+        if (year == null) return true;
+        Set<Long> ids = YEAR_STUDENTS.get();
+        if (ids == null) {
+            ids = new HashSet<>();
+            for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE)) if (year.equals(u.getYear())) ids.add(u.getId());
+            YEAR_STUDENTS.set(ids);
+        }
+        return ids.contains(studentId);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -237,19 +290,31 @@ public class ReportCatalogService {
 
     /** Builds a report download. from / to are optional inclusive days (ignored by reports without a date). */
     public ReportFile build(String key, String format, LocalDate from, LocalDate to) {
+        return build(key, format, from, to, null);
+    }
+
+    /** Also with the Year: students of that session year, for the session-year reports (ignored by the others). */
+    public ReportFile build(String key, String format, LocalDate from, LocalDate to, Integer year) {
         ReportDefinition def = definition(key);
-        String name = key + "_report" + (def.dateRange() && (from != null || to != null)
+        Integer y = SESSION_YEAR.contains(key) ? year : null;
+        String name = key + "_report" + (y != null ? "_session_" + y : "") + (def.dateRange() && (from != null || to != null)
                 ? "_" + (from == null ? "start" : from) + "_to_" + (to == null ? "today" : to) : "");
-        return reportService.build(privateRows(key, from, to), name, format, def.title());
+        return reportService.build(privateRows(key, from, to, y), name, format, def.title() + (y != null ? " (session year " + y + ")" : ""));
     }
 
     /** The report's rows for viewing on screen: { title, columns, rows } (an empty report has no columns). */
     public Map<String, Object> data(String key, LocalDate from, LocalDate to) {
+        return data(key, from, to, null);
+    }
+
+    public Map<String, Object> data(String key, LocalDate from, LocalDate to, Integer year) {
         ReportDefinition def = definition(key);
-        List<Map<String, Object>> rows = privateRows(key, from, to);
+        Integer y = SESSION_YEAR.contains(key) ? year : null;
+        List<Map<String, Object>> rows = privateRows(key, from, to, y);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("key", key);
         body.put("title", def.title());
+        body.put("session_year", y);
         body.put("columns", rows.isEmpty() ? List.of() : new ArrayList<>(rows.get(0).keySet()));
         body.put("rows", rows);
         return body;
@@ -267,8 +332,15 @@ public class ReportCatalogService {
 
     /** Report rows with sponsors' details blanked unless the user may see them (see SponsorPrivacy). */
     @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> privateRows(String key, LocalDate from, LocalDate to) {
-        List<Map<String, Object>> rows = rows(key, from, to);
+    private List<Map<String, Object>> privateRows(String key, LocalDate from, LocalDate to, Integer year) {
+        List<Map<String, Object>> rows;
+        YEAR.set(year);
+        try {
+            rows = rows(key, from, to);
+        } finally {
+            YEAR.remove();
+            YEAR_STUDENTS.remove();
+        }
         if (!sponsorPrivacy.hidesDetails()) return rows;
         List<Map<String, Object>> masked = (List<Map<String, Object>>) sponsorPrivacy.mask(rows);
         masked.forEach(r -> r.remove("masked")); // marker for screens, not a report column

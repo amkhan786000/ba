@@ -10,7 +10,7 @@ import { CardTableDirective } from '../shared/card-table.directive';
 import { formatAppDate } from '../shared/app-date';
 import { DateInputComponent } from '../shared/date-input.component';
 
-interface ReportDef { key: string; category: string; title: string; description: string; dateRange: boolean }
+interface ReportDef { key: string; category: string; title: string; description: string; dateRange: boolean; sessionYear?: boolean }
 interface ReportData { key: string; title: string; columns: string[]; rows: Record<string, unknown>[] }
 type Format = 'csv' | 'excel' | 'pdf';
 
@@ -50,6 +50,13 @@ const CATEGORY_ICONS: Record<string, string> = {
           <label for="q">Find a report</label>
           <input id="q" class="form-control" [(ngModel)]="q" placeholder="e.g. overdue, sponsor, progress">
         </div>
+        <div class="form-group mb-lg-0 mr-lg-3" *ngIf="years.length">
+          <label for="year">Year</label>
+          <select id="year" class="form-control" [(ngModel)]="year" (ngModelChange)="yearChanged()">
+            <option value="">All years</option>
+            <option *ngFor="let y of years" [value]="'' + y">{{ y }}</option>
+          </select>
+        </div>
         <div class="form-group mb-lg-0 mr-lg-3">
           <label for="from">From</label>
           <app-date-input id="from" [(ngModel)]="from"></app-date-input>
@@ -60,7 +67,9 @@ const CATEGORY_ICONS: Record<string, string> = {
         </div>
       </div>
       <div class="card-body pt-0 small text-muted">
-        The date range applies to reports marked <span class="badge badge-info">Date range</span>; leave it empty for everything.
+        The Year picks students of that session year in reports marked <span class="badge badge-success">Session year</span>,
+        and sets From / To to that calendar year for reports marked <span class="badge badge-info">Date range</span>.
+        Leave it on "All years" (and the dates empty) for everything.
       </div>
     </div>
 
@@ -72,7 +81,10 @@ const CATEGORY_ICONS: Record<string, string> = {
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-start">
                 <h6 class="report-title">{{ r.title }}</h6>
-                <span *ngIf="r.dateRange" class="badge badge-info">Date range</span>
+                <span>
+                  <span *ngIf="r.sessionYear" class="badge badge-success mr-1">Session year</span>
+                  <span *ngIf="r.dateRange" class="badge badge-info">Date range</span>
+                </span>
               </div>
               <p class="text-muted small mb-3">{{ r.description }}</p>
               <div class="report-actions">
@@ -103,7 +115,7 @@ const CATEGORY_ICONS: Record<string, string> = {
               <div>
                 <h5 class="modal-title mb-0">{{ data.title }}</h5>
                 <small class="text-muted">
-                  {{ data.rows.length }} row(s)<ng-container *ngIf="viewing.dateRange && (from || to)"> · {{ from || 'start' }} to {{ to || 'today' }}</ng-container>
+                  {{ data.rows.length }} row(s)<ng-container *ngIf="viewing.sessionYear && year"> · session year {{ year }}</ng-container><ng-container *ngIf="viewing.dateRange && (from || to)"> · {{ from || 'start' }} to {{ to || 'today' }}</ng-container>
                 </small>
               </div>
               <button type="button" class="close" (click)="close()"><span>&times;</span></button>
@@ -164,6 +176,10 @@ export class AdminReportsComponent implements OnInit {
   q = '';
   from = '';
   to = '';
+  /** "" = all years; else a year (session year for student reports, 1 Jan to 31 Dec for dated ones). */
+  year = '';
+  /** Years with data, newest first (none for catalogs without a year list, e.g. REB). */
+  years: number[] = [];
   /** Report key + format being downloaded, e.g. "paymentscsv". */
   busy = '';
   /** Report key being loaded for viewing. */
@@ -187,9 +203,18 @@ export class AdminReportsComponent implements OnInit {
 
   ngOnInit(): void {
     this.api.get<ReportDef[]>(this.base).subscribe({
-      next: (r) => (this.reports = r),
+      next: (r) => {
+        this.reports = r;
+        if (r.some((d) => d.sessionYear)) this.api.get<number[]>(`${this.base}/years`).subscribe({ next: (y) => (this.years = y), error: () => (this.years = []) });
+      },
       error: (e) => (this.error = errorText(e, 'Could not load the list of reports.'))
     });
+  }
+
+  /** A year fills From / To with that calendar year; "All years" clears them. */
+  yearChanged(): void {
+    if (this.year) { this.from = `${this.year}-01-01`; this.to = `${this.year}-12-31`; }
+    else { this.from = ''; this.to = ''; }
   }
 
   get groups(): { category: string; items: ReportDef[] }[] {
@@ -207,7 +232,9 @@ export class AdminReportsComponent implements OnInit {
   icon(category: string): string { return CATEGORY_ICONS[category] ?? 'mdi-file-chart'; }
 
   private params(r: ReportDef): Record<string, string> {
-    return r.dateRange ? { from: this.from, to: this.to } : {};
+    const p: Record<string, string> = r.dateRange ? { from: this.from, to: this.to } : {};
+    if (r.sessionYear && this.year) p['year'] = this.year;
+    return p;
   }
 
   view(r: ReportDef): void {
