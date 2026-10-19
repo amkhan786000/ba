@@ -13,7 +13,7 @@ interface Row {
 }
 interface ListBody { rows: Row[]; counts: Record<string, number> }
 
-/** Students > Notes to sponsors: notes students write to their sponsors; approve (the sponsor gets it) or return with a reason. */
+/** Sponsors & Payments > Notes to sponsors: notes students write to their sponsors; approve (the sponsor gets it) or return with a reason. */
 @Component({
   selector: 'app-admin-student-notes',
   standalone: true,

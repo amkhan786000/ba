@@ -21,7 +21,7 @@ import java.util.*;
 
 /**
  * Notes to sponsors: a student writes a short update or thank-you note to their sponsor; the office approves it
- * (Students > Notes to sponsors) or returns it with a reason; the sponsor sees approved notes on their dashboard and
+ * (Sponsors & Payments > Notes to sponsors) or returns it with a reason; the sponsor sees approved notes on their dashboard and
  * gets them by email.
  */
 @Service

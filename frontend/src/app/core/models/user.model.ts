@@ -44,7 +44,9 @@ export const PORTAL_ROLES = [3, 4, 5, 6];
 
 /** Groups of the admin menu (a group shows when the user may open at least one of its entries). */
 export const NAV_GROUPS: Record<string, { label: string; icon: string }> = {
+  applications: { label: 'Applications', icon: 'mdi-file-document-multiple' },
   students: { label: 'Students', icon: 'mdi-school' },
+  coaching: { label: 'Coaching Center', icon: 'mdi-teach' },
   sponsors: { label: 'Sponsors & Payments', icon: 'mdi-cash-multiple' },
   community: { label: 'Community', icon: 'mdi-account-group' },
   reb: { label: 'Rahbar-e-Banaat', icon: 'mdi-human-female-girl' },
@@ -58,18 +60,20 @@ export const NAV_GROUPS: Record<string, { label: string; icon: string }> = {
 export const ADMIN_LINKS: { path: string; label: string; icon: string; section?: Section; group?: string; superAdmin?: boolean }[] = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard', section: 'DASHBOARD' },
 
+  { path: '/admin/applications-dashboard', label: 'Applications Dashboard', icon: 'mdi-chart-timeline-variant', section: 'APPLICATIONS', group: 'applications' },
+  { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS', group: 'applications' },
+  { path: '/admin/track-application', label: 'Track Application', icon: 'mdi-magnify', section: 'APPLICATIONS', group: 'applications' },
+  { path: '/admin/application-period', label: 'Application Period', icon: 'mdi-calendar', section: 'APPLICATION_PERIOD', group: 'applications' },
+
   { path: '/admin/students-dashboard', label: 'Students Dashboard', icon: 'mdi-chart-bar', section: 'STUDENTS', group: 'students' },
-  { path: '/admin/applications-dashboard', label: 'Applications Dashboard', icon: 'mdi-chart-timeline-variant', section: 'APPLICATIONS', group: 'students' },
-  { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS', group: 'students' },
-  { path: '/admin/track-application', label: 'Track Application', icon: 'mdi-magnify', section: 'APPLICATIONS', group: 'students' },
-  { path: '/admin/application-period', label: 'Application Period', icon: 'mdi-calendar', section: 'APPLICATION_PERIOD', group: 'students' },
   { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS', group: 'students' },
-  { path: '/admin/rcc-students', label: 'Coaching Center Students', icon: 'mdi-account-group', section: 'RCC_STUDENTS', group: 'students' },
   { path: '/admin/alumni', label: 'Alumni', icon: 'mdi-school', section: 'ALUMNI', group: 'students' },
-  { path: '/admin/student-notes', label: 'Notes to Sponsors', icon: 'mdi-message-text-outline', section: 'STUDENT_NOTES', group: 'students' },
   { path: '/admin/mentoring', label: 'Mentoring', icon: 'mdi-account-tie-voice', section: 'MENTORING', group: 'students' },
   { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES', group: 'students' },
   { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES', group: 'students' },
+
+  { path: '/admin/rcc-students', label: 'Coaching Center Students', icon: 'mdi-account-group', section: 'RCC_STUDENTS', group: 'coaching' },
+  { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank', section: 'RCC_CENTERS', group: 'coaching' },
 
   { path: '/admin/sponsors-dashboard', label: 'Sponsors Dashboard', icon: 'mdi-chart-areaspline', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS', group: 'sponsors' },
@@ -78,10 +82,10 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/online-payments', label: 'Online Payments', icon: 'mdi-credit-card-outline', section: 'ONLINE_PAYMENTS', group: 'sponsors' },
   { path: '/admin/payment-dues', label: 'Payment Dues', icon: 'mdi-alarm', section: 'PAYMENT_DUES', group: 'sponsors' },
   { path: '/admin/system-configuration', label: 'Payment Config', icon: 'mdi-settings', section: 'PAYMENT_CONFIG', group: 'sponsors' },
+  { path: '/admin/student-notes', label: 'Notes to Sponsors', icon: 'mdi-message-text-outline', section: 'STUDENT_NOTES', group: 'sponsors' },
 
   { path: '/admin/chapter-dashboard', label: 'Chapter Dashboard', icon: 'mdi-view-quilt', section: 'CHAPTER_DASHBOARD', group: 'community' },
   { path: '/admin/chapters', label: 'Chapters', icon: 'mdi-map-marker-multiple', section: 'CHAPTERS', group: 'community' },
-  { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank', section: 'RCC_CENTERS', group: 'community' },
   { path: '/admin/volunteers', label: 'Volunteers', icon: 'mdi-hand-heart', section: 'VOLUNTEERS', group: 'community' },
   { path: '/admin/volunteer-options', label: 'Volunteer Form Options', icon: 'mdi-format-list-checks', section: 'VOLUNTEER_OPTIONS', group: 'community' },
 

@@ -24,7 +24,7 @@ interface ApplicationsDashboard {
   upcomingInterviews: { id: number; name: string; interview_at: string; interview_venue: string; status: string }[];
 }
 
-/** Students > Applications Dashboard: demand, the selection pipeline, who applies and the interviews ahead. */
+/** Applications > Applications Dashboard: demand, the selection pipeline, who applies and the interviews ahead. */
 @Component({
   selector: 'app-admin-applications-dashboard',
   standalone: true,

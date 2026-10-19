@@ -16,7 +16,7 @@ interface Found {
 }
 
 /**
- * Students > Track Application: staff find a scholarship application by its number, a mobile on the form, the email or
+ * Applications > Track Application: staff find a scholarship application by its number, a mobile on the form, the email or
  * part of the name, and see where it stands (the steps so far, the interview, documents), e.g. when a family calls.
  * Families track their own on the website.
  */

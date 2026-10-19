@@ -1,7 +1,7 @@
 /**
  * The scholarship application form and "Track your application" (with the document upload) live on the website
  * (Rahbar Diploma & Paramedical Sponsorship); the form is open while an Application Period is active here. Staff look
- * applications up in Students > Track Application.
+ * applications up in Applications > Track Application.
  */
 export const WEBSITE_APPLY_URL = 'https://www.biharanjuman.com/projects/rahbar-diploma-paramedical-sponsorship/apply';
 

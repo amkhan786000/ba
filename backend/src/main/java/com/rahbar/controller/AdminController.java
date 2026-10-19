@@ -239,7 +239,7 @@ public class AdminController {
     @org.springframework.beans.factory.annotation.Autowired
     private com.rahbar.service.ApplicationService applicationService;
 
-    /** Students > Track Application: by number, mobile, email or name. */
+    /** Applications > Track Application: by number, mobile, email or name. */
     @GetMapping("/applications/lookup")
     @PreAuthorize("hasAuthority('APPLICATIONS:VIEW') or hasAnyRole('3','4')")
     public List<Map<String, Object>> lookupApplications(@RequestParam String q) {

@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-/** Students > Notes to sponsors: the office approves or returns notes students write to their sponsors. */
+/** Sponsors & Payments > Notes to sponsors: the office approves or returns notes students write to their sponsors. */
 @RestController
 @RequestMapping("/api/admin/student-notes")
 @PreAuthorize("denyAll()")

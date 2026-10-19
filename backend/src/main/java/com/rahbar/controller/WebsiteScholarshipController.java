@@ -21,7 +21,7 @@ import java.util.*;
  * Scholarship applications on the website (Rahbar Diploma & Paramedical Sponsorship): the form ("Apply", open only
  * while an Application Period is active in Rahbar) and "Track your application" (the application number plus one of
  * the mobile numbers on the form: the steps so far, the interview, and the documents, which the family can upload
- * there). Applications land in Admin > Applications; staff look them up in Students > Track Application.
+ * there). Applications land in Admin > Applications; staff look them up in Applications > Track Application.
  */
 @RestController
 @RequestMapping("/api/public/website/scholarship")
