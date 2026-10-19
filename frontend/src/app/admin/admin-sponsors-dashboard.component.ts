@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { ListPopupComponent, PopupList } from '../shared/list-popup.component';
+import { sponsorOverdue } from '../shared/drilldowns';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -30,7 +32,7 @@ interface SponsorsDashboard {
 @Component({
   selector: 'app-admin-sponsors-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, BarChartComponent, ColumnChartComponent, LineChartComponent,
+  imports: [ListPopupComponent, CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, BarChartComponent, ColumnChartComponent, LineChartComponent,
     DonutChartComponent, StatTileComponent],
   styles: [`
     .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
@@ -129,7 +131,8 @@ interface SponsorsDashboard {
                 <tr *ngIf="!d.mostOverdue.length"><td colspan="4" class="text-center text-muted">No sponsor is behind. </td></tr>
                 <tr *ngFor="let s of d.mostOverdue">
                   <td>{{ s.name }} <small class="text-muted">{{ s.user_id }}</small></td>
-                  <td class="text-right">{{ s.students }}</td><td class="text-right">{{ s.installments }}</td>
+                  <td class="text-right"><a href="" (click)="$event.preventDefault(); overdue(s)" title="See the overdue installments">{{ s.students }}</a></td>
+                  <td class="text-right"><a href="" (click)="$event.preventDefault(); overdue(s)" title="See the overdue installments">{{ s.installments }}</a></td>
                   <td>{{ s.oldest_due | appDate }}</td>
                 </tr>
               </tbody>
@@ -179,14 +182,22 @@ interface SponsorsDashboard {
         </div>
       </div>
     </ng-container>
+    <app-list-popup [list]="popup" (closed)="popup = null"></app-list-popup>
   `
 })
 export class AdminSponsorsDashboardComponent implements OnInit {
   d: SponsorsDashboard | null = null;
   year: number | null = null;
   error = '';
+  /** The rows behind a number someone clicked. */
+  popup: PopupList | null = null;
 
   constructor(private api: ApiService) {}
+
+  /** The sponsor's overdue installments, behind "students" and "installments" in Most overdue sponsors. */
+  overdue(s: { name: string; user_id: string }): void {
+    sponsorOverdue(this.api, s, (l) => (this.popup = l), (e) => (this.error = errorText(e, 'Could not load the installments.')));
+  }
 
   ngOnInit(): void { this.load(); }
 

@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { ListPopupComponent, PopupList } from '../shared/list-popup.component';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
@@ -23,7 +24,7 @@ interface Form { dueId: number | null; title: string; dueDate: string; note: str
 @Component({
   selector: 'app-admin-progress-due-dates',
   standalone: true,
-  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [ListPopupComponent, DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">
@@ -84,8 +85,8 @@ interface Form { dueId: number | null; title: string; dueDate: string; note: str
                 </td>
                 <td>{{ d.title }}</td>
                 <td>{{ d.window_start | appDate }}</td>
-                <td><span class="badge badge-success">{{ d.submitted }}</span></td>
-                <td><span class="badge" [ngClass]="d.pending ? (isPast(d) ? 'badge-danger' : 'badge-warning') : 'badge-light'">{{ d.pending }}</span></td>
+                <td><a href="" (click)="$event.preventDefault(); students(d, 'submitted')" title="See who sent a report"><span class="badge badge-success">{{ d.submitted }}</span></a></td>
+                <td><a href="" (click)="$event.preventDefault(); students(d, 'pending')" title="See who hasn't sent a report yet"><span class="badge" [ngClass]="d.pending ? (isPast(d) ? 'badge-danger' : 'badge-warning') : 'badge-light'">{{ d.pending }}</span></a></td>
                 <td class="small">{{ d.note || '' }}</td>
                 <td *ngIf="canEdit" class="text-nowrap">
                   <button class="btn btn-sm btn-primary" (click)="edit(d)">Edit</button>
@@ -97,6 +98,7 @@ interface Form { dueId: number | null; title: string; dueDate: string; note: str
         </div>
       </div>
     </div>
+    <app-list-popup [list]="popup" (closed)="popup = null"></app-list-popup>
   `
 })
 export class AdminProgressDueDatesComponent implements OnInit {
@@ -107,10 +109,27 @@ export class AdminProgressDueDatesComponent implements OnInit {
   running = false;
   message = '';
   error = '';
+  /** The rows behind a number someone clicked. */
+  popup: PopupList | null = null;
 
   constructor(private api: ApiService, private auth: AuthService) {}
 
   get canEdit(): boolean { return this.auth.can('PROGRESS_DUE_DATES', 'EDIT'); }
+
+  /** The studying students who sent a report for this due date, or haven't yet. */
+  students(d: { due_id: number; title: string }, state: 'submitted' | 'pending'): void {
+    const list: PopupList = {
+      title: (state === 'submitted' ? 'Sent a report: ' : 'No report yet: ') + d.title, rows: [], loading: true,
+      empty: state === 'submitted' ? 'Nobody yet.' : 'Everyone has sent one.',
+      columns: [{ key: 'user_id', label: 'Student ID' }, { key: 'name', label: 'Name' }, { key: 'chapter', label: 'Chapter' },
+        { key: 'session_year', label: 'Session year' }, { key: 'last_upload', label: 'Last report', type: 'date' }]
+    };
+    this.popup = list;
+    this.api.get<Record<string, unknown>[]>(`/admin/progress-due-dates/${d.due_id}/students`, { state }).subscribe({
+      next: (rows) => (this.popup = { ...list, rows, loading: false }),
+      error: (e) => { this.popup = null; this.error = errorText(e, 'Could not load the students.'); }
+    });
+  }
 
   ngOnInit(): void { this.load(); }
 

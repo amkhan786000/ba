@@ -1,4 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ListPopupComponent, PopupList } from '../shared/list-popup.component';
+import { studentInstallments } from '../shared/drilldowns';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
@@ -20,7 +22,7 @@ interface Due {
 @Component({
   selector: 'app-admin-payment-dues',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [ListPopupComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">
@@ -64,7 +66,9 @@ interface Due {
                 <td>{{ d.sponsor_name || '--' }}<div class="small text-muted">{{ d.sponsor_code }}</div></td>
                 <td>{{ d.course_start ? (d.course_start | appDate) : '--' }}</td>
                 <td>
-                  <strong>{{ d.installments_paid }}</strong> / {{ d.installments_due }} / {{ d.installments_total }}
+                  <a *ngIf="canSeeInstallments; else plainCounts" href="" (click)="$event.preventDefault(); installments(d)" title="See the installments">
+                    <strong>{{ d.installments_paid }}</strong> / {{ d.installments_due }} / {{ d.installments_total }}</a>
+                  <ng-template #plainCounts><strong>{{ d.installments_paid }}</strong> / {{ d.installments_due }} / {{ d.installments_total }}</ng-template>
                   <div class="progress mt-1" style="max-width: 140px" *ngIf="d.installments_total">
                     <div class="progress-bar" [style.width.%]="pct(d)"></div>
                   </div>
@@ -81,6 +85,7 @@ interface Due {
         <app-pager [state]="table.pg" [total]="table.total" (pageChange)="table.load()"></app-pager>
       </div>
     </div>
+    <app-list-popup [list]="popup" (closed)="popup = null"></app-list-popup>
   `
 })
 export class AdminPaymentDuesComponent implements OnInit, OnDestroy {
@@ -92,10 +97,18 @@ export class AdminPaymentDuesComponent implements OnInit, OnDestroy {
   sending = false;
   message = '';
   error = '';
+  /** The rows behind a number someone clicked. */
+  popup: PopupList | null = null;
 
   constructor(private api: ApiService, private auth: AuthService) {}
 
   get canEdit(): boolean { return this.auth.can('PAYMENT_DUES', 'EDIT'); }
+  get canSeeInstallments(): boolean { return this.auth.can('PAYMENT_RECORDS'); }
+
+  installments(d: { student_id: number; student_name: string; student_code: string }): void {
+    studentInstallments(this.api, { id: d.student_id, name: d.student_name, code: d.student_code }, (l) => (this.popup = l),
+      (e) => (this.error = errorText(e, 'Could not load the installments.')));
+  }
 
   ngOnInit(): void { this.table.load(); }
   ngOnDestroy(): void { this.table.destroy(); }

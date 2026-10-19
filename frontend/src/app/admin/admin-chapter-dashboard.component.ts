@@ -1,4 +1,7 @@
 import { Component, OnInit } from '@angular/core';
+import { ListPopupComponent, PopupList } from '../shared/list-popup.component';
+import { sponsorStudents } from '../shared/drilldowns';
+import { AuthService } from '../core/services/auth.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
@@ -41,7 +44,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
 @Component({
   selector: 'app-admin-chapter-dashboard',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective, BarChartComponent, DonutChartComponent],
+  imports: [ListPopupComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective, BarChartComponent, DonutChartComponent],
   styles: [`
     .stat { cursor: pointer; }
     .stat.selected { box-shadow: 0 0 0 2px var(--primary, #3bafda) inset; }
@@ -149,7 +152,8 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
                 <tr *ngIf="!sponsors.length"><td colspan="2" class="text-center text-muted">No sponsors.</td></tr>
                 <tr *ngFor="let s of sponsors | paginate: pg.page : pg.size">
                   <td><strong>{{ s.name }}</strong><div class="small text-muted">{{ s.user_id }}</div></td>
-                  <td>{{ s.student_count }}</td>
+                  <td><a *ngIf="canSeeSponsorships && s.student_count; else plainCount" href="" (click)="$event.preventDefault(); sponsorStudents(s)"
+                         title="See the sponsor's students">{{ s.student_count }}</a><ng-template #plainCount>{{ s.student_count }}</ng-template></td>
                 </tr>
               </tbody>
             </table>
@@ -186,6 +190,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
         </div>
       </div>
     </ng-container>
+    <app-list-popup [list]="popup" (closed)="popup = null"></app-list-popup>
   `
 })
 export class AdminChapterDashboardComponent implements OnInit {
@@ -198,8 +203,16 @@ export class AdminChapterDashboardComponent implements OnInit {
   q = '';
   loading = false;
   error = '';
+  /** The rows behind a number someone clicked. */
+  popup: PopupList | null = null;
 
-  constructor(private api: ApiService, private studyStatuses: StudyStatusService) {}
+  constructor(private api: ApiService, private studyStatuses: StudyStatusService, private auth: AuthService) {}
+
+  get canSeeSponsorships(): boolean { return this.auth.can('SPONSORSHIPS'); }
+
+  sponsorStudents(s: { id: number; name: string; user_id: string }): void {
+    sponsorStudents(this.api, s, (l) => (this.popup = l), (e) => (this.error = errorText(e, "Could not load the sponsor's students.")));
+  }
 
   ngOnInit(): void { this.load(); }
 
