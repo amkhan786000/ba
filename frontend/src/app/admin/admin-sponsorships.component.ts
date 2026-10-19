@@ -5,6 +5,7 @@ import { RouterLink } from '@angular/router';
 import { FEATURES } from '../core/models/features';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
+import { StudyStatusService } from '../core/services/study-status.service';
 import { ChapterService } from '../core/services/chapter.service';
 import { Chapter } from './admin-chapters.component';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
@@ -33,6 +34,9 @@ interface SponsorStudent {
   email: string | null;
   phone: string | null;
   status: string | null;
+  year?: number | null;
+  chapter_name?: string | null;
+  study_status?: string | null;
 }
 
 /** Port of templates/admin/manage_sponsorships.html (DataTable, bulk upload, edit-profile modal). Students map straight to sponsors. */
@@ -82,7 +86,11 @@ interface FeeRow {
                   <tr *ngIf="!table.loading && !table.rows.length"><td [attr.colspan]="showDetails ? 5 : 3" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let s of table.rows">
                     <td><strong>{{ s.name }}</strong><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
-                    <td><span class="badge badge-light border">{{ s.student_count }}</span></td>
+                    <td>
+                      <a *ngIf="s.student_count; else noStudents" href="" class="badge badge-light border student-count"
+                         (click)="$event.preventDefault(); showStudents(s)" [title]="'See the students of ' + s.name">{{ s.student_count }}</a>
+                      <ng-template #noStudents><span class="badge badge-light border">0</span></ng-template>
+                    </td>
                     <td *ngIf="showDetails">
                       <span><i class="mdi mdi-email-outline"></i> {{ s.email || '-' }}</span><br>
                       <span><i class="mdi mdi-phone"></i> {{ s.phone || '-' }}</span>
@@ -188,6 +196,43 @@ interface FeeRow {
             <button type="button" class="btn btn-info" (click)="saveEdit()" [disabled]="saving">
               <i class="mdi" [ngClass]="saving ? 'mdi-loading mdi-spin' : 'mdi-content-save'"></i> {{ saving ? 'Saving...' : 'Update Profile' }}
             </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- The students of one sponsor (click on the number of students) -->
+    <div *ngIf="list" class="modal fade show d-block" tabindex="-1" (click)="list = null">
+      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable" (click)="$event.stopPropagation()">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">Students of {{ list.sponsor.name }} <small class="text-muted">{{ list.sponsor.user_id }}</small></h5>
+            <button type="button" class="close" (click)="list = null">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div *ngIf="list.loading" class="text-center py-4"><span class="spinner-border spinner-border-sm"></span></div>
+            <div *ngIf="!list.loading" class="table-responsive">
+              <table class="table table-sm table-hover mb-0">
+                <thead class="thead-light"><tr><th>Student ID</th><th>Name</th><th>Session year</th><th>Chapter</th><th>Study status</th><th>Account</th></tr></thead>
+                <tbody>
+                  <tr *ngIf="!list.students.length"><td colspan="6" class="text-center text-muted">No students mapped to this sponsor.</td></tr>
+                  <tr *ngFor="let st of list.students">
+                    <td><strong>{{ st.user_id }}</strong></td>
+                    <td>{{ st.name }}</td>
+                    <td>{{ st.year || '-' }}</td>
+                    <td>{{ st.chapter_name || '-' }}</td>
+                    <td>{{ studyLabel(st.study_status) }}</td>
+                    <td>{{ st.status || '-' }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <small class="text-muted mr-auto">{{ list.students.length }} student{{ list.students.length === 1 ? '' : 's' }}</small>
+            <a *ngIf="canManage" [routerLink]="['/', section, 'sponsorships', list.sponsor.id, 'map']" class="btn btn-primary">
+              <i class="mdi mdi-account-arrow-right"></i> Map Students</a>
+            <button type="button" class="btn btn-secondary" (click)="list = null">Close</button>
           </div>
         </div>
       </div>
@@ -300,13 +345,26 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
   chapters: Chapter[] = [];
   editName = '';
   students: SponsorStudent[] = [];
+  /** The popup listing one sponsor's students. */
+  list: { sponsor: { id: number; user_id: string; name: string }; students: SponsorStudent[]; loading: boolean } | null = null;
   saving = false;
 
   readonly lastYear = new Date().getFullYear() - 1;
   readonly years = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
   statement: { sponsor: { id: number; name: string }; year: number; busy: boolean } | null = null;
 
-  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService, private statuses: StudyStatusService) {}
+
+  studyLabel(code: string | null | undefined): string { return code ? this.statuses.label(code) : '-'; }
+
+  /** The popup with the sponsor's students (anyone who may view Sponsorships). */
+  showStudents(s: { id: number; user_id: string; name: string }): void {
+    this.list = { sponsor: s, students: [], loading: true };
+    this.api.get<{ students: SponsorStudent[] }>(`/admin/sponsors/${s.id}`).subscribe({
+      next: (r) => { if (this.list) { this.list.students = r.students ?? []; this.list.loading = false; } },
+      error: (e) => { this.list = null; this.error = errorText(e, "Could not load the sponsor's students."); }
+    });
+  }
 
   get canEmailStatement(): boolean { return this.auth.can('SPONSORSHIPS', 'EDIT'); }
 
