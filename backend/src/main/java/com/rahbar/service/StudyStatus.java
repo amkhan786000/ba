@@ -36,6 +36,11 @@ public final class StudyStatus {
         return STUDYING.equals(s) || ON_HOLD.equals(s);
     }
 
+    /** Payments can be recorded or paid only while the student is studying (not on hold, graduated or dropped out). */
+    public static boolean takesPayments(String status) {
+        return STUDYING.equals(of(status));
+    }
+
     /** Gets payment / progress / document reminders. */
     public static boolean getsReminders(String status) {
         return STUDYING.equals(of(status));

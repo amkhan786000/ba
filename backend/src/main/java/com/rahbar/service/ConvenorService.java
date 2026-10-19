@@ -246,6 +246,7 @@ public class ConvenorService {
 
     /** Records a payment by the convenor; it stays "pending" until approved. */
     public void recordPayment(Long convenorId, Long granteeId, BigDecimal amount, MultipartFile receipt) {
+        installmentService.requireStudying(granteeId);
         // Prefixed so two receipts with the same original name don't overwrite each other.
         String filename = "convenor_pay_" + granteeId + "_" + System.currentTimeMillis() + "_"
                 + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());

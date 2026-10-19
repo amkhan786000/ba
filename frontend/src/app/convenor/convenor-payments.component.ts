@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { asDate, localDate, uploadUrl } from '../shared/format';
-import { InstallmentRow, installmentBadge } from '../shared/installments';
+import { InstallmentRow, installmentBadge, takesPayments } from '../shared/installments';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
@@ -68,7 +68,8 @@ interface StudentData {
                         <td>{{ i.paid_date ? (i.paid_date | appDate) : '—' }}</td>
                         <td>
                           <button *ngIf="i.payment_id" class="btn btn-sm btn-light" disabled>Paid</button>
-                          <button *ngIf="!i.payment_id" type="button" class="btn btn-sm btn-success" (click)="openPay(i)">Record Payment</button>
+                          <button *ngIf="!i.payment_id && studying" type="button" class="btn btn-sm btn-success" (click)="openPay(i)">Record Payment</button>
+                          <span *ngIf="!i.payment_id && !studying" class="badge badge-light border" title="Payments are only for students who are studying">Payments closed</span>
                         </td>
                       </tr>
                     </tbody>
@@ -192,6 +193,8 @@ export class ConvenorPaymentsComponent implements OnInit {
   }
 
   badge(status: string): string { return installmentBadge(status); }
+  /** Payments only while the selected student is studying. */
+  get studying(): boolean { return takesPayments(this.current?.grantee?.['study_status']); }
 
   openPay(i: InstallmentRow): void { this.pay = { installment: i.installment_no, amount: null, receipt: null }; }
 

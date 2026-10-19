@@ -121,6 +121,7 @@ public class OnlinePaymentService {
             PaymentInstallment i = installments.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Installment not found."));
             if (!sponsorId.equals(i.getGrantorId()) || !current.contains(i.getGranteeId())) throw bad("That installment is not for one of your current students.");
             if (i.getPaymentId() != null) throw bad("Installment #" + i.getInstallmentNo() + " is already paid.");
+            installmentService.requireStudying(i.getGranteeId());
             chosen.add(i);
         }
         BigDecimal total = chosen.stream().map(PaymentInstallment::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);

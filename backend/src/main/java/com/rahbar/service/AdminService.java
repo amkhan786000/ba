@@ -1192,6 +1192,7 @@ public class AdminService {
                                 String paymentDate, String status, MultipartFile receipt, Long installmentId) {
         boolean create = "create".equals(actionType);
         if (granteeId != null) studentScope.requireStudent(granteeId);
+        if (create) installmentService.requireStudying(granteeId);
         if (create) installmentService.requireUnpaid(installmentId, granteeId, null);
         Payment payment;
         if (create) {

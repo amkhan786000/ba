@@ -14,6 +14,8 @@ export interface InstallmentRow {
   student_name?: string | null;
   sponsor_code?: string | null;
   sponsor_name?: string | null;
+  /** Payment Records: the student's study status (payments only while STUDYING). */
+  student_study_status?: string | null;
   payment_id: number | null;
   paid_date: string | null;
   receipt_url: string | null;
@@ -38,4 +40,9 @@ export function installmentSummary(rows: { status: string }[]): string {
   if (n('Due')) parts.push(`${n('Due')} due`);
   if (n('Not Due')) parts.push(`${n('Not Due')} to come`);
   return parts.join(' · ');
+}
+
+/** New payments only while the student is studying (on hold, graduated and dropped out: closed). No status = studying. */
+export function takesPayments(studyStatus: unknown): boolean {
+  return !studyStatus || String(studyStatus).toUpperCase() === 'STUDYING';
 }

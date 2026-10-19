@@ -344,6 +344,18 @@ public class PaymentInstallmentService {
                 .map(i -> String.valueOf(i.getInstallmentNo())).orElse("");
     }
 
+    /**
+     * New payments (recorded or online) only for a student who is studying: on hold, graduated and dropped-out
+     * students' payment links are closed. Editing a payment already recorded is not affected.
+     */
+    public void requireStudying(Long studentId) {
+        User s = userRepository.findById(studentId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Student not found."));
+        if (!StudyStatus.takesPayments(s.getStudyStatus())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Payments can only be made for students who are studying: "
+                    + s.getName() + " is " + StudyStatus.label(s.getStudyStatus()).toLowerCase(Locale.ROOT) + ".");
+        }
+    }
+
     /** A student's installments (all sponsors) as rows, with the payment that paid each one. */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> forStudent(Long studentId) {
@@ -496,6 +508,7 @@ public class PaymentInstallmentService {
                 User s = users.get(i.getGranteeId()), sp = users.get(i.getGrantorId());
                 row.put("student_code", s == null ? null : s.getUserId());
                 row.put("student_name", s == null ? null : s.getName());
+                row.put("student_study_status", s == null ? null : StudyStatus.of(s.getStudyStatus()));
                 row.put("student_chapter_id", s == null ? null : s.getChapterId());
                 row.put("sponsor_code", sp == null ? null : sp.getUserId());
                 row.put("sponsor_name", sp == null ? null : sp.getName());

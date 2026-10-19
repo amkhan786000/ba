@@ -7,7 +7,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent } from '../shared/pager/pager.component';
 import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { isoDate, uploadUrl } from '../shared/format';
-import { InstallmentRow, installmentBadge } from '../shared/installments';
+import { InstallmentRow, installmentBadge, takesPayments } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
 import { DateInputComponent } from '../shared/date-input.component';
@@ -63,7 +63,8 @@ import { DateInputComponent } from '../shared/date-input.component';
                   <a *ngIf="link(r.receipt_url) as l; else dash" [href]="l" target="_blank" rel="noopener">View</a>
                   <a *ngIf="link(r.student_proof_url) as p" [href]="p" target="_blank" rel="noopener" class="d-block small text-success">Spent proof</a>
                 </td>
-                <td *ngIf="canEdit"><button *ngIf="!r.payment_id" class="btn btn-xs btn-success" (click)="openPay(r)">Record payment</button></td>
+                <td *ngIf="canEdit"><button *ngIf="!r.payment_id && open(r)" class="btn btn-xs btn-success" (click)="openPay(r)">Record payment</button>
+                  <span *ngIf="!r.payment_id && !open(r)" class="badge badge-light border" title="Payments are only for students who are studying">Payments closed</span></td>
               </tr>
             </tbody>
           </table>
@@ -120,6 +121,8 @@ export class AdminPaymentRecordsComponent implements OnInit, OnDestroy {
   get summary(): { status: string; count: number }[] { return this.table.last?.summary ?? []; }
 
   badge(status: string): string { return installmentBadge(status); }
+  /** Payments only while the student is studying. */
+  open(r: InstallmentRow): boolean { return takesPayments(r.student_study_status); }
   link(path: string | null): string | null { return uploadUrl(path); }
   fileOf(e: Event): File | null { return (e.target as HTMLInputElement).files?.[0] ?? null; }
 
