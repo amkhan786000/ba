@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { ListPopupComponent, PopupList } from '../shared/list-popup.component';
+import { sponsorOverdue, sponsorStudents } from '../shared/drilldowns';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
@@ -22,7 +24,7 @@ interface Row {
 @Component({
   selector: 'app-admin-sponsor-followup',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
+  imports: [ListPopupComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Sponsor Follow-up</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -54,7 +56,9 @@ interface Row {
             <td *ngIf="canEdit"><input type="checkbox" [checked]="selected.has(r.sponsor_id)" (change)="toggle(r.sponsor_id)" [disabled]="!r.has_email" [attr.aria-label]="'Choose ' + r.name"></td>
             <td><strong>{{ r.name }}</strong><div class="small text-muted">{{ r.user_id }}{{ r.chapter ? ' · ' + r.chapter : '' }}<span *ngIf="!r.has_email"> · no email</span></div></td>
             <ng-container *ngIf="tab === 'LAPSED'">
-              <td>{{ r.students }}</td><td>{{ r.overdue_count }} installment{{ r.overdue_count === 1 ? '' : 's' }}</td><td>{{ r.oldest_due | appDate }}</td>
+              <td><a href="" (click)="$event.preventDefault(); students(r)" title="See the sponsor's students">{{ r.students }}</a></td>
+              <td><a *ngIf="canSeePayments; else plainCount" href="" (click)="$event.preventDefault(); overdue(r)" title="See the overdue installments">{{ r.overdue_count }} installment{{ r.overdue_count === 1 ? '' : 's' }}</a>
+                <ng-template #plainCount>{{ r.overdue_count }} installment{{ r.overdue_count === 1 ? '' : 's' }}</ng-template></td><td>{{ r.oldest_due | appDate }}</td>
             </ng-container>
             <ng-container *ngIf="tab === 'AVAILABLE'">
               <td>{{ r.never_sponsored ? 'Never had a student' : r.last_student }}</td><td>{{ r.since ? (r.since | appDate) : '--' }}</td>
@@ -120,6 +124,7 @@ interface Row {
         </div>
       </div>
     </div>
+    <app-list-popup [list]="popup" (closed)="popup = null"></app-list-popup>
   `
 })
 export class AdminSponsorFollowupComponent implements OnInit {
@@ -135,10 +140,22 @@ export class AdminSponsorFollowupComponent implements OnInit {
   busy = false;
   message = '';
   error = '';
+  /** The rows behind a number someone clicked. */
+  popup: PopupList | null = null;
 
   constructor(private api: ApiService, private auth: AuthService) {}
 
   get canEdit(): boolean { return this.auth.can('SPONSORSHIPS', 'EDIT'); }
+  get canSeePayments(): boolean { return this.auth.can('PAYMENT_RECORDS'); }
+
+  students(r: Row): void {
+    sponsorStudents(this.api, { id: Number(r.sponsor_id), name: String(r.name), user_id: String(r.user_id) }, (l) => (this.popup = l),
+      (e) => (this.error = errorText(e, "Could not load the sponsor's students.")));
+  }
+
+  overdue(r: Row): void {
+    sponsorOverdue(this.api, { name: String(r.name), user_id: String(r.user_id) }, (l) => (this.popup = l), (e) => (this.error = errorText(e, 'Could not load the installments.')));
+  }
   get rows(): Row[] { return this.tab === 'LAPSED' ? this.lapsed : this.available; }
   get allChecked(): boolean { const ok = this.rows.filter((r) => r.has_email); return ok.length > 0 && ok.every((r) => this.selected.has(r.sponsor_id)); }
 

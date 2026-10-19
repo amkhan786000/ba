@@ -27,6 +27,13 @@ public class ProgressDueDateController {
     }
 
     /** Body: { "dueId": (absent for a new one), "title": "...", "dueDate": "yyyy-MM-dd", "note": "..." }. */
+    /** The students behind a due date's counts: state = submitted or pending. */
+    @GetMapping("/{id}/students")
+    @PreAuthorize("hasAuthority('PROGRESS_DUE_DATES:VIEW')")
+    public List<Map<String, Object>> students(@PathVariable Long id, @RequestParam(defaultValue = "pending") String state) {
+        return reminderService.dueDateStudents(id, "submitted".equalsIgnoreCase(state));
+    }
+
     @PostMapping
     @PreAuthorize("hasAuthority('PROGRESS_DUE_DATES:EDIT')")
     public Map<String, Object> save(@RequestBody Map<String, Object> body) {

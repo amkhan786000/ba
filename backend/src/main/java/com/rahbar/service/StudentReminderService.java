@@ -74,6 +74,34 @@ public class StudentReminderService {
         return rows;
     }
 
+    /**
+     * The studying students behind a due date's counts: those who uploaded a report in its window (submitted) or
+     * not yet (pending), by name.
+     */
+    public List<Map<String, Object>> dueDateStudents(Long id, boolean submitted) {
+        List<ProgressDueDate> dates = dueDateRepository.findAllByOrderByDueDateAsc();
+        int index = -1;
+        for (int i = 0; i < dates.size(); i++) if (dates.get(i).getDueId().equals(id)) index = i;
+        if (index < 0) throw new ApiException(HttpStatus.NOT_FOUND, "Due date not found.");
+        LocalDate from = windowStart(dates, index);
+        Map<Long, List<LocalDateTime>> uploads = uploadsByStudent();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (User u : studyingStudents()) {
+            List<LocalDateTime> mine = uploads.get(u.getId());
+            if (uploadedSince(mine, from) != submitted) continue;
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("id", u.getId());
+            r.put("user_id", u.getUserId());
+            r.put("name", u.getName());
+            r.put("chapter", u.getChapterName());
+            r.put("session_year", u.getYear());
+            r.put("last_upload", mine == null ? null : mine.stream().max(Comparator.naturalOrder()).orElse(null));
+            rows.add(r);
+        }
+        rows.sort(Comparator.comparing(r -> String.valueOf(r.get("name")), String.CASE_INSENSITIVE_ORDER));
+        return rows;
+    }
+
     public Map<String, Object> saveDueDate(Long id, String title, String date, String note) {
         String t = title == null ? "" : title.trim();
         if (t.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Please enter a title.");
