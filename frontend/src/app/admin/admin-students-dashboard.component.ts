@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
@@ -22,7 +23,7 @@ interface StudentsDashboard {
 @Component({
   selector: 'app-admin-students-dashboard',
   standalone: true,
-  imports: [CommonModule, RouterLink, AlertsComponent, BarChartComponent, ColumnChartComponent, DonutChartComponent, StatTileComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, BarChartComponent, ColumnChartComponent, DonutChartComponent, StatTileComponent],
   styles: [`
     .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
     .card .header-title small { text-transform: none; font-weight: normal; color: #6b776f; }
@@ -93,19 +94,35 @@ interface StudentsDashboard {
             <app-bar-chart [data]="d.charts.byChapter" emptyText="No students yet."></app-bar-chart>
           </div></div>
         </div>
-        <div class="col-xl-4">
+      </div>
+
+      <!-- Students per college and per course, for a chosen session year -->
+      <div class="d-flex flex-wrap align-items-center mb-2">
+        <h5 class="mb-0 mr-3">Colleges and courses</h5>
+        <label for="enrolment-period" class="mb-0 mr-2 small text-muted">Students:</label>
+        <select id="enrolment-period" class="form-control form-control-sm" style="width: auto" [(ngModel)]="period" (ngModelChange)="loadEnrolment()">
+          <option value="now">Studying now</option>
+          <option value="all">All years (everyone)</option>
+          <option *ngFor="let y of enrolment?.years" [value]="'' + y">Session year {{ y }}</option>
+        </select>
+        <small class="text-muted ml-2">{{ periodNote }}</small>
+      </div>
+      <div class="row">
+        <div class="col-xl-6">
           <div class="card"><div class="card-body">
-            <h4 class="header-title mb-3">Top colleges</h4>
-            <app-bar-chart [data]="d.charts.byInstitution" colour="#6d28d9" emptyText="No students yet."></app-bar-chart>
+            <h4 class="header-title mb-3">Students by college</h4>
+            <app-bar-chart [data]="enrolment?.byInstitution ?? d.charts.byInstitution" colour="#6d28d9" emptyText="No students for this choice."></app-bar-chart>
           </div></div>
         </div>
-        <div class="col-xl-4">
+        <div class="col-xl-6">
           <div class="card"><div class="card-body">
-            <h4 class="header-title mb-3">Top courses</h4>
-            <app-bar-chart [data]="d.charts.byCourse" colour="#0e7490" emptyText="No students yet."></app-bar-chart>
+            <h4 class="header-title mb-3">Students by course</h4>
+            <app-bar-chart [data]="enrolment?.byCourse ?? d.charts.byCourse" colour="#0e7490" emptyText="No students for this choice."></app-bar-chart>
           </div></div>
         </div>
       </div>
+      <p class="small text-muted">For an Excel table with one column per session year, see Reports → "Students by institution and session year"
+        and "Students by course and session year".</p>
       <p class="text-muted small">Charts count students in the programme (studying or on hold) unless they say otherwise.
         Detailed lists: <a routerLink="/admin/reports">Reports</a>.</p>
     </ng-container>
@@ -114,6 +131,9 @@ interface StudentsDashboard {
 export class AdminStudentsDashboardComponent implements OnInit {
   d: StudentsDashboard | null = null;
   error = '';
+  /** "now" (studying or on hold), "all", or a session year, for the college / course charts. */
+  period = 'now';
+  enrolment: { years: number[]; byInstitution: BarDatum[]; byCourse: BarDatum[] } | null = null;
 
   constructor(private api: ApiService) {}
 
@@ -122,6 +142,17 @@ export class AdminStudentsDashboardComponent implements OnInit {
       next: (d) => (this.d = d),
       error: (e) => (this.error = errorText(e, 'Could not load the dashboard.'))
     });
+    this.loadEnrolment();
+  }
+
+  loadEnrolment(): void {
+    this.api.get<{ years: number[]; byInstitution: BarDatum[]; byCourse: BarDatum[] }>('/admin/dashboards/students/enrolment', { period: this.period })
+      .subscribe({ next: (r) => (this.enrolment = r), error: (e) => (this.error = errorText(e, 'Could not load colleges and courses.')) });
+  }
+
+  get periodNote(): string {
+    return this.period === 'now' ? 'students studying or on hold' : this.period === 'all' ? 'every student, any study status'
+      : 'all students of that session year, whatever their study status now';
   }
 
   k(key: string): number | null { return this.d?.kpis[key] ?? null; }

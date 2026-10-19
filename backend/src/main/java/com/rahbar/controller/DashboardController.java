@@ -35,6 +35,13 @@ public class DashboardController {
         return dashboards.students();
     }
 
+    /** Students per institution and per course: period = now (default), all, or a session year. */
+    @GetMapping("/dashboards/students/enrolment")
+    @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
+    public Map<String, Object> studentEnrolment(@RequestParam(required = false) String period) {
+        return dashboards.studentEnrolment(period);
+    }
+
     @GetMapping("/dashboards/sponsors")
     @PreAuthorize("hasAuthority('SPONSORSHIPS:VIEW')")
     public Map<String, Object> sponsors(@RequestParam(required = false) Integer year) {

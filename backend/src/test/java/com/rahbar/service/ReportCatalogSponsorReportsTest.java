@@ -26,6 +26,9 @@ class ReportCatalogSponsorReportsTest {
     private final SponsorMappingHistoryRepository history = mock(SponsorMappingHistoryRepository.class);
     private final StudentScope scope = mock(StudentScope.class);
     private final SponsorPrivacy privacy = mock(SponsorPrivacy.class);
+    private final StudentInstitutionCourseRepository enrolments = mock(StudentInstitutionCourseRepository.class);
+    private final InstitutionRepository institutions = mock(InstitutionRepository.class);
+    private final CourseRepository courses = mock(CourseRepository.class);
     private ReportCatalogService service;
 
     private final User zara = user(1L, "SP1", "Zara Sponsor", 5);
@@ -65,8 +68,8 @@ class ReportCatalogSponsorReportsTest {
     @BeforeEach
     void setUp() {
         service = new ReportCatalogService(privacy, users, mock(RoleRepository.class), mock(GranteeDetailsRepository.class),
-                mock(ApplicationStatusRepository.class), mappings, mock(StudentInstitutionCourseRepository.class),
-                mock(InstitutionRepository.class), mock(CourseRepository.class), mock(BankDetailsRepository.class), payments,
+                mock(ApplicationStatusRepository.class), mappings, enrolments,
+                institutions, courses, mock(BankDetailsRepository.class), payments,
                 mock(PaymentScheduleRepository.class), mock(StudentProgressRepository.class), mock(RccCenterRepository.class),
                 mock(PaymentReminderService.class), mock(ActivityLogService.class), mock(ReportService.class), scope,
                 installments, history, mock(VolunteerApplicationRepository.class), mock(ChapterRepository.class),
@@ -129,5 +132,37 @@ class ReportCatalogSponsorReportsTest {
         assertEquals(1, r.get("students"));
         assertEquals(2L, r.get("overdue_installments"));
         assertEquals(40L, r.get("days_overdue"));
+    }
+
+    @Test
+    void studentsByCourseAndInstitutionPerSessionYear() {
+        s1.setYear(2024); s2.setYear(2025); s3.setYear(2025); s4.setYear(null);
+        var patna = new com.rahbar.entity.Institution(); patna.setInstitutionId("I1"); patna.setInstitutionName("Patna College");
+        var bsc = new com.rahbar.entity.Course(); bsc.setCourseId(5L); bsc.setInstitutionId("I1"); bsc.setCourseName("B.Sc");
+        when(institutions.findAll()).thenReturn(List.of(patna));
+        when(courses.findAll()).thenReturn(List.of(bsc));
+        List<com.rahbar.entity.StudentInstitutionCourse> sic = new java.util.ArrayList<>();
+        for (long id : new long[]{11, 12, 14}) {
+            var e = new com.rahbar.entity.StudentInstitutionCourse(); e.setUserId(id); e.setInstitutionId("I1"); e.setCourseId(5L); sic.add(e);
+        }
+        when(enrolments.findAll()).thenReturn(sic); // s3 has no course
+
+        List<Map<String, Object>> byCourse = rows("students_by_course_and_year");
+        assertEquals(2, byCourse.size());
+        Map<String, Object> b = byCourse.get(0);
+        assertEquals("B.Sc", b.get("course"));
+        assertEquals("Patna College", b.get("institution"));
+        assertEquals(1L, b.get("year_2024"));
+        assertEquals(1L, b.get("year_2025"));
+        assertEquals(1L, b.get("year_not_set"));
+        assertEquals(3L, b.get("total_students"));
+        assertEquals("No course assigned yet", byCourse.get(1).get("institution")); // last
+        assertEquals(1L, byCourse.get(1).get("year_2025"));
+        assertEquals(0L, byCourse.get(1).get("year_2024")); // every row has every year column
+
+        List<Map<String, Object>> byInstitution = rows("students_by_institution_and_year");
+        assertEquals("Patna College", byInstitution.get(0).get("institution"));
+        assertFalse(byInstitution.get(0).containsKey("course"));
+        assertEquals(3L, byInstitution.get(0).get("total_students"));
     }
 }

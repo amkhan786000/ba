@@ -51,6 +51,10 @@ public class ReportCatalogService {
                     "Number of students at each college: active, inactive, with and without a sponsor.", false),
             new ReportDefinition("students_by_course", "Student breakdowns", "Students by course",
                     "Number of students in each course (with its college, length and fees), including empty courses.", false),
+            new ReportDefinition("students_by_institution_and_year", "Student breakdowns", "Students by institution and session year",
+                    "Number of students at each college in each session year (one column per year) and in all.", false),
+            new ReportDefinition("students_by_course_and_year", "Student breakdowns", "Students by course and session year",
+                    "Number of students in each course in each session year (one column per year) and in all.", false),
             new ReportDefinition("students_by_chapter", "Student breakdowns", "Students by chapter",
                     "Number of students in each chapter.", false),
             new ReportDefinition("students_by_year", "Student breakdowns", "Students by academic year",
@@ -307,6 +311,8 @@ public class ReportCatalogService {
                 case "institutions_courses" -> institutionsCourses();
                 case "students_by_institution" -> studentsByInstitution();
                 case "students_by_course" -> studentsByCourse();
+                case "students_by_institution_and_year" -> studentsByYearTable(true);
+                case "students_by_course_and_year" -> studentsByYearTable(false);
                 case "students_by_chapter" -> studentsBy(u -> ServiceSupport.chapterLabel(u.getChapterName()), "chapter");
                 case "students_by_study_status" -> studentsBy(u -> StudyStatus.label(u.getStudyStatus()), "study_status");
                 case "students_by_year" -> studentsBy(u -> u.getYear() == null ? "Not set" : String.valueOf(u.getYear()), "academic_year");
@@ -552,6 +558,60 @@ public class ReportCatalogService {
             unassigned.into(row);
             rows.add(row);
         }
+        return rows;
+    }
+
+    /**
+     * Students per institution (or per course, with its institution) and session year: one row each, a column per
+     * session year (oldest first, then "year_not_set"), and the total. Every student the user may see, whatever their
+     * study status; a student without a course counts under "No course assigned yet".
+     */
+    private List<Map<String, Object>> studentsByYearTable(boolean byInstitution) {
+        Map<Long, StudentInstitutionCourse> enrolment = enrolments();
+        Map<String, String> institutionNames = new HashMap<>();
+        institutionRepository.findAll().forEach(i -> institutionNames.put(i.getInstitutionId(), i.getInstitutionName()));
+        Map<Long, Course> courses = new HashMap<>();
+        courseRepository.findAll().forEach(c -> courses.put(c.getCourseId(), c));
+        TreeSet<Integer> years = new TreeSet<>();
+        // group key -> (year or null -> students)
+        Map<String, Map<Integer, Long>> counts = new LinkedHashMap<>();
+        Map<String, String[]> labels = new HashMap<>(); // key -> [institution, course]
+        for (User u : visibleStudents()) {
+            if (u.getMergedIntoId() != null) continue;
+            StudentInstitutionCourse sic = enrolment.get(u.getId());
+            String key;
+            String[] label;
+            if (sic == null) { key = "~none"; label = new String[]{"No course assigned yet", null}; }
+            else if (byInstitution) { key = "i:" + sic.getInstitutionId(); label = new String[]{institutionNames.get(sic.getInstitutionId()), null}; }
+            else {
+                Course c = courses.get(sic.getCourseId());
+                key = "c:" + sic.getCourseId();
+                label = new String[]{institutionNames.get(sic.getInstitutionId()), c == null ? null : c.getCourseName()};
+            }
+            labels.putIfAbsent(key, label);
+            if (u.getYear() != null) years.add(u.getYear());
+            counts.computeIfAbsent(key, k -> new HashMap<>()).merge(u.getYear(), 1L, Long::sum);
+        }
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map.Entry<String, Map<Integer, Long>> e : counts.entrySet()) {
+            String[] l = labels.get(e.getKey());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("institution", l[0]);
+            if (!byInstitution) row.put("course", l[1]);
+            long total = 0;
+            for (Integer y : years) {
+                long n = e.getValue().getOrDefault(y, 0L);
+                row.put("year_" + y, n);
+                total += n;
+            }
+            long none = e.getValue().getOrDefault(null, 0L);
+            row.put("year_not_set", none);
+            row.put("total_students", total + none);
+            rows.add(row);
+        }
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> "No course assigned yet".equals(r.get("institution")) ? 1 : 0)
+                .thenComparing(r -> -(Long) r.get("total_students"))
+                .thenComparing(r -> String.valueOf(r.get("institution")), String.CASE_INSENSITIVE_ORDER));
         return rows;
     }
 

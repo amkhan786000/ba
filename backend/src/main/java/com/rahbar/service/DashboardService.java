@@ -261,6 +261,40 @@ public class DashboardService {
         return series(labels, List.of(serie("Joined", joined), serie("Graduated", graduated), serie("Dropped out", dropped)));
     }
 
+    /**
+     * Students per institution and per course for a choice of students: "now" (studying or on hold), "all" (every
+     * student ever), or one session year (all its students, whatever their study status now). Also the years to choose.
+     */
+    public Map<String, Object> studentEnrolment(String period) {
+        String scope = scope("s");
+        String p = period == null || period.isBlank() ? "now" : period.trim().toLowerCase(Locale.ROOT);
+        String which;
+        Object[] args;
+        if ("now".equals(p)) { which = IN_PROGRAMME; args = new Object[0]; }
+        else if ("all".equals(p)) { which = ""; args = new Object[0]; }
+        else {
+            int year;
+            try { year = Integer.parseInt(p); } catch (NumberFormatException e) { throw new com.rahbar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "Choose now, all or a year."); }
+            which = " AND s.year = ?";
+            args = new Object[]{year};
+        }
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("period", p);
+        body.put("years", jdbc.queryForList("SELECT DISTINCT s.year FROM users s WHERE " + STUDENT + " AND s.year IS NOT NULL" + scope
+                + " ORDER BY s.year DESC", Integer.class));
+        body.put("byInstitution", labelled("""
+                SELECT COALESCE(i.institution_name, 'Not assigned') label, COUNT(*) value FROM users s
+                LEFT JOIN student_institution_courses sc ON sc.user_id = s.id
+                LEFT JOIN institutions i ON i.institution_id = sc.institution_id
+                WHERE %s%s%s GROUP BY label ORDER BY value DESC""".formatted(STUDENT, which, scope), args));
+        body.put("byCourse", labelled("""
+                SELECT COALESCE(co.course_name, 'Not assigned') label, COUNT(*) value FROM users s
+                LEFT JOIN student_institution_courses sc ON sc.user_id = s.id
+                LEFT JOIN courses co ON co.course_id = sc.course_id
+                WHERE %s%s%s GROUP BY label ORDER BY value DESC""".formatted(STUDENT, which, scope), args));
+        return body;
+    }
+
     // ================================================================ Sponsors & payments
 
     public Map<String, Object> sponsors(Integer requestedYear) {
