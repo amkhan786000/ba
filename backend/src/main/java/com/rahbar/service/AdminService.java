@@ -1172,7 +1172,7 @@ public class AdminService {
         List<User> students = new ArrayList<>(userRepository.findGranteesOf(userId).stream().filter(scope::includes).toList());
         students.sort(Comparator.comparing(User::getName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
         return Map.of("profile", profile,
-                "students", Rows.pickAll(students, "id", "user_id", "name", "email", "phone", "status"));
+                "students", Rows.pickAll(students, "id", "user_id", "name", "email", "phone", "status", "year", "chapter_name", "study_status"));
     }
 
     public void updateSponsor(Long userId, Map<String, Object> data) {
