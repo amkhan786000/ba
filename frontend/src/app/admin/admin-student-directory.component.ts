@@ -219,11 +219,12 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                 </select>
               </div>
               <div class="col-md-4 form-group"><label>Sponsor</label>
-                <select class="form-control" [(ngModel)]="ba.sponsorId" [disabled]="!editing">
+                <select class="form-control" [(ngModel)]="ba.sponsorId" [disabled]="!editing || !canMap">
                   <option [ngValue]="null">No sponsor</option>
                   <option *ngFor="let sp of sponsorOptions()" [ngValue]="sp.id">{{ sp.name }} ({{ sp.user_id }})</option>
                 </select>
                 <small *ngIf="details.sponsor?.['email']" class="text-muted">Current sponsor's email: {{ details.sponsor?.['email'] }}</small>
+                <small *ngIf="editing && !canMap" class="text-muted d-block">Changing the sponsor needs the Sponsorships (manage) permission.</small>
               </div>
               <div class="col-md-4 form-group"><label>Chapter</label>
                 <select class="form-control" [(ngModel)]="ba.chapterId" [disabled]="!editing">
@@ -431,7 +432,7 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                     <option *ngFor="let r of rccOptions('')" [value]="r">{{ r }}</option>
                   </select>
                 </div>
-                <div class="col-md-4 form-group"><label>Sponsor</label>
+                <div class="col-md-4 form-group" *ngIf="canMap"><label>Sponsor</label>
                   <select name="sponsorId" class="form-control" [(ngModel)]="manual.sponsorId">
                     <option [ngValue]="null">No sponsor</option>
                     <option *ngFor="let sp of sponsors" [ngValue]="sp.id">{{ sp.name }} ({{ sp.user_id }})</option>
@@ -564,6 +565,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   }
 
   get canEdit(): boolean { return this.auth.can('STUDENTS', 'EDIT'); }
+  /** Mapping a student to a sponsor (or changing it) needs Sponsorships: manage, not only Students: manage. */
+  get canMap(): boolean { return this.auth.can('SPONSORSHIPS', 'EDIT'); }
 
   /** Active chapters, plus the given one when it is inactive. */
   chapterOptions(currentId: number | null | undefined): Chapter[] {
