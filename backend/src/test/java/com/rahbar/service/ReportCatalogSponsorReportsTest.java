@@ -165,4 +165,31 @@ class ReportCatalogSponsorReportsTest {
         assertFalse(byInstitution.get(0).containsKey("course"));
         assertEquals(3L, byInstitution.get(0).get("total_students"));
     }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void theYearPicksStudentsOfThatSessionYear() {
+        s1.setYear(2024); s2.setYear(2025); s3.setYear(2025); s4.setYear(null);
+        User admin = new User();
+        admin.setId(99L);
+        admin.setRoleId(com.rahbar.entity.Role.SUPER_ADMIN);
+        var p = new com.rahbar.security.RahbarUserPrincipal(admin, java.util.Set.of(), com.rahbar.entity.Role.SCOPE_ALL);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()));
+        try {
+        assertTrue(service.catalog().stream().filter(d -> d.key().equals("grantees")).findFirst().orElseThrow().sessionYear());
+        assertFalse(service.catalog().stream().filter(d -> d.key().equals("students_by_year")).findFirst().orElseThrow().sessionYear());
+
+        List<Map<String, Object>> all = (List<Map<String, Object>>) service.data("students_by_chapter", null, null, null).get("rows");
+        List<Map<String, Object>> y2025 = (List<Map<String, Object>>) service.data("students_by_chapter", null, null, 2025).get("rows");
+        long total = all.stream().mapToLong(r -> ((Number) r.get("total_students")).longValue()).sum();
+        long only2025 = y2025.stream().mapToLong(r -> ((Number) r.get("total_students")).longValue()).sum();
+        assertEquals(4, total);
+        assertEquals(2, only2025);
+        // a report without session years ignores the year
+        assertEquals(service.data("students_by_year", null, null, null).get("rows"), service.data("students_by_year", null, null, 2025).get("rows"));
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
+    }
 }
