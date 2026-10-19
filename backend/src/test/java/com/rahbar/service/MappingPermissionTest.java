@@ -73,6 +73,6 @@ class MappingPermissionTest {
     void withSponsorshipsManageTheSponsorChanges() {
         signIn("STUDENTS:EDIT", "SPONSORSHIPS:EDIT");
         service.updateStudent(10L, new HashMap<>(Map.of("sponsorId", 6)));
-        verify(mapping).map(eq(10L), eq(6L), anyString(), eq(false));
+        verify(mapping).map(eq(10L), eq(6L), anyString(), eq(false), isNull());
     }
 }

@@ -36,6 +36,8 @@ interface StudentDetails {
   payments: Row[];
   documents: Row[];
   statusHistory?: Row[];
+  /** Every sponsor the student has had, newest first (sponsor_name / sponsor_code, started_at, ended_at, end_reason). */
+  sponsorHistory?: Row[];
 }
 
 
@@ -43,7 +45,7 @@ interface StudentDetails {
 interface SponsorOption { id: number; user_id: string; name: string }
 
 /** BA (Rahbar) details of a student: RCC center, sponsor and chapter - all optional. */
-interface BaDetails { rccName: string; sponsorId: number | null; chapterId: number | null; collegeType: string; }
+interface BaDetails { rccName: string; sponsorId: number | null; chapterId: number | null; collegeType: string; sponsorChangeReason?: string; }
 
 /** Port of templates/admin/student_directory.html (server-side table, profile modal with 5 tabs, payments, CSV upload, manual registration). */
 @Component({
@@ -240,6 +242,28 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                   <option value="ANY">Doesn't matter</option>
                 </select>
                 <small class="text-muted">With the session year, picks the Payment Config (Govt or Private college) for the installments.</small>
+              </div>
+              <div class="col-12 form-group" *ngIf="editing && sponsorChanged">
+                <label>Why is the sponsor changing? <span class="text-muted small">(kept in the sponsor history)</span></label>
+                <input class="form-control" maxlength="300" [(ngModel)]="ba.sponsorChangeReason"
+                       placeholder="e.g. Sponsor declined to continue">
+              </div>
+              <div class="col-12">
+                <h6 class="mt-2">Sponsor history</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm mb-0">
+                    <thead class="thead-light"><tr><th>Sponsor</th><th>From</th><th>Until</th><th>Why it ended</th></tr></thead>
+                    <tbody>
+                      <tr *ngIf="!details.sponsorHistory?.length"><td colspan="4" class="text-center text-muted">No sponsor yet.</td></tr>
+                      <tr *ngFor="let h of details.sponsorHistory">
+                        <td>{{ h['sponsor_name'] }} <small class="text-muted">{{ h['sponsor_code'] }}</small></td>
+                        <td>{{ fmt(h['started_at']) }}</td>
+                        <td>{{ h['ended_at'] ? fmt(h['ended_at']) : '' }}<span *ngIf="!h['ended_at']" class="badge badge-success">Current</span></td>
+                        <td>{{ h['end_reason'] || (h['ended_at'] ? '--' : '') }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
 
@@ -529,6 +553,9 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   editing = false;
   edit: Record<string, string> = {};
   ba: BaDetails = { rccName: '', sponsorId: null, chapterId: null, collegeType: '' };
+  /** The sponsor when the profile was opened: a change asks for a reason (kept in the sponsor history). */
+  private originalSponsorId: number | null = null;
+  get sponsorChanged(): boolean { return this.ba.sponsorId !== this.originalSponsorId; }
   installments: InstallmentRow[] = [];
   installmentProblem: string | null = null;
   readonly installmentBadge = installmentBadge;
@@ -640,7 +667,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
         this.editing = false;
         const p = res.profile, b = res.bank ?? {}, c = res.course ?? {};
         const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
-        this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null, collegeType: s(p['college_type']) };
+        this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null, collegeType: s(p['college_type']), sponsorChangeReason: '' };
+        this.originalSponsorId = this.ba.sponsorId;
         this.edit = {
           name: s(p['name']), refId: s(p['user_id']), email: s(p['email']), phone: s(p['phone']),
           fatherName: s(p['father_name']), motherName: s(p['mother_name']), address: s(p['address']),
@@ -687,6 +715,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     const body: Record<string, unknown> = {
       name: e['name'], refId: e['refId'], email: e['email'], phone: e['phone'],
       rccName: this.ba.rccName, sponsorId: this.ba.sponsorId, chapterId: this.ba.chapterId, collegeType: this.ba.collegeType,
+      sponsorChangeReason: this.sponsorChanged ? this.ba.sponsorChangeReason : null,
       fatherName: e['fatherName'], motherName: e['motherName'], address: e['address'],
       fatherProfession: e['fatherProfession'], motherProfession: e['motherProfession'],
       fatherMobile: e['fatherMobile'], motherMobile: e['motherMobile'], averageAnnualSalary: e['averageAnnualSalary'],

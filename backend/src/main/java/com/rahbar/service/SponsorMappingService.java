@@ -44,6 +44,12 @@ public class SponsorMappingService {
      */
     @Transactional
     public void map(Long granteeId, Long grantorId, String status, boolean replaceStatus) {
+        map(granteeId, grantorId, status, replaceStatus, null);
+    }
+
+    /** Like {@link #map(Long, Long, String, boolean)}; endReason: why the previous sponsorship ended (kept in the history). */
+    @Transactional
+    public void map(Long granteeId, Long grantorId, String status, boolean replaceStatus, String endReason) {
         GrantorGrantee gg = grantorGranteeRepository.findFirstByGranteeId(granteeId).orElse(null);
         Long previous = gg == null ? null : gg.getGrantorId();
         if (gg == null) {
@@ -55,7 +61,7 @@ public class SponsorMappingService {
         }
         gg.setGrantorId(grantorId);
         grantorGranteeRepository.save(gg);
-        changed(granteeId, previous, grantorId);
+        changed(granteeId, previous, grantorId, endReason);
     }
 
     /** Moves the student's existing mapping to the sponsor (nothing happens when the student has no mapping). */
@@ -65,16 +71,22 @@ public class SponsorMappingService {
             Long previous = gg.getGrantorId();
             gg.setGrantorId(grantorId);
             grantorGranteeRepository.save(gg);
-            changed(granteeId, previous, grantorId);
+            changed(granteeId, previous, grantorId, null);
         });
     }
 
     /** Removes the student's mapping. */
     @Transactional
     public void unmap(Long granteeId) {
+        unmap(granteeId, null);
+    }
+
+    /** Removes the student's mapping; endReason: why (kept in the history). */
+    @Transactional
+    public void unmap(Long granteeId, String endReason) {
         Long previous = grantorGranteeRepository.findFirstByGranteeId(granteeId).map(GrantorGrantee::getGrantorId).orElse(null);
         grantorGranteeRepository.deleteByGranteeId(granteeId);
-        changed(granteeId, previous, null);
+        changed(granteeId, previous, null, endReason);
     }
 
     /** A deactivated sponsor's students go to the "unassigned" grantor (code 12); newStatus null keeps their status. */
@@ -86,13 +98,13 @@ public class SponsorMappingService {
             if (newStatus != null) gg.setStatus(newStatus);
         }
         grantorGranteeRepository.saveAll(mappings);
-        for (GrantorGrantee gg : mappings) changed(gg.getGranteeId(), fromSponsorId, toGrantorId);
+        for (GrantorGrantee gg : mappings) changed(gg.getGranteeId(), fromSponsorId, toGrantorId, "Sponsor deactivated");
     }
 
-    private void changed(Long granteeId, Long previous, Long current) {
+    private void changed(Long granteeId, Long previous, Long current, String endReason) {
         if (!Objects.equals(previous, current)) {
             takeSponsorsChapter(granteeId, current);
-            recordHistory(granteeId, current);
+            recordHistory(granteeId, current, endReason);
             notifyMapped(granteeId, current);
             notifyUnmapped(granteeId, previous, current);
         }
@@ -116,10 +128,13 @@ public class SponsorMappingService {
     }
 
     /** Closes the student's open mapping period and opens one with the new sponsor (none for "unassigned" / unmap). */
-    private void recordHistory(Long granteeId, Long current) {
+    private void recordHistory(Long granteeId, Long current, String endReason) {
         java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        String reason = endReason == null || endReason.isBlank() ? null
+                : endReason.strip().length() > 300 ? endReason.strip().substring(0, 300) : endReason.strip();
         for (com.rahbar.entity.SponsorMappingHistory h : historyRepository.findByGranteeIdAndEndedAtIsNull(granteeId)) {
             h.setEndedAt(now);
+            h.setEndReason(reason);
             historyRepository.save(h);
         }
         if (current != null && realSponsor(userRepository.findById(current).orElse(null))) {

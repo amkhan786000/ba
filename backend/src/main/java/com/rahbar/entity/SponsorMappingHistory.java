@@ -27,4 +27,8 @@ public class SponsorMappingHistory {
 
     @Column(name = "ended_at")
     private LocalDateTime endedAt;
+
+    /** Why it ended (e.g. "Sponsor declined to continue"), when the office gave one. */
+    @Column(name = "end_reason", length = 300)
+    private String endReason;
 }

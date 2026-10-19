@@ -728,6 +728,7 @@ public class AdminService {
         result.put("payments", paymentRows);
         result.put("documents", Rows.list(studentProgressRepository.findByGranteeIdOrderByCreatedAtDesc(userId)));
         result.put("statusHistory", Rows.list(statusHistoryRepository.findByUserIdOrderByHistoryIdDesc(userId)));
+        result.put("sponsorHistory", sponsorHistory(userId));
         return result;
     }
 
@@ -754,7 +755,7 @@ public class AdminService {
             Long current = grantorGranteeRepository.findFirstByGranteeId(userId).map(GrantorGrantee::getGrantorId).orElse(null);
             if (!Objects.equals(sponsorId, current)) {
                 requireMayMap(); // the BA Details form always sends the sponsor; only a change needs the permission
-                updateSponsor(userId, sponsorId);
+                updateSponsor(userId, sponsorId, str(data.get("sponsorChangeReason")));
             }
         }
 
@@ -846,12 +847,39 @@ public class AdminService {
         }
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.SponsorMappingHistoryRepository sponsorHistoryRepository;
+
+    /**
+     * Every sponsor the student has had, newest first: who (name and ID), from, until (empty: still sponsoring) and
+     * why it ended when the office said so.
+     */
+    private List<Map<String, Object>> sponsorHistory(Long studentId) {
+        List<com.rahbar.entity.SponsorMappingHistory> periods = sponsorHistoryRepository.findByGranteeIdOrderByStartedAtDesc(studentId);
+        Map<Long, User> sponsors = new HashMap<>();
+        userRepository.findAllById(periods.stream().map(com.rahbar.entity.SponsorMappingHistory::getGrantorId).distinct().toList())
+                .forEach(u -> sponsors.put(u.getId(), u));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (com.rahbar.entity.SponsorMappingHistory h : periods) {
+            User sp = sponsors.get(h.getGrantorId());
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("sponsor_id", h.getGrantorId());
+            r.put("sponsor_code", sp == null ? null : sp.getUserId());
+            r.put("sponsor_name", sp == null ? "(deleted sponsor)" : sp.getName());
+            r.put("started_at", h.getStartedAt());
+            r.put("ended_at", h.getEndedAt());
+            r.put("end_reason", h.getEndReason());
+            rows.add(r);
+        }
+        return rows;
+    }
+
     /** Maps the student to the sponsor, or removes the mapping when sponsorId is null. */
-    private void updateSponsor(Long studentId, Long sponsorId) {
+    private void updateSponsor(Long studentId, Long sponsorId, String reason) {
         if (sponsorId == null) {
-            if (grantorGranteeRepository.findFirstByGranteeId(studentId).isPresent()) sponsorMappingService.unmap(studentId);
+            if (grantorGranteeRepository.findFirstByGranteeId(studentId).isPresent()) sponsorMappingService.unmap(studentId, reason);
         } else {
-            sponsorMappingService.map(studentId, sponsorId, "Accepted", false);
+            sponsorMappingService.map(studentId, sponsorId, "Accepted", false, reason);
         }
     }
 

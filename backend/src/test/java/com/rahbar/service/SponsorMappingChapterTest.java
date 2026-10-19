@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 /** A student mapped to a sponsor takes the sponsor's chapter. */
@@ -62,5 +62,27 @@ class SponsorMappingChapterTest {
         service.remap(10L, 12L); // moved to "unassigned"
         assertEquals(1L, student.getChapterId());
         verify(users, never()).save(any(User.class));
+    }
+
+    @Test
+    void theReasonIsKeptOnTheSponsorshipThatEnds() {
+        user(10, "ST-10", 1L);
+        user(20, "SP-20", null);
+        user(21, "SP-21", null);
+        GrantorGrantee gg = new GrantorGrantee();
+        gg.setGranteeId(10L);
+        gg.setGrantorId(20L);
+        when(mappings.findFirstByGranteeId(10L)).thenReturn(Optional.of(gg));
+        var open = new com.rahbar.entity.SponsorMappingHistory();
+        open.setGranteeId(10L);
+        open.setGrantorId(20L);
+        open.setStartedAt(java.time.LocalDateTime.now().minusYears(1));
+        when(history.findByGranteeIdAndEndedAtIsNull(10L)).thenReturn(List.of(open));
+
+        service.map(10L, 21L, "Assigned", true, "  Sponsor declined to continue ");
+        assertNotNull(open.getEndedAt());
+        assertEquals("Sponsor declined to continue", open.getEndReason());
+        // and a new period with the new sponsor
+        verify(history).save(argThat(h -> h.getGrantorId() == 21L && h.getEndedAt() == null));
     }
 }
