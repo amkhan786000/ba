@@ -91,7 +91,7 @@ interface FeeRow {
                     <td>
                       <div class="btn-group">
                         <button *ngIf="canEditProfile" class="btn btn-sm btn-info" (click)="openEdit(s.id)"><i class="mdi mdi-pencil"></i> Edit Profile</button>
-                        <a [routerLink]="['/', section, 'sponsorships', s.id, 'map']" class="btn btn-sm btn-primary waves-effect waves-light">
+                        <a *ngIf="canManage" [routerLink]="['/', section, 'sponsorships', s.id, 'map']" class="btn btn-sm btn-primary waves-effect waves-light">
                           <i class="mdi mdi-account-arrow-right"></i> Map Students
                         </a>
                         <button type="button" class="btn btn-sm btn-outline-secondary" (click)="statement = { sponsor: s, year: lastYear, busy: false }">

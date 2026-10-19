@@ -14,12 +14,13 @@ export const adminAreaGuard: CanActivateFn = () => {
   return true;
 };
 
-/** One admin screen: needs VIEW on its section (route data: { permission: 'USERS' }). */
+/** One admin screen: needs VIEW on its section (route data: { permission: 'USERS' }), or EDIT with { level: 'EDIT' }. */
 export const permissionGuard: CanActivateFn = (route) => {
   const auth = inject(AuthService);
   const router = inject(Router);
   const section = route.data?.['permission'] as Section | undefined;
-  if (!section || auth.can(section)) return true;
+  const level = (route.data?.['level'] as 'VIEW' | 'EDIT' | undefined) ?? 'VIEW';
+  if (!section || auth.can(section, level)) return true;
   return router.createUrlTree([landingPath(auth.currentUser())]);
 };
 

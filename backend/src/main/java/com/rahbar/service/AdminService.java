@@ -749,7 +749,14 @@ public class AdminService {
         });
 
         updateFamilyDetails(userId, data);
-        if (data.containsKey("sponsorId")) updateSponsor(userId, requireSponsor(data.get("sponsorId")));
+        if (data.containsKey("sponsorId")) {
+            Long sponsorId = requireSponsor(data.get("sponsorId"));
+            Long current = grantorGranteeRepository.findFirstByGranteeId(userId).map(GrantorGrantee::getGrantorId).orElse(null);
+            if (!Objects.equals(sponsorId, current)) {
+                requireMayMap(); // the BA Details form always sends the sponsor; only a change needs the permission
+                updateSponsor(userId, sponsorId);
+            }
+        }
 
         if (data.get("accountNumber") != null) {
             saveBankDetails(userId, str(data.get("bankName")), str(data.get("accountNumber")),
@@ -829,6 +836,16 @@ public class AdminService {
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "The selected sponsor does not exist."));
     }
 
+    /**
+     * Mapping a student to a sponsor (or removing it) needs Sponsorships: manage, wherever it is done (Sponsorships,
+     * Student Directory BA Details, unmap, adding a student with a sponsor), not just Students: manage.
+     */
+    private static void requireMayMap() {
+        if (!Access.can(com.rahbar.security.Section.SPONSORSHIPS, com.rahbar.security.Section.Level.EDIT)) {
+            throw Access.forbidden("Mapping a student to a sponsor needs the Sponsorships (manage) permission.");
+        }
+    }
+
     /** Maps the student to the sponsor, or removes the mapping when sponsorId is null. */
     private void updateSponsor(Long studentId, Long sponsorId) {
         if (sponsorId == null) {
@@ -890,7 +907,7 @@ public class AdminService {
         switch (action == null ? "" : action) {
             case "deactivate" -> setStatus(userId, "Inactive");
             case "activate" -> setStatus(userId, "Active");
-            case "unmap" -> sponsorMappingService.unmap(userId);
+            case "unmap" -> { requireMayMap(); sponsorMappingService.unmap(userId); }
             default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid action");
         }
     }
@@ -1096,6 +1113,7 @@ public class AdminService {
 
         // Check the optional sponsor (users.id from the dropdown) and income first so bad input doesn't leave a half-saved student.
         Long sponsorId = requireSponsor(body.get("sponsorId"));
+        if (sponsorId != null) requireMayMap();
         BigDecimal income = parseIncome(body.get("salary"));
 
         User user = userRepository.findByUserId(uId).orElseGet(() -> {
