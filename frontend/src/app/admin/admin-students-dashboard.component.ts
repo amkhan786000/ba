@@ -59,7 +59,7 @@ interface StudentsDashboard {
         </div>
         <div class="col-xl-8">
           <div class="card"><div class="card-body">
-            <h4 class="header-title mb-3">Joined, graduated and dropped out per year</h4>
+            <h4 class="header-title mb-3">Joined, graduated and dropped out per year <small>joined = session year</small></h4>
             <app-column-chart [data]="d.charts.intakeAndExits" [colours]="['#4f7a00', '#0e7490', '#c0262d']"
                               emptyText="No students yet."></app-column-chart>
           </div></div>

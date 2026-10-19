@@ -242,18 +242,31 @@ public class DashboardService {
     }
 
     /** Per year (last 8): students who joined, graduated and dropped out. */
+    /**
+     * Students joined (by session year: the batch they belong to, not when their record was typed into Rahbar),
+     * graduated and dropped out (by the date of that study status) per year: up to 8 years, ending at the latest year
+     * with any of them (not an empty current year), at most this year.
+     */
     private Map<String, Object> intakeAndExits(String scope, int thisYear) {
-        int from = thisYear - 7;
+        Integer latestIntake = jdbc.queryForObject("SELECT MAX(s.year) FROM users s WHERE %s%s AND s.year <= ?"
+                .formatted(STUDENT, scope), Integer.class, thisYear);
+        Integer latestExit = jdbc.queryForObject("""
+                SELECT MAX(YEAR(s.study_status_date)) FROM users s
+                WHERE %s%s AND s.study_status IN ('GRADUATED', 'DROPPED_OUT') AND s.study_status_date <= ?"""
+                .formatted(STUDENT, scope), Integer.class, LocalDate.of(thisYear, 12, 31));
+        int last = Math.max(latestIntake == null ? 0 : latestIntake, latestExit == null ? 0 : latestExit);
+        if (last == 0) last = thisYear;
+        int from = last - 7;
         Map<Integer, long[]> byYear = new TreeMap<>();
-        for (int y = from; y <= thisYear; y++) byYear.put(y, new long[3]);
+        for (int y = from; y <= last; y++) byYear.put(y, new long[3]);
         jdbc.queryForList("""
-                SELECT YEAR(s.created_at) y, COUNT(*) n FROM users s WHERE %s%s AND s.created_at >= ? GROUP BY y"""
-                .formatted(STUDENT, scope), yearStart(from))
+                SELECT s.year y, COUNT(*) n FROM users s WHERE %s%s AND s.year BETWEEN ? AND ? GROUP BY s.year"""
+                .formatted(STUDENT, scope), from, last)
                 .forEach(r -> add(byYear, r.get("y"), 0, r.get("n")));
         jdbc.queryForList("""
                 SELECT YEAR(s.study_status_date) y, s.study_status st, COUNT(*) n FROM users s
-                WHERE %s%s AND s.study_status IN ('GRADUATED', 'DROPPED_OUT') AND s.study_status_date >= ?
-                GROUP BY y, st""".formatted(STUDENT, scope), LocalDate.of(from, 1, 1))
+                WHERE %s%s AND s.study_status IN ('GRADUATED', 'DROPPED_OUT') AND s.study_status_date >= ? AND s.study_status_date <= ?
+                GROUP BY y, st""".formatted(STUDENT, scope), LocalDate.of(from, 1, 1), LocalDate.of(last, 12, 31))
                 .forEach(r -> add(byYear, r.get("y"), StudyStatus.GRADUATED.equals(r.get("st")) ? 1 : 2, r.get("n")));
         List<String> labels = new ArrayList<>();
         List<Long> joined = new ArrayList<>(), graduated = new ArrayList<>(), dropped = new ArrayList<>();
