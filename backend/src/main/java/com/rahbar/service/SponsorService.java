@@ -300,6 +300,7 @@ public class SponsorService {
         if (!grantorGranteeRepository.existsByGranteeIdAndGrantorId(granteeId, sponsorId)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Error: This student is not assigned to you.");
         }
+        installmentService.requireStudying(granteeId);
         installmentService.requireUnpaid(installmentId, granteeId, sponsorId);
         String filename = "sponsor_pay_" + granteeId + "_" + System.currentTimeMillis() + "_"
                 + fileStorageService.sanitizeFilename(receipt.getOriginalFilename());

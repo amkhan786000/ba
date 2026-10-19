@@ -16,7 +16,7 @@ import { RccCenter } from './admin-rcc-centers.component';
 import { ChapterService } from '../core/services/chapter.service';
 import { studyStatusBadge } from '../shared/study-status';
 import { StudyStatusService } from '../core/services/study-status.service';
-import { InstallmentRow, installmentBadge } from '../shared/installments';
+import { InstallmentRow, installmentBadge, takesPayments } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { DateInputComponent } from '../shared/date-input.component';
 
@@ -317,7 +317,8 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                       <td><a *ngIf="link(i.student_proof_url) as l; else dash" [href]="l" target="_blank">View</a></td>
                       <td *ngIf="canPay">
                         <button *ngIf="i.payment_id" class="btn btn-xs btn-warning" (click)="openPayment(i)">Edit</button>
-                        <button *ngIf="!i.payment_id" class="btn btn-xs btn-success" (click)="openPayment(i)">Pay Now</button>
+                        <button *ngIf="!i.payment_id && takesPayments(details.profile['study_status'])" class="btn btn-xs btn-success" (click)="openPayment(i)">Pay Now</button>
+                        <span *ngIf="!i.payment_id && !takesPayments(details.profile['study_status'])" class="badge badge-light border" title="Payments are only for students who are studying">Payments closed</span>
                       </td>
                     </tr>
                   </tbody>
@@ -565,6 +566,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   }
 
   get canEdit(): boolean { return this.auth.can('STUDENTS', 'EDIT'); }
+  readonly takesPayments = takesPayments;
   /** Mapping a student to a sponsor (or changing it) needs Sponsorships: manage, not only Students: manage. */
   get canMap(): boolean { return this.auth.can('SPONSORSHIPS', 'EDIT'); }
 

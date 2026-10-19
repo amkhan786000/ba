@@ -5,7 +5,7 @@ import { ActivatedRoute } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { isoDate, uploadUrl } from '../shared/format';
-import { InstallmentRow, installmentBadge } from '../shared/installments';
+import { InstallmentRow, installmentBadge, takesPayments } from '../shared/installments';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { CheckoutOrder, payWithRazorpay } from '../shared/razorpay';
 import { AppDatePipe } from '../shared/app-date';
@@ -164,7 +164,8 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
                   </div>
                 </td>
                 <td class="text-right">
-                  <button *ngIf="!r.i.payment_id && !r.d.former && !online?.pays_through_rahbar" type="button" class="btn btn-xs btn-success" (click)="openPay(r)">Pay now</button>
+                  <button *ngIf="!r.i.payment_id && !r.d.former && !online?.pays_through_rahbar && studying(r)" type="button" class="btn btn-xs btn-success" (click)="openPay(r)">Pay now</button>
+                  <span *ngIf="!r.i.payment_id && !r.d.former && !studying(r)" class="badge badge-light border" title="Payments are only for students who are studying">Payments closed</span>
                   <button *ngIf="payableOnline(r)" type="button" class="btn btn-xs btn-success" (click)="chosen.clear(); toggleChosen(r); openOnline()">Pay online</button>
                 </td>
               </tr>
@@ -266,7 +267,10 @@ export class SponsorPaymentsComponent implements OnInit {
   /** The tick column shows for sponsors who pay through Rahbar once online payment is open. */
   get canPayOnline(): boolean { return !!this.online?.pays_through_rahbar && !!this.online?.available; }
 
-  payableOnline(x: Item): boolean { return this.canPayOnline && !x.i.payment_id && !x.d.former; }
+  payableOnline(x: Item): boolean { return this.canPayOnline && !x.i.payment_id && !x.d.former && this.studying(x); }
+
+  /** Payments only while the student is studying (not on hold, graduated or dropped out). */
+  studying(x: Item): boolean { return takesPayments(x.d.grantee['study_status']); }
 
   toggleChosen(x: Item): void {
     if (this.chosen.has(x.i.installment_id)) this.chosen.delete(x.i.installment_id); else this.chosen.add(x.i.installment_id);
