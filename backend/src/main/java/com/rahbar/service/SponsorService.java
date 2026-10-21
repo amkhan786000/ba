@@ -69,6 +69,13 @@ public class SponsorService {
      * spent proof came in, last activity); what past students do now (graduates who agreed to be contacted); and the
      * sponsor's impact. Only study information: no phone, address or family details.
      */
+    @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
+    private SponsorMappingService sponsorMappingService;
+
+    private Map<Long, String> chapterNames() {
+        return sponsorMappingService == null ? Map.of() : sponsorMappingService.chapterNames(); // null only in unit tests
+    }
+
     public Map<String, Object> overview(Long sponsorId) {
         List<Payment> mine = paymentRepository.findByGrantorIdOrderByPaymentDateDesc(sponsorId).stream()
                 .filter(p -> "Paid".equalsIgnoreCase(p.getStatus())).toList();
@@ -79,6 +86,7 @@ public class SponsorService {
         for (User u : userRepository.findGranteesOf(sponsorId)) {
             supported.add(u.getId());
             Map<String, Object> r = new LinkedHashMap<>(studyPicture(u, today));
+            r.putAll(SponsorMappingService.onBehalfFields(grantorGranteeRepository.findFirstByGranteeId(u.getId()).orElse(null), chapterNames()));
             StudentProgress latest = studentProgressRepository.findByGranteeIdOrderByCreatedAtDesc(u.getId()).stream().findFirst().orElse(null);
             r.put("latest_progress", latest == null ? null : Map.of("session", String.valueOf(latest.getSession()),
                     "year", latest.getYear() == null ? "" : String.valueOf(latest.getYear()), "marks", latest.getMarks() == null ? "" : latest.getMarks(),
@@ -257,6 +265,7 @@ public class SponsorService {
             Long sId = student.getId();
             Map<String, Object> detail = new LinkedHashMap<>();
             detail.put("grantee", StudentService.studentCard(student));
+            detail.put("onBehalf", SponsorMappingService.onBehalfFields(grantorGranteeRepository.findFirstByGranteeId(sId).orElse(null), chapterNames()));
             detail.put("bankDetails", bankDetailsRepository.findFirstByUserId(sId).map(Rows::of).orElse(null));
             detail.put("payments", Rows.list(paymentRepository.findByGranteeIdAndStatusOrderByPaymentDateDesc(sId, "Paid")));
             detail.put("courseInfo", Rows.first(studentCourseRepository.findCourseInfo(sId)));

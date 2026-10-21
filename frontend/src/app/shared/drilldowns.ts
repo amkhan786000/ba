@@ -20,7 +20,7 @@ export function sponsorStudents(api: ApiService, sponsor: { id: number; name: st
   open<{ students: Record<string, unknown>[] }>(set, {
     title: 'Students of ' + sponsor.name, subtitle: sponsor.user_id ?? undefined, empty: 'No students mapped to this sponsor.',
     columns: [{ key: 'user_id', label: 'Student ID' }, { key: 'name', label: 'Name' }, { key: 'year', label: 'Session year' },
-      { key: 'chapter_name', label: 'Chapter' }, { key: 'status', label: 'Account' }]
+      { key: 'chapter_name', label: 'Chapter' }, { key: 'on_behalf_text', label: 'On behalf of' }, { key: 'status', label: 'Account' }]
   }, api.get(`/admin/sponsors/${sponsor.id}`), (r) => r.students ?? [], onError);
 }
 

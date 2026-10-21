@@ -29,6 +29,8 @@ interface StudentNews {
   latest_progress: { session: string; year: string; marks: string; review_status: string; uploaded_at: string } | null;
   last_payment: { date: string; installment: string; spent_proof: boolean } | null;
   last_activity: string | null; quiet: boolean;
+  /** On behalf of an anonymous donor. */
+  on_behalf?: boolean; donor_label?: string | null; donor_chapter?: string | null;
   /** Past students only. */
   sponsored_from?: string | null; sponsored_until?: string | null;
   now?: { status: string; organisation: string; role: string; city: string } | null;
@@ -85,7 +87,8 @@ interface Overview {
       <div class="col-12 col-md-6 col-xl-4" *ngFor="let s of overview!.students">
         <div class="card"><div class="card-body">
           <div class="d-flex justify-content-between align-items-start">
-            <div><h5 class="mb-0">{{ s.name }}</h5><small class="text-muted">ID {{ s.user_id }}</small></div>
+            <div><h5 class="mb-0">{{ s.name }}</h5><small class="text-muted">ID {{ s.user_id }}</small>
+              <span *ngIf="s.on_behalf" class="badge badge-info ml-1">{{ s.donor_label || 'Anonymous donor' }} · {{ s.donor_chapter }}</span></div>
             <span class="badge" [ngClass]="studyBadge(s.study_status)">{{ s.study_status }}</span>
           </div>
           <p class="mb-1 mt-2"><i class="mdi mdi-school-outline mr-1"></i>{{ s.course || 'Course not set yet' }}<span *ngIf="s.institution" class="text-muted">, {{ s.institution }}</span></p>

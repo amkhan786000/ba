@@ -46,6 +46,36 @@ public class ChapterDashboardService {
         this.paymentReminderService = paymentReminderService;
     }
 
+    /**
+     * Students sponsored on behalf of this chapter's anonymous donors (wherever the student and the sponsor are): the
+     * student, the donor's label, and the sponsor who brought the donor, who is the person to contact (their name,
+     * phone and chapter: as "contact_*", shown to the chapter on purpose). The donor's identity is never in Rahbar.
+     */
+    private List<Map<String, Object>> anonymousSponsorships(Long chapterId) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (com.rahbar.entity.GrantorGrantee gg : grantorGranteeRepository.findAll()) {
+            if (!Boolean.TRUE.equals(gg.getOnBehalf()) || !chapterId.equals(gg.getDonorChapterId())) continue;
+            User st = userRepository.findById(gg.getGranteeId()).orElse(null);
+            User sp = userRepository.findById(gg.getGrantorId()).orElse(null);
+            if (st == null) continue;
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("id", st.getId());
+            r.put("user_id", st.getUserId());
+            r.put("name", st.getName());
+            r.put("student_chapter", st.getChapterName());
+            r.put("study_status", StudyStatus.label(st.getStudyStatus()));
+            r.put("donor_label", gg.getDonorLabel());
+            r.put("contact_name", sp == null ? null : sp.getName());
+            r.put("contact_code", sp == null ? null : sp.getUserId());
+            r.put("contact_phone", sp == null ? null : sp.getPhone());
+            r.put("contact_chapter", sp == null ? null : sp.getChapterName());
+            rows.add(r);
+        }
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> String.valueOf(r.get("contact_name")), String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(r -> String.valueOf(r.get("name")), String.CASE_INSENSITIVE_ORDER));
+        return rows;
+    }
+
     public Map<String, Object> dashboard(Long requestedChapterId) {
         boolean scoped = Access.chapterScoped();
         Long chapterId = scoped ? Access.current().getUser().getChapterId() : requestedChapterId;
@@ -142,6 +172,7 @@ public class ChapterDashboardService {
         counts.put("paymentsOverdue", dues.stream().filter(d -> "Overdue".equals(d.get("status"))).count());
         counts.put("openApplications", applications.size());
         body.put("counts", counts);
+        body.put("anonymousSponsorships", anonymousSponsorships(chapterId));
         body.put("students", studentRows);
         body.put("sponsors", sponsorRows);
         body.put("dues", dues);

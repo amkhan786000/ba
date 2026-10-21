@@ -50,11 +50,20 @@ public class StudentService {
         this.notificationService = notificationService;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired @org.springframework.context.annotation.Lazy
+    private SponsorMappingService sponsorMappingService;
+
     public Map<String, Object> dashboard(Long userId) {
         Map<String, Object> student = Rows.pick(requireUser(userRepository, userId, "Student not found"), STUDENT_COLUMNS);
-        Map<String, Object> sponsor = grantorGranteeRepository.findFirstByGranteeId(userId)
-                .flatMap(gg -> userRepository.findById(gg.getGrantorId()))
-                .map(u -> Rows.pick(u, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name"))
+        com.rahbar.entity.GrantorGrantee gg = grantorGranteeRepository.findFirstByGranteeId(userId).orElse(null);
+        Map<String, Object> sponsor = Optional.ofNullable(gg)
+                .flatMap(g -> userRepository.findById(g.getGrantorId()))
+                .map(u -> {
+                    Map<String, Object> m = Rows.pick(u, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name");
+                    // on behalf of an anonymous donor: "on behalf of a donor from Jeddah Chapter" next to the sponsor's name
+                    m.put("on_behalf_text", SponsorMappingService.onBehalfFields(gg, sponsorMappingService.chapterNames()).get("on_behalf_text"));
+                    return m;
+                })
                 .orElse(Map.of());
         return Map.of("student", student, "sponsor", sponsor);
     }

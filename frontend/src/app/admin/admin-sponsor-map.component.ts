@@ -6,10 +6,12 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe, pageOf } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
+import { ChapterService } from '../core/services/chapter.service';
+import { Chapter } from './admin-chapters.component';
 
 interface MapScreen {
   sponsor: { id: number; user_id: string; name: string; email: string | null; chapter_name: string | null };
-  mappedStudents: { id: number; user_id: string; name: string; email: string | null }[];
+  mappedStudents: { id: number; user_id: string; name: string; email: string | null; on_behalf_text?: string | null }[];
   availableStudents: {
     id: number; user_id: string; name: string; email: string | null;
     current_sponsor_name: string | null; current_sponsor_id: number | null; current_sponsor_code: string | null;
@@ -79,8 +81,25 @@ interface MapScreen {
                 </table>
               </div>
               <app-pager [state]="pg" [total]="visible.length"></app-pager>
+              <div class="border rounded p-2 mt-3">
+                <div class="custom-control custom-checkbox">
+                  <input type="checkbox" class="custom-control-input" id="onBehalf" name="onBehalf" [(ngModel)]="onBehalf.on">
+                  <label class="custom-control-label" for="onBehalf">On behalf of an anonymous donor</label>
+                </div>
+                <small class="text-muted d-block">{{ data.sponsor.name }} stays the sponsor and the contact; the donor gets no account. The donor's
+                  chapter sees these students on its Chapter Dashboard, with {{ data.sponsor.name }} to contact. Students keep their own chapter.</small>
+                <div class="row mt-2" *ngIf="onBehalf.on">
+                  <div class="col-md-6 form-group mb-2"><label for="donorChapter">Donor's chapter</label>
+                    <select id="donorChapter" name="donorChapter" class="form-control" [(ngModel)]="onBehalf.chapterId">
+                      <option [ngValue]="null">-- Choose --</option>
+                      <option *ngFor="let c of chapterOptions()" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
+                    </select></div>
+                  <div class="col-md-6 form-group mb-2"><label for="donorLabel">Label <span class="text-muted small">(optional, never a name)</span></label>
+                    <input id="donorLabel" name="donorLabel" class="form-control" maxlength="80" [(ngModel)]="onBehalf.label" placeholder="e.g. Donor A"></div>
+                </div>
+              </div>
               <div class="mt-3">
-                <button type="submit" class="btn btn-primary btn-block waves-effect waves-light" [disabled]="saving">
+                <button type="submit" class="btn btn-primary btn-block waves-effect waves-light" [disabled]="saving || (onBehalf.on && onBehalf.chapterId === null)">
                   <i class="mdi mdi-check-all mr-1"></i> Map Selected Students to Sponsor <span *ngIf="selected.size">({{ selected.size }})</span>
                 </button>
               </div>
@@ -100,7 +119,7 @@ interface MapScreen {
                 <tbody>
                   <tr *ngIf="!data.mappedStudents.length"><td colspan="3" class="text-center text-muted">No students assigned yet.</td></tr>
                   <tr *ngFor="let m of data.mappedStudents | paginate: pgMapped.page : pgMapped.size">
-                    <td><strong>{{ m.name }}</strong></td>
+                    <td><strong>{{ m.name }}</strong><div *ngIf="m.on_behalf_text" class="small text-info">{{ m.on_behalf_text }}</div></td>
                     <td><code class="text-primary">{{ m.user_id }}</code></td>
                     <td>{{ m.email || '-' }}</td>
                   </tr>
@@ -132,7 +151,15 @@ export class AdminSponsorMapComponent implements OnInit {
   message = '';
   error = '';
 
-  constructor(private api: ApiService) {}
+  /** The students ticked are sponsored on behalf of an anonymous donor of this chapter (with a short label). */
+  onBehalf: { on: boolean; chapterId: number | null; label: string } = { on: false, chapterId: null, label: '' };
+  chapters: Chapter[] = [];
+
+  constructor(private api: ApiService, private chapterList: ChapterService) {
+    this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
+  }
+
+  chapterOptions(): Chapter[] { return ChapterService.options(this.chapters, this.onBehalf.chapterId); }
 
   ngOnInit(): void { this.load(); }
 
@@ -173,7 +200,9 @@ export class AdminSponsorMapComponent implements OnInit {
     if (!this.selected.size) { this.error = 'Please select at least one student.'; return; }
     this.saving = true;
     this.api.post<{ message: string }>(`/admin/sponsorships/${encodeURIComponent(this.id)}/map`, {
-      studentIds: [...this.selected]
+      studentIds: [...this.selected],
+      onBehalf: this.onBehalf.on, donorChapterId: this.onBehalf.on ? this.onBehalf.chapterId : null,
+      donorLabel: this.onBehalf.on ? this.onBehalf.label : null
     }).subscribe({
       next: (r) => { this.saving = false; this.message = r.message; this.load(); },
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not map students.'); }

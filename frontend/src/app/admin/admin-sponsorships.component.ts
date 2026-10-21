@@ -37,6 +37,7 @@ interface SponsorStudent {
   year?: number | null;
   chapter_name?: string | null;
   study_status?: string | null;
+  on_behalf_text?: string | null;
 }
 
 /** Port of templates/admin/manage_sponsorships.html (DataTable, bulk upload, edit-profile modal). Students map straight to sponsors. */
@@ -218,7 +219,7 @@ interface FeeRow {
                   <tr *ngIf="!list.students.length"><td colspan="6" class="text-center text-muted">No students mapped to this sponsor.</td></tr>
                   <tr *ngFor="let st of list.students">
                     <td><strong>{{ st.user_id }}</strong></td>
-                    <td>{{ st.name }}</td>
+                    <td>{{ st.name }}<div *ngIf="st.on_behalf_text" class="small text-info">{{ st.on_behalf_text }}</div></td>
                     <td>{{ st.year || '-' }}</td>
                     <td>{{ st.chapter_name || '-' }}</td>
                     <td>{{ studyLabel(st.study_status) }}</td>
