@@ -296,7 +296,7 @@ public class AdminController {
     @PreAuthorize("hasAuthority('SPONSORSHIPS:EDIT')")
     public Map<String, String> mapStudentsToSponsor(@PathVariable Long userId, @RequestBody Map<String, Object> body) {
         List<Long> studentIds = Ids.toLongs(body.get("studentIds"));
-        adminService.mapStudentsToSponsor(userId, studentIds);
+        adminService.mapStudentsToSponsor(userId, studentIds, AdminService.onBehalf(body));
         return Map.of("message", studentIds.size() + " student(s) mapped to the sponsor successfully!");
     }
 

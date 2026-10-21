@@ -4,7 +4,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.component';
 
-interface Person { name?: string; email?: string | null; phone?: string | null }
+interface Person { name?: string; email?: string | null; phone?: string | null; on_behalf_text?: string | null }
 interface Progress { marks: string | number | null; session: string | null; year: string | number | null }
 
 /** Port of templates/student/dashboard.html (charts use the student's own marks instead of sample numbers). */
@@ -35,7 +35,7 @@ interface Progress { marks: string | number | null; session: string | null; year
             <h4 class="header-title">Sponsor Details</h4>
             <div class="mt-3">
               <ng-container *ngIf="sponsor?.name; else noSponsor">
-                <p class="mb-1"><strong>Name:</strong> {{ sponsor?.name }}</p>
+                <p class="mb-1"><strong>Name:</strong> {{ sponsor?.name }}<span *ngIf="sponsor?.on_behalf_text" class="text-muted">, {{ sponsor?.on_behalf_text }}</span></p>
                 <p class="mb-1"><strong>Email:</strong> {{ sponsor?.email }}</p>
                 <p class="mb-0"><strong>Phone:</strong> {{ sponsor?.phone }}</p>
               </ng-container>

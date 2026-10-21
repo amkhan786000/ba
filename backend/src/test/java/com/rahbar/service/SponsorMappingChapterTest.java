@@ -85,4 +85,29 @@ class SponsorMappingChapterTest {
         // and a new period with the new sponsor
         verify(history).save(argThat(h -> h.getGrantorId() == 21L && h.getEndedAt() == null));
     }
+
+    @Test
+    void onBehalfOfAnAnonymousDonorKeepsTheStudentsChapterAndTheHistory() {
+        User student = user(10, "ST-10", 1L);
+        user(20, "SP-20", 7L); // the sponsor's own chapter would move the student...
+        GrantorGrantee[] saved = new GrantorGrantee[1];
+        when(mappings.findFirstByGranteeId(10L)).thenAnswer(i -> Optional.ofNullable(saved[0]));
+        when(mappings.save(any(GrantorGrantee.class))).thenAnswer(i -> { saved[0] = i.getArgument(0); return saved[0]; });
+        when(history.findByGranteeIdAndEndedAtIsNull(10L)).thenReturn(List.of());
+
+        service.map(10L, 20L, "Assigned", true, null, new com.rahbar.dto.OnBehalf(3L, " Donor A "), true);
+        assertEquals(1L, student.getChapterId()); // ...but on behalf of a donor the student keeps their own
+        assertTrue(saved[0].getOnBehalf());
+        assertEquals(3L, saved[0].getDonorChapterId());
+        assertEquals("Donor A", saved[0].getDonorLabel());
+        verify(history).save(argThat(h -> h.getGrantorId() == 20L && Boolean.TRUE.equals(h.getOnBehalf()) && h.getDonorChapterId() == 3L));
+
+        // mapping to another sponsor without saying so: their own sponsorship
+        user(21, "SP-21", null);
+        service.map(10L, 21L, "Assigned", false);
+        assertFalse(saved[0].getOnBehalf());
+        assertNull(saved[0].getDonorChapterId());
+        assertEquals("on behalf of Donor A, a donor from Jeddah Chapter", SponsorMappingService.onBehalfText("Donor A", "Jeddah Chapter"));
+        assertEquals("on behalf of a donor from Jeddah Chapter", SponsorMappingService.onBehalfText(null, "Jeddah Chapter"));
+    }
 }

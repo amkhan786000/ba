@@ -38,6 +38,8 @@ interface StudentDetails {
   statusHistory?: Row[];
   /** Every sponsor the student has had, newest first (sponsor_name / sponsor_code, started_at, ended_at, end_reason). */
   sponsorHistory?: Row[];
+  /** The current sponsorship on behalf of an anonymous donor: on_behalf, donor_chapter_id, donor_label, on_behalf_text. */
+  onBehalf?: Row;
 }
 
 
@@ -45,7 +47,10 @@ interface StudentDetails {
 interface SponsorOption { id: number; user_id: string; name: string }
 
 /** BA (Rahbar) details of a student: RCC center, sponsor and chapter - all optional. */
-interface BaDetails { rccName: string; sponsorId: number | null; chapterId: number | null; collegeType: string; sponsorChangeReason?: string; }
+interface BaDetails {
+  rccName: string; sponsorId: number | null; chapterId: number | null; collegeType: string; sponsorChangeReason?: string;
+  onBehalf?: boolean; donorChapterId?: number | null; donorLabel?: string;
+}
 
 /** Port of templates/admin/student_directory.html (server-side table, profile modal with 5 tabs, payments, CSV upload, manual registration). */
 @Component({
@@ -227,6 +232,20 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                 </select>
                 <small *ngIf="details.sponsor?.['email']" class="text-muted">Current sponsor's email: {{ details.sponsor?.['email'] }}</small>
                 <small *ngIf="editing && !canMap" class="text-muted d-block">Changing the sponsor needs the Sponsorships (manage) permission.</small>
+                <small *ngIf="!editing && details.onBehalf?.['on_behalf']" class="text-info d-block">{{ details.onBehalf?.['on_behalf_text'] }}</small>
+                <div *ngIf="editing && canMap && ba.sponsorId" class="mt-2">
+                  <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" id="baOnBehalf" [(ngModel)]="ba.onBehalf">
+                    <label class="custom-control-label" for="baOnBehalf">On behalf of an anonymous donor</label>
+                  </div>
+                  <ng-container *ngIf="ba.onBehalf">
+                    <select class="form-control form-control-sm mt-1" [(ngModel)]="ba.donorChapterId" aria-label="Donor's chapter">
+                      <option [ngValue]="null">-- Donor's chapter --</option>
+                      <option *ngFor="let c of chapterOptions(ba.donorChapterId ?? null)" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
+                    </select>
+                    <input class="form-control form-control-sm mt-1" maxlength="80" [(ngModel)]="ba.donorLabel" placeholder="Label, e.g. Donor A (never a name)">
+                  </ng-container>
+                </div>
               </div>
               <div class="col-md-4 form-group"><label>Chapter</label>
                 <select class="form-control" [(ngModel)]="ba.chapterId" [disabled]="!editing">
@@ -256,7 +275,8 @@ interface BaDetails { rccName: string; sponsorId: number | null; chapterId: numb
                     <tbody>
                       <tr *ngIf="!details.sponsorHistory?.length"><td colspan="4" class="text-center text-muted">No sponsor yet.</td></tr>
                       <tr *ngFor="let h of details.sponsorHistory">
-                        <td>{{ h['sponsor_name'] }} <small class="text-muted">{{ h['sponsor_code'] }}</small></td>
+                        <td>{{ h['sponsor_name'] }} <small class="text-muted">{{ h['sponsor_code'] }}</small>
+                          <div *ngIf="h['on_behalf_text']" class="small text-info">{{ h['on_behalf_text'] }}</div></td>
                         <td>{{ fmt(h['started_at']) }}</td>
                         <td>{{ h['ended_at'] ? fmt(h['ended_at']) : '' }}<span *ngIf="!h['ended_at']" class="badge badge-success">Current</span></td>
                         <td>{{ h['end_reason'] || (h['ended_at'] ? '--' : '') }}</td>
@@ -667,7 +687,9 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
         this.editing = false;
         const p = res.profile, b = res.bank ?? {}, c = res.course ?? {};
         const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
-        this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null, collegeType: s(p['college_type']), sponsorChangeReason: '' };
+        this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null, collegeType: s(p['college_type']), sponsorChangeReason: '',
+                    onBehalf: !!res.onBehalf?.['on_behalf'], donorChapterId: (res.onBehalf?.['donor_chapter_id'] as number | null) ?? null,
+                    donorLabel: s(res.onBehalf?.['donor_label']) };
         this.originalSponsorId = this.ba.sponsorId;
         this.edit = {
           name: s(p['name']), refId: s(p['user_id']), email: s(p['email']), phone: s(p['phone']),
@@ -716,6 +738,8 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
       name: e['name'], refId: e['refId'], email: e['email'], phone: e['phone'],
       rccName: this.ba.rccName, sponsorId: this.ba.sponsorId, chapterId: this.ba.chapterId, collegeType: this.ba.collegeType,
       sponsorChangeReason: this.sponsorChanged ? this.ba.sponsorChangeReason : null,
+      ...(this.canMap && this.ba.sponsorId ? { onBehalf: !!this.ba.onBehalf, donorChapterId: this.ba.onBehalf ? this.ba.donorChapterId : null,
+        donorLabel: this.ba.onBehalf ? this.ba.donorLabel : null } : {}),
       fatherName: e['fatherName'], motherName: e['motherName'], address: e['address'],
       fatherProfession: e['fatherProfession'], motherProfession: e['motherProfession'],
       fatherMobile: e['fatherMobile'], motherMobile: e['motherMobile'], averageAnnualSalary: e['averageAnnualSalary'],

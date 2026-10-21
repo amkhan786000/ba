@@ -8,8 +8,7 @@ import com.rahbar.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Objects;
+import java.util.*;
 
 /**
  * Every change to which sponsor a student is mapped to goes through here (grantor_grantees has one row per student).
@@ -50,6 +49,17 @@ public class SponsorMappingService {
     /** Like {@link #map(Long, Long, String, boolean)}; endReason: why the previous sponsorship ended (kept in the history). */
     @Transactional
     public void map(Long granteeId, Long grantorId, String status, boolean replaceStatus, String endReason) {
+        map(granteeId, grantorId, status, replaceStatus, endReason, null, false);
+    }
+
+    /**
+     * Like {@link #map(Long, Long, String, boolean, String)}, also saying whether the sponsorship is on behalf of an
+     * anonymous donor ({@code onBehalf}; null = the sponsor's own) when {@code setOnBehalf}. Without it a mapping to
+     * the same sponsor keeps what it was, and a new sponsor starts as their own sponsorship.
+     */
+    @Transactional
+    public void map(Long granteeId, Long grantorId, String status, boolean replaceStatus, String endReason,
+                    com.rahbar.dto.OnBehalf onBehalf, boolean setOnBehalf) {
         GrantorGrantee gg = grantorGranteeRepository.findFirstByGranteeId(granteeId).orElse(null);
         Long previous = gg == null ? null : gg.getGrantorId();
         if (gg == null) {
@@ -60,8 +70,63 @@ public class SponsorMappingService {
             gg.setStatus(status);
         }
         gg.setGrantorId(grantorId);
+        if (setOnBehalf) setOnBehalf(gg, onBehalf);
+        else if (!Objects.equals(previous, grantorId)) setOnBehalf(gg, null);
         grantorGranteeRepository.save(gg);
         changed(granteeId, previous, grantorId, endReason);
+        if (Objects.equals(previous, grantorId) && setOnBehalf) {
+            // same sponsor, only on-behalf changed: the open period says so too
+            for (com.rahbar.entity.SponsorMappingHistory h : historyRepository.findByGranteeIdAndEndedAtIsNull(granteeId)) {
+                copyOnBehalf(gg, h);
+                historyRepository.save(h);
+            }
+        }
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.ChapterRepository chapterRepository;
+
+    /** chapter_id -> chapter name, for showing donors' chapters. */
+    public Map<Long, String> chapterNames() {
+        Map<Long, String> names = new HashMap<>();
+        if (chapterRepository == null) return names; // not wired (unit tests)
+        chapterRepository.findAll().forEach(c -> names.put(c.getChapterId(), c.getChapterName()));
+        return names;
+    }
+
+    /**
+     * What a screen shows about a sponsorship on behalf of an anonymous donor: on_behalf, donor_chapter_id,
+     * donor_chapter, donor_label and on_behalf_text ("on behalf of Donor A, a donor from Jeddah Chapter").
+     */
+    public static Map<String, Object> onBehalfFields(GrantorGrantee gg, Map<Long, String> chapterNames) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        boolean on = gg != null && Boolean.TRUE.equals(gg.getOnBehalf());
+        m.put("on_behalf", on);
+        m.put("donor_chapter_id", on ? gg.getDonorChapterId() : null);
+        m.put("donor_chapter", on ? chapterNames.get(gg.getDonorChapterId()) : null);
+        m.put("donor_label", on ? gg.getDonorLabel() : null);
+        m.put("on_behalf_text", on ? onBehalfText(gg.getDonorLabel(), chapterNames.get(gg.getDonorChapterId())) : null);
+        return m;
+    }
+
+    /** "on behalf of a donor from Jeddah Chapter" (with the label: "on behalf of Donor A, a donor from Jeddah Chapter"). */
+    public static String onBehalfText(String label, String chapter) {
+        String from = "a donor from " + (chapter == null ? "another chapter" : chapter);
+        return "on behalf of " + (label == null || label.isBlank() ? from : label + ", " + from);
+    }
+
+    private static void setOnBehalf(GrantorGrantee gg, com.rahbar.dto.OnBehalf onBehalf) {
+        boolean on = onBehalf != null && onBehalf.donorChapterId() != null;
+        gg.setOnBehalf(on);
+        gg.setDonorChapterId(on ? onBehalf.donorChapterId() : null);
+        String label = on && onBehalf.label() != null ? onBehalf.label().strip() : null;
+        gg.setDonorLabel(label == null || label.isEmpty() ? null : label.length() > 80 ? label.substring(0, 80) : label);
+    }
+
+    private static void copyOnBehalf(GrantorGrantee gg, com.rahbar.entity.SponsorMappingHistory h) {
+        h.setOnBehalf(Boolean.TRUE.equals(gg.getOnBehalf()));
+        h.setDonorChapterId(gg.getDonorChapterId());
+        h.setDonorLabel(gg.getDonorLabel());
     }
 
     /** Moves the student's existing mapping to the sponsor (nothing happens when the student has no mapping). */
@@ -70,6 +135,7 @@ public class SponsorMappingService {
         grantorGranteeRepository.findFirstByGranteeId(granteeId).ifPresent(gg -> {
             Long previous = gg.getGrantorId();
             gg.setGrantorId(grantorId);
+            if (!Objects.equals(previous, grantorId)) setOnBehalf(gg, null);
             grantorGranteeRepository.save(gg);
             changed(granteeId, previous, grantorId, null);
         });
@@ -95,6 +161,7 @@ public class SponsorMappingService {
         List<GrantorGrantee> mappings = grantorGranteeRepository.findByGrantorId(fromSponsorId);
         for (GrantorGrantee gg : mappings) {
             gg.setGrantorId(toGrantorId);
+            setOnBehalf(gg, null);
             if (newStatus != null) gg.setStatus(newStatus);
         }
         grantorGranteeRepository.saveAll(mappings);
@@ -117,6 +184,8 @@ public class SponsorMappingService {
      */
     private void takeSponsorsChapter(Long granteeId, Long sponsorId) {
         if (sponsorId == null || sponsorId.equals(ServiceSupport.unassignedGrantorId(userRepository))) return;
+        // on behalf of an anonymous donor: the student keeps their own chapter
+        if (grantorGranteeRepository.findFirstByGranteeId(granteeId).map(g -> Boolean.TRUE.equals(g.getOnBehalf())).orElse(false)) return;
         Long chapterId = userRepository.findById(sponsorId).map(User::getChapterId).orElse(null);
         if (chapterId == null) return;
         userRepository.findById(granteeId).ifPresent(student -> {
@@ -142,6 +211,7 @@ public class SponsorMappingService {
             h.setGranteeId(granteeId);
             h.setGrantorId(current);
             h.setStartedAt(now);
+            grantorGranteeRepository.findFirstByGranteeId(granteeId).ifPresent(g -> copyOnBehalf(g, h));
             historyRepository.save(h);
         }
     }
@@ -162,7 +232,9 @@ public class SponsorMappingService {
                 NotificationService.MAPPING, UserRoles.has(sponsor, 5, userRepository) ? "/sponsor/dashboard" : null,
                 EmailType.SPONSOR_STUDENT_MAPPED, ServiceSupport.vars("student_name", student.getName(), "student_code", ServiceSupport.refOf(student)));
         notificationService.notify(granteeId, "You have a sponsor",
-                sponsor.getName() + " is now your sponsor. You can see your payment schedule on your Payments page.",
+                sponsor.getName() + grantorGranteeRepository.findFirstByGranteeId(granteeId).filter(g -> Boolean.TRUE.equals(g.getOnBehalf()))
+                        .map(g -> " (" + onBehalfText(g.getDonorLabel(), chapterNames().get(g.getDonorChapterId())) + ")").orElse("")
+                        + " is now your sponsor. You can see your payment schedule on your Payments page.",
                 NotificationService.MAPPING, "/student/dashboard",
                 EmailType.STUDENT_SPONSOR_ASSIGNED, ServiceSupport.vars("sponsor_name", sponsor.getName()));
     }

@@ -654,20 +654,39 @@ public class AdminService {
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("sponsor", sponsor);
-        result.put("mappedStudents", Rows.pickAll(mapped, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name"));
+        Map<Long, GrantorGrantee> mine = new HashMap<>();
+        grantorGranteeRepository.findByGrantorId(sponsorId).forEach(g -> mine.put(g.getGranteeId(), g));
+        Map<Long, String> chapters = sponsorMappingService.chapterNames();
+        List<Map<String, Object>> mappedRows = Rows.pickAll(mapped, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name");
+        mappedRows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters)));
+        result.put("mappedStudents", mappedRows);
         result.put("availableStudents", visibleStudentRows(userRepository.findStudentsAvailableFor(sponsorId)));
         return result;
     }
 
     public void mapStudentsToSponsor(Long sponsorId, List<Long> studentIds) {
+        mapStudentsToSponsor(sponsorId, studentIds, null);
+    }
+
+    /** onBehalf: these students are sponsored on behalf of an anonymous donor (null: the sponsor's own). */
+    public void mapStudentsToSponsor(Long sponsorId, List<Long> studentIds, com.rahbar.dto.OnBehalf onBehalf) {
         if (studentIds == null || studentIds.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Please select at least one student.");
         }
         requireVisibleSponsor(sponsorId);
         for (Long studentId : studentIds) studentScope.requireStudent(studentId);
+        if (onBehalf != null && onBehalf.donorChapterId() != null) requireChapter(chapterRepository, onBehalf.donorChapterId());
         for (Long studentId : studentIds) {
-            sponsorMappingService.map(studentId, sponsorId, "Accepted", false);
+            sponsorMappingService.map(studentId, sponsorId, "Accepted", false, null, onBehalf, true);
         }
+    }
+
+    /** { onBehalf: true, donorChapterId, donorLabel } from a request (null when not on behalf). */
+    public static com.rahbar.dto.OnBehalf onBehalf(Map<String, Object> body) {
+        if (body == null || !Boolean.TRUE.equals(body.get("onBehalf"))) return null;
+        Object ch = body.get("donorChapterId");
+        if (ch == null || String.valueOf(ch).isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Choose the anonymous donor's chapter.");
+        return new com.rahbar.dto.OnBehalf(Long.valueOf(String.valueOf(ch).trim()), body.get("donorLabel") == null ? null : String.valueOf(body.get("donorLabel")));
     }
 
     // ------------------------------------------------------------- student directory
@@ -729,6 +748,8 @@ public class AdminService {
         result.put("documents", Rows.list(studentProgressRepository.findByGranteeIdOrderByCreatedAtDesc(userId)));
         result.put("statusHistory", Rows.list(statusHistoryRepository.findByUserIdOrderByHistoryIdDesc(userId)));
         result.put("sponsorHistory", sponsorHistory(userId));
+        result.put("onBehalf", SponsorMappingService.onBehalfFields(grantorGranteeRepository.findFirstByGranteeId(userId).orElse(null),
+                sponsorMappingService.chapterNames()));
         return result;
     }
 
@@ -752,10 +773,16 @@ public class AdminService {
         updateFamilyDetails(userId, data);
         if (data.containsKey("sponsorId")) {
             Long sponsorId = requireSponsor(data.get("sponsorId"));
-            Long current = grantorGranteeRepository.findFirstByGranteeId(userId).map(GrantorGrantee::getGrantorId).orElse(null);
-            if (!Objects.equals(sponsorId, current)) {
+            GrantorGrantee now = grantorGranteeRepository.findFirstByGranteeId(userId).orElse(null);
+            Long current = now == null ? null : now.getGrantorId();
+            boolean sendsOnBehalf = data.containsKey("onBehalf");
+            com.rahbar.dto.OnBehalf onBehalf = sendsOnBehalf ? onBehalf(data) : null;
+            boolean onBehalfChanged = sendsOnBehalf && sponsorId != null && Objects.equals(sponsorId, current) && !sameOnBehalf(now, onBehalf);
+            if (!Objects.equals(sponsorId, current) || onBehalfChanged) {
                 requireMayMap(); // the BA Details form always sends the sponsor; only a change needs the permission
-                updateSponsor(userId, sponsorId, str(data.get("sponsorChangeReason")));
+                if (onBehalf != null) requireChapter(chapterRepository, onBehalf.donorChapterId());
+                if (sponsorId == null) updateSponsor(userId, null, str(data.get("sponsorChangeReason")));
+                else sponsorMappingService.map(userId, sponsorId, "Accepted", false, str(data.get("sponsorChangeReason")), onBehalf, sendsOnBehalf);
             }
         }
 
@@ -856,6 +883,7 @@ public class AdminService {
      */
     private List<Map<String, Object>> sponsorHistory(Long studentId) {
         List<com.rahbar.entity.SponsorMappingHistory> periods = sponsorHistoryRepository.findByGranteeIdOrderByStartedAtDesc(studentId);
+        Map<Long, String> chapters = sponsorMappingService.chapterNames();
         Map<Long, User> sponsors = new HashMap<>();
         userRepository.findAllById(periods.stream().map(com.rahbar.entity.SponsorMappingHistory::getGrantorId).distinct().toList())
                 .forEach(u -> sponsors.put(u.getId(), u));
@@ -869,9 +897,19 @@ public class AdminService {
             r.put("started_at", h.getStartedAt());
             r.put("ended_at", h.getEndedAt());
             r.put("end_reason", h.getEndReason());
+            r.put("on_behalf_text", Boolean.TRUE.equals(h.getOnBehalf())
+                    ? SponsorMappingService.onBehalfText(h.getDonorLabel(), chapters.get(h.getDonorChapterId())) : null);
             rows.add(r);
         }
         return rows;
+    }
+
+    private static boolean sameOnBehalf(GrantorGrantee gg, com.rahbar.dto.OnBehalf onBehalf) {
+        boolean was = gg != null && Boolean.TRUE.equals(gg.getOnBehalf());
+        if (!was && onBehalf == null) return true;
+        if (was != (onBehalf != null)) return false;
+        String label = onBehalf.label() == null || onBehalf.label().isBlank() ? null : onBehalf.label().strip();
+        return Objects.equals(gg.getDonorChapterId(), onBehalf.donorChapterId()) && Objects.equals(gg.getDonorLabel(), label);
     }
 
     /** Maps the student to the sponsor, or removes the mapping when sponsorId is null. */
@@ -1199,8 +1237,12 @@ public class AdminService {
         com.rahbar.security.StudentScope.Scope scope = studentScope.current();
         List<User> students = new ArrayList<>(userRepository.findGranteesOf(userId).stream().filter(scope::includes).toList());
         students.sort(Comparator.comparing(User::getName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
-        return Map.of("profile", profile,
-                "students", Rows.pickAll(students, "id", "user_id", "name", "email", "phone", "status", "year", "chapter_name", "study_status"));
+        Map<Long, GrantorGrantee> mine = new HashMap<>();
+        grantorGranteeRepository.findByGrantorId(userId).forEach(g -> mine.put(g.getGranteeId(), g));
+        Map<Long, String> chapters = sponsorMappingService.chapterNames();
+        List<Map<String, Object>> rows = Rows.pickAll(students, "id", "user_id", "name", "email", "phone", "status", "year", "chapter_name", "study_status");
+        rows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters)));
+        return Map.of("profile", profile, "students", rows);
     }
 
     public void updateSponsor(Long userId, Map<String, Object> data) {
