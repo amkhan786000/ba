@@ -14,6 +14,8 @@ import { AdminUsersComponent } from './admin/admin-users.component';
 import { AdminBroadcastsComponent } from './admin/admin-broadcasts.component';
 import { AdminUserEditComponent } from './admin/admin-user-edit.component';
 import { AdminBulkPasswordResetComponent } from './admin/admin-bulk-password-reset.component';
+import { AdminStudentReferencesComponent } from './admin/admin-student-references.component';
+import { ApplySponsorshipComponent } from './admin/apply-sponsorship.component';
 import { AdminRolesComponent } from './admin/admin-roles.component';
 import { AdminRoleEditComponent } from './admin/admin-role-edit.component';
 import { AdminSystemConfigComponent } from './admin/admin-system-config.component';
@@ -147,6 +149,8 @@ export const routes: Routes = [
       { path: 'broadcasts', component: AdminBroadcastsComponent, canActivate: [permissionGuard], data: { permission: 'MESSAGES' } },
       { path: 'reports', component: AdminReportsComponent, canActivate: [permissionGuard], data: { permission: 'REPORTS' } },
       { path: 'application-period', component: AdminApplicationPeriodComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATION_PERIOD' } },
+      { path: 'apply-sponsorship', component: ApplySponsorshipComponent, canActivate: [permissionGuard], data: { permission: 'SPONSOR_APPLY' } },
+      { path: 'student-references', component: AdminStudentReferencesComponent },
       { path: 'rcc-centers', component: AdminRccCentersComponent, canActivate: [permissionGuard], data: { permission: 'RCC_CENTERS' } },
       { path: 'rcc-centers/new', component: AdminRccCenterEditComponent, canActivate: [permissionGuard], data: { permission: 'RCC_CENTERS' } },
       { path: 'rcc-centers/:id/edit', component: AdminRccCenterEditComponent, canActivate: [permissionGuard], data: { permission: 'RCC_CENTERS' } },
@@ -279,6 +283,7 @@ export const routes: Routes = [
         { path: '/sponsor/payments', label: 'Payments', icon: 'mdi-cash-multiple' },
         { path: '/sponsor/progress', label: 'Student Progress', icon: 'mdi-chart-line' },
         { path: '/sponsor/notes', label: 'Notes from Students', icon: 'mdi-message-text-outline' },
+        { path: '/sponsor/apply', label: 'Apply for Sponsorship', icon: 'mdi-hand-heart-outline', section: 'SPONSOR_APPLY' },
         { path: '/sponsor/reb', label: 'Rahbar-e-Banaat', icon: 'mdi-human-female-girl' },
         { path: '/sponsor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' },
         { path: '/sponsor/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline' }
@@ -293,7 +298,8 @@ export const routes: Routes = [
       { path: 'payments', component: SponsorPaymentsComponent },
       { path: 'progress', component: SponsorProgressComponent },
       { path: 'reb', component: SponsorRebComponent },
-      { path: 'notes', component: SponsorNotesComponent }
+      { path: 'notes', component: SponsorNotesComponent },
+      { path: 'apply', component: ApplySponsorshipComponent, canActivate: [permissionGuard], data: { permission: 'SPONSOR_APPLY' } }
     ]
   },
   {

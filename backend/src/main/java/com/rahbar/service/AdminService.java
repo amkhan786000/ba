@@ -723,6 +723,7 @@ public class AdminService {
         profile.put("session_year", user.getYear());
         profile.put("payment_start_date", user.getPaymentStartDate());
         profile.put("college_type", user.getCollegeType());
+        profile.put("reference_no", user.getReferenceNo());
         profile.put("study_status_date", user.getStudyStatusDate());
         profile.put("study_status_note", user.getStudyStatusNote());
         profile.put("name", user.getName());
@@ -1242,6 +1243,7 @@ public class AdminService {
         Map<Long, String> chapters = sponsorMappingService.chapterNames();
         List<Map<String, Object>> rows = Rows.pickAll(students, "id", "user_id", "name", "email", "phone", "status", "year", "chapter_name", "study_status");
         rows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters)));
+        profile.putAll(SponsorPreferenceService.of(requireVisibleSponsor(userId)));
         return Map.of("profile", profile, "students", rows);
     }
 
@@ -1252,6 +1254,11 @@ public class AdminService {
         if (!hidden && data.get("email") != null) user.setEmail(str(data.get("email")));
         if (!hidden && data.get("phone") != null) user.setPhone(str(data.get("phone")));
         if (!hidden && data.containsKey("chapterId")) user.setChapterId(requireChapter(chapterRepository, data.get("chapterId")));
+        // what kind of student they'd like: { collegeType, fatherProfessions, incomeMin, incomeMax }
+        if (data.get("preferences") instanceof Map<?, ?> prefs) {
+            @SuppressWarnings("unchecked") Map<String, Object> body = (Map<String, Object>) prefs;
+            SponsorPreferenceService.apply(user, SponsorPreferenceService.read(body));
+        }
         userRepository.save(user);
     }
 

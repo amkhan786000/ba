@@ -21,7 +21,7 @@ import static com.rahbar.service.ServiceSupport.requireUser;
 @Service
 public class StudentService {
 
-    static final String[] STUDENT_COLUMNS = {"id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name", "status", "year", "study_status"};
+    static final String[] STUDENT_COLUMNS = {"id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name", "status", "year", "study_status", "reference_no"};
 
     private final UserRepository userRepository;
     private final GrantorGranteeRepository grantorGranteeRepository;
