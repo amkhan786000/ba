@@ -261,8 +261,9 @@ public class DataQualityService {
                     "center", centers.get(u.getRccCenterId()), "added", u.getCreatedAt()));
         }
         return List.of(
-                in(STUDENTS, "/admin/rcc-students", check("rcc_students_without_reference", "Coaching center students without a reference ID",
-                        "Added by a coaching center; the office gives them a reference ID after their application.", noRef)),
+                in(STUDENTS, "/admin/users", check("rcc_students_without_reference", "Old coaching center student accounts without a reference ID",
+                        "Student accounts a coaching center added before Coaching Center > Students had its own records. Give them a "
+                                + "reference ID once they apply for the scholarship, or make the account inactive.", noRef)),
                 in(COMMUNITY, "/admin/rcc-centers", check("rcc_centers_without_incharge", "RCC centers without an in-charge or contact number",
                         "The website shows the in-charge's name; the office needs a number to reach the center.", noIncharge)));
     }

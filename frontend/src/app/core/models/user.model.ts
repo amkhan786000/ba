@@ -32,7 +32,7 @@ export interface AuthUser {
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
 export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG' | 'ONLINE_PAYMENTS'
   | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSOR_APPLY' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
-  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
+  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'COACHING_TEACHERS' | 'COACHING_EXAMS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
   | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES' | 'FAQS' | 'APP_SETTINGS'
@@ -74,7 +74,9 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES', group: 'students' },
   { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES', group: 'students' },
 
-  { path: '/admin/rcc-students', label: 'Coaching Center Students', icon: 'mdi-account-group', section: 'RCC_STUDENTS', group: 'coaching' },
+  { path: '/admin/coaching/students', label: 'Students', icon: 'mdi-account-group', section: 'RCC_STUDENTS', group: 'coaching' },
+  { path: '/admin/coaching/teachers', label: 'Teachers', icon: 'mdi-human-male-board', section: 'COACHING_TEACHERS', group: 'coaching' },
+  { path: '/admin/coaching/exams', label: 'Exams & Prizes', icon: 'mdi-trophy-outline', section: 'COACHING_EXAMS', group: 'coaching' },
   { path: '/admin/rcc-centers', label: 'RCC Centers', icon: 'mdi-bank', section: 'RCC_CENTERS', group: 'coaching' },
 
   { path: '/admin/sponsors-dashboard', label: 'Sponsors Dashboard', icon: 'mdi-chart-areaspline', section: 'SPONSORSHIPS', group: 'sponsors' },
