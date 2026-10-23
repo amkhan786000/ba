@@ -26,7 +26,7 @@ class StudentReferenceServiceTest {
         u.setStatus("active");
         u.setYear(year);
         u.setCollegeType(collegeType);
-        u.setReferenceNo(ref);
+        u.setUserId(ref);
         return u;
     }
 
@@ -53,11 +53,11 @@ class StudentReferenceServiceTest {
     @Test
     void numbersStudentsOfTheYearOldestFirstAndContinuesEachCounter() {
         User numbered = student(1, year, "GOVT", "M004-" + year);
-        User govt = student(5, year, "GOVT", null);
+        User govt = student(5, year, "GOVT", "1234"); // the code given when the application was accepted
         User priv = student(3, year, "PRIVATE", null);
         User any = student(4, year, "ANY", null);
         User unset = student(9, year, null, " ");
-        User lastYear = student(2, year - 1, "GOVT", null);
+        User lastYear = student(2, year - 1, "GOVT", "987");
         User inactive = student(6, year, "GOVT", null);
         inactive.setStatus("Inactive");
         User merged = student(7, year, "GOVT", null);
@@ -65,18 +65,21 @@ class StudentReferenceServiceTest {
         List<User> all = List.of(numbered, govt, priv, any, unset, lastYear, inactive, merged);
         when(users.findByRoleId(6)).thenReturn(all);
         when(users.findAll()).thenReturn(all);
+        when(users.existsByUserId("PVT002-" + year)).thenReturn(true); // another account already has it: skipped
 
         Map<String, Object> out = service.generate(year);
 
-        assertEquals("M005-" + year, govt.getReferenceNo());
-        assertEquals("PVT001-" + year, priv.getReferenceNo());
-        assertEquals("PVT002-" + year, any.getReferenceNo());
-        assertEquals("PVT003-" + year, unset.getReferenceNo());
-        assertEquals("M004-" + year, numbered.getReferenceNo());
-        assertNull(lastYear.getReferenceNo());
-        assertNull(inactive.getReferenceNo());
-        assertNull(merged.getReferenceNo());
-        assertEquals(4, ((List<?>) out.get("generated")).size());
+        assertEquals("M005-" + year, govt.getUserId());
+        assertEquals("PVT001-" + year, priv.getUserId());
+        assertEquals("PVT003-" + year, any.getUserId());
+        assertEquals("PVT004-" + year, unset.getUserId());
+        assertEquals("M004-" + year, numbered.getUserId());
+        assertEquals("987", lastYear.getUserId());
+        assertNull(inactive.getUserId());
+        assertNull(merged.getUserId());
+        List<?> generated = (List<?>) out.get("generated");
+        assertEquals(4, generated.size());
+        assertEquals("1234", ((Map<?, ?>) generated.stream().filter(r -> ("M005-" + year).equals(((Map<?, ?>) r).get("user_id"))).findFirst().orElseThrow()).get("previous_user_id"));
         assertEquals(0L, out.get("without_govt"));
         assertEquals(0L, out.get("without_private"));
     }

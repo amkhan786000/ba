@@ -24,7 +24,7 @@ interface SponsorDashboard {
 
 /** One student's study picture and latest news (GET /sponsor/overview). */
 interface StudentNews {
-  id: number; user_id: string; reference_no?: string | null; name: string; study_status: string; course: string | null; institution: string | null;
+  id: number; user_id: string; name: string; study_status: string; course: string | null; institution: string | null;
   semesters: number | null; semester_now: number | null; course_start: string | null; expected_completion: string | null;
   latest_progress: { session: string; year: string; marks: string; review_status: string; uploaded_at: string } | null;
   last_payment: { date: string; installment: string; spent_proof: boolean } | null;
@@ -87,7 +87,7 @@ interface Overview {
       <div class="col-12 col-md-6 col-xl-4" *ngFor="let s of overview!.students">
         <div class="card"><div class="card-body">
           <div class="d-flex justify-content-between align-items-start">
-            <div><h5 class="mb-0">{{ s.name }}</h5><small class="text-muted">ID {{ s.user_id }}{{ s.reference_no ? ' · Ref ' + s.reference_no : '' }}</small>
+            <div><h5 class="mb-0">{{ s.name }}</h5><small class="text-muted">ID {{ s.user_id }}</small>
               <span *ngIf="s.on_behalf" class="badge badge-info ml-1">{{ s.donor_label || 'Anonymous donor' }} · {{ s.donor_chapter }}</span></div>
             <span class="badge" [ngClass]="studyBadge(s.study_status)">{{ s.study_status }}</span>
           </div>

@@ -723,7 +723,6 @@ public class AdminService {
         profile.put("session_year", user.getYear());
         profile.put("payment_start_date", user.getPaymentStartDate());
         profile.put("college_type", user.getCollegeType());
-        profile.put("reference_no", user.getReferenceNo());
         profile.put("study_status_date", user.getStudyStatusDate());
         profile.put("study_status_note", user.getStudyStatusNote());
         profile.put("name", user.getName());

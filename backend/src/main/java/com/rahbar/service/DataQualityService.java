@@ -372,23 +372,23 @@ public class DataQualityService {
         }
 
         return List.of(
-                byStudy(in(SPONSORS, "/admin/students", check("students_without_payment_start", "Students without a payment start date",
+                byStudy(in(STUDENTS, "/admin/students", check("students_without_payment_start", "Students without a payment start date",
                         "No date for the first installment, so no fee schedule can be made once they are sponsored (Student Directory > BA Details).", noStart))),
                 byStudy(in(SPONSORS, "/admin/students", check("sponsored_students_without_session_year", "Sponsored students without a session year",
                         "The session year picks their Payment Config (amount and frequency); no fee schedule until it is set (Student Directory > BA Details).", noYear))),
-                byStudy(in(SPONSORS, "/admin/students", check("students_without_college_type", "Students without a college type",
+                byStudy(in(STUDENTS, "/admin/students", check("students_without_college_type", "Students without a college type",
                         "Govt, Private or Doesn't matter is not chosen yet (Student Directory > BA Details). With it the right Payment Config "
                                 + "(Govt or Private college) is used; until then they get the year's Payment Config for any college.", noCollegeType))),
                 byStudy(in(ADMINISTRATION, "/admin/system-configuration", check("session_years_without_payment_config", "Session years without a payment config",
                         "Students of these years get no installments until a Payment Config is added for the year.", noConfig))),
-                byStudy(in(SPONSORS, "/admin/students", check("students_without_matching_payment_config", "Students whose Payment Config can't be chosen",
+                byStudy(in(STUDENTS, "/admin/students", check("students_without_matching_payment_config", "Students whose Payment Config can't be chosen",
                         "Their session year has Payment Configs, but none for their college type (see why). Set the college type in BA "
                                 + "Details, or add the missing Payment Config.", noMatchingConfig))),
-                in(SPONSORS, "/admin/sponsorships", check("finished_students_still_mapped", "Graduated or dropped-out students still mapped to a sponsor",
+                in(STUDENTS, "/admin/sponsorships", check("finished_students_still_mapped", "Graduated or dropped-out students still mapped to a sponsor",
                         "The sponsor still sees them as current; unmap them so the sponsor can take a new student.", finishedMapped)),
                 byStudy(in(SPONSORS, "/admin/sponsorships", check("students_with_inactive_sponsor", "Current students mapped to an inactive sponsor",
                         "Their sponsor's account is inactive, so nobody is paying for them.", inactiveSponsor))),
-                byStudy(in(SPONSORS, "/admin/students", check("students_with_bad_bank_details", "Students with incomplete or invalid bank details",
+                byStudy(in(STUDENTS, "/admin/students", check("students_with_bad_bank_details", "Students with incomplete or invalid bank details",
                         "Missing account number, or an account number / IFSC code that doesn't look right (IFSC: 4 letters, 0, 6 letters or digits).", badBank))),
                 byStudy(in(STUDENTS, "/admin/students", check("students_with_invalid_phone", "Students with an invalid phone number",
                         "Not a 10-digit Indian mobile number (starting 6-9), so OTPs and calls may not reach them.", badPhone))),
@@ -496,17 +496,20 @@ public class DataQualityService {
     }
 
     /**
-     * Students with a session year but no reference number yet (Students > Reference Numbers), oldest year first,
-     * with how many per year in the description.
+     * Students of the current session year or later whose user ID isn't a reference number yet (M001-2026,
+     * PVT001-2026; Students > Reference Numbers), and students with no user ID at all; with how many per year.
+     * Earlier years keep the IDs they were given.
      */
     private Map<String, Object> referenceCheck(List<User> students) {
-        Map<Integer, Integer> perYear = new TreeMap<>();
+        int from = StudentReferenceService.currentYear();
+        Map<String, Integer> perYear = new TreeMap<>();
         List<Map<String, Object>> rows = new ArrayList<>();
         students.stream()
-                .filter(u -> u.getYear() != null && blank(u.getReferenceNo()))
-                .sorted(Comparator.comparing(User::getYear).thenComparing(User::getId))
+                .filter(u -> blank(u.getUserId())
+                        || (u.getYear() != null && u.getYear() >= from && !StudentReferenceService.isReference(u.getUserId(), u.getYear())))
+                .sorted(Comparator.comparing(User::getYear, Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(User::getId))
                 .forEach(u -> {
-                    perYear.merge(u.getYear(), 1, Integer::sum);
+                    perYear.merge(u.getYear() == null ? "no year" : String.valueOf(u.getYear()), 1, Integer::sum);
                     rows.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "session_year", u.getYear(),
                             "college_type", u.getCollegeType() == null ? "Not set" : PaymentInstallmentService.collegeLabel(u.getCollegeType()),
                             "chapter", u.getChapterName(), "study_status", StudyStatus.label(u.getStudyStatus())));
@@ -514,9 +517,10 @@ public class DataQualityService {
         StringBuilder byYear = new StringBuilder();
         perYear.forEach((y, n) -> byYear.append(byYear.length() == 0 ? "" : ", ").append(y).append(": ").append(n));
         return check("students_without_reference_no", "Students without a reference number",
-                "Reference numbers (M001-" + StudentReferenceService.currentYear() + " for Govt colleges, PVT001-... otherwise) are "
-                        + "generated in Students > Reference Numbers for the current session year."
-                        + (perYear.isEmpty() ? "" : " Missing by session year: " + byYear + "."), rows);
+                "From " + from + " a student's user ID is their reference number (M001-" + from + " for a Govt college, PVT001-"
+                        + from + " otherwise), generated in Students > Reference Numbers. Listed: students of " + from
+                        + " or later whose user ID isn't one yet, and students with no user ID."
+                        + (perYear.isEmpty() ? "" : " By session year: " + byYear + "."), rows);
     }
 
     /** Tags a check with its menu group and the admin screen where it is fixed. */

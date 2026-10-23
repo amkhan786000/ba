@@ -252,23 +252,23 @@ class DataQualityServiceTest {
     }
 
     @Test
-    void studentsWithASessionYearNeedAReferenceNumber() {
-        User y2025 = user(30, 6, "STU-30");
-        y2025.setYear(2025);
-        User y2024 = user(31, 6, "STU-31");
-        y2024.setYear(2024);
-        User numbered = user(32, 6, "STU-32");
-        numbered.setYear(2025);
-        numbered.setReferenceNo("PVT001-2025");
-        User noYear = user(33, 6, "STU-33");
-        when(users.findByRoleId(6)).thenReturn(List.of(y2025, y2024, numbered, noYear));
+    void studentsFromThisYearNeedAReferenceNumberAsTheirUserId() {
+        int year = StudentReferenceService.currentYear();
+        User numeric = user(30, 6, "1234");
+        numeric.setYear(year);
+        User numbered = user(31, 6, "PVT001-" + year);
+        numbered.setYear(year);
+        User older = user(32, 6, "987"); // earlier years keep their IDs
+        older.setYear(year - 1);
+        User noId = user(33, 6, " ");
+        noId.setYear(year - 1);
+        when(users.findByRoleId(6)).thenReturn(List.of(numeric, numbered, older, noId));
 
         var check = byKey().get("students_without_reference_no");
         assertEquals("students", check.get("group"));
         assertEquals("/admin/student-references", check.get("link"));
-        assertEquals(2, check.get("count"));
-        assertEquals(List.of("STU-31", "STU-30"), rows(check).stream().map(r -> r.get("user_id")).toList()); // oldest year first
-        assertTrue(String.valueOf(check.get("description")).contains("2024: 1, 2025: 1"));
+        assertEquals(List.of(33L, 30L), rows(check).stream().map(r -> r.get("id")).toList()); // oldest year first
+        assertTrue(String.valueOf(check.get("description")).contains((year - 1) + ": 1, " + year + ": 1"));
     }
 
     @Test
@@ -283,7 +283,7 @@ class DataQualityServiceTest {
         when(users.findByRoleId(6)).thenReturn(List.of(noStart, withStart, coaching, graduated));
 
         var check = byKey().get("students_without_payment_start");
-        assertEquals("sponsors", check.get("group"));
+        assertEquals("students", check.get("group"));
         assertEquals(1, check.get("count"));
         @SuppressWarnings("unchecked")
         var rows = (List<Map<String, Object>>) check.get("rows");
