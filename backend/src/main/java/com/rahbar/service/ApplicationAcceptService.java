@@ -33,6 +33,8 @@ public class ApplicationAcceptService {
     private final AdditionalRoleService additionalRoles;
     private final UserRepository users;
     private final GranteeDetailsRepository granteeDetails;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.BankDetailsRepository bankDetails;
 
     public ApplicationAcceptService(ScholarshipApplicationRepository applications, ApplicationService applicationService,
                                     AdminService adminService, AdditionalRoleService additionalRoles, UserRepository users,
@@ -105,6 +107,17 @@ public class ApplicationAcceptService {
         gd.setInterviewAt(a.getInterviewAt());
         gd.setInterviewVenue(a.getInterviewVenue());
         granteeDetails.save(gd);
+
+        // Bank details from the form (2026 onwards), unless the student already has some.
+        if (a.getBankAccountNumber() != null && bankDetails.findFirstByUserId(student.getId()).isEmpty()) {
+            com.rahbar.entity.BankDetails b = new com.rahbar.entity.BankDetails();
+            b.setUserId(student.getId());
+            b.setAccountName(a.getBankAccountHolder());
+            b.setAccountNumber(a.getBankAccountNumber());
+            b.setIfscCode(a.getBankIfsc());
+            b.setBankName(a.getBankName() + (a.getBankBranch() == null ? "" : ", " + a.getBankBranch()));
+            bankDetails.save(b);
+        }
 
         String note = staffNote == null || staffNote.isBlank() ? null : staffNote.trim();
         if (note != null && note.length() > 2000) throw new ApiException(HttpStatus.BAD_REQUEST, "The note can be at most 2000 characters.");

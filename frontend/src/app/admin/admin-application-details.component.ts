@@ -26,6 +26,14 @@ interface ApplicationDetail extends ApplicationRow {
   status_date: string | null;
   interview_at: string | null;
   interview_venue: string | null;
+  // the 2026 form
+  recommended_by?: string | null; recommended_chapter?: string | null; incharge_name?: string | null; incharge_mobile?: string | null;
+  govt_seat?: string | null; govt_seat_details?: string | null; aadhaar_last4?: string | null; date_of_birth?: string | null;
+  nationality?: string | null; edu_10_year?: number | null; edu_10_percent?: number | null; edu_12_year?: number | null;
+  edu_12_percent?: number | null; iti_year?: number | null; iti_percent?: number | null; diploma_year?: number | null;
+  diploma_percent?: number | null; guardian_name?: string | null; guardian_mobile?: string | null;
+  bank_account_holder?: string | null; bank_account_number?: string | null; bank_ifsc?: string | null; bank_name?: string | null;
+  bank_branch?: string | null; declarations_accepted_at?: string | null;
 }
 interface HistoryRow { status: string; comments: string | null; date: string | null }
 interface DocumentRow { id: number; docType: string; fileName: string; filePath: string; uploadedAt: string | null }
@@ -71,6 +79,35 @@ interface Details { application: ApplicationDetail; history: HistoryRow[]; docum
               <div><span>Student record</span><strong>
                 <a *ngIf="app.student_user_id && section === 'admin'; else noLink" [routerLink]="['/admin/users', app.student_user_id, 'edit']">{{ app.student_code }}</a>
                 <ng-template #noLink>{{ app.student_code || 'Made when the application is accepted' }}</ng-template></strong></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- The 2026 form's other sections (empty for applications made before) -->
+        <div class="card" *ngIf="app.date_of_birth || app.bank_account_number || app.recommended_by">
+          <div class="card-body">
+            <h4 class="header-title mb-3">Application form details</h4>
+            <div class="facts">
+              <div><span>Recommended by</span><strong>{{ app.recommended_by === 'CHAPTER' ? 'BA chapter: ' + (app.recommended_chapter || '--') : app.recommended_by === 'RCC' ? 'RCC: ' + (app.rcc_name || '--') : '--' }}</strong>
+                <small>{{ app.incharge_name }} {{ app.incharge_mobile }}</small></div>
+              <div><span>Seat / exam in a Govt. college</span><strong>{{ app.govt_seat === 'Y' ? 'Yes' : app.govt_seat === 'N' ? 'No' : '--' }}</strong>
+                <small>{{ app.govt_seat_details }}</small></div>
+              <div><span>Date of birth</span><strong>{{ app.date_of_birth ? (app.date_of_birth | appDate) : '--' }}</strong><small>{{ app.nationality }}</small></div>
+              <div><span>Aadhaar</span><strong>{{ app.aadhaar_last4 ? 'XXXX XXXX ' + app.aadhaar_last4 : '--' }}</strong><small>copy among the documents</small></div>
+              <div><span>Guardian</span><strong>{{ app.guardian_name || '--' }}</strong><small>{{ app.guardian_mobile }}</small></div>
+              <div><span>Bank</span><strong>{{ app.bank_account_holder || '--' }}</strong>
+                <small>{{ app.bank_account_number }} · {{ app.bank_ifsc }} · {{ app.bank_name }}{{ app.bank_branch ? ', ' + app.bank_branch : '' }}</small></div>
+              <div><span>Declarations</span><strong>{{ app.declarations_accepted_at ? 'Accepted' : '--' }}</strong>
+                <small>{{ app.declarations_accepted_at ? (app.declarations_accepted_at | appDate: 'datetime') : '' }}</small></div>
+            </div>
+            <div class="table-responsive mt-3">
+              <table class="table table-sm mb-0">
+                <thead class="thead-light"><tr><th>Education</th><th>10th / Matric</th><th>10+2 / Intermediate</th><th>ITI</th><th>Diploma</th></tr></thead>
+                <tbody>
+                  <tr><td>Year of passing</td><td>{{ app.edu_10_year || '--' }}</td><td>{{ app.edu_12_year || '--' }}</td><td>{{ app.iti_year || '--' }}</td><td>{{ app.diploma_year || '--' }}</td></tr>
+                  <tr><td>Percentage</td><td>{{ pct(app.edu_10_percent) }}</td><td>{{ pct(app.edu_12_percent) }}</td><td>{{ pct(app.iti_percent) }}</td><td>{{ pct(app.diploma_percent) }}</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
@@ -320,4 +357,6 @@ export class AdminApplicationDetailsComponent implements OnInit {
     if (/\.docx?$/.test(n)) return 'mdi-file-word-outline';
     return 'mdi-file-outline';
   }
+
+  pct(v: number | null | undefined): string { return v == null ? '--' : v + '%'; }
 }

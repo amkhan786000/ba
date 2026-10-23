@@ -40,7 +40,10 @@ public class ApplicationService {
             ScholarshipApplication.INTERVIEW);
 
     public static final List<String> DOCUMENT_TYPES = List.of(
-            "Marksheet", "ID proof", "Income certificate", "Photo", "Admission letter", "Other");
+            // the 2026 form's list of enclosures, then what the office also asks for
+            "Photograph", "10th marksheet", "12th marksheet", "ITI / Diploma marksheet", "Aadhaar card (self-attested)",
+            "Bank passbook", "Birth certificate (self-attested)", "Specimen signature", "Income certificate", "Admission letter",
+            "Marksheet", "ID proof", "Photo", "Other");
 
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "jpg", "jpeg", "png", "webp", "doc", "docx");
     private static final int MAX_DOCUMENTS = 10;
