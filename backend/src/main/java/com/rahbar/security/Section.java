@@ -57,10 +57,17 @@ public enum Section {
     /** Notes students write to their sponsors (Sponsors & Payments > Notes to sponsors). VIEW reads them; EDIT approves or returns them. */
     STUDENT_NOTES("Notes to sponsors"),
     /**
-     * Students studying at an RCC / coaching center: their personal and family details. With "own RCC center"
-     * scope (coaching center lead) only their center's students; EDIT adds and updates them.
+     * Coaching Center > Students (classes 7 to 10, their admission details). With "own RCC center" scope (coaching
+     * center coordinator, coaching teacher) only their center's students; EDIT admits and updates them.
      */
     RCC_STUDENTS("Coaching center students"),
+    /** Coaching Center > Teachers (classes 7-10). With "own RCC center" scope only their center's; EDIT adds and updates them. */
+    COACHING_TEACHERS("Coaching center teachers"),
+    /**
+     * Coaching Center > Exams: monthly exams per class, their subjects and marks, and the 1st / 2nd / 3rd prizes.
+     * EDIT sets up exams, enters marks, generates the prizes and manages the subject list.
+     */
+    COACHING_EXAMS("Coaching center exams & marks"),
     /**
      * People who offered to mentor, tutor, sponsor or join a chapter through the public website. VIEW lists them
      * (and notifies of new ones); EDIT sets their follow-up status and notes, or deletes a sign-up.
