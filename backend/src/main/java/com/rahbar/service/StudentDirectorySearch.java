@@ -5,14 +5,14 @@ import java.util.*;
 /**
  * Admin > Student Directory: the search box and the filters, applied to the directory rows.
  * <p>
- * Search: every word must match. A word matches when it is part of the Ref ID, reference number, name, email, phone, sponsor ID or
+ * Search: every word must match. A word matches when it is part of the Ref ID, name, email, phone, sponsor ID or
  * name, chapter, institution or course, or when it is a whole word of the study status label ("on hold",
  * "graduated", ...) or of the account status ("active" finds Active students only, not Inactive ones). The database
  * keeps study status codes (ON_HOLD); the search reads their labels.
  */
 public final class StudentDirectorySearch {
 
-    private static final String[] TEXT_COLUMNS = {"user_id", "reference_no", "name", "email", "phone", "sponsor_code", "sponsor_name",
+    private static final String[] TEXT_COLUMNS = {"user_id", "name", "email", "phone", "sponsor_code", "sponsor_name",
             "chapter_name", "institution_name", "course_name"};
 
     /** Filters (null / blank = no filter). sponsored: "yes" (has a sponsor) or "no". */

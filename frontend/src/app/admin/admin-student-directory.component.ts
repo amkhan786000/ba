@@ -23,7 +23,7 @@ import { DateInputComponent } from '../shared/date-input.component';
 interface StudentRow {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
   sponsor_id: number | null; sponsor_code: string | null; sponsor_name: string | null; status: string | null;
-  study_status: string | null; reference_no?: string | null;
+  study_status: string | null;
 }
 
 type Row = Record<string, any>;
@@ -84,7 +84,7 @@ interface BaDetails {
               </div>
               <div class="col-sm-6 text-sm-right">
                 <label>Search:<input type="search" class="form-control form-control-sm" [(ngModel)]="search" (ngModelChange)="search$.next($event)"
-                  placeholder="Name, ID, phone, chapter, course, status…" title="Every word must match: name, Ref ID, reference number, email, phone, sponsor, chapter, institution, course, study status or status"></label>
+                  placeholder="Name, ID, phone, chapter, course, status…" title="Every word must match: name, Ref ID, email, phone, sponsor, chapter, institution, course, study status or status"></label>
               </div>
             </div>
 
@@ -129,13 +129,13 @@ interface BaDetails {
             <div class="table-responsive">
               <table class="table table-bordered table-striped nowrap" style="width:100%">
                 <thead>
-                  <tr><th>Ref_Id</th><th>Reference No.</th><th>Name</th><th class="tablet-hide">Email</th><th>Phone</th><th class="tablet-hide">Sponsor ID</th><th>Sponsor Name</th><th>Study</th><th>Status</th><th>Actions</th></tr>
+                  <tr><th>Ref_Id</th><th>Name</th><th class="tablet-hide">Email</th><th>Phone</th><th class="tablet-hide">Sponsor ID</th><th>Sponsor Name</th><th>Study</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
-                  <tr *ngIf="loading"><td colspan="10" class="text-center text-muted">Processing...</td></tr>
-                  <tr *ngIf="!loading && !rows.length"><td colspan="10" class="text-center text-muted">No matching records found</td></tr>
+                  <tr *ngIf="loading"><td colspan="9" class="text-center text-muted">Processing...</td></tr>
+                  <tr *ngIf="!loading && !rows.length"><td colspan="9" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let r of rows">
-                    <td>{{ r.user_id }}</td><td>{{ r.reference_no || '-' }}</td><td>{{ r.name }}</td><td class="tablet-hide">{{ r.email }}</td><td>{{ r.phone }}</td>
+                    <td>{{ r.user_id }}</td><td>{{ r.name }}</td><td class="tablet-hide">{{ r.email }}</td><td>{{ r.phone }}</td>
                     <td class="tablet-hide">{{ r.sponsor_code || '-' }}</td><td>{{ r.sponsor_name || 'Unassigned' }}</td>
                     <td><span class="badge" [ngClass]="studyBadge(r.study_status)">{{ studyLabel(r.study_status) }}</span></td>
                     <td><span class="badge" [ngClass]="(r.status || '').toLowerCase() === 'active' ? 'badge-success' : 'badge-danger'">{{ r.status }}</span></td>
@@ -219,10 +219,6 @@ interface BaDetails {
 
             <!-- BA Details -->
             <div *ngIf="tab === 'ba'" class="row">
-              <div class="col-12 form-group mb-2"><label class="mb-0">Reference No.</label>
-                <div><strong>{{ details.profile['reference_no'] || 'Not generated yet' }}</strong>
-                  <small class="text-muted ml-1">(Students &gt; Reference Numbers: M001-YYYY for a Govt college, PVT001-YYYY otherwise)</small></div>
-              </div>
               <div class="col-md-4 form-group"><label>RCC Center</label>
                 <select class="form-control" [(ngModel)]="ba.rccName" [disabled]="!editing">
                   <option value="">No RCC center</option>

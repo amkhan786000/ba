@@ -13,9 +13,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Students > Reference Numbers (Super Admin and Application Admin): gives every student of the current session year
- * who has none a reference number. Govt college: M001-2026, M002-2026, ...; Private, "Doesn't matter" or not set:
- * PVT001-2026, ... Each prefix counts on from the highest number it already has that year, oldest student first.
+ * Students > Reference Numbers (Super Admin and Application Admin). A student's reference number is their user ID
+ * (users.user_id). This gives every student of the current session year whose user ID isn't a reference number of
+ * that year yet (e.g. the numeric code they got when their application was accepted) one: Govt college: M001-2026,
+ * M002-2026, ...; Private, "Doesn't matter" or not set: PVT001-2026, ... Each prefix counts on from the highest
+ * number it already has that year, oldest student first. Signing in uses the email or phone, so it keeps working.
  */
 @Service
 public class StudentReferenceService {
@@ -35,6 +37,11 @@ public class StudentReferenceService {
 
     static String format(String prefix, int number, int year) {
         return String.format(Locale.ROOT, "%s%03d-%d", prefix, number, year);
+    }
+
+    /** True when the user ID already is a reference number of that year (M001-2026, PVT012-2026). */
+    static boolean isReference(String userId, int year) {
+        return numberOf(userId, GOVT_PREFIX, year) > 0 || numberOf(userId, PRIVATE_PREFIX, year) > 0;
     }
 
     /** The number in a reference of this prefix and year (M007-2026 gives 7), or 0 when it is another kind. */
@@ -59,7 +66,7 @@ public class StudentReferenceService {
     }
 
     private static boolean hasReference(User u) {
-        return u.getReferenceNo() != null && !u.getReferenceNo().isBlank();
+        return u.getYear() != null && isReference(u.getUserId(), u.getYear());
     }
 
     /** The page: the year, how many are still without a number (Govt / Private), and the numbers given so far. */
@@ -70,7 +77,7 @@ public class StudentReferenceService {
         long priv = students.stream().filter(u -> !hasReference(u) && PRIVATE_PREFIX.equals(prefixFor(u.getCollegeType()))).count();
         List<Map<String, Object>> numbered = new ArrayList<>();
         students.stream().filter(StudentReferenceService::hasReference)
-                .sorted(Comparator.comparing(User::getReferenceNo))
+                .sorted(Comparator.comparing(User::getUserId))
                 .forEach(u -> numbered.add(row(u)));
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("year", year);
@@ -92,17 +99,23 @@ public class StudentReferenceService {
         Map<String, Integer> last = new HashMap<>();
         for (User u : userRepository.findAll()) {
             for (String prefix : List.of(GOVT_PREFIX, PRIVATE_PREFIX)) {
-                last.merge(prefix, numberOf(u.getReferenceNo(), prefix, year), Math::max);
+                last.merge(prefix, numberOf(u.getUserId(), prefix, year), Math::max);
             }
         }
         List<Map<String, Object>> generated = new ArrayList<>();
         for (User u : studentsOf(year)) {
             if (hasReference(u)) continue;
             String prefix = prefixFor(u.getCollegeType());
-            int next = last.merge(prefix, 1, Integer::sum);
-            u.setReferenceNo(format(prefix, next, year));
+            String reference;
+            do { // skip a number some other account already has
+                reference = format(prefix, last.merge(prefix, 1, Integer::sum), year);
+            } while (userRepository.existsByUserId(reference));
+            String previous = u.getUserId();
+            u.setUserId(reference);
             userRepository.save(u);
-            generated.add(row(u));
+            Map<String, Object> r = row(u);
+            r.put("previous_user_id", previous);
+            generated.add(r);
         }
         Map<String, Object> out = overview();
         out.put("generated", generated);
@@ -116,7 +129,6 @@ public class StudentReferenceService {
         r.put("name", u.getName());
         r.put("chapter", u.getChapterName());
         r.put("college_type", u.getCollegeType() == null ? "Not set" : PaymentInstallmentService.collegeLabel(u.getCollegeType()));
-        r.put("reference_no", u.getReferenceNo());
         return r;
     }
 }
