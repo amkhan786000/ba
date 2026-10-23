@@ -31,6 +31,8 @@ public class WebsiteScholarshipController {
     private final ApplicationService applicationService;
     private final RccCenterRepository centers;
     private final CourseRepository courses;
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.ChapterRepository chapters;
     private final WebsiteLimiter applyLimit = new WebsiteLimiter(3, 300);
     /** Look-ups need the number and a mobile; the limit stops anyone trying many numbers. */
     private final WebsiteLimiter trackLimit = new WebsiteLimiter(30, 3000);
@@ -51,6 +53,8 @@ public class WebsiteScholarshipController {
         out.put("open", publicService.isApplicationPeriodOpen());
         out.put("rccCenters", names(centers.findAll().stream().map(RccCenter::getCenterName).toList()));
         out.put("courses", names(courses.findAll().stream().map(Course::getCourseName).toList()));
+        out.put("chapters", chapters == null ? List.of() : names(chapters.findAll().stream().filter(c -> !Boolean.FALSE.equals(c.getActive()))
+                .map(com.rahbar.entity.Chapter::getChapterName).toList()));
         return out;
     }
 
