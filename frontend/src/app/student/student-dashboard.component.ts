@@ -4,7 +4,7 @@ import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.component';
 
-interface Person { name?: string; email?: string | null; phone?: string | null; on_behalf_text?: string | null }
+interface Person { name?: string; email?: string | null; phone?: string | null; on_behalf_text?: string | null; reference_no?: string | null }
 interface Progress { marks: string | number | null; session: string | null; year: string | number | null }
 
 /** Port of templates/student/dashboard.html (charts use the student's own marks instead of sample numbers). */
@@ -24,7 +24,8 @@ interface Progress { marks: string | number | null; session: string | null; year
             <div class="mt-3">
               <p class="mb-1"><strong>Name:</strong> {{ student?.name }}</p>
               <p class="mb-1"><strong>Email:</strong> {{ student?.email }}</p>
-              <p class="mb-0"><strong>Phone:</strong> {{ student?.phone }}</p>
+              <p class="mb-1"><strong>Phone:</strong> {{ student?.phone }}</p>
+              <p class="mb-0"><strong>Reference No.:</strong> {{ student?.reference_no || 'Not given yet' }}</p>
             </div>
           </div>
         </div>

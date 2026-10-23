@@ -83,6 +83,25 @@ public class User extends Modifiable {
     @Column(name = "college_type", length = 10)
     private String collegeType;
 
+    /** Students: the office's reference number, e.g. M001-2026 (Govt college) or PVT001-2026 (Students > Reference Numbers). */
+    @Column(name = "reference_no", length = 20, unique = true)
+    private String referenceNo;
+
+    /** Sponsors: the kind of student they'd like to sponsor (GOVT, PRIVATE or ANY; null = not said). */
+    @Column(name = "pref_college_type", length = 10)
+    private String prefCollegeType;
+
+    /** Sponsors: fathers' professions they'd prefer, one per line (empty = any). */
+    @Column(name = "pref_father_professions", columnDefinition = "TEXT")
+    private String prefFatherProfessions;
+
+    /** Sponsors: the family's yearly income range they'd prefer (either end may be empty). */
+    @Column(name = "pref_income_min")
+    private java.math.BigDecimal prefIncomeMin;
+
+    @Column(name = "pref_income_max")
+    private java.math.BigDecimal prefIncomeMax;
+
     /** Students: STUDYING, ON_HOLD, GRADUATED or DROPPED_OUT (see service.StudyStatus); NULL counts as studying. */
     @Column(name = "study_status", length = 20)
     private String studyStatus;

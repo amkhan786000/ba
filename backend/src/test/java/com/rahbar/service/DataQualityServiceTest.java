@@ -85,7 +85,7 @@ class DataQualityServiceTest {
     void everyCheckHasAMenuGroupAndAScreen() {
         Set<String> groups = Set.of("students", "sponsors", "community", "website", "administration");
         var checks = service.checks();
-        assertEquals(39, checks.size()); // 27 before (incl. sponsor chapter / phone, other chapter, spent proof), duplicate sponsors, 10 payment set-up checks, same person / two accounts
+        assertEquals(40, checks.size()); // 27 before (incl. sponsor chapter / phone, other chapter, spent proof), duplicate sponsors, 10 payment set-up checks, same person / two accounts, reference numbers
         for (var c : checks) {
             assertTrue(groups.contains((String) c.get("group")), c.get("key") + " has group " + c.get("group"));
             assertTrue(String.valueOf(c.get("link")).startsWith("/admin/"), c.get("key") + " has link " + c.get("link"));
@@ -249,6 +249,26 @@ class DataQualityServiceTest {
 
         var check = byKey().get("possible_duplicate_sponsors");
         assertEquals(Set.of(40L, 41L, 43L, 44L), new HashSet<>(rows(check).stream().map(x -> (Long) x.get("id")).toList()));
+    }
+
+    @Test
+    void studentsWithASessionYearNeedAReferenceNumber() {
+        User y2025 = user(30, 6, "STU-30");
+        y2025.setYear(2025);
+        User y2024 = user(31, 6, "STU-31");
+        y2024.setYear(2024);
+        User numbered = user(32, 6, "STU-32");
+        numbered.setYear(2025);
+        numbered.setReferenceNo("PVT001-2025");
+        User noYear = user(33, 6, "STU-33");
+        when(users.findByRoleId(6)).thenReturn(List.of(y2025, y2024, numbered, noYear));
+
+        var check = byKey().get("students_without_reference_no");
+        assertEquals("students", check.get("group"));
+        assertEquals("/admin/student-references", check.get("link"));
+        assertEquals(2, check.get("count"));
+        assertEquals(List.of("STU-31", "STU-30"), rows(check).stream().map(r -> r.get("user_id")).toList()); // oldest year first
+        assertTrue(String.valueOf(check.get("description")).contains("2024: 1, 2025: 1"));
     }
 
     @Test

@@ -24,6 +24,12 @@ public enum Section {
     REPORTS("Reports"),
     APPLICATION_PERIOD("Application period"),
     APPLICATIONS("Applications"),
+    /**
+     * Applications > Apply for Sponsorship, while an application period is open. VIEW: a sponsor applies for themselves
+     * (how many students, and what kind). EDIT: applies on behalf of any sponsor (chapter-scoped: their chapter's) and
+     * sees everyone's applications.
+     */
+    SPONSOR_APPLY("Apply for sponsorship"),
     SPONSORSHIPS("Sponsorships"),
     STUDENTS("Student directory"),
     ACTIVITY("Activity log"),

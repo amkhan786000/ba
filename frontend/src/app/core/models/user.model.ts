@@ -31,7 +31,7 @@ export interface AuthUser {
 
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
 export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG' | 'ONLINE_PAYMENTS'
-  | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
+  | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSOR_APPLY' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
   | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
@@ -57,16 +57,18 @@ export const NAV_GROUPS: Record<string, { label: string; icon: string }> = {
 
 /** Admin menu, in order; each entry needs VIEW on its section. Entries of a group stay together. */
 /** Entries without a section are shown to everyone in the admin area (e.g. Documents, which filters per document). */
-export const ADMIN_LINKS: { path: string; label: string; icon: string; section?: Section; group?: string; superAdmin?: boolean }[] = [
+export const ADMIN_LINKS: { path: string; label: string; icon: string; section?: Section; group?: string; superAdmin?: boolean; admin?: boolean }[] = [
   { path: '/admin/dashboard', label: 'Dashboard', icon: 'mdi-view-dashboard', section: 'DASHBOARD' },
 
   { path: '/admin/applications-dashboard', label: 'Applications Dashboard', icon: 'mdi-chart-timeline-variant', section: 'APPLICATIONS', group: 'applications' },
   { path: '/admin/applications', label: 'Applications', icon: 'mdi-file-document', section: 'APPLICATIONS', group: 'applications' },
   { path: '/admin/track-application', label: 'Track Application', icon: 'mdi-magnify', section: 'APPLICATIONS', group: 'applications' },
   { path: '/admin/application-period', label: 'Application Period', icon: 'mdi-calendar', section: 'APPLICATION_PERIOD', group: 'applications' },
+  { path: '/admin/apply-sponsorship', label: 'Apply for Sponsorship', icon: 'mdi-hand-heart-outline', section: 'SPONSOR_APPLY', group: 'applications' },
 
   { path: '/admin/students-dashboard', label: 'Students Dashboard', icon: 'mdi-chart-bar', section: 'STUDENTS', group: 'students' },
   { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS', group: 'students' },
+  { path: '/admin/student-references', label: 'Reference Numbers', icon: 'mdi-numeric', group: 'students', admin: true },
   { path: '/admin/alumni', label: 'Alumni', icon: 'mdi-school', section: 'ALUMNI', group: 'students' },
   { path: '/admin/mentoring', label: 'Mentoring', icon: 'mdi-account-tie-voice', section: 'MENTORING', group: 'students' },
   { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES', group: 'students' },

@@ -102,6 +102,13 @@ export class AuthService {
     return acting != null ? acting === ROLE.SUPER_ADMIN : this.hasRole(ROLE.SUPER_ADMIN);
   }
 
+  /** Super Admin or Application Admin (the acting role, when viewing as one role). */
+  isAdmin(): boolean {
+    const acting = this.currentUser()?.actingRoleId;
+    if (acting != null) return acting === ROLE.SUPER_ADMIN || acting === ROLE.APP_ADMIN;
+    return this.hasRole(ROLE.SUPER_ADMIN) || this.hasRole(ROLE.APP_ADMIN);
+  }
+
   /** May the signed-in user view (or manage) the admin section? */
   can(section: Section, level: 'VIEW' | 'EDIT' = 'VIEW'): boolean {
     return canAccess(this.currentUser(), section, level);

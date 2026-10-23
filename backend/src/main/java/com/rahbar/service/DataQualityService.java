@@ -157,6 +157,7 @@ public class DataQualityService {
         checks.add(byStudy(in(STUDENTS, "/admin/students", userCheck("students_without_email", "Students without a real email address",
                 "They can't get emails (no address, or a placeholder ...@rahbar.com).", students,
                 u -> !usableEmail(u.getEmail())))));
+        checks.add(byStudy(in(STUDENTS, "/admin/student-references", referenceCheck(students))));
         // Duplicates are checked across every active student account, whatever the study status.
         checks.add(in(STUDENTS, "/admin/students", duplicateStudents(userRepository.findByRoleId(6).stream()
                 .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && u.getMergedIntoId() == null).toList())));
@@ -492,6 +493,30 @@ public class DataQualityService {
                         "Active projects shown on the website without a picture.", projects)),
                 in(WEBSITE, "/admin/website/blog", check("blog_posts_without_summary", "Published Knowledge Hub posts without a summary",
                         "The Knowledge Hub lists show a summary under each title.", posts)));
+    }
+
+    /**
+     * Students with a session year but no reference number yet (Students > Reference Numbers), oldest year first,
+     * with how many per year in the description.
+     */
+    private Map<String, Object> referenceCheck(List<User> students) {
+        Map<Integer, Integer> perYear = new TreeMap<>();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        students.stream()
+                .filter(u -> u.getYear() != null && blank(u.getReferenceNo()))
+                .sorted(Comparator.comparing(User::getYear).thenComparing(User::getId))
+                .forEach(u -> {
+                    perYear.merge(u.getYear(), 1, Integer::sum);
+                    rows.add(row("id", u.getId(), "user_id", u.getUserId(), "name", u.getName(), "session_year", u.getYear(),
+                            "college_type", u.getCollegeType() == null ? "Not set" : PaymentInstallmentService.collegeLabel(u.getCollegeType()),
+                            "chapter", u.getChapterName(), "study_status", StudyStatus.label(u.getStudyStatus())));
+                });
+        StringBuilder byYear = new StringBuilder();
+        perYear.forEach((y, n) -> byYear.append(byYear.length() == 0 ? "" : ", ").append(y).append(": ").append(n));
+        return check("students_without_reference_no", "Students without a reference number",
+                "Reference numbers (M001-" + StudentReferenceService.currentYear() + " for Govt colleges, PVT001-... otherwise) are "
+                        + "generated in Students > Reference Numbers for the current session year."
+                        + (perYear.isEmpty() ? "" : " Missing by session year: " + byYear + "."), rows);
     }
 
     /** Tags a check with its menu group and the admin screen where it is fixed. */

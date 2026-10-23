@@ -14,6 +14,7 @@ import { PagerComponent } from '../shared/pager/pager.component';
 import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
+import { PreferenceOptions, SponsorPreferences, SponsorPreferencesComponent, preferencesFrom } from '../shared/sponsor-preferences.component';
 
 interface SponsorRow {
   id: number;
@@ -50,7 +51,7 @@ interface FeeRow {
 @Component({
   selector: 'app-admin-sponsorships',
   standalone: true,
-  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, BulkReportComponent, CardTableDirective],
+  imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, BulkReportComponent, CardTableDirective, SponsorPreferencesComponent],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Sponsorships</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -175,6 +176,9 @@ interface FeeRow {
                 </select>
               </div>
             </div>
+            <h5 class="text-success border-bottom pb-2 mt-4"><i class="mdi mdi-heart-outline"></i> Student preferences
+              <small class="text-muted">(what kind of student this sponsor would like)</small></h5>
+            <app-sponsor-preferences [(value)]="prefs" [options]="prefOptions"></app-sponsor-preferences>
             <h5 class="text-primary border-bottom pb-2 mt-4"><i class="mdi mdi-account-multiple"></i> Assigned Students</h5>
             <div class="table-responsive">
               <table class="table table-sm table-bordered">
@@ -345,6 +349,9 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
   editError = '';
   chapters: Chapter[] = [];
   editName = '';
+  /** Edit Sponsor > Student preferences, and the choices for it (loaded the first time the pop-up opens). */
+  prefs: SponsorPreferences = preferencesFrom(null);
+  prefOptions: PreferenceOptions | null = null;
   students: SponsorStudent[] = [];
   /** The popup listing one sponsor's students. */
   list: { sponsor: { id: number; user_id: string; name: string }; students: SponsorStudent[]; loading: boolean } | null = null;
@@ -460,9 +467,11 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
 
   openEdit(id: number): void {
     if (!this.canEditProfile) return;
+    if (!this.prefOptions) this.api.get<PreferenceOptions>('/sponsor-applications/preference-options').subscribe({ next: (o) => (this.prefOptions = o) });
     this.api.get<{ profile: Record<string, string | null>; students: SponsorStudent[] }>(`/admin/sponsors/${id}`).subscribe({
       next: (res) => {
         const p = res.profile;
+        this.prefs = preferencesFrom(p as Record<string, unknown>);
         this.editName = p['name'] ?? '';
         this.editError = '';
         this.edit = { id, name: p['name'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', chapterId: p['chapter_id'] === null || p['chapter_id'] === undefined ? null : Number(p['chapter_id']) };
@@ -477,7 +486,7 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
     this.saving = true;
     this.editError = '';
     const { id, ...body } = this.edit;
-    this.api.put<{ message: string }>(`/admin/sponsors/${id}`, body).subscribe({
+    this.api.put<{ message: string }>(`/admin/sponsors/${id}`, { ...body, preferences: this.prefs }).subscribe({
       next: () => { this.saving = false; this.edit = null; this.message = 'Profile Updated Successfully!'; this.load(); },
       // Shown inside the pop-up (the page's own alert is hidden behind it).
       error: (e) => { this.saving = false; this.editError = errorText(e, 'Update failed'); }
