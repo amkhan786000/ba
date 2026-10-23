@@ -64,6 +64,7 @@ import { AdminPaymentConfigEditComponent } from './admin/admin-payment-config-ed
 import { AdminInterviewRankingComponent } from './admin/admin-interview-ranking.component';
 import { AdminAlumniComponent } from './admin/admin-alumni.component';
 import { CoachingStudentsComponent } from './admin/coaching-students.component';
+import { CoachingDashboardComponent } from './admin/coaching-dashboard.component';
 import { CoachingTeachersComponent } from './admin/coaching-teachers.component';
 import { CoachingExamsComponent } from './admin/coaching-exams.component';
 import { AdminVolunteersComponent } from './admin/admin-volunteers.component';
@@ -173,6 +174,7 @@ export const routes: Routes = [
       { path: 'applications/ranking', component: AdminInterviewRankingComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
       { path: 'alumni', component: AdminAlumniComponent, canActivate: [permissionGuard], data: { permission: 'ALUMNI' } },
       { path: 'rcc-students', redirectTo: 'coaching/students', pathMatch: 'full' },
+      { path: 'coaching/dashboard', component: CoachingDashboardComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'coaching/students', component: CoachingStudentsComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'coaching/teachers', component: CoachingTeachersComponent, canActivate: [permissionGuard], data: { permission: 'COACHING_TEACHERS' } },
       { path: 'coaching/exams', component: CoachingExamsComponent, canActivate: [permissionGuard], data: { permission: 'COACHING_EXAMS' } },
