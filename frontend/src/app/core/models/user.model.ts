@@ -74,6 +74,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES', group: 'students' },
   { path: '/admin/progress-due-dates', label: 'Progress Due Dates', icon: 'mdi-calendar-clock', section: 'PROGRESS_DUE_DATES', group: 'students' },
 
+  { path: '/admin/coaching/dashboard', label: 'Coaching Dashboard', icon: 'mdi-view-dashboard-outline', section: 'RCC_STUDENTS', group: 'coaching' },
   { path: '/admin/coaching/students', label: 'Students', icon: 'mdi-account-group', section: 'RCC_STUDENTS', group: 'coaching' },
   { path: '/admin/coaching/teachers', label: 'Teachers', icon: 'mdi-human-male-board', section: 'COACHING_TEACHERS', group: 'coaching' },
   { path: '/admin/coaching/exams', label: 'Exams & Prizes', icon: 'mdi-trophy-outline', section: 'COACHING_EXAMS', group: 'coaching' },

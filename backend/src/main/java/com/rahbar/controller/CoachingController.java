@@ -1,5 +1,6 @@
 package com.rahbar.controller;
 
+import com.rahbar.service.CoachingDashboardService;
 import com.rahbar.service.CoachingExamService;
 import com.rahbar.service.CoachingService;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,10 +20,19 @@ public class CoachingController {
 
     private final CoachingService coaching;
     private final CoachingExamService exams;
+    private final CoachingDashboardService dashboard;
 
-    public CoachingController(CoachingService coaching, CoachingExamService exams) {
+    public CoachingController(CoachingService coaching, CoachingExamService exams, CoachingDashboardService dashboard) {
         this.coaching = coaching;
         this.exams = exams;
+        this.dashboard = dashboard;
+    }
+
+    /** All the user's centers together (centerId empty), or one center; coordinators and teachers get their own. */
+    @GetMapping("/dashboard")
+    @PreAuthorize("hasAuthority('RCC_STUDENTS:VIEW')")
+    public Map<String, Object> dashboard(@RequestParam(required = false) Long centerId) {
+        return dashboard.dashboard(centerId);
     }
 
     // ---------------------------------------------------------------- students
