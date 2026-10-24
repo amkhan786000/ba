@@ -157,9 +157,14 @@ public class AdminService {
                 pageRequest(page, size, org.springframework.data.domain.Sort.by("userId")));
         List<Map<String, Object>> rows = new ArrayList<>();
         Map<Long, Set<Integer>> rolesOf = UserRoles.byUser(result.getContent(), userRepository);
+        Map<Long, String> centers = new HashMap<>();
+        rccCenterRepository.findAll().forEach(c -> centers.put(c.getRccCenterId(), c.getCenterName()));
+        Map<Long, LocalDateTime> lastSignIn = activityLogService.lastSignIns();
         for (User u : result.getContent()) {
             Map<String, Object> row = Rows.of(u);
             row.put("role_name", roleNames.get(u.getRoleId()));
+            row.put("rcc_center_name", u.getRccCenterId() == null ? null : centers.get(u.getRccCenterId()));
+            row.put("last_sign_in", lastSignIn.get(u.getId()));
             List<Integer> more = rolesOf.getOrDefault(u.getId(), Set.of()).stream().filter(r -> !r.equals(u.getRoleId())).sorted().toList();
             row.put("additional_role_ids", more);
             row.put("additional_role_names", more.stream().map(roleNames::get).filter(Objects::nonNull).toList());
@@ -167,6 +172,10 @@ public class AdminService {
         }
         return pageBody(result, rows);
     }
+
+    /** Each user's last sign-in, for Manage Users. */
+    @org.springframework.beans.factory.annotation.Autowired
+    private ActivityLogService activityLogService;
 
     /** One user (with role_name) for the edit page. */
     public Map<String, Object> getUser(Long userId) {
