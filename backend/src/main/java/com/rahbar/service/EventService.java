@@ -145,7 +145,7 @@ public class EventService {
                 CoachingStudent s = coachingStudents.findById(r.getCoachingStudentId()).orElse(null);
                 row.put("name", s == null ? "?" : s.getName());
                 row.put("who", s == null ? "" : "Coaching class " + s.getClassLevel());
-                row.put("phone", s == null ? null : s.getGuardianMobile());
+                row.put("phone", s == null ? null : s.contactMobile());
             } else {
                 row.put("name", r.getGuestName());
                 row.put("who", "Guest");
@@ -223,7 +223,7 @@ public class EventService {
         Set<Long> centers = coachingAccess.centerIds();
         coachingStudents.findAll().stream()
                 .filter(s -> centers.contains(s.getRccCenterId()) && "ACTIVE".equals(s.getStatus()))
-                .filter(s -> com.rahbar.util.Paging.matches(q, s.getName(), s.getAdmissionNo(), s.getGuardianMobile()))
+                .filter(s -> com.rahbar.util.Paging.matches(q, s.getName(), s.getAdmissionNo(), s.contactMobile()))
                 .limit(15).forEach(s -> out.add(Map.of("coaching_student_id", s.getId(), "name", s.getName(), "who", "Coaching class " + s.getClassLevel())));
         return out;
     }

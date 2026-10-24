@@ -37,6 +37,8 @@ public class FileAccessService {
     private final GranteeDetailsRepository granteeDetailsRepository;
     @org.springframework.beans.factory.annotation.Autowired
     private com.rahbar.repository.ScholarshipApplicationRepository scholarshipApplications;
+    @org.springframework.beans.factory.annotation.Autowired
+    private CoachingAccess coachingAccess;
 
     public FileAccessService(JdbcTemplate jdbc, FileStorageService fileStorageService, StudentScope studentScope,
                              GranteeDetailsRepository granteeDetailsRepository) {
@@ -62,6 +64,12 @@ public class FileAccessService {
         // Rahbar-e-Banaat documents and photos (minors): only people with "REB: private details & documents".
         if (file.startsWith("reb_") || exists("select 1 from reb_student_documents where file_path = ?", file)) {
             return Access.can(com.rahbar.security.Section.REB_STUDENT_PRIVATE, com.rahbar.security.Section.Level.VIEW);
+        }
+        // Coaching students' photos (minors): only staff who see that coaching centre's students.
+        if (file.startsWith(CoachingService.PHOTO_PREFIX)) {
+            if (!Access.can(com.rahbar.security.Section.RCC_STUDENTS, com.rahbar.security.Section.Level.VIEW)) return false;
+            List<Long> centers = jdbc.queryForList("select rcc_center_id from coaching_students where photo_path = ?", Long.class, file);
+            return !centers.isEmpty() && coachingAccess.centerIds().contains(centers.get(0));
         }
         // Someone can be staff and a sponsor (or student) at once: any of their roles that allows the file is enough.
         java.util.Set<Integer> roles = Access.current().getRoleIds();

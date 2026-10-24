@@ -22,6 +22,11 @@ export class ApiService {
     return this.http.delete<T>(`${this.base}${path}`);
   }
 
+  /** A protected file (e.g. a photo) as a local object URL for an <img>; revoke it with URL.revokeObjectURL when done. */
+  blobUrl(path: string): Observable<string> {
+    return this.http.get(`${this.base}${path}`, { responseType: 'blob' }).pipe(switchMap(async (b) => URL.createObjectURL(b)));
+  }
+
   /**
    * Downloads a file (reports etc.) and saves it in the browser.
    * Errors come back as JSON inside a Blob, so they're unwrapped into the usual { error } shape.

@@ -202,7 +202,7 @@ public class EarlyWarningService {
                 signals.add(new Signal("LOW_ATTENDANCE", "Low attendance", pct + "% in the last 30 days"));
             }
             Map<String, Object> row = row(COACHING, s.getId(), s.getName(), s.getAdmissionNo(), centerNames.get(s.getRccCenterId()),
-                    "Coaching class " + s.getClassLevel(), s.getGuardianMobile() != null ? s.getGuardianMobile() : s.getStudentMobile(),
+                    "Coaching class " + s.getClassLevel(), s.contactMobile(),
                     signals, last.get(s.getId()), today);
             if (row != null) rows.add(row);
         }

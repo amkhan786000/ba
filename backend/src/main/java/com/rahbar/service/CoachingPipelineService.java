@@ -90,7 +90,7 @@ public class CoachingPipelineService {
             row.put("name", s.getName());
             row.put("father_name", s.getFatherName());
             row.put("center_name", centerNames.get(s.getRccCenterId()));
-            row.put("guardian_mobile", s.getGuardianMobile());
+            row.put("guardian_mobile", s.contactMobile());
             row.put("student_mobile", s.getStudentMobile());
             row.put("email", s.getEmail());
             row.put("average_percent", CoachingResults.average(r));
@@ -152,7 +152,7 @@ public class CoachingPipelineService {
             }
             String name = norm(s.getName());
             Set<String> phones = new HashSet<>();
-            for (String p : new String[]{s.getGuardianMobile(), s.getStudentMobile()}) if (phone(p) != null) phones.add(phone(p));
+            for (String p : new String[]{s.getFatherMobile(), s.getMotherMobile(), s.getGuardianMobile(), s.getStudentMobile()}) if (phone(p) != null) phones.add(phone(p));
             if (name == null || phones.isEmpty()) continue;
             all.stream()
                     .filter(a -> !taken.contains(a.getId()) && name.equals(norm(a.getName()))
