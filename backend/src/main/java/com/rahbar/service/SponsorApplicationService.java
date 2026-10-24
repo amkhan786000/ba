@@ -34,9 +34,14 @@ public class SponsorApplicationService {
     private final UserRepository userRepository;
     private final SponsorPreferenceService preferences;
     private final StudentScope studentScope;
+    private final com.rahbar.repository.GrantorGranteeRepository mappings;
+    private final com.rahbar.repository.GranteeDetailsRepository families;
 
     public SponsorApplicationService(SponsorshipApplicationRepository applications, ApplicationPeriodRepository periods,
-                                     UserRepository userRepository, SponsorPreferenceService preferences, StudentScope studentScope) {
+                                     UserRepository userRepository, SponsorPreferenceService preferences, StudentScope studentScope,
+                                     com.rahbar.repository.GrantorGranteeRepository mappings, com.rahbar.repository.GranteeDetailsRepository families) {
+        this.mappings = mappings;
+        this.families = families;
         this.applications = applications;
         this.periods = periods;
         this.userRepository = userRepository;
@@ -168,6 +173,48 @@ public class SponsorApplicationService {
         }
         out.put("rows", rows);
         out.put("students_wanted", wanted);
+        return out;
+    }
+
+    /**
+     * Students without a sponsor (studying, the user may see them) who fit an application's preferences: up to three
+     * times as many as the sponsor wants (at least 10), with why they fit.
+     */
+    public Map<String, Object> suggestions(Long applicationId) {
+        if (!onBehalf()) throw Access.forbidden("You may not see the sponsorship applications.");
+        SponsorshipApplication a = applications.findById(applicationId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Application not found."));
+        User sponsor = studentScope.requireSponsor(a.getSponsorId());
+        SponsorMatch.Wish wish = new SponsorMatch.Wish(a.getCollegeType(), SponsorPreferenceService.split(a.getFatherProfessions()),
+                a.getIncomeMin(), a.getIncomeMax());
+        Long unassigned = ServiceSupport.unassignedGrantorId(userRepository);
+        Set<Long> sponsored = new HashSet<>();
+        mappings.findAll().forEach(g -> { if (g.getGrantorId() != null && !g.getGrantorId().equals(unassigned)) sponsored.add(g.getGranteeId()); });
+        Map<Long, com.rahbar.entity.GranteeDetails> family = new HashMap<>();
+        families.findAll().stream().filter(g -> g.getUserId() != null)
+                .sorted(Comparator.comparing(com.rahbar.entity.GranteeDetails::getGranteeDetailId)).forEach(g -> family.putIfAbsent(g.getUserId(), g));
+        StudentScope.Scope scope = studentScope.current();
+        int limit = Math.max(10, (a.getStudentsWanted() == null ? 1 : a.getStudentsWanted()) * 3);
+        List<Map<String, Object>> rows = new ArrayList<>();
+        int fitting = 0;
+        for (User u : userRepository.findByRoleId(ServiceSupport.STUDENT_ROLE).stream()
+                .filter(u -> "active".equalsIgnoreCase(u.getStatus()) && u.getMergedIntoId() == null && !sponsored.contains(u.getId()))
+                .filter(u -> StudyStatus.STUDYING.equals(StudyStatus.of(u.getStudyStatus())) && !DataQualityService.coachingOnly(u))
+                .filter(scope::includes)
+                .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))).toList()) {
+            SponsorMatch.Fit fit = SponsorMatch.fit(wish, u, family.get(u.getId()));
+            if (!fit.fits()) continue;
+            fitting++;
+            if (rows.size() >= limit) continue;
+            Map<String, Object> r = Rows.pick(u, "id", "user_id", "name", "chapter_name", "year");
+            r.put("why", fit.why());
+            rows.add(r);
+        }
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("sponsor", Rows.pick(sponsor, "id", "user_id", "name"));
+        out.put("students_wanted", a.getStudentsWanted());
+        out.put("fitting", fitting);
+        out.put("rows", rows);
         return out;
     }
 

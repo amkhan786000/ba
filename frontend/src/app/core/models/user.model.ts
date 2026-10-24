@@ -85,6 +85,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
 
   { path: '/admin/sponsors-dashboard', label: 'Sponsors Dashboard', icon: 'mdi-chart-areaspline', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/sponsorships', label: 'Sponsorships', icon: 'mdi-account-switch', section: 'SPONSORSHIPS', group: 'sponsors' },
+  { path: '/admin/sponsor-renewal', label: 'Sponsor Renewal', icon: 'mdi-autorenew', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/sponsor-followup', label: 'Sponsor Follow-up', icon: 'mdi-account-heart', section: 'SPONSORSHIPS', group: 'sponsors' },
   { path: '/admin/payment-records', label: 'Payment Records', icon: 'mdi-receipt', section: 'PAYMENT_RECORDS', group: 'sponsors' },
   { path: '/admin/online-payments', label: 'Online Payments', icon: 'mdi-credit-card-outline', section: 'ONLINE_PAYMENTS', group: 'sponsors' },
@@ -127,6 +128,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/users', label: 'Manage Users', icon: 'mdi-account-multiple', section: 'USERS', group: 'administration' },
   { path: '/admin/roles', label: 'Roles & Permissions', icon: 'mdi-shield-account', section: 'ROLES', group: 'administration' },
   { path: '/admin/reports', label: 'Reports', icon: 'mdi-chart-bar', section: 'REPORTS', group: 'administration' },
+  { path: '/admin/impact-report', label: 'Impact Report', icon: 'mdi-file-chart-outline', section: 'REPORTS', group: 'administration' },
   { path: '/admin/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline', group: 'administration' },
   { path: '/admin/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline', group: 'administration' },
   { path: '/admin/app-settings', label: 'Application Settings', icon: 'mdi-tune-variant', section: 'APP_SETTINGS', group: 'administration' },

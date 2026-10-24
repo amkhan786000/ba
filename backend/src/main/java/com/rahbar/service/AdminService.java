@@ -660,7 +660,27 @@ public class AdminService {
         List<Map<String, Object>> mappedRows = Rows.pickAll(mapped, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name");
         mappedRows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters)));
         result.put("mappedStudents", mappedRows);
-        result.put("availableStudents", visibleStudentRows(userRepository.findStudentsAvailableFor(sponsorId)));
+        List<Map<String, Object>> available = visibleStudentRows(userRepository.findStudentsAvailableFor(sponsorId));
+        // what the sponsor would like: students who fit come first, with why (Edit Sponsor > Student preferences)
+        User sponsorUser = requireVisibleSponsor(sponsorId);
+        SponsorMatch.Wish wish = SponsorMatch.Wish.of(sponsorUser);
+        result.put("preferences", wish.any() ? SponsorPreferenceService.summary(wish.collegeType(), wish.fatherProfessions(), wish.incomeMin(), wish.incomeMax()) : null);
+        if (wish.any()) {
+            Map<Long, User> users = usersById();
+            Map<Long, GranteeDetails> families = new HashMap<>();
+            granteeDetailsRepository.findAll().stream().filter(g -> g.getUserId() != null)
+                    .sorted(Comparator.comparing(GranteeDetails::getGranteeDetailId)).forEach(g -> families.putIfAbsent(g.getUserId(), g));
+            List<Map<String, Object>> withFit = new ArrayList<>();
+            for (Map<String, Object> r : available) {
+                Map<String, Object> row = new LinkedHashMap<>(r);
+                User st = users.get(toLong(r.get("id")));
+                if (st != null) row.put("match", SponsorMatch.fit(wish, st, families.get(st.getId())).toMap());
+                withFit.add(row);
+            }
+            withFit.sort(Comparator.comparing((Map<String, Object> r) -> !(r.get("match") instanceof Map<?, ?> m && Boolean.TRUE.equals(m.get("fits")))));
+            available = withFit;
+        }
+        result.put("availableStudents", available);
         return result;
     }
 

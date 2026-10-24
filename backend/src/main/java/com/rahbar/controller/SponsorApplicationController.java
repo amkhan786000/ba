@@ -48,6 +48,13 @@ public class SponsorApplicationController {
         return service.list(periodId);
     }
 
+    /** Students without a sponsor who fit an application's preferences. */
+    @GetMapping("/{applicationId}/suggestions")
+    @PreAuthorize("hasAuthority('SPONSOR_APPLY:EDIT')")
+    public Map<String, Object> suggestions(@PathVariable Long applicationId) {
+        return service.suggestions(applicationId);
+    }
+
     /** Fathers' professions and the income range the students have (Edit Sponsor and the application form). */
     @GetMapping("/preference-options")
     @PreAuthorize("hasAnyAuthority('SPONSOR_APPLY:VIEW', 'SPONSOR_DETAILS:EDIT')")

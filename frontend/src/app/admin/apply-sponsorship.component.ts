@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
+import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { AppDatePipe } from '../shared/app-date';
 import { PreferenceOptions, SponsorPreferences, SponsorPreferencesComponent, emptyPreferences, preferencesFrom } from '../shared/sponsor-preferences.component';
@@ -17,6 +18,8 @@ interface Application {
   students_wanted: number; college_type: string | null; father_professions: string[]; income_min: number | null; income_max: number | null;
   preferences: string; note: string | null; applied_by: string | null; created_at: string; updated_at: string;
 }
+interface Suggestion { id: number; user_id: string | null; name: string; chapter_name: string | null; year: number | null; why: string[] }
+interface Suggestions { fitting: number; students_wanted: number; rows: Suggestion[] }
 interface Applications { periods: Period[]; period: Period | null; rows: Application[]; students_wanted: number }
 
 /**
@@ -89,14 +92,34 @@ interface Applications { periods: Period[]; period: Period | null; rows: Applica
       <p *ngIf="!list.rows.length" class="text-muted mb-0">No applications for this session yet.</p>
       <div class="table-responsive" *ngIf="list.rows.length"><table class="table table-sm mb-0">
         <thead class="thead-light"><tr><th>Sponsor</th><th>Chapter</th><th class="text-right">Students</th><th>Wants</th><th>Note</th><th>Applied</th></tr></thead>
-        <tbody><tr *ngFor="let a of list.rows">
+        <tbody><ng-container *ngFor="let a of list.rows"><tr>
           <td>{{ a.sponsor_name }} <span class="text-muted small">{{ a.sponsor_code }}</span></td>
           <td>{{ a.chapter_name || '-' }}</td>
           <td class="text-right"><strong>{{ a.students_wanted }}</strong></td>
           <td class="small">{{ a.preferences }}</td>
           <td class="small">{{ a.note || '' }}</td>
-          <td class="small">{{ a.updated_at | appDate }}<div *ngIf="a.applied_by" class="text-muted">by {{ a.applied_by }}</div></td>
-        </tr></tbody>
+          <td class="small">{{ a.updated_at | appDate }}<div *ngIf="a.applied_by" class="text-muted">by {{ a.applied_by }}</div>
+            <button class="btn btn-xs btn-outline-primary mt-1" (click)="toggleSuggestions(a)">
+              <i class="mdi" [ngClass]="open === a.application_id ? 'mdi-chevron-up' : 'mdi-account-search'"></i> Suggested students</button></td>
+        </tr>
+        <tr *ngIf="open === a.application_id"><td colspan="6" class="bg-light">
+          <div *ngIf="!suggestions" class="text-center py-2"><span class="spinner-border spinner-border-sm"></span></div>
+          <ng-container *ngIf="suggestions as sg">
+            <p class="small mb-2"><strong>{{ sg.fitting }}</strong> student(s) without a sponsor fit what {{ a.sponsor_name }} would like
+              (wants {{ sg.students_wanted }}).<span *ngIf="sg.fitting > sg.rows.length"> Showing {{ sg.rows.length }}.</span></p>
+            <p *ngIf="!sg.rows.length" class="small text-muted mb-0">Nobody fits right now. Try Map Students to see everyone.</p>
+            <table class="table table-sm mb-2" *ngIf="sg.rows.length">
+              <tbody><tr *ngFor="let st of sg.rows">
+                <td style="width: 24px" *ngIf="canMap"><input type="checkbox" [checked]="picked.has(st.id)" (change)="pick(st.id)" [attr.aria-label]="'Pick ' + st.name"></td>
+                <td>{{ st.name }} <span class="small text-muted">{{ st.user_id }}</span></td>
+                <td class="small">{{ st.chapter_name || '-' }}{{ st.year ? ' · ' + st.year : '' }}</td>
+                <td class="small text-success">{{ st.why.join(' · ') || 'no preferences given' }}</td>
+              </tr></tbody>
+            </table>
+            <button *ngIf="canMap && sg.rows.length" class="btn btn-sm btn-primary" (click)="mapPicked(a)" [disabled]="!picked.size || busy">
+              Map {{ picked.size }} student(s) to {{ a.sponsor_name }}</button>
+          </ng-container>
+        </td></tr></ng-container></tbody>
       </table></div>
     </div></div>
   `
@@ -114,7 +137,36 @@ export class ApplySponsorshipComponent implements OnInit {
   message = '';
   error = '';
 
-  constructor(private api: ApiService) {}
+  /** The application whose suggested students are open, and its suggestions. */
+  open: number | null = null;
+  suggestions: Suggestions | null = null;
+  picked = new Set<number>();
+
+  constructor(private api: ApiService, private auth: AuthService) {}
+
+  get canMap(): boolean { return this.auth.can('SPONSORSHIPS', 'EDIT'); }
+
+  toggleSuggestions(a: Application): void {
+    this.picked.clear();
+    this.suggestions = null;
+    if (this.open === a.application_id) { this.open = null; return; }
+    this.open = a.application_id;
+    this.api.get<Suggestions>(`/sponsor-applications/${a.application_id}/suggestions`).subscribe({
+      next: (s) => (this.suggestions = s),
+      error: (e) => { this.open = null; this.error = errorText(e, 'Could not load the suggestions.'); }
+    });
+  }
+
+  pick(id: number): void { if (this.picked.has(id)) this.picked.delete(id); else this.picked.add(id); }
+
+  mapPicked(a: Application): void {
+    if (!confirm(`Map ${this.picked.size} student(s) to ${a.sponsor_name}?`)) return;
+    this.busy = true;
+    this.api.post<{ message: string }>(`/admin/sponsorships/${a.sponsor_id}/map`, { studentIds: [...this.picked] }).subscribe({
+      next: (m) => { this.busy = false; this.message = m.message; const keep = a; this.open = null; this.toggleSuggestions(keep); },
+      error: (e) => { this.busy = false; this.error = errorText(e, 'Could not map the students.'); }
+    });
+  }
 
   get otherSponsors(): SponsorOption[] { return (this.form?.sponsors ?? []).filter((s) => s.id !== this.form?.me); }
 
