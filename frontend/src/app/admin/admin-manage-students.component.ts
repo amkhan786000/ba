@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { SessionYearSelectComponent } from '../shared/session-year-select.component';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
@@ -19,7 +20,7 @@ interface ManagedStudent {
 @Component({
   selector: 'app-admin-manage-students',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [SessionYearSelectComponent, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   styles: [`.btn-xs { padding: .15rem .45rem; font-size: .75rem; } .filter-btns { margin-right: 4px; }`],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Manage Students</h4></div></div></div>
@@ -34,6 +35,11 @@ interface ManagedStudent {
               <div class="col-12 col-md-3">
                 <div class="form-group"><label>Search (Any Field)</label>
                   <input type="text" class="form-control" placeholder="Name, Email, Phone..." [(ngModel)]="search" (ngModelChange)="table.search()">
+                </div>
+              </div>
+              <div class="col-12 col-md-2">
+                <div class="form-group"><label>Session year</label>
+                  <app-session-year-select [years]="table.last?.years" [(value)]="sessionYear" (valueChange)="table.filter()"></app-session-year-select>
                 </div>
               </div>
               <div class="col-12 col-md-3">
@@ -130,8 +136,10 @@ export class AdminManageStudentsComponent implements OnInit, OnDestroy {
   search = '';
   fInst = '';
   fCourse = '';
-  readonly table = new ServerTable<ManagedStudent>(
-    (p) => this.api.get<PagedResult<ManagedStudent>>('/admin/manage-students', { q: this.search, institutionId: this.fInst, courseId: this.fCourse, ...p }),
+  sessionYear = '';
+  readonly table = new ServerTable<ManagedStudent, PagedResult<ManagedStudent> & { years?: number[] }>(
+    (p) => this.api.get<PagedResult<ManagedStudent> & { years?: number[] }>('/admin/manage-students',
+      { q: this.search, institutionId: this.fInst, courseId: this.fCourse, sessionYear: this.sessionYear, ...p }),
     (e) => (this.error = errorText(e, 'Could not load students.')), 10);
   /** id: the student's users.id. */
   assign: { id: number; institutionId: string; courseId: string } | null = null;

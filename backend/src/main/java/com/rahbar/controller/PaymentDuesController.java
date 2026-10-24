@@ -29,13 +29,20 @@ public class PaymentDuesController {
     @PreAuthorize("hasAuthority('PAYMENT_DUES:VIEW')")
     public Map<String, Object> dues(@RequestParam(required = false) String q,
                                     @RequestParam(required = false) String status,
+                                    @RequestParam(required = false) String sessionYear,
                                     @RequestParam(required = false) Integer page,
                                     @RequestParam(required = false) Integer size) {
         // Chapter / RCC-scoped users: only their own students' dues.
         com.rahbar.security.StudentScope.Scope scope = studentScope.current();
-        Map<Long, com.rahbar.entity.User> users = scope.all() ? Map.of() : studentScope.usersById();
-        List<Map<String, Object>> all = paymentReminderService.dues().stream()
+        Map<Long, com.rahbar.entity.User> users = studentScope.usersById();
+        List<Map<String, Object>> visible = paymentReminderService.dues().stream()
                 .filter(d -> scope.includesId(((Number) d.get("student_id")).longValue(), users)).toList();
+        // the session year chosen (the cards follow it), and the years there are for the dropdown
+        List<Integer> years = com.rahbar.service.PaymentInstallmentService.sessionYears(
+                visible.stream().map(d -> ((Number) d.get("student_id")).longValue()).toList(), users);
+        List<Map<String, Object>> all = visible.stream()
+                .filter(d -> com.rahbar.service.PaymentInstallmentService.ofSessionYear(users.get(((Number) d.get("student_id")).longValue()), sessionYear))
+                .toList();
         Map<String, Long> counts = new LinkedHashMap<>();
         for (String s : List.of("Overdue", "Due soon", "On schedule", "Completed", "On hold")) counts.put(s, 0L);
         all.forEach(d -> counts.merge(String.valueOf(d.get("status")), 1L, Long::sum));
@@ -45,6 +52,7 @@ public class PaymentDuesController {
                 .toList();
         Map<String, Object> body = Paging.of(filtered, page, size);
         body.put("summary", counts);
+        body.put("years", years);
         return body;
     }
 

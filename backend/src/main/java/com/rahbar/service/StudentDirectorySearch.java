@@ -16,7 +16,10 @@ public final class StudentDirectorySearch {
             "chapter_name", "institution_name", "course_name"};
 
     /** Filters (null / blank = no filter). sponsored: "yes" (has a sponsor) or "no". */
-    public record Filters(Long chapterId, String studyStatus, String status, String sponsored) {
+    public record Filters(Long chapterId, String studyStatus, String status, String sponsored, String sessionYear) {
+        public Filters(Long chapterId, String studyStatus, String status, String sponsored) {
+            this(chapterId, studyStatus, status, sponsored, null);
+        }
     }
 
     private StudentDirectorySearch() {
@@ -34,6 +37,7 @@ public final class StudentDirectorySearch {
         if (!blank(f.status()) && !f.status().equalsIgnoreCase(String.valueOf(r.get("status")))) return false;
         if ("yes".equalsIgnoreCase(f.sponsored()) && r.get("sponsor_id") == null) return false;
         if ("no".equalsIgnoreCase(f.sponsored()) && r.get("sponsor_id") != null) return false;
+        if (!sessionYearMatches(r.get("year"), f.sessionYear())) return false;
         return true;
     }
 
@@ -44,6 +48,19 @@ public final class StudentDirectorySearch {
         }
         return words(StudyStatus.label((String) r.get("study_status"))).contains(word)
                 || words(r.get("status") == null ? null : r.get("status").toString()).contains(word);
+    }
+
+    /** sessionYear: "2025", "none" (no session year) or empty (any). */
+    public static boolean sessionYearMatches(Object year, String sessionYear) {
+        if (blank(sessionYear)) return true;
+        if ("none".equalsIgnoreCase(sessionYear.trim())) return year == null;
+        return year != null && sessionYear.trim().equals(String.valueOf(year));
+    }
+
+    /** The session years in these rows ("year"), newest first. */
+    public static List<Integer> years(List<Map<String, Object>> rows) {
+        return rows.stream().map(r -> r.get("year")).filter(y -> y instanceof Number).map(y -> ((Number) y).intValue())
+                .distinct().sorted(Comparator.reverseOrder()).toList();
     }
 
     private static List<String> words(String text) {

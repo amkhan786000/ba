@@ -446,15 +446,26 @@ public class PaymentInstallmentService {
      */
     @Transactional(readOnly = true)
     public Map<String, Object> search(String q, String status, Integer page, Integer size) {
+        return search(q, status, null, page, size);
+    }
+
+    /**
+     * sessionYear: the students' session year ("2025"), "none" for students without one, or empty for every year.
+     * The cards follow the year; "years" lists the session years the user's students have, for the dropdown.
+     */
+    public Map<String, Object> search(String q, String status, String sessionYear, Integer page, Integer size) {
         com.rahbar.security.StudentScope.Scope scope = studentScope.current(); // chapter / RCC-scoped: own students only
         Map<Long, User> scopeUsers = scope.all() ? Map.of() : studentScope.usersById();
-        List<PaymentInstallment> all = installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc().stream()
+        List<PaymentInstallment> visible = installmentRepository.findAllByOrderByGranteeIdAscInstallmentNoAsc().stream()
                 .filter(i -> scope.includesId(i.getGranteeId(), scopeUsers)).toList();
         LocalDate today = LocalDate.now();
-        Map<Long, Integer> notice = noticeDays(all.stream().map(PaymentInstallment::getGranteeId).collect(java.util.stream.Collectors.toSet()));
         Map<Long, User> users = new HashMap<>();
-        userRepository.findAllById(all.stream().flatMap(i -> java.util.stream.Stream.of(i.getGranteeId(), i.getGrantorId()))
+        userRepository.findAllById(visible.stream().flatMap(i -> java.util.stream.Stream.of(i.getGranteeId(), i.getGrantorId()))
                 .filter(Objects::nonNull).collect(java.util.stream.Collectors.toSet())).forEach(u -> users.put(u.getId(), u));
+        Set<Long> studentIds = visible.stream().map(PaymentInstallment::getGranteeId).collect(java.util.stream.Collectors.toSet());
+        List<Integer> years = sessionYears(studentIds, users);
+        List<PaymentInstallment> all = visible.stream().filter(i -> ofSessionYear(users.get(i.getGranteeId()), sessionYear)).toList();
+        Map<Long, Integer> notice = noticeDays(all.stream().map(PaymentInstallment::getGranteeId).collect(java.util.stream.Collectors.toSet()));
 
         // Cards above the table: every status of the installments the user may see (search and status filter aside).
         Map<String, long[]> counts = new LinkedHashMap<>();
@@ -477,7 +488,22 @@ public class PaymentInstallmentService {
         List<Map<String, Object>> summary = new ArrayList<>();
         counts.forEach((st, c) -> summary.add(Map.of("status", st, "count", c[0])));
         body.put("summary", summary);
+        body.put("years", years);
         return body;
+    }
+
+    /** True when the student is of the chosen session year ("2025"; "none": no session year; empty: any). */
+    public static boolean ofSessionYear(User student, String sessionYear) {
+        if (sessionYear == null || sessionYear.isBlank()) return true;
+        Integer y = student == null ? null : student.getYear();
+        if ("none".equalsIgnoreCase(sessionYear.trim())) return y == null;
+        return y != null && sessionYear.trim().equals(String.valueOf(y));
+    }
+
+    /** The session years of these students, newest first (for a dropdown). */
+    public static List<Integer> sessionYears(Collection<Long> studentIds, Map<Long, User> users) {
+        return studentIds.stream().map(users::get).filter(Objects::nonNull).map(User::getYear).filter(Objects::nonNull)
+                .distinct().sorted(Comparator.reverseOrder()).toList();
     }
 
     private List<Map<String, Object>> rows(List<PaymentInstallment> installments, boolean withNames) {

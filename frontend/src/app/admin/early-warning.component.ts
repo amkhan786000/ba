@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { AppDatePipe } from '../shared/app-date';
+import { SessionYearSelectComponent } from '../shared/session-year-select.component';
 
 interface Signal { code: string; label: string; detail: string | null }
 interface FollowUp { followup_date: string; method: string; outcome: string; note: string | null; next_date: string | null }
@@ -12,7 +13,7 @@ interface Row {
   kind: 'SCHOLAR' | 'COACHING'; id: number; name: string; code: string | null; place: string | null; programme: string;
   phone: string | null; signals: Signal[]; last_follow_up: FollowUp | null; needs_follow_up: boolean;
 }
-interface Answer { rows: Row[]; needs_follow_up: number; followed_up: number; by_signal: Record<string, number>; coaching: boolean }
+interface Answer { rows: Row[]; needs_follow_up: number; followed_up: number; by_signal: Record<string, number>; coaching: boolean; years?: number[] }
 
 const SIGNALS: { code: string; label: string }[] = [
   { code: 'LOW_MARKS', label: 'Low marks' }, { code: 'FALLING_MARKS', label: 'Marks falling' },
@@ -28,7 +29,7 @@ const SIGNALS: { code: string; label: string }[] = [
 @Component({
   selector: 'app-early-warning',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, AppDatePipe],
+  imports: [CommonModule, FormsModule, AlertsComponent, AppDatePipe, SessionYearSelectComponent],
   styles: [`
     .sig { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; margin: 0 4px 4px 0; background: #fdecea; color: #8a1c12; }
     .sig.NO_CONTACT { background: #fff4cc; color: #6b4e00; }
@@ -53,6 +54,8 @@ const SIGNALS: { code: string; label: string }[] = [
         <option value="">Any sign</option>
         <option *ngFor="let s of signals" [value]="s.code">{{ s.label }} ({{ d?.by_signal?.[s.label] ?? 0 }})</option>
       </select>
+      <app-session-year-select [years]="d?.years" [(value)]="sessionYear" (valueChange)="load()"
+                               title="Scholarship students of this session year (coaching students have none)"></app-session-year-select>
       <input class="form-control form-control-sm w-auto" placeholder="Search name, ID, chapter / center" [(ngModel)]="q" (ngModelChange)="load()">
     </div>
 
@@ -140,6 +143,8 @@ export class EarlyWarningComponent implements OnInit {
   kind = '';
   signal = '';
   q = '';
+  /** Scholarship students' session year ('' all; picking one leaves coaching students out). */
+  sessionYear = '';
   form: { row: Row; date: string; method: string; outcome: string; note: string; nextDate: string } | null = null;
   formError = '';
   history: { row: Row; items: FollowUp[] } | null = null;
@@ -156,7 +161,7 @@ export class EarlyWarningComponent implements OnInit {
   setView(v: 'NEEDS' | 'FOLLOWED' | 'ALL'): void { this.view = v; this.load(); }
 
   load(): void {
-    this.api.get<Answer>('/admin/early-warning', { view: this.view, kind: this.kind, signal: this.signal, q: this.q }).subscribe({
+    this.api.get<Answer>('/admin/early-warning', { view: this.view, kind: this.kind, signal: this.signal, q: this.q, sessionYear: this.sessionYear }).subscribe({
       next: (d) => (this.d = d),
       error: (e) => (this.error = errorText(e, 'Could not load the list.'))
     });

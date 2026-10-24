@@ -127,6 +127,13 @@ interface BaDetails {
                   <option *ngFor="let c of coursesFor(fInst)" [ngValue]="c.course_id">{{ c.course_name }}</option>
                 </select>
               </div>
+              <div class="col-6 col-md-2 mb-2">
+                <select class="form-control form-control-sm" [(ngModel)]="fYear" (ngModelChange)="refilter()" aria-label="Session year">
+                  <option value="">All session years</option>
+                  <option *ngFor="let y of years" [value]="'' + y">Session {{ y }}</option>
+                  <option value="none">Session year not set</option>
+                </select>
+              </div>
               <div class="col-12 small" *ngIf="filtering"><a href="" (click)="$event.preventDefault(); clearFilters()">Clear search and filters</a></div>
             </div>
 
@@ -607,6 +614,9 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   fStudy = '';
   fStatus = '';
   fSponsored = '';
+  /** Session year filter ('' all, 'none' not set) and the years there are. */
+  fYear = '';
+  years: number[] = [];
   fInst = '';
   fCourse: number | null = null;
 
@@ -621,7 +631,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   get studyStatuses(): { code: string; label: string }[] { return this.statuses.list; }
 
   get filtering(): boolean {
-    return !!(this.search.trim() || this.fChapter !== null || this.fStudy || this.fStatus || this.fSponsored || this.fInst);
+    return !!(this.search.trim() || this.fChapter !== null || this.fStudy || this.fStatus || this.fSponsored || this.fInst || this.fYear);
   }
 
   /** A filter changed: back to page 1 and ask the server. */
@@ -645,7 +655,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   clearFilters(): void {
     this.search = '';
-    this.fChapter = null; this.fStudy = ''; this.fStatus = ''; this.fSponsored = ''; this.fInst = ''; this.fCourse = null;
+    this.fChapter = null; this.fStudy = ''; this.fStatus = ''; this.fSponsored = ''; this.fInst = ''; this.fCourse = null; this.fYear = '';
     this.refilter();
   }
 
@@ -673,12 +683,12 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   load(): void {
     this.loading = true;
-    this.api.get<{ recordsTotal: number; recordsFiltered: number; data: StudentRow[] }>('/admin/students', {
+    this.api.get<{ recordsTotal: number; recordsFiltered: number; data: StudentRow[]; years?: number[] }>('/admin/students', {
       start: (this.page - 1) * this.pageSize, length: this.pageSize, search: this.search.trim(),
       chapterId: this.fChapter, studyStatus: this.fStudy, status: this.fStatus, sponsored: this.fSponsored,
-      institutionId: this.fInst, courseId: this.fCourse
+      institutionId: this.fInst, courseId: this.fCourse, sessionYear: this.fYear
     }).subscribe({
-      next: (r) => { this.loading = false; this.rows = r.data; this.filteredTotal = r.recordsFiltered; },
+      next: (r) => { this.loading = false; this.rows = r.data; this.filteredTotal = r.recordsFiltered; this.years = r.years ?? []; },
       error: (e) => { this.loading = false; this.error = errorText(e, 'Could not load students.'); }
     });
   }

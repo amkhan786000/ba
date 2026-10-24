@@ -1,5 +1,6 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { SessionYearSelectComponent } from '../shared/session-year-select.component';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
@@ -15,6 +16,8 @@ interface MapScreen {
   availableStudents: {
     id: number; user_id: string; name: string; email: string | null;
     current_sponsor_name: string | null; current_sponsor_id: number | null; current_sponsor_code: string | null;
+    /** Session year. */
+    year?: number | null;
     /** Only when the sponsor has preferences: does the student fit them, and why (not). */
     match?: { fits: boolean; why: string[]; missing: string[] };
   }[];
@@ -26,7 +29,7 @@ interface MapScreen {
 @Component({
   selector: 'app-admin-sponsor-map',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [SessionYearSelectComponent, CommonModule, FormsModule, RouterLink, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">
@@ -53,8 +56,9 @@ interface MapScreen {
                 <label class="custom-control-label" for="onlyFits">Show only students who fit ({{ fitCount }})</label>
               </div>
             </div>
-            <div class="form-group">
+            <div class="form-group d-flex" style="gap: 8px">
               <input type="text" class="form-control" placeholder="Search students..." [(ngModel)]="search">
+              <app-session-year-select [years]="yearList" [(value)]="sessionYear" (valueChange)="pg.page = 1"></app-session-year-select>
             </div>
             <form (ngSubmit)="submit()">
               <p class="text-muted small">Students ticked below will be assigned to <strong>{{ data.sponsor.name }}</strong>. Students who already have another sponsor will be moved.</p>
@@ -186,6 +190,14 @@ export class AdminSponsorMapComponent implements OnInit {
     });
   }
 
+  /** Session year filter ('' all, 'none' not set). */
+  sessionYear = '';
+
+  /** The session years of the students listed, newest first. */
+  get yearList(): number[] {
+    return [...new Set((this.data?.availableStudents ?? []).map((s) => s.year).filter((y): y is number => y != null))].sort((a, b) => b - a);
+  }
+
   /** Show only the students who fit the sponsor's preferences. */
   onlyFits = false;
 
@@ -193,7 +205,8 @@ export class AdminSponsorMapComponent implements OnInit {
 
   get visible() {
     const f = this.search.toLowerCase();
-    return (this.data?.availableStudents ?? []).filter((s) => !this.onlyFits || s.match?.fits).filter((s) =>
+    return (this.data?.availableStudents ?? []).filter((s) => !this.onlyFits || s.match?.fits)
+      .filter((s) => !this.sessionYear || (this.sessionYear === 'none' ? s.year == null : String(s.year) === this.sessionYear)).filter((s) =>
       [s.name, s.user_id, s.current_sponsor_name, s.current_sponsor_code].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 

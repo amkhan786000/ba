@@ -22,8 +22,9 @@ public class EarlyWarningController {
     @GetMapping
     @PreAuthorize("hasAuthority('EARLY_WARNING:VIEW')")
     public Map<String, Object> list(@RequestParam(required = false) String kind, @RequestParam(required = false) String view,
-                                    @RequestParam(required = false) String signal, @RequestParam(required = false) String q) {
-        return service.list(kind, view, signal, q);
+                                    @RequestParam(required = false) String signal, @RequestParam(required = false) String q,
+                                    @RequestParam(required = false) String sessionYear) {
+        return service.list(kind, view, signal, q, sessionYear);
     }
 
     @GetMapping("/followups")
