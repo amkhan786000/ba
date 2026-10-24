@@ -3,6 +3,7 @@ import { ListPopupComponent, PopupList } from '../shared/list-popup.component';
 import { sponsorStudents } from '../shared/drilldowns';
 import { AuthService } from '../core/services/auth.service';
 import { CommonModule } from '@angular/common';
+import { SessionYearSelectComponent } from '../shared/session-year-select.component';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/services/api.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
@@ -28,6 +29,8 @@ interface DueRow {
 }
 interface ApplicationRow { grantee_detail_id: number; name: string; status: string; submitted_at: string | null }
 interface Dashboard {
+  /** Session years of the students, for the dropdown. */
+  session_years?: number[];
   scoped: boolean;
   chapters?: { chapter_id: number; chapter_name: string; active: boolean }[];
   chapter: { chapter_id: number; chapter_name: string; lead_name: string | null; lead_phone: string | null; lead_email: string | null } | null;
@@ -49,7 +52,7 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
 @Component({
   selector: 'app-admin-chapter-dashboard',
   standalone: true,
-  imports: [ListPopupComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective, BarChartComponent, DonutChartComponent],
+  imports: [SessionYearSelectComponent, ListPopupComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective, BarChartComponent, DonutChartComponent],
   styles: [`
     .stat { cursor: pointer; }
     .stat.selected { box-shadow: 0 0 0 2px var(--primary, #3bafda) inset; }
@@ -60,10 +63,13 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
       <div class="col-12">
         <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-md-center">
           <h4 class="page-title mb-2 mb-md-0">Chapter Dashboard<ng-container *ngIf="data?.chapter"> · {{ data!.chapter!.chapter_name }}</ng-container></h4>
+          <div class="d-flex align-items-center">
+          <app-session-year-select class="mr-2" [years]="data?.session_years" [(value)]="sessionYear" (valueChange)="load()"></app-session-year-select>
           <select *ngIf="data && !data.scoped" class="form-control" style="max-width: 280px" [(ngModel)]="chapterId" (ngModelChange)="load()">
             <option [ngValue]="null">Choose a chapter…</option>
             <option *ngFor="let c of data.chapters" [ngValue]="c.chapter_id">{{ c.chapter_name }}{{ c.active ? '' : ' (inactive)' }}</option>
           </select>
+          </div>
         </div>
       </div>
     </div>
@@ -242,10 +248,13 @@ export class AdminChapterDashboardComponent implements OnInit {
 
   ngOnInit(): void { this.load(); }
 
+  /** The chapter's students of one session year ('' all, 'none' not set). */
+  sessionYear = '';
+
   load(): void {
     this.loading = true;
     this.error = '';
-    this.api.get<Dashboard>('/admin/chapter-dashboard', this.chapterId ? { chapterId: this.chapterId } : {}).subscribe({
+    this.api.get<Dashboard>('/admin/chapter-dashboard', { chapterId: this.chapterId, sessionYear: this.sessionYear }).subscribe({
       next: (d) => {
         this.loading = false;
         // The chapter list only comes with a dashboard for unscoped users; keep it when switching chapters.

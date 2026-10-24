@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { SessionYearSelectComponent } from '../shared/session-year-select.component';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
@@ -17,6 +18,8 @@ import { inr } from '../shared/charts/money';
 interface AttentionItem { key: string; label: string; count: number; amount?: number; link: string }
 
 interface Overview {
+  /** Session years of the students, for the dropdown. */
+  session_years?: number[];
   year: number;
   years: number[];
   scope: 'all' | 'chapter' | 'rcc';
@@ -50,7 +53,7 @@ export const MODULE_DASHBOARDS: { path: string; label: string; icon: string; sec
 @Component({
   selector: 'app-admin-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, BarChartComponent, ColumnChartComponent,
+  imports: [SessionYearSelectComponent, CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, BarChartComponent, ColumnChartComponent,
     DonutChartComponent, FunnelChartComponent, StatTileComponent],
   styles: [`
     .modules { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -78,6 +81,7 @@ export const MODULE_DASHBOARDS: { path: string; label: string; icon: string; sec
       <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-md-center">
         <h4 class="page-title mb-2 mb-md-0">Dashboard</h4>
         <div class="d-flex align-items-center">
+          <app-session-year-select class="mr-2" [years]="d?.session_years" [(value)]="sessionYear" (valueChange)="load()"></app-session-year-select>
           <label for="yearSelect" class="mr-2 mb-0">Year</label>
           <select class="form-control form-control-sm" id="yearSelect" [(ngModel)]="year" (ngModelChange)="load()" style="width: 110px">
             <option *ngFor="let y of d?.years" [ngValue]="y">{{ y }}</option>
@@ -216,9 +220,12 @@ export class AdminDashboardComponent implements OnInit {
     this.load();
   }
 
+  /** Students of one session year ('' all, 'none' not set); the money "Year" is the calendar year of payments. */
+  sessionYear = '';
+
   load(): void {
     this.error = '';
-    this.api.get<Overview>('/admin/dashboard', this.year ? { year: this.year } : undefined).subscribe({
+    this.api.get<Overview>('/admin/dashboard', { year: this.year, sessionYear: this.sessionYear }).subscribe({
       next: (d) => { this.d = d; this.year = d.year; },
       error: (e) => (this.error = errorText(e, 'Could not load the dashboard.'))
     });

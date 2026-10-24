@@ -95,7 +95,7 @@ public class DashboardService {
             charts.put("collectedByMonth", collectedByMonth(scope, year));
             charts.put("overdueAgeing", overdueAgeing(scope, today));
         }
-        if (can(Section.APPLICATIONS)) charts.put("applicationFunnel", funnel(scope, year));
+        if (can(Section.APPLICATIONS)) charts.put("applicationFunnel", funnel(placeScope("s"), year));
         charts.put("studentsByChapter", labelled("""
                 SELECT COALESCE(c.chapter_name, 'No chapter') label, COUNT(*) value FROM users s
                 LEFT JOIN chapters c ON c.chapter_id = s.chapter_id
@@ -116,7 +116,7 @@ public class DashboardService {
         List<Map<String, Object>> items = new ArrayList<>();
         if (can(Section.APPLICATIONS)) {
             long open = 0;
-            for (Map.Entry<String, Long> e : applicationStatusCounts(scope, null).entrySet()) {
+            for (Map.Entry<String, Long> e : applicationStatusCounts(placeScope("s"), null).entrySet()) {
                 if (OPEN.contains(e.getKey())) open += e.getValue();
             }
             items.add(item("applications", "Applications waiting for a decision", open, null, "/admin/applications"));
@@ -758,8 +758,45 @@ public class DashboardService {
 
     // ---------------------------------------------------------------- scope and permissions
 
-    /** Restricts student rows (alias) to the user's chapter / RCC center when their role only covers that. */
+    /** The session year the dashboards are filtered by while one request runs ("2025", "none" or null for all). */
+    private static final ThreadLocal<String> SESSION_YEAR = new ThreadLocal<>();
+
+    /** Runs a dashboard for the students of one session year ("2025"; "none": without one; empty: all). */
+    public <T> T forSessionYear(String sessionYear, java.util.function.Supplier<T> dashboard) {
+        SESSION_YEAR.set(sessionYear == null || sessionYear.isBlank() ? null : sessionYear.trim());
+        try {
+            return dashboard.get();
+        } finally {
+            SESSION_YEAR.remove();
+        }
+    }
+
+    /**
+     * Restricts student rows (alias "s") to the user's chapter / RCC center when their role only covers that, and to
+     * the chosen session year. Other aliases (sponsors, "u") only get the chapter / RCC part.
+     */
     String scope(String alias) {
+        return placeScope(alias) + ("s".equals(alias) ? sessionYearSql(alias, SESSION_YEAR.get()) : "");
+    }
+
+    /** " AND s.year = 2025" / " AND s.year IS NULL" / "" (the year is checked to be a number: safe in SQL). */
+    static String sessionYearSql(String alias, String sessionYear) {
+        if (sessionYear == null || sessionYear.isBlank()) return "";
+        if ("none".equalsIgnoreCase(sessionYear)) return " AND " + alias + ".year IS NULL";
+        if (!sessionYear.matches("\\d{4}")) throw new com.rahbar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST, "Session year must be a year like 2025.");
+        return " AND " + alias + ".year = " + Integer.parseInt(sessionYear);
+    }
+
+    /** Adds session_years (the students' session years the user may see, newest first) for the dashboard's dropdown. */
+    public Map<String, Object> withSessionYears(Map<String, Object> body) {
+        Map<String, Object> out = new LinkedHashMap<>(body);
+        out.put("session_years", jdbc.queryForList("SELECT DISTINCT s.year FROM users s WHERE " + STUDENT + " AND s.year IS NOT NULL"
+                + placeScope("s") + " ORDER BY s.year DESC", Integer.class));
+        return out;
+    }
+
+    /** Only the chapter / RCC centre part (applications aren't filtered by session year). */
+    String placeScope(String alias) {
         User u = Access.current().getUser();
         if (Access.chapterScoped()) return " AND " + alias + ".chapter_id = " + (u.getChapterId() == null ? "-1" : u.getChapterId());
         if (Access.rccScoped()) return " AND " + alias + ".rcc_center_id = " + (u.getRccCenterId() == null ? "-1" : u.getRccCenterId());

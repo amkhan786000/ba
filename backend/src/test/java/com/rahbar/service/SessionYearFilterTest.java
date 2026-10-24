@@ -38,4 +38,12 @@ class SessionYearFilterTest {
         assertTrue(PaymentInstallmentService.ofSessionYear(noYear, "none"));
         assertEquals(List.of(2025), PaymentInstallmentService.sessionYears(List.of(1L, 2L), Map.of(1L, s, 2L, noYear)));
     }
+
+    @Test
+    void dashboardsAddTheYearToTheStudentQueriesSafely() {
+        assertEquals("", DashboardService.sessionYearSql("s", null));
+        assertEquals(" AND s.year = 2025", DashboardService.sessionYearSql("s", "2025"));
+        assertEquals(" AND s.year IS NULL", DashboardService.sessionYearSql("s", "none"));
+        assertThrows(com.rahbar.exception.ApiException.class, () -> DashboardService.sessionYearSql("s", "2025 OR 1=1"));
+    }
 }

@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { ListPopupComponent, PopupList } from '../shared/list-popup.component';
 import { sponsorOverdue } from '../shared/drilldowns';
 import { CommonModule } from '@angular/common';
+import { SessionYearSelectComponent } from '../shared/session-year-select.component';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
@@ -14,6 +15,8 @@ import { LineChartComponent } from '../shared/charts/line-chart.component';
 import { StatTileComponent } from '../shared/charts/stat-tile.component';
 
 interface SponsorsDashboard {
+  /** Session years of the students, for the dropdown. */
+  session_years?: number[];
   year: number;
   years: number[];
   scope: 'all' | 'chapter' | 'rcc';
@@ -32,7 +35,7 @@ interface SponsorsDashboard {
 @Component({
   selector: 'app-admin-sponsors-dashboard',
   standalone: true,
-  imports: [ListPopupComponent, CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, BarChartComponent, ColumnChartComponent, LineChartComponent,
+  imports: [SessionYearSelectComponent, ListPopupComponent, CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, BarChartComponent, ColumnChartComponent, LineChartComponent,
     DonutChartComponent, StatTileComponent],
   styles: [`
     .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
@@ -43,6 +46,7 @@ interface SponsorsDashboard {
       <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-md-center">
         <h4 class="page-title mb-2 mb-md-0">Sponsors &amp; Payments Dashboard</h4>
         <div class="d-flex align-items-center">
+          <app-session-year-select class="mr-2" [years]="d?.session_years" [(value)]="sessionYear" (valueChange)="load()"></app-session-year-select>
           <label for="yearSelect" class="mr-2 mb-0">Year</label>
           <select class="form-control form-control-sm" id="yearSelect" [(ngModel)]="year" (ngModelChange)="load()" style="width: 110px">
             <option *ngFor="let y of d?.years" [ngValue]="y">{{ y }}</option>
@@ -201,9 +205,12 @@ export class AdminSponsorsDashboardComponent implements OnInit {
 
   ngOnInit(): void { this.load(); }
 
+  /** Students of one session year ('' all, 'none' not set); the "Year" is the calendar year of payments. */
+  sessionYear = '';
+
   load(): void {
     this.error = '';
-    this.api.get<SponsorsDashboard>('/admin/dashboards/sponsors', this.year ? { year: this.year } : undefined).subscribe({
+    this.api.get<SponsorsDashboard>('/admin/dashboards/sponsors', { year: this.year, sessionYear: this.sessionYear }).subscribe({
       next: (d) => { this.d = d; this.year = d.year; },
       error: (e) => (this.error = errorText(e, 'Could not load the dashboard.'))
     });
