@@ -272,6 +272,24 @@ class DataQualityServiceTest {
     }
 
     @Test
+    @SuppressWarnings("unchecked")
+    void studentChecksCarryTheSessionYearForFiltering() {
+        User a = user(30, 6, "STU-30");
+        a.setYear(2024);
+        User b = user(31, 6, "STU-31");
+        b.setYear(2025);
+        User c = user(32, 6, "STU-32"); // no session year
+        when(users.findByRoleId(6)).thenReturn(List.of(a, b, c));
+
+        var check = byKey().get("students_without_chapter");
+        assertEquals(3, check.get("count"));
+        assertEquals(new ArrayList<>(List.of("2024", "2025", "Not set")), new ArrayList<>(((Map<String, Long>) check.get("by_year")).keySet()));
+        assertEquals(1L, ((Map<String, Long>) check.get("by_year")).get("Not set"));
+        assertEquals(2025, rows(check).stream().filter(r -> "STU-31".equals(r.get("user_id"))).findFirst().orElseThrow().get("session_year"));
+        assertNull(byKey().get("chapters_without_lead_email").get("by_year")); // not about students
+    }
+
+    @Test
     void everyCurrentStudentNeedsAPaymentStartDate() {
         User noStart = user(30, 6, "STU-30");
         User withStart = user(31, 6, "STU-31");

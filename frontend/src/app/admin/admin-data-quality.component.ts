@@ -32,6 +32,8 @@ interface Check {
   group: string; link: string;
   /** The check's students follow the study status filter. */
   study_filtered?: boolean;
+  /** Checks about students: how many per session year ("Not set" for none); each row has session_year. */
+  by_year?: Record<string, number>;
 }
 interface Group { key: string; label: string; icon: string; checks: Check[]; problems: number }
 
@@ -119,11 +121,18 @@ const HIDDEN = new Set(['role_id', 'group']);
           <a class="btn btn-sm btn-outline-primary" [routerLink]="s.path"><i class="mdi mdi-arrow-right mr-1"></i>Open {{ s.label }}</a>
         </div>
         <div class="card-body pt-0" *ngIf="open === c.key && c.count">
+          <div *ngIf="c.by_year" class="d-flex align-items-center mb-2" style="gap: 8px">
+            <label class="small mb-0" [for]="'sy-' + c.key">Session year</label>
+            <select class="form-control form-control-sm w-auto" [id]="'sy-' + c.key" [(ngModel)]="yearOf[c.key]">
+              <option value="">All ({{ c.count }})</option>
+              <option *ngFor="let y of years(c)" [value]="y">{{ y }} ({{ c.by_year[y] }})</option>
+            </select>
+          </div>
           <div class="table-responsive">
             <table class="table table-sm table-striped check-table mb-0">
               <thead class="thead-light"><tr><th *ngFor="let col of columns(c)">{{ header(col) }}</th><th *ngIf="mergeable(c)"></th></tr></thead>
               <tbody>
-                <tr *ngFor="let row of c.rows">
+                <tr *ngFor="let row of shownRows(c)">
                   <td *ngFor="let col of columns(c)">{{ cell(row[col]) }}</td>
                   <td *ngIf="mergeable(c)"><button type="button" class="btn btn-xs btn-outline-primary" (click)="startMerge(c, row)">Merge…</button></td>
                 </tr>
@@ -295,6 +304,18 @@ export class AdminDataQualityComponent implements OnInit {
   }
 
   toggle(c: Check): void { if (c.count) this.open = this.open === c.key ? '' : c.key; }
+
+  /** The session year chosen in each opened student check ('' = all years, the default). */
+  yearOf: Record<string, string> = {};
+
+  years(c: Check): string[] { return Object.keys(c.by_year ?? {}); }
+
+  /** A check's rows, of the chosen session year when one is chosen ("Not set": no session year). */
+  shownRows(c: Check): Record<string, unknown>[] {
+    const y = this.yearOf[c.key];
+    if (!y || !c.by_year) return c.rows;
+    return c.rows.filter((r) => (r['session_year'] == null ? 'Not set' : String(r['session_year'])) === y);
+  }
 
   columns(c: Check): string[] { return Object.keys(c.rows[0] ?? {}).filter((k) => !HIDDEN.has(k)); }
 
