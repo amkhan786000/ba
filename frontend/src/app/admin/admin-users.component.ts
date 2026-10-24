@@ -187,6 +187,7 @@ export interface RoleOption {
                 (e.g. Sponsor, Chapter Lead, Office Coordinator). <a href="" (click)="$event.preventDefault(); template()">Download the template</a>.</p>
               <ul class="small text-muted">
                 <li>Chapter Name must match a chapter in Rahbar; a Chapter Lead needs one.</li>
+                <li>Someone brought by another person: write <em>Abdul Rahman c/o Imran Khan</em>; "Imran Khan" is kept as their c/o.</li>
                 <li>No phone number? One starting with 5 is made up (never a real mobile); add the real number later.</li>
                 <li>A name that looks like someone already in Rahbar <strong>in the same chapter</strong>, or twice in the file for the same chapter, is
                   <strong>not added</strong> and listed for you to check (Md / Mohd / Mohammad are treated as the same).</li>
@@ -220,9 +221,9 @@ export interface RoleOption {
                 <div class="d-flex align-items-center mb-1"><h6 class="mb-0 mr-auto text-success">Added ({{ r.added.length }})</h6>
                   <button type="button" class="btn btn-sm btn-outline-secondary" (click)="downloadAdded(r.added)"><i class="mdi mdi-download"></i> Download list (CSV)</button></div>
                 <div class="table-responsive"><table class="table table-sm">
-                  <thead class="thead-light"><tr><th>User ID</th><th>Name</th><th>Role</th><th>Chapter</th><th>Phone</th><th>Signs in with</th></tr></thead>
+                  <thead class="thead-light"><tr><th>User ID</th><th>Name</th><th>c/o</th><th>Role</th><th>Chapter</th><th>Phone</th><th>Signs in with</th></tr></thead>
                   <tbody><tr *ngFor="let a of r.added">
-                    <td>{{ a['user_id'] }}</td><td>{{ a['name'] }}</td><td>{{ a['role'] }}</td><td>{{ a['chapter'] || '-' }}</td>
+                    <td>{{ a['user_id'] }}</td><td>{{ a['name'] }}</td><td>{{ a['care_of'] || '' }}</td><td>{{ a['role'] }}</td><td>{{ a['chapter'] || '-' }}</td>
                     <td>{{ a['phone'] }} <span *ngIf="a['phone_generated']" class="badge badge-light border" title="Made up: add the real number">made up</span></td>
                     <td class="small">{{ a['sign_in'] }}</td></tr></tbody>
                 </table></div>
@@ -386,9 +387,9 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
 
   /** The accounts added, as a CSV to keep or hand out. */
   downloadAdded(rows: Record<string, unknown>[]): void {
-    const cols = ['user_id', 'name', 'role', 'chapter', 'phone', 'sign_in'];
+    const cols = ['user_id', 'name', 'care_of', 'role', 'chapter', 'phone', 'sign_in'];
     const esc = (v: unknown) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
-    const csv = ['User ID,Name,Role,Chapter,Phone,Signs in with', ...rows.map((r) => cols.map((c) => esc(r[c])).join(','))].join('\n');
+    const csv = ['User ID,Name,c/o,Role,Chapter,Phone,Signs in with', ...rows.map((r) => cols.map((c) => esc(r[c])).join(','))].join('\n');
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
     const a = document.createElement('a');
     a.href = url;

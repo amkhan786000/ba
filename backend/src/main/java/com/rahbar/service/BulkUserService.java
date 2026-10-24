@@ -24,7 +24,8 @@ import java.util.*;
 
 /**
  * Administration > Manage Users > Bulk add users: a CSV with Name, Chapter Name, Phone Number and Role adds one
- * account per row (any role but Student, which has its own upload in the Student Directory).
+ * account per row (any role but Student, which has its own upload in the Student Directory). A name like
+ * "Abdul Rahman c/o Imran Khan" is saved as the name "Abdul Rahman" with c/o "Imran Khan" (who brought them).
  * <ul>
  *   <li>Chapter Name must be an existing chapter (ignoring case); a Chapter Lead needs one.</li>
  *   <li>An empty phone number gets a generated one starting with 5: Indian mobiles start with 6 to 9, so it can never be
@@ -110,7 +111,14 @@ public class BulkUserService {
                     String roleName = value(row, roleCol), chapterName = value(row, chapterCol), phone = value(row, phoneCol);
                     if (name == null && roleName == null && chapterName == null && phone == null) { report.skipped(rowNumber, null, "Empty row."); continue; }
                     if (name == null) { report.skipped(rowNumber, null, "No name."); continue; }
+                    // "Abdul Rahman c/o Imran Khan": the name, and who brought them (c/o)
+                    String[] split = splitCareOf(name);
+                    String fullName = name;
+                    name = split[0];
+                    String careOf = split[1];
+                    if (name.isEmpty()) throw bad("No name before c/o in '" + fullName + "'.");
                     if (name.length() > 150) throw bad("The name is longer than 150 characters.");
+                    if (careOf != null && careOf.length() > 150) throw bad("The c/o is longer than 150 characters.");
 
                     Role role = roleName == null ? null : roleByName.get(key(roleName));
                     if (role == null) throw bad("Unknown role '" + Objects.requireNonNullElse(roleName, "") + "'. Use a role name from Roles & Permissions, e.g. Sponsor or Chapter Lead.");
@@ -161,6 +169,7 @@ public class BulkUserService {
                     u.setEmail(code.toLowerCase(Locale.ROOT) + PLACEHOLDER_DOMAIN);
                     u.setRoleId(role.getRoleId());
                     u.setChapterId(chapterId);
+                    u.setCareOf(careOf);
                     u.setSex("M");
                     u.setStatus("Active");
                     u.setPasswordHash(passwordEncoder.encode(PasswordPolicy.DEFAULT_PASSWORD));
@@ -173,6 +182,7 @@ public class BulkUserService {
                     Map<String, Object> a = new LinkedHashMap<>();
                     a.put("user_id", code);
                     a.put("name", name);
+                    a.put("care_of", careOf);
                     a.put("role", role.getRoleName());
                     a.put("chapter", chapterName);
                     a.put("phone", mobile);
@@ -185,6 +195,16 @@ public class BulkUserService {
             }
         }
         return new Result(report, added, duplicates);
+    }
+
+    private static final java.util.regex.Pattern CARE_OF = java.util.regex.Pattern.compile("(?i)^(.*?)[\\s,(]+(?:c\\s*/\\s*o|care\\s+of)[\\s.:-]+(.+?)\\)?$");
+
+    /** "Abdul Rahman c/o Imran Khan" (also C/O, c / o, care of) -> ["Abdul Rahman", "Imran Khan"]; no c/o -> [name, null]. */
+    static String[] splitCareOf(String name) {
+        java.util.regex.Matcher m = CARE_OF.matcher(name.trim());
+        if (!m.matches()) return new String[]{name.trim(), null};
+        String careOf = m.group(2).trim();
+        return new String[]{m.group(1).trim(), careOf.isEmpty() ? null : careOf};
     }
 
     /** The duplicate key: the canonical name together with the chapter (no chapter only matches no chapter). */

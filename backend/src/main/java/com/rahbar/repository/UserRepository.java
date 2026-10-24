@@ -173,14 +173,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("""
         select new map(u.id as id, u.userId as user_id, u.name as name, u.email as email, u.phone as phone, u.status as status,
                        u.chapterId as chapter_id, ch.chapterName as chapter_name, r.roleName as role_name,
-                       count(distinct gg.granteeId) as student_count)
+                       u.careOf as care_of, count(distinct gg.granteeId) as student_count)
         from User u
         left join Chapter ch on ch.chapterId = u.chapterId
         join Role r on r.roleId = u.roleId
         left join GrantorGrantee gg on gg.grantorId = u.id
         where (u.roleId in (3, 4, 5) or exists (select 1 from UserAdditionalRole x where x.userId = u.id and x.roleId in (3, 4, 5)))
           and u.status = 'active'
-        group by u.id, u.userId, u.name, u.email, u.phone, u.status, u.chapterId, ch.chapterName, r.roleName
+        group by u.id, u.userId, u.name, u.email, u.phone, u.status, u.chapterId, ch.chapterName, r.roleName, u.careOf
         order by u.name asc
         """)
     List<Map<String, Object>> findActiveSponsorships();

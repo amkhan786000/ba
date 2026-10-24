@@ -8,7 +8,7 @@ import { AppDatePipe } from '../shared/app-date';
 import { PreferenceOptions, SponsorPreferences, SponsorPreferencesComponent, emptyPreferences, preferencesFrom } from '../shared/sponsor-preferences.component';
 
 interface Period { id: number; start_date: string; end_date: string; active: boolean }
-interface SponsorOption { id: number; user_id: string | null; name: string; chapter_name: string | null }
+interface SponsorOption { id: number; user_id: string | null; name: string; chapter_name: string | null; care_of?: string | null }
 interface Form {
   open: boolean; period?: Period; options?: PreferenceOptions; for_self?: boolean; for_others?: boolean;
   sponsors?: SponsorOption[]; me?: number;
@@ -53,7 +53,7 @@ interface Applications { periods: Period[]; period: Period | null; rows: Applica
             <select id="sponsor" class="form-control" [(ngModel)]="sponsorId" (ngModelChange)="loadFor()">
               <option [ngValue]="null">-- Choose a sponsor --</option>
               <option *ngIf="form!.for_self" [ngValue]="form!.me">Myself</option>
-              <option *ngFor="let s of otherSponsors" [ngValue]="s.id">{{ s.name }}{{ s.user_id ? ' (' + s.user_id + ')' : '' }}{{ s.chapter_name ? ' · ' + s.chapter_name : '' }}</option>
+              <option *ngFor="let s of otherSponsors" [ngValue]="s.id">{{ s.name }}{{ s.user_id ? ' (' + s.user_id + ')' : '' }}{{ s.care_of ? ' c/o ' + s.care_of : '' }}{{ s.chapter_name ? ' · ' + s.chapter_name : '' }}</option>
             </select>
           </div>
         </div>

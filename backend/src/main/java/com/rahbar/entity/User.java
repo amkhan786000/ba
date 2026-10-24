@@ -83,6 +83,10 @@ public class User extends Modifiable {
     @Column(name = "college_type", length = 10)
     private String collegeType;
 
+    /** Sponsors: "c/o", who brought them to Rahbar (optional). */
+    @Column(name = "care_of", length = 150)
+    private String careOf;
+
     /** Sponsors: the kind of student they'd like to sponsor (GOVT, PRIVATE or ANY; null = not said). */
     @Column(name = "pref_college_type", length = 10)
     private String prefCollegeType;

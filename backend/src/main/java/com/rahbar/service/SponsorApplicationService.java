@@ -83,7 +83,7 @@ public class SponsorApplicationService {
                     .filter(u -> !"Inactive".equalsIgnoreCase(u.getStatus()) && u.getMergedIntoId() == null && !u.getId().equals(unassigned))
                     .filter(scope::includesSponsor)
                     .sorted(Comparator.comparing(User::getName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
-                    .forEach(u -> sponsors.add(Rows.pick(u, "id", "user_id", "name", "chapter_name")));
+                    .forEach(u -> sponsors.add(Rows.pick(u, "id", "user_id", "name", "care_of", "chapter_name")));
             out.put("sponsors", sponsors);
         }
         Long me = Access.current().getUser().getId();

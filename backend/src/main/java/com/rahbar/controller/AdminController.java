@@ -282,7 +282,7 @@ public class AdminController {
         // Without page / size: every sponsor (the Student Directory's sponsor list); with them: one page of the matches.
         if (page == null && size == null) return rows;
         return com.rahbar.util.Paging.of(rows.stream()
-                .filter(r -> com.rahbar.util.Paging.matches(q, r.get("name"), r.get("user_id"), r.get("email"), r.get("phone"), r.get("chapter_name")))
+                .filter(r -> com.rahbar.util.Paging.matches(q, r.get("name"), r.get("user_id"), r.get("email"), r.get("phone"), r.get("chapter_name"), r.get("care_of")))
                 .toList(), page, size);
     }
 

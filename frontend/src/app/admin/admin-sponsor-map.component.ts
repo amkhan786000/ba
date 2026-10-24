@@ -11,7 +11,7 @@ import { ChapterService } from '../core/services/chapter.service';
 import { Chapter } from './admin-chapters.component';
 
 interface MapScreen {
-  sponsor: { id: number; user_id: string; name: string; email: string | null; chapter_name: string | null };
+  sponsor: { id: number; user_id: string; name: string; care_of?: string | null; email: string | null; chapter_name: string | null };
   mappedStudents: { id: number; user_id: string; name: string; email: string | null; on_behalf_text?: string | null }[];
   availableStudents: {
     id: number; user_id: string; name: string; email: string | null;
@@ -34,7 +34,8 @@ interface MapScreen {
     <div class="row">
       <div class="col-12">
         <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-center">
-          <h4 class="page-title mb-2 mb-md-0">Sponsor: <span class="text-primary">{{ data?.sponsor?.name }}</span></h4>
+          <h4 class="page-title mb-2 mb-md-0">Sponsor: <span class="text-primary">{{ data?.sponsor?.name }}</span>
+            <small *ngIf="data?.sponsor?.care_of" class="text-muted"> c/o {{ data!.sponsor.care_of }}</small></h4>
           <div class="page-title-right">
             <a [routerLink]="['/', section, 'sponsorships']" class="btn btn-secondary waves-effect waves-light"><i class="mdi mdi-arrow-left"></i> Back</a>
           </div>
