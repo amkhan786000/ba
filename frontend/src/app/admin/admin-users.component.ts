@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { AppDatePipe } from '../shared/app-date';
 import { ApiService } from '../core/services/api.service';
 import { ChapterService } from '../core/services/chapter.service';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
@@ -32,6 +33,14 @@ export interface UserRow {
   /** A sponsor whose contact / personal details the viewer may not see (they come back blank). */
   masked?: boolean;
   chapter_name?: string | null;
+  rcc_center_name?: string | null;
+  /** Students: session year and study status. */
+  year?: number | null;
+  study_status?: string | null;
+  /** Still on a temporary password (must choose their own at the next sign-in). */
+  must_change_password?: boolean | null;
+  last_sign_in?: string | null;
+  created_at?: string | null;
 }
 
 export interface RoleOption {
@@ -43,7 +52,7 @@ export interface RoleOption {
 @Component({
   selector: 'app-admin-users',
   standalone: true,
-  imports: [DateInputComponent, CommonModule, FormsModule, RouterLink, PagerComponent, CardTableDirective],
+  imports: [DateInputComponent, CommonModule, FormsModule, RouterLink, PagerComponent, CardTableDirective, AppDatePipe],
   template: `
     <div class="row">
       <div class="col-12">
@@ -97,16 +106,23 @@ export interface RoleOption {
             <div class="table-responsive">
               <table class="table table-striped table-centered mb-0">
                 <thead>
-                  <tr><th>User Id</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr>
+                  <tr><th>User Id</th><th>Name</th><th>Contact</th><th>Role</th><th class="tablet-hide">Chapter / centre</th>
+                    <th class="tablet-hide">Last sign-in</th><th class="tablet-hide">Added</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
-                  <tr *ngIf="loading && !users.length"><td colspan="6" class="text-center text-muted">Loading…</td></tr>
-                  <tr *ngIf="!loading && !users.length"><td colspan="6" class="text-center text-muted">No users match these filters.</td></tr>
+                  <tr *ngIf="loading && !users.length"><td colspan="9" class="text-center text-muted">Loading…</td></tr>
+                  <tr *ngIf="!loading && !users.length"><td colspan="9" class="text-center text-muted">No users match these filters.</td></tr>
                   <tr *ngFor="let u of users" [class.text-muted]="loading">
                     <td>{{ u.user_id }}</td>
-                    <td>{{ u.name }}</td>
-                    <td>{{ u.email ?? 'None' }}</td>
+                    <td>{{ u.name }}<div *ngIf="u.role_id === 6 && (u.year || u.study_status)" class="small text-muted">
+                      {{ u.year ? 'Session ' + u.year : '' }}{{ u.year && u.study_status ? ' · ' : '' }}{{ studyLabel(u.study_status) }}</div></td>
+                    <td class="small">{{ u.email ?? 'No email' }}<div class="text-muted">{{ u.phone || 'No phone' }}</div></td>
                     <td><span class="badge badge-light-secondary">{{ u.role_name }}</span><span *ngFor="let n of u.additional_role_names" class="badge badge-light ml-1" title="Additional role">+ {{ n }}</span></td>
+                    <td class="small tablet-hide">{{ u.chapter_name || '' }}<div *ngIf="u.rcc_center_name" class="text-muted">{{ u.rcc_center_name }}</div>
+                      <span *ngIf="!u.chapter_name && !u.rcc_center_name" class="text-muted">-</span></td>
+                    <td class="small tablet-hide">{{ u.last_sign_in ? (u.last_sign_in | appDate: 'datetime') : 'Never' }}
+                      <div *ngIf="u.must_change_password" class="text-warning">Temporary password</div></td>
+                    <td class="small tablet-hide">{{ u.created_at ? (u.created_at | appDate) : '-' }}</td>
                     <td><span class="badge" [ngClass]="u.status === 'Active' ? 'badge-success' : 'badge-danger'">{{ u.status }}</span></td>
                     <td class="text-nowrap">
                       <a *ngIf="canEdit" [routerLink]="['/admin/users', u.id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
@@ -235,6 +251,11 @@ export interface RoleOption {
   `
 })
 export class AdminUsersComponent implements OnInit, OnDestroy {
+  /** Study status code (ON_HOLD) as shown elsewhere ("On hold"). */
+  studyLabel(code: string | null | undefined): string {
+    return ({ STUDYING: 'Studying', ON_HOLD: 'On hold', GRADUATED: 'Graduated', DROPPED_OUT: 'Dropped out' } as Record<string, string>)[code ?? ''] ?? '';
+  }
+
   /** Current page of users (the server pages and filters them). */
   users: UserRow[] = [];
   total = 0;
