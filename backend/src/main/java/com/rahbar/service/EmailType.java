@@ -69,6 +69,14 @@ public enum EmailType {
             "Dear {{name}},\n\n{{sponsor_name}} is now your sponsor. You can see your payment schedule on your Payments page."
                     + "\n\nRegards,\nRahbar - Bihar Anjuman",
             List.of("name", "sponsor_name"), List.of()),
+    SPONSOR_RENEWAL("Sponsorship", "To sponsor: will you continue next session?",
+            "Sent when the office starts a sponsor renewal campaign (Sponsors & Payments > Sponsor Renewal), and as a reminder.",
+            "Rahbar: will you continue sponsoring in {{session_year}}?",
+            "Dear {{name}},\n\nThank you for sponsoring {{students}} with Rahbar. As we plan the {{session_year}} session, please "
+                    + "tell us whether you will continue: with the same students, with a different number of students, or not "
+                    + "this time.\n\n{{message}}\n\nPlease answer by {{deadline}} on your Rahbar sponsor page:\n{{answer_url}}"
+                    + "\n\nRegards,\nRahbar - Bihar Anjuman",
+            List.of("name", "students", "session_year", "deadline", "message", "answer_url"), List.of("answer_url")),
     SPONSOR_STUDENT_NOTE("Sponsorship", "To sponsor: a note from their student",
             "Sent to a sponsor when the office approves a note their student wrote to them.",
             "Rahbar: a note from {{student_name}}",

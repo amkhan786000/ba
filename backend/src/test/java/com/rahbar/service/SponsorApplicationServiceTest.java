@@ -32,7 +32,8 @@ class SponsorApplicationServiceTest {
     private final UserRepository users = mock(UserRepository.class);
     private final StudentScope scope = mock(StudentScope.class);
     private final SponsorApplicationService service = new SponsorApplicationService(applications, periods, users,
-            new SponsorPreferenceService(mock(GranteeDetailsRepository.class)), scope);
+            new SponsorPreferenceService(mock(GranteeDetailsRepository.class)), scope,
+            mock(com.rahbar.repository.GrantorGranteeRepository.class), mock(GranteeDetailsRepository.class));
 
     @AfterEach
     void signOut() {

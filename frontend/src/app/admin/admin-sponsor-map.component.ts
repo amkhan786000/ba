@@ -15,7 +15,11 @@ interface MapScreen {
   availableStudents: {
     id: number; user_id: string; name: string; email: string | null;
     current_sponsor_name: string | null; current_sponsor_id: number | null; current_sponsor_code: string | null;
+    /** Only when the sponsor has preferences: does the student fit them, and why (not). */
+    match?: { fits: boolean; why: string[]; missing: string[] };
   }[];
+  /** The sponsor's preferences in words (null: none given). */
+  preferences?: string | null;
 }
 
 /** Port of templates/admin/map_students_to_sponsor.html */
@@ -41,6 +45,14 @@ interface MapScreen {
         <div class="card">
           <div class="card-body">
             <h4 class="header-title mb-3">1. Select Students to Assign</h4>
+            <div *ngIf="data.preferences" class="alert alert-light border small mb-2">
+              <i class="mdi mdi-heart-outline text-success"></i> <strong>This sponsor would like:</strong> {{ data.preferences }}.
+              Students who fit come first, marked <span class="badge badge-success">Fits</span>.
+              <div class="custom-control custom-checkbox mt-1">
+                <input type="checkbox" class="custom-control-input" id="onlyFits" [(ngModel)]="onlyFits" (ngModelChange)="pg.page = 1">
+                <label class="custom-control-label" for="onlyFits">Show only students who fit ({{ fitCount }})</label>
+              </div>
+            </div>
             <div class="form-group">
               <input type="text" class="form-control" placeholder="Search students..." [(ngModel)]="search">
             </div>
@@ -69,7 +81,11 @@ interface MapScreen {
                           <label class="custom-control-label" [for]="'check' + s.id">&nbsp;</label>
                         </div>
                       </td>
-                      <td><strong>{{ s.name }}</strong><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
+                      <td><strong>{{ s.name }}</strong>
+                        <span *ngIf="s.match?.fits" class="badge badge-success ml-1" [title]="s.match!.why.join(', ')">Fits</span><br>
+                        <small class="text-muted">ID: {{ s.user_id }}</small>
+                        <div *ngIf="s.match" class="small" [ngClass]="s.match.fits ? 'text-success' : 'text-muted'">
+                          {{ s.match.fits ? s.match.why.join(' · ') : 'Not a fit: ' + s.match.missing.join(', ') }}</div></td>
                       <td>
                         <span *ngIf="s.current_sponsor_id; else unassigned" class="badge badge-warning" [title]="'Assigned to sponsor ' + s.current_sponsor_code">
                           <i class="mdi mdi-account-check"></i> {{ s.current_sponsor_name || s.current_sponsor_code }}
@@ -170,9 +186,14 @@ export class AdminSponsorMapComponent implements OnInit {
     });
   }
 
+  /** Show only the students who fit the sponsor's preferences. */
+  onlyFits = false;
+
+  get fitCount(): number { return (this.data?.availableStudents ?? []).filter((s) => s.match?.fits).length; }
+
   get visible() {
     const f = this.search.toLowerCase();
-    return (this.data?.availableStudents ?? []).filter((s) =>
+    return (this.data?.availableStudents ?? []).filter((s) => !this.onlyFits || s.match?.fits).filter((s) =>
       [s.name, s.user_id, s.current_sponsor_name, s.current_sponsor_code].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 

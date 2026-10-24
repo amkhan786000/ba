@@ -8,6 +8,7 @@ import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.compo
 import { PagerComponent, pageOf } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
+import { MyRenewal } from './sponsor-renewal.component';
 
 interface Grantee {
   user: { id: number; user_id: string; name: string } | null;
@@ -47,6 +48,12 @@ interface Overview {
   standalone: true,
   imports: [AppDatePipe, CommonModule, FormsModule, RouterLink, AlertsComponent, BarChartComponent, PagerComponent, CardTableDirective],
   template: `
+    <div *ngIf="renewal?.campaign && !renewal?.response?.answer" class="alert alert-warning d-flex flex-wrap align-items-center mt-2" style="gap: 8px">
+      <i class="mdi mdi-calendar-question mdi-24px"></i>
+      <span class="mr-auto"><strong>Will you continue sponsoring in {{ renewal!.campaign!.session_year }}?</strong>
+        <span *ngIf="renewal!.campaign!.deadline"> Please answer by {{ renewal!.campaign!.deadline | appDate }}.</span></span>
+      <a routerLink="/sponsor/renewal" class="btn btn-sm btn-warning">Answer now</a>
+    </div>
     <div class="row">
       <div class="col-12">
         <div class="page-title-box mt-2 d-flex flex-column flex-md-row justify-content-between align-items-md-center">
@@ -214,6 +221,8 @@ export class SponsorDashboardComponent implements OnInit {
   readonly statementYears = Array.from({ length: 6 }, (_, i) => new Date().getFullYear() - i);
   statementYear = new Date().getFullYear() - 1;
   downloading = false;
+  /** An open renewal question for this sponsor (banner until answered). */
+  renewal: MyRenewal | null = null;
 
   constructor(private api: ApiService) {}
 
@@ -226,6 +235,7 @@ export class SponsorDashboardComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.api.get<MyRenewal>('/sponsor/renewal').subscribe({ next: (r) => (this.renewal = r), error: () => (this.renewal = null) });
     this.api.get<Overview>('/sponsor/overview').subscribe({ next: (o) => (this.overview = o), error: () => (this.overview = null) });
     this.api.get<SponsorDashboard>('/sponsor/dashboard').subscribe({
       next: (d) => {

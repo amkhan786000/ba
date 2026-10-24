@@ -65,6 +65,10 @@ import { AdminInterviewRankingComponent } from './admin/admin-interview-ranking.
 import { AdminAlumniComponent } from './admin/admin-alumni.component';
 import { CoachingStudentsComponent } from './admin/coaching-students.component';
 import { CoachingDashboardComponent } from './admin/coaching-dashboard.component';
+import { ImpactReportComponent } from './admin/impact-report.component';
+import { SponsorRenewalAdminComponent } from './admin/sponsor-renewal.component';
+import { SponsorImpactComponent } from './sponsor/sponsor-impact.component';
+import { SponsorRenewalComponent } from './sponsor/sponsor-renewal.component';
 import { CoachingAttendanceComponent } from './admin/coaching-attendance.component';
 import { CoachingScholarshipComponent } from './admin/coaching-scholarship.component';
 import { EarlyWarningComponent } from './admin/early-warning.component';
@@ -177,6 +181,8 @@ export const routes: Routes = [
       { path: 'applications/ranking', component: AdminInterviewRankingComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
       { path: 'alumni', component: AdminAlumniComponent, canActivate: [permissionGuard], data: { permission: 'ALUMNI' } },
       { path: 'rcc-students', redirectTo: 'coaching/students', pathMatch: 'full' },
+      { path: 'impact-report', component: ImpactReportComponent, canActivate: [permissionGuard], data: { permission: 'REPORTS' } },
+      { path: 'sponsor-renewal', component: SponsorRenewalAdminComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
       { path: 'coaching/dashboard', component: CoachingDashboardComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'coaching/attendance', component: CoachingAttendanceComponent, canActivate: [permissionGuard], data: { permission: 'COACHING_ATTENDANCE' } },
       { path: 'coaching/scholarship', component: CoachingScholarshipComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
@@ -296,6 +302,8 @@ export const routes: Routes = [
         { path: '/sponsor/payments', label: 'Payments', icon: 'mdi-cash-multiple' },
         { path: '/sponsor/progress', label: 'Student Progress', icon: 'mdi-chart-line' },
         { path: '/sponsor/notes', label: 'Notes from Students', icon: 'mdi-message-text-outline' },
+        { path: '/sponsor/impact', label: 'My Impact', icon: 'mdi-hand-heart' },
+        { path: '/sponsor/renewal', label: 'Renewal', icon: 'mdi-autorenew' },
         { path: '/sponsor/apply', label: 'Apply for Sponsorship', icon: 'mdi-hand-heart-outline', section: 'SPONSOR_APPLY' },
         { path: '/sponsor/reb', label: 'Rahbar-e-Banaat', icon: 'mdi-human-female-girl' },
         { path: '/sponsor/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' },
@@ -312,6 +320,8 @@ export const routes: Routes = [
       { path: 'progress', component: SponsorProgressComponent },
       { path: 'reb', component: SponsorRebComponent },
       { path: 'notes', component: SponsorNotesComponent },
+      { path: 'impact', component: SponsorImpactComponent },
+      { path: 'renewal', component: SponsorRenewalComponent },
       { path: 'apply', component: ApplySponsorshipComponent, canActivate: [permissionGuard], data: { permission: 'SPONSOR_APPLY' } }
     ]
   },
