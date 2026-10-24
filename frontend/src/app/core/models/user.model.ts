@@ -32,7 +32,7 @@ export interface AuthUser {
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
 export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG' | 'ONLINE_PAYMENTS'
   | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSOR_APPLY' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
-  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'COACHING_TEACHERS' | 'COACHING_EXAMS' | 'COACHING_ATTENDANCE' | 'EARLY_WARNING' | 'CAREERS' | 'EVENTS' | 'HELPLINE' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
+  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'COACHING_TEACHERS' | 'COACHING_EXAMS' | 'COACHING_ATTENDANCE' | 'EARLY_WARNING' | 'CAREERS' | 'EVENTS' | 'HELPLINE' | 'MATERIALS' | 'VOLUNTEER_HOURS' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
   | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES' | 'FAQS' | 'APP_SETTINGS'
@@ -97,6 +97,8 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/chapter-dashboard', label: 'Chapter Dashboard', icon: 'mdi-view-quilt', section: 'CHAPTER_DASHBOARD', group: 'community' },
   { path: '/admin/chapters', label: 'Chapters', icon: 'mdi-map-marker-multiple', section: 'CHAPTERS', group: 'community' },
   { path: '/admin/events', label: 'Events & Workshops', icon: 'mdi-calendar-star', section: 'EVENTS', group: 'community' },
+  { path: '/admin/materials', label: 'Books & Materials', icon: 'mdi-bookshelf', section: 'MATERIALS', group: 'community' },
+  { path: '/admin/volunteer-hours', label: 'Volunteer Hours', icon: 'mdi-clock-check-outline', section: 'VOLUNTEER_HOURS', group: 'community' },
   { path: '/admin/volunteers', label: 'Volunteers', icon: 'mdi-hand-heart', section: 'VOLUNTEERS', group: 'community' },
   { path: '/admin/volunteer-options', label: 'Volunteer Form Options', icon: 'mdi-format-list-checks', section: 'VOLUNTEER_OPTIONS', group: 'community' },
 

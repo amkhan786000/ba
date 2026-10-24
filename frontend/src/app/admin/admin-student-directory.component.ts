@@ -40,6 +40,8 @@ interface StudentDetails {
   statusHistory?: Row[];
   /** Every sponsor the student has had, newest first (sponsor_name / sponsor_code, started_at, ended_at, end_reason). */
   sponsorHistory?: Row[];
+  /** Books & materials handed out to the student. */
+  materials?: Row[];
   /** The current sponsorship on behalf of an anonymous donor: on_behalf, donor_chapter_id, donor_label, on_behalf_text. */
   onBehalf?: Row;
 }
@@ -272,6 +274,12 @@ interface BaDetails {
                 <label>Why is the sponsor changing? <span class="text-muted small">(kept in the sponsor history)</span></label>
                 <input class="form-control" maxlength="300" [(ngModel)]="ba.sponsorChangeReason"
                        placeholder="e.g. Sponsor declined to continue">
+              </div>
+              <div class="col-12" *ngIf="details.materials?.length">
+                <h6 class="mt-2">Books & materials received</h6>
+                <table class="table table-sm mb-2"><tbody>
+                  <tr *ngFor="let m of details.materials"><td>{{ fmt(m['given_on'], '') }}</td><td>{{ m['item'] }}</td><td>{{ m['quantity'] }}</td><td class="small">{{ m['note'] }}</td></tr>
+                </tbody></table>
               </div>
               <div class="col-12">
                 <h6 class="mt-2">Sponsor history</h6>
