@@ -32,7 +32,7 @@ export interface AuthUser {
 /** Admin screens permissions are granted on (same names as the backend's Section enum). */
 export type Section = 'DASHBOARD' | 'USERS' | 'ROLES' | 'CHAPTERS' | 'RCC_CENTERS' | 'COURSES' | 'PAYMENT_CONFIG' | 'ONLINE_PAYMENTS'
   | 'PAYMENT_DUES' | 'REPORTS' | 'APPLICATION_PERIOD' | 'APPLICATIONS' | 'SPONSOR_APPLY' | 'SPONSORSHIPS' | 'STUDENTS' | 'ACTIVITY' | 'MESSAGES'
-  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'COACHING_TEACHERS' | 'COACHING_EXAMS' | 'COACHING_ATTENDANCE' | 'EARLY_WARNING' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
+  | 'SPONSOR_DETAILS' | 'PROGRESS_DUE_DATES' | 'CHAPTER_DASHBOARD' | 'DATA_QUALITY' | 'PAYMENT_RECORDS' | 'EMAIL_LOG' | 'EMAIL_TEMPLATES' | 'ALUMNI' | 'STUDENT_NOTES' | 'RCC_STUDENTS' | 'COACHING_TEACHERS' | 'COACHING_EXAMS' | 'COACHING_ATTENDANCE' | 'EARLY_WARNING' | 'CAREERS' | 'EVENTS' | 'HELPLINE' | 'VOLUNTEERS' | 'VOLUNTEER_OPTIONS' | 'MENTORING'
   | 'WEBSITE_BLOG' | 'WEBSITE_BLOG_PUBLISH' | 'WEBSITE_BLOG_CATEGORIES' | 'WEBSITE_STORIES' | 'WEBSITE_STORIES_PUBLISH' | 'WEBSITE_GALLERY' | 'WEBSITE_DIRECTORY'
   | 'WEBSITE_PROJECTS' | 'WEBSITE_NEWS' | 'WEBSITE_MESSAGES' | 'WEBSITE_PAGES'
   | 'DOCUMENTS' | 'DOCUMENT_CATEGORIES' | 'FAQS' | 'APP_SETTINGS'
@@ -70,6 +70,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/students', label: 'Student Directory', icon: 'mdi-account-details', section: 'STUDENTS', group: 'students' },
   { path: '/admin/student-references', label: 'Reference Numbers', icon: 'mdi-numeric', group: 'students', admin: true },
   { path: '/admin/early-warning', label: 'Early Warning', icon: 'mdi-alert-decagram-outline', section: 'EARLY_WARNING', group: 'students' },
+  { path: '/admin/careers', label: 'Careers', icon: 'mdi-briefcase-outline', section: 'CAREERS', group: 'students' },
   { path: '/admin/alumni', label: 'Alumni', icon: 'mdi-school', section: 'ALUMNI', group: 'students' },
   { path: '/admin/mentoring', label: 'Mentoring', icon: 'mdi-account-tie-voice', section: 'MENTORING', group: 'students' },
   { path: '/admin/courses', label: 'Courses', icon: 'mdi-book-open', section: 'COURSES', group: 'students' },
@@ -95,6 +96,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
 
   { path: '/admin/chapter-dashboard', label: 'Chapter Dashboard', icon: 'mdi-view-quilt', section: 'CHAPTER_DASHBOARD', group: 'community' },
   { path: '/admin/chapters', label: 'Chapters', icon: 'mdi-map-marker-multiple', section: 'CHAPTERS', group: 'community' },
+  { path: '/admin/events', label: 'Events & Workshops', icon: 'mdi-calendar-star', section: 'EVENTS', group: 'community' },
   { path: '/admin/volunteers', label: 'Volunteers', icon: 'mdi-hand-heart', section: 'VOLUNTEERS', group: 'community' },
   { path: '/admin/volunteer-options', label: 'Volunteer Form Options', icon: 'mdi-format-list-checks', section: 'VOLUNTEER_OPTIONS', group: 'community' },
 
@@ -121,6 +123,7 @@ export const ADMIN_LINKS: { path: string; label: string; icon: string; section?:
   { path: '/admin/website/messages', label: 'Messages', icon: 'mdi-email-outline', section: 'WEBSITE_MESSAGES', group: 'website' },
   { path: '/admin/website/pages', label: 'Pages', icon: 'mdi-file-document-edit-outline', section: 'WEBSITE_PAGES', group: 'website' },
 
+  { path: '/admin/helpline', label: 'Helpline', icon: 'mdi-lifebuoy', section: 'HELPLINE', group: 'communication' },
   { path: '/admin/broadcasts', label: 'Broadcast Messages', icon: 'mdi-bullhorn', section: 'MESSAGES', group: 'communication' },
   { path: '/admin/email-templates', label: 'Email Templates', icon: 'mdi-email-edit-outline', section: 'EMAIL_TEMPLATES', group: 'communication' },
   { path: '/admin/email-log', label: 'Email Log', icon: 'mdi-email-search-outline', section: 'EMAIL_LOG', group: 'communication' },

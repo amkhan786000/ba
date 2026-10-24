@@ -1,0 +1,15 @@
+package com.rahbar.repository;
+
+import com.rahbar.entity.EventRegistration;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface EventRegistrationRepository extends JpaRepository<EventRegistration, Long> {
+    List<EventRegistration> findByEventId(Long eventId);
+
+    List<EventRegistration> findByUserId(Long userId);
+
+    Optional<EventRegistration> findByEventIdAndUserId(Long eventId, Long userId);
+}
