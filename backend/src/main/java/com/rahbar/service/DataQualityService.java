@@ -120,6 +120,17 @@ public class DataQualityService {
         if (com.rahbar.security.Access.chapterScoped() || com.rahbar.security.Access.rccScoped()) {
             throw com.rahbar.security.Access.forbidden("Data quality checks cover the whole organisation and aren't available for chapter or RCC roles.");
         }
+        Map<Long, Integer> years = new HashMap<>();
+        userRepository.findByRoleId(6).forEach(u -> years.put(u.getId(), u.getYear()));
+        STUDENT_YEARS.set(years);
+        try {
+            return runChecks(studyStatus);
+        } finally {
+            STUDENT_YEARS.remove();
+        }
+    }
+
+    private List<Map<String, Object>> runChecks(Collection<String> studyStatus) {
         Set<String> statuses = studyStatuses(studyStatus);
         // The scholarship students the checks are about: active accounts with one of the chosen study statuses.
         List<User> students = userRepository.findByRoleId(6).stream()
@@ -763,13 +774,41 @@ public class DataQualityService {
         return usableEmail(s) ? s.trim().toLowerCase(Locale.ROOT) : null;
     }
 
+    /** Students' session years while checks() runs (users.id -> year, null when not set). */
+    private static final ThreadLocal<Map<Long, Integer>> STUDENT_YEARS = new ThreadLocal<>();
+    /** A check about students lists up to this many, so the page can filter them by session year. */
+    private static final int MAX_STUDENT_ROWS = 2000;
+
+    /**
+     * A check with its rows (at most MAX_ROWS). When every row is a student (its "id" is a student's users.id), each
+     * row gets the student's session_year, the check gets by_year (how many per session year, "Not set" last) and up
+     * to MAX_STUDENT_ROWS rows, so the page can filter them by year.
+     */
     private static Map<String, Object> check(String key, String title, String description, List<Map<String, Object>> rows) {
         Map<String, Object> c = new LinkedHashMap<>();
         c.put("key", key);
         c.put("title", title);
         c.put("description", description);
         c.put("count", rows.size());
-        c.put("rows", rows.size() > MAX_ROWS ? rows.subList(0, MAX_ROWS) : rows);
+        Map<Long, Integer> years = STUDENT_YEARS.get();
+        boolean students = years != null && !rows.isEmpty()
+                && rows.stream().allMatch(r -> r.get("id") instanceof Number n && years.containsKey(n.longValue()));
+        if (students) {
+            List<Map<String, Object>> tagged = new ArrayList<>();
+            Map<String, Long> byYear = new TreeMap<>(Comparator.comparing((String y) -> "Not set".equals(y)).thenComparing(Comparator.naturalOrder()));
+            for (Map<String, Object> r : rows) {
+                Map<String, Object> t = new LinkedHashMap<>(r);
+                Integer year = years.get(((Number) r.get("id")).longValue());
+                t.putIfAbsent("session_year", year);
+                Object y = t.get("session_year");
+                byYear.merge(y == null ? "Not set" : String.valueOf(y), 1L, Long::sum);
+                tagged.add(t);
+            }
+            c.put("by_year", byYear);
+            c.put("rows", tagged.size() > MAX_STUDENT_ROWS ? tagged.subList(0, MAX_STUDENT_ROWS) : tagged);
+        } else {
+            c.put("rows", rows.size() > MAX_ROWS ? rows.subList(0, MAX_ROWS) : rows);
+        }
         return c;
     }
 
