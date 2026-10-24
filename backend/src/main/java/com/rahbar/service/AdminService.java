@@ -775,6 +775,7 @@ public class AdminService {
         profile.put("session_year", user.getYear());
         profile.put("payment_start_date", user.getPaymentStartDate());
         profile.put("college_type", user.getCollegeType());
+        profile.put("self_financed", user.isSelfFinanced());
         profile.put("study_status_date", user.getStudyStatusDate());
         profile.put("study_status_note", user.getStudyStatusNote());
         profile.put("name", user.getName());
@@ -820,6 +821,7 @@ public class AdminService {
             if (data.containsKey("year")) { user.setYear(sessionYear(data.get("year"))); changed = true; }
             if (data.containsKey("paymentStartDate")) { user.setPaymentStartDate(parseDate(data.get("paymentStartDate"), "Payment start date")); changed = true; }
             if (data.containsKey("collegeType")) { user.setCollegeType(collegeType(data.get("collegeType"))); changed = true; }
+            if (data.containsKey("selfFinanced")) { user.setSelfFinanced(yes(data.get("selfFinanced"))); changed = true; }
             if (changed) userRepository.save(user);
         });
 
@@ -848,6 +850,12 @@ public class AdminService {
             saveStudentCourse(userId, str(data.get("institutionId")), toLong(data.get("courseId")));
         }
         installmentService.sync(userId); // course, session year, college type or start date may have changed
+    }
+
+    /** BA Details > Self financed: true / "YES" / "Y" is Yes; anything else (empty too) is No. */
+    static boolean yes(Object v) {
+        String s = v == null ? "" : String.valueOf(v).trim();
+        return "true".equalsIgnoreCase(s) || "yes".equalsIgnoreCase(s) || "y".equalsIgnoreCase(s);
     }
 
     /** BA Details > College type: GOVT, PRIVATE or ANY ("doesn't matter"); empty = not set yet. */

@@ -98,6 +98,11 @@ public class User extends Modifiable {
     @Column(name = "pref_income_max")
     private java.math.BigDecimal prefIncomeMax;
 
+    /** Students: BA Details > Self financed (paying their own studies); false (No) unless set. */
+    @Column(name = "self_financed", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("0")
+    private boolean selfFinanced = false;
+
     /** Students: STUDYING, ON_HOLD, GRADUATED or DROPPED_OUT (see service.StudyStatus); NULL counts as studying. */
     @Column(name = "study_status", length = 20)
     private String studyStatus;
