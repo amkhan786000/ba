@@ -77,6 +77,16 @@ public enum Section {
      */
     EARLY_WARNING("Early warning & follow-ups"),
     /**
+     * Students > Careers: job / internship openings, placements, employers and career guidance requests. EDIT posts
+     * openings, records and confirms placements, keeps employers and handles guidance requests. Chapter-scoped users
+     * see their chapter's students.
+     */
+    CAREERS("Careers & placements"),
+    /** Community > Events: events and workshops, registrations and attendance. Chapter / RCC-scoped: their own events. */
+    EVENTS("Events & workshops"),
+    /** Communication > Helpline: issues raised by students and sponsors. EDIT assigns, replies and resolves them. */
+    HELPLINE("Helpline (student & sponsor issues)"),
+    /**
      * People who offered to mentor, tutor, sponsor or join a chapter through the public website. VIEW lists them
      * (and notifies of new ones); EDIT sets their follow-up status and notes, or deletes a sign-up.
      */
