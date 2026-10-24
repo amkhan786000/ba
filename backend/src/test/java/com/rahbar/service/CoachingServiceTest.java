@@ -43,7 +43,7 @@ class CoachingServiceTest {
                 "gender", "f", "previousClassPercent", "86.5"));
         assertEquals("9876543210", row.get("guardian_mobile"));
         assertEquals("F", row.get("gender"));
-        assertEquals("ACTIVE", row.get("status"));
+        assertEquals("APPLIED", row.get("status")); // waits for the entrance test / selection
     }
 
     @Test
@@ -71,5 +71,38 @@ class CoachingServiceTest {
     void aCenterScopedUserCantChangeTheSharedSubjects() {
         when(access.scoped()).thenReturn(true);
         assertThrows(ApiException.class, () -> service.saveSubject(null, Map.of("name", "Physics")));
+    }
+
+    @Test
+    void theAdmissionFormsNewFields() {
+        when(access.requireCenter(10)).thenReturn(10L);
+        when(students.save(any())).thenAnswer(i -> i.getArgument(0));
+        Map<String, Object> row = service.saveStudent(null, form("sessionFrom", "2025", "sessionTo", "2028", "fatherMobile", "8210617802",
+                "schoolClass", "VII", "guardianName", "Md. Naushad Alam", "declarationAccepted", true, "testRollNo", "8001", "testAttendance", "present"));
+        assertEquals("2025-28", row.get("session_label"));
+        assertEquals("8210617802", row.get("contact_mobile"));
+        assertEquals("PRESENT", row.get("test_attendance"));
+        assertEquals(true, row.get("declaration_accepted"));
+        assertThrows(ApiException.class, () -> service.saveStudent(null, form("sessionFrom", "2025", "sessionTo", "2024")));
+        assertThrows(ApiException.class, () -> service.saveStudent(null, form("testAttendance", "late")));
+    }
+
+    @Test
+    void selectingAdmitsTheStudent() {
+        CoachingStudent s = new CoachingStudent();
+        s.setId(5L);
+        s.setName("Mahim");
+        s.setRccCenterId(10L);
+        s.setStatus("APPLIED");
+        when(students.findById(5L)).thenReturn(Optional.of(s));
+        when(access.centerIds()).thenReturn(Set.of(10L));
+        doCallRealMethod().when(access).requireVisible(any(), any());
+        service.admission(5L, new HashMap<>(Map.of("testAttendance", "PRESENT")));
+        assertEquals("PRESENT", s.getTestAttendance());
+        service.admission(5L, new HashMap<>(Map.of("decision", "SELECTED")));
+        assertEquals("ACTIVE", s.getStatus());
+        assertNotNull(s.getAdmissionDate());
+        service.admission(5L, new HashMap<>(Map.of("decision", "NOT_SELECTED")));
+        assertEquals("NOT_SELECTED", s.getStatus());
     }
 }

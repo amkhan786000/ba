@@ -73,7 +73,7 @@ public class CoachingStudent extends Modifiable {
     @Column(name = "aadhaar_last4", length = 4)
     private String aadhaarLast4;
 
-    /** ACTIVE or LEFT. */
+    /** APPLIED (not admitted yet), ACTIVE (selected: studying), NOT_SELECTED or LEFT. */
     @Column(name = "status", nullable = false, length = 10)
     private String status = "ACTIVE";
 
@@ -97,4 +97,54 @@ public class CoachingStudent extends Modifiable {
     /** Their Rahbar scholarship application (scholarship_applications.id), once they applied. */
     @Column(name = "application_id")
     private Long applicationId;
+
+    /** The coaching session, e.g. 2025 to 2028 ("2025-28"). */
+    @Column(name = "session_from")
+    private Integer sessionFrom;
+
+    @Column(name = "session_to")
+    private Integer sessionTo;
+
+    @Column(name = "father_mobile", length = 20)
+    private String fatherMobile;
+
+    @Column(name = "mother_mobile", length = 20)
+    private String motherMobile;
+
+    /** Their class at school (e.g. VII) and roll no. there. */
+    @Column(name = "school_class", length = 20)
+    private String schoolClass;
+
+    @Column(name = "school_roll_no", length = 30)
+    private String schoolRollNo;
+
+    /** The parent / guardian who signs the form. */
+    @Column(name = "guardian_name", length = 150)
+    private String guardianName;
+
+    /** The parent / guardian confirmed the details are true (the form's declaration). */
+    @Column(name = "declaration_accepted", nullable = false)
+    private boolean declarationAccepted = false;
+
+    @Column(name = "photo_path", length = 300)
+    private String photoPath;
+
+    /** Entrance test: roll no. and PRESENT / ABSENT. */
+    @Column(name = "test_roll_no", length = 30)
+    private String testRollNo;
+
+    @Column(name = "test_attendance", length = 10)
+    private String testAttendance;
+
+    /** The number to call: father's, else mother's, else the guardian's, else the student's. */
+    public String contactMobile() {
+        for (String m : new String[]{fatherMobile, motherMobile, guardianMobile, studentMobile}) if (m != null && !m.isBlank()) return m;
+        return null;
+    }
+
+    /** "2025-28", or null. */
+    public String sessionLabel() {
+        if (sessionFrom == null) return null;
+        return sessionTo == null ? String.valueOf(sessionFrom) : sessionFrom + "-" + String.format("%02d", sessionTo % 100);
+    }
 }

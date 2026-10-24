@@ -27,7 +27,12 @@ import java.util.regex.Pattern;
 public class CoachingService {
 
     public static final List<Integer> CLASSES = List.of(7, 8, 9, 10);
-    static final Set<String> STUDENT_STATUSES = Set.of("ACTIVE", "LEFT");
+    /** APPLIED (registered, waiting for the entrance test / selection), ACTIVE (selected: studying), NOT_SELECTED, LEFT. */
+    static final Set<String> STUDENT_STATUSES = Set.of("APPLIED", "ACTIVE", "NOT_SELECTED", "LEFT");
+    static final Set<String> TEST_ATTENDANCE = Set.of("PRESENT", "ABSENT");
+    static final long MAX_PHOTO = 2 * 1024 * 1024;
+    /** Coaching photos are stored as coaching_<id>_...; FileAccessService lets only those who see the centre open them. */
+    public static final String PHOTO_PREFIX = "coaching_";
     private static final Pattern MOBILE = Pattern.compile("[6-9][0-9]{9}");
 
     private final CoachingStudentRepository students;
@@ -38,10 +43,19 @@ public class CoachingService {
     private final UserRepository users;
     private final RoleRepository roles;
     private final CoachingAccess access;
+    private final FileStorageService files;
 
     public CoachingService(CoachingStudentRepository students, CoachingTeacherRepository teachers, CoachingSubjectRepository subjects,
                            CoachingExamSubjectRepository examSubjects, CoachingExamMarkRepository marks, UserRepository users,
                            RoleRepository roles, CoachingAccess access) {
+        this(students, teachers, subjects, examSubjects, marks, users, roles, access, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CoachingService(CoachingStudentRepository students, CoachingTeacherRepository teachers, CoachingSubjectRepository subjects,
+                           CoachingExamSubjectRepository examSubjects, CoachingExamMarkRepository marks, UserRepository users,
+                           RoleRepository roles, CoachingAccess access, FileStorageService files) {
+        this.files = files;
         this.students = students;
         this.teachers = teachers;
         this.subjects = subjects;
@@ -74,23 +88,29 @@ public class CoachingService {
         Map<Integer, Long> byClass = new TreeMap<>();
         CLASSES.forEach(c -> byClass.put(c, 0L));
         all.stream().filter(s -> "ACTIVE".equals(s.getStatus())).forEach(s -> byClass.merge(s.getClassLevel(), 1L, Long::sum));
+        Map<String, Long> byStatus = new LinkedHashMap<>();
+        for (String k : List.of("APPLIED", "ACTIVE", "NOT_SELECTED", "LEFT")) byStatus.put(k, 0L);
+        all.stream().filter(s -> classLevel == null || classLevel.equals(s.getClassLevel())).forEach(s -> byStatus.merge(s.getStatus(), 1L, Long::sum));
         String st = blank(status) ? "ACTIVE" : status.trim().toUpperCase(Locale.ROOT);
         List<CoachingStudent> filtered = all.stream()
                 .filter(s -> classLevel == null || classLevel.equals(s.getClassLevel()))
                 .filter(s -> "ALL".equals(st) || st.equals(s.getStatus()))
-                .filter(s -> Paging.matches(q, s.getName(), s.getAdmissionNo(), s.getFatherName(), s.getGuardianMobile(),
+                .filter(s -> Paging.matches(q, s.getName(), s.getAdmissionNo(), s.getFatherName(), s.getGuardianMobile(), s.getFatherMobile(), s.getMotherMobile(), s.getTestRollNo(),
                         s.getStudentMobile(), s.getSchoolName()))
                 .sorted(Comparator.comparing(CoachingStudent::getClassLevel).thenComparing(CoachingStudent::getName, String.CASE_INSENSITIVE_ORDER))
                 .toList();
         Map<String, Object> out = new LinkedHashMap<>(Paging.of(filtered, page, size, list -> list.stream().map(s -> studentRow(s, centerNames)).toList()));
         out.putAll(centers());
         out.put("by_class", byClass);
+        out.put("by_status", byStatus);
         return out;
     }
 
     static Map<String, Object> studentRow(CoachingStudent s, Map<Long, String> centerNames) {
         Map<String, Object> r = Rows.of(s);
         r.put("center_name", centerNames.get(s.getRccCenterId()));
+        r.put("session_label", s.sessionLabel());
+        r.put("contact_mobile", s.contactMobile());
         return r;
     }
 
@@ -111,7 +131,23 @@ public class CoachingService {
         s.setFatherName(text(b.get("fatherName"), "Father's name", 150, false));
         s.setFatherOccupation(text(b.get("fatherOccupation"), "Father's occupation", 100, false));
         s.setMotherName(text(b.get("motherName"), "Mother's name", 150, false));
-        s.setGuardianMobile(mobile(b.get("guardianMobile"), "Parent / guardian mobile"));
+        s.setFatherMobile(mobile(b.get("fatherMobile"), "Father's mobile"));
+        s.setMotherMobile(mobile(b.get("motherMobile"), "Mother's mobile"));
+        s.setGuardianMobile(mobile(b.get("guardianMobile"), "Guardian's mobile"));
+        s.setGuardianName(text(b.get("guardianName"), "Name of parent / guardian", 150, false));
+        s.setSchoolClass(text(b.get("schoolClass"), "Class at school", 20, false));
+        s.setSchoolRollNo(text(b.get("schoolRollNo"), "Roll no. at school", 30, false));
+        Integer from = blank(b.get("sessionFrom")) ? null : ServiceSupport.toInteger(b.get("sessionFrom"));
+        Integer to = blank(b.get("sessionTo")) ? null : ServiceSupport.toInteger(b.get("sessionTo"));
+        if (from != null && (from < 2000 || from > 2100)) throw bad("Session: a year like 2025.");
+        if (to != null && (from == null || to < from || to > from + 6)) throw bad("The session must end in or after its first year (e.g. 2025-28).");
+        s.setSessionFrom(from);
+        s.setSessionTo(to);
+        s.setDeclarationAccepted(Boolean.TRUE.equals(b.get("declarationAccepted")) || "true".equalsIgnoreCase(String.valueOf(b.get("declarationAccepted"))));
+        s.setTestRollNo(text(b.get("testRollNo"), "Test roll no.", 30, false));
+        String att = blank(b.get("testAttendance")) ? null : String.valueOf(b.get("testAttendance")).trim().toUpperCase(Locale.ROOT);
+        if (att != null && !TEST_ATTENDANCE.contains(att)) throw bad("Entrance test: present or absent.");
+        s.setTestAttendance(att);
         s.setStudentMobile(mobile(b.get("studentMobile"), "Student's mobile"));
         s.setEmail(text(b.get("email"), "Email", 150, false));
         if (s.getEmail() != null && !s.getEmail().matches("[^@\\s]+@[^@\\s]+\\.[^@\\s]+")) throw bad("Enter a valid email address.");
@@ -120,8 +156,9 @@ public class CoachingService {
         String aadhaar = text(b.get("aadhaarLast4"), "Aadhaar", 4, false);
         if (aadhaar != null && !aadhaar.matches("[0-9]{4}")) throw bad("Aadhaar: only the last 4 digits.");
         s.setAadhaarLast4(aadhaar);
-        String status = blank(b.get("status")) ? "ACTIVE" : String.valueOf(b.get("status")).trim().toUpperCase(Locale.ROOT);
-        if (!STUDENT_STATUSES.contains(status)) throw bad("Status must be Active or Left.");
+        // a new registration waits for the entrance test / selection unless the office admits them straight away
+        String status = blank(b.get("status")) ? (id == null ? "APPLIED" : s.getStatus()) : String.valueOf(b.get("status")).trim().toUpperCase(Locale.ROOT);
+        if (!STUDENT_STATUSES.contains(status)) throw bad("Status must be Applied, Studying (selected), Not selected or Left.");
         s.setStatus(status);
         s.setRemarks(text(b.get("remarks"), "Remarks", 500, false));
         if (s.getAdmissionNo() != null) {
@@ -132,12 +169,73 @@ public class CoachingService {
         return studentRow(students.save(s), access.names());
     }
 
+    /**
+     * Entrance test and selection in one click from the list: { testAttendance: PRESENT | ABSENT | "" } and / or
+     * { decision: SELECTED | NOT_SELECTED | APPLIED }. Selected = admitted (studying).
+     */
+    @Transactional
+    public Map<String, Object> admission(Long id, Map<String, Object> b) {
+        CoachingStudent s = requireStudent(id);
+        if (b.containsKey("testAttendance")) {
+            String att = blank(b.get("testAttendance")) ? null : String.valueOf(b.get("testAttendance")).trim().toUpperCase(Locale.ROOT);
+            if (att != null && !TEST_ATTENDANCE.contains(att)) throw bad("Entrance test: present or absent.");
+            s.setTestAttendance(att);
+        }
+        if (b.containsKey("decision")) {
+            String d = String.valueOf(b.get("decision")).trim().toUpperCase(Locale.ROOT);
+            s.setStatus(switch (d) {
+                case "SELECTED" -> "ACTIVE";
+                case "NOT_SELECTED" -> "NOT_SELECTED";
+                case "APPLIED" -> "APPLIED";
+                default -> throw bad("Selected or not selected.");
+            });
+            if ("ACTIVE".equals(s.getStatus()) && s.getAdmissionDate() == null) s.setAdmissionDate(LocalDate.now());
+        }
+        students.save(s);
+        return Map.of("message", s.getName() + ": " + ("ACTIVE".equals(s.getStatus()) ? "selected" : "NOT_SELECTED".equals(s.getStatus()) ? "not selected"
+                : "saved") + ".");
+    }
+
+    /** The student's photo (JPG / PNG, at most 2 MB); replaces an earlier one. */
+    @Transactional
+    public Map<String, Object> uploadPhoto(Long id, org.springframework.web.multipart.MultipartFile file) {
+        CoachingStudent s = requireStudent(id);
+        if (file == null || file.isEmpty()) throw bad("Choose a photo.");
+        if (file.getSize() > MAX_PHOTO) throw bad("The photo is too large (at most 2 MB).");
+        String type = file.getContentType() == null ? "" : file.getContentType();
+        if (!type.startsWith("image/")) throw bad("The photo must be an image (JPG / PNG).");
+        String old = s.getPhotoPath();
+        s.setPhotoPath(files.store(file, PHOTO_PREFIX + id + "_" + System.currentTimeMillis() + "_" + files.sanitizeFilename(file.getOriginalFilename())));
+        students.save(s);
+        removeFile(old);
+        return Map.of("photo_path", s.getPhotoPath(), "message", "Photo saved.");
+    }
+
+    @Transactional
+    public void deletePhoto(Long id) {
+        CoachingStudent s = requireStudent(id);
+        String old = s.getPhotoPath();
+        s.setPhotoPath(null);
+        students.save(s);
+        removeFile(old);
+    }
+
+    private void removeFile(String stored) {
+        if (stored == null || files == null) return;
+        try {
+            java.nio.file.Files.deleteIfExists(files.resolve(stored));
+        } catch (java.io.IOException ignored) {
+            // the row no longer points to it; nobody can open it (FileAccessService checks the row)
+        }
+    }
+
     /** Deletes a student entered by mistake; one with exam marks is marked Left instead. */
     @Transactional
     public void deleteStudent(Long id) {
         CoachingStudent s = requireStudent(id);
         if (marks.existsByStudentId(id)) throw bad("This student has exam marks. Set their status to Left instead.");
         students.delete(s);
+        removeFile(s.getPhotoPath());
     }
 
     CoachingStudent requireStudent(Long id) {

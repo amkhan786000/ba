@@ -113,6 +113,26 @@ public class CoachingController {
         return coaching.saveStudent(id, body);
     }
 
+    /** Body: { testAttendance: PRESENT | ABSENT | "" } and / or { decision: SELECTED | NOT_SELECTED | APPLIED }. */
+    @PutMapping("/students/{id}/admission")
+    @PreAuthorize("hasAuthority('RCC_STUDENTS:EDIT')")
+    public Map<String, Object> admission(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return coaching.admission(id, body);
+    }
+
+    @PostMapping(value = "/students/{id}/photo", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('RCC_STUDENTS:EDIT')")
+    public Map<String, Object> uploadPhoto(@PathVariable Long id, @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        return coaching.uploadPhoto(id, file);
+    }
+
+    @DeleteMapping("/students/{id}/photo")
+    @PreAuthorize("hasAuthority('RCC_STUDENTS:EDIT')")
+    public Map<String, String> deletePhoto(@PathVariable Long id) {
+        coaching.deletePhoto(id);
+        return Map.of("message", "Photo removed.");
+    }
+
     @DeleteMapping("/students/{id}")
     @PreAuthorize("hasAuthority('RCC_STUDENTS:EDIT')")
     public Map<String, String> deleteStudent(@PathVariable Long id) {

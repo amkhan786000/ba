@@ -254,7 +254,7 @@ public class MaterialService {
         for (CoachingStudent s : coachingStudents.findAll()) {
             if (!centers.contains(s.getRccCenterId()) || !"ACTIVE".equals(s.getStatus())) continue;
             byKey.put(COACHING + ":" + s.getId(), person(COACHING, s.getId(), s.getName(), s.getAdmissionNo(), centerNames.get(s.getRccCenterId()),
-                    "Coaching class " + s.getClassLevel(), s.getGuardianMobile()));
+                    "Coaching class " + s.getClassLevel(), s.contactMobile()));
         }
         if (scope.all() && Access.can(Section.REB_STUDENTS, Section.Level.VIEW)) {
             for (RebStudent g : rebStudents.findAll()) {
