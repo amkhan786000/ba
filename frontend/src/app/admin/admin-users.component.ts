@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { AppDatePipe } from '../shared/app-date';
+import { errorText } from '../shared/alerts/alerts.component';
 import { ApiService } from '../core/services/api.service';
 import { ChapterService } from '../core/services/chapter.service';
 import { PagerComponent, PageState } from '../shared/pager/pager.component';
@@ -43,6 +44,11 @@ export interface UserRow {
   created_at?: string | null;
 }
 
+interface BulkUsersResult {
+  message: string; added: Record<string, unknown>[]; duplicates: Record<string, unknown>[];
+  report: { problems?: Record<string, unknown>[] };
+}
+
 export interface RoleOption {
   roleId: number;
   roleName: string;
@@ -71,6 +77,9 @@ export interface RoleOption {
       <div class="col-12">
         <button *ngIf="canEdit" type="button" class="btn btn-primary waves-effect waves-light" (click)="openAdd()">
           <i class="mdi mdi-plus mr-1"></i> Add New User
+        </button>
+        <button *ngIf="canEdit" type="button" class="btn btn-outline-primary waves-effect waves-light ml-2" (click)="openBulk()">
+          <i class="mdi mdi-file-upload-outline mr-1"></i> Bulk add users (CSV)
         </button>
       </div>
     </div>
@@ -164,6 +173,71 @@ export interface RoleOption {
       </div>
       <div class="modal-backdrop fade show"></div>
     </ng-container>
+
+    <!-- Bulk add users -->
+    <div *ngIf="bulk" class="modal fade show d-block" tabindex="-1" (click)="bulk = null">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable" (click)="$event.stopPropagation()">
+        <div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Bulk add users</h5>
+            <button type="button" class="close" (click)="bulk = null" aria-label="Close">&times;</button></div>
+          <div class="modal-body">
+            <div *ngIf="bulk.error" class="alert alert-danger">{{ bulk.error }}</div>
+            <ng-container *ngIf="!bulk.result">
+              <p>Upload a CSV with the columns <strong>Name</strong>, <strong>Chapter Name</strong>, <strong>Phone Number</strong> and <strong>Role</strong>
+                (e.g. Sponsor, Chapter Lead, Office Coordinator). <a href="" (click)="$event.preventDefault(); template()">Download the template</a>.</p>
+              <ul class="small text-muted">
+                <li>Chapter Name must match a chapter in Rahbar; a Chapter Lead needs one.</li>
+                <li>No phone number? One starting with 5 is made up (never a real mobile); add the real number later.</li>
+                <li>A name that looks like someone already in Rahbar <strong>in the same chapter</strong>, or twice in the file for the same chapter, is
+                  <strong>not added</strong> and listed for you to check (Md / Mohd / Mohammad are treated as the same).</li>
+                <li>Everyone signs in with their user ID email (shown after the upload) or phone and the temporary password, and must choose their own.
+                  Students are added in the Student Directory instead.</li>
+              </ul>
+              <input type="file" accept=".csv,text/csv" class="form-control-file" (change)="bulk.file = $any($event.target).files?.[0] ?? null">
+            </ng-container>
+
+            <ng-container *ngIf="bulk.result as r">
+              <div class="alert alert-info">{{ r.message }}</div>
+              <ng-container *ngIf="r.duplicates.length">
+                <h6 class="text-danger"><i class="mdi mdi-account-alert"></i> Not entered: possible duplicates ({{ r.duplicates.length }}). Please check these.</h6>
+                <div class="table-responsive mb-3"><table class="table table-sm table-bordered">
+                  <thead class="thead-light"><tr><th>Row</th><th>Name</th><th>Role</th><th>Chapter</th><th>Phone</th><th>Looks like</th></tr></thead>
+                  <tbody><tr *ngFor="let d of r.duplicates" class="table-warning">
+                    <td>{{ d['row'] }}</td><td><strong>{{ d['name'] }}</strong></td><td>{{ d['role'] }}</td><td>{{ d['chapter'] || '-' }}</td>
+                    <td>{{ d['phone'] || '-' }}</td><td class="small">{{ d['looks_like'] }}</td></tr></tbody>
+                </table></div>
+              </ng-container>
+              <ng-container *ngIf="otherProblems(r).length">
+                <h6>Other rows not added or with a note</h6>
+                <div class="table-responsive mb-3"><table class="table table-sm">
+                  <tbody><tr *ngFor="let p of otherProblems(r)">
+                    <td>Row {{ p['row'] }}</td><td>{{ p['reference'] || '' }}</td>
+                    <td><span class="badge" [ngClass]="p['type'] === 'failed' ? 'badge-danger' : p['type'] === 'warning' ? 'badge-warning' : 'badge-secondary'">{{ p['type'] }}</span></td>
+                    <td class="small">{{ p['reason'] }}</td></tr></tbody>
+                </table></div>
+              </ng-container>
+              <ng-container *ngIf="r.added.length">
+                <div class="d-flex align-items-center mb-1"><h6 class="mb-0 mr-auto text-success">Added ({{ r.added.length }})</h6>
+                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="downloadAdded(r.added)"><i class="mdi mdi-download"></i> Download list (CSV)</button></div>
+                <div class="table-responsive"><table class="table table-sm">
+                  <thead class="thead-light"><tr><th>User ID</th><th>Name</th><th>Role</th><th>Chapter</th><th>Phone</th><th>Signs in with</th></tr></thead>
+                  <tbody><tr *ngFor="let a of r.added">
+                    <td>{{ a['user_id'] }}</td><td>{{ a['name'] }}</td><td>{{ a['role'] }}</td><td>{{ a['chapter'] || '-' }}</td>
+                    <td>{{ a['phone'] }} <span *ngIf="a['phone_generated']" class="badge badge-light border" title="Made up: add the real number">made up</span></td>
+                    <td class="small">{{ a['sign_in'] }}</td></tr></tbody>
+                </table></div>
+                <p class="small text-muted mb-0">They sign in with this email (or a real phone number) and the default temporary password, then choose their own.</p>
+              </ng-container>
+            </ng-container>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" (click)="bulk = null">{{ bulk.result ? 'Close' : 'Cancel' }}</button>
+            <button *ngIf="!bulk.result" type="button" class="btn btn-primary" (click)="uploadBulk()" [disabled]="!bulk.file || bulk.busy">
+              {{ bulk.busy ? 'Uploading…' : 'Upload' }}</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Add User modal -->
     <ng-container *ngIf="showAdd">
@@ -281,6 +355,47 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   newUser = this.blankUser();
 
   constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService) {}
+
+  /** Bulk add users: the file chosen and the server's answer. */
+  bulk: { file: File | null; busy: boolean; error: string; result: BulkUsersResult | null } | null = null;
+
+  openBulk(): void { this.bulk = { file: null, busy: false, error: '', result: null }; }
+
+  template(): void {
+    this.api.download('/admin/users/bulk-template', {}, 'users_template.csv').subscribe({ error: (e) => this.bulk && (this.bulk.error = errorText(e, 'Could not download.')) });
+  }
+
+  uploadBulk(): void {
+    const b = this.bulk;
+    if (!b?.file) return;
+    b.busy = true;
+    b.error = '';
+    const fd = new FormData();
+    fd.append('file', b.file);
+    this.api.post<BulkUsersResult>('/admin/users/bulk-upload', fd).subscribe({
+      next: (r) => { b.busy = false; b.result = r; this.load(); },
+      error: (e) => { b.busy = false; b.error = errorText(e, 'Could not upload the file.'); }
+    });
+  }
+
+  /** Rows skipped / failed / with a warning, other than the duplicates listed above them. */
+  otherProblems(r: BulkUsersResult): Record<string, unknown>[] {
+    const dupRows = new Set(r.duplicates.map((d) => d['row']));
+    return (r.report.problems ?? []).filter((p) => !dupRows.has(p['row'] as number));
+  }
+
+  /** The accounts added, as a CSV to keep or hand out. */
+  downloadAdded(rows: Record<string, unknown>[]): void {
+    const cols = ['user_id', 'name', 'role', 'chapter', 'phone', 'sign_in'];
+    const esc = (v: unknown) => '"' + String(v ?? '').replace(/"/g, '""') + '"';
+    const csv = ['User ID,Name,Role,Chapter,Phone,Signs in with', ...rows.map((r) => cols.map((c) => esc(r[c])).join(','))].join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'users_added.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   /** Active chapters, plus the given one when it is inactive. */
   rccCenters: RccCenter[] = [];

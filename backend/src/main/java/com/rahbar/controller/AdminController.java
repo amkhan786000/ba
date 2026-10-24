@@ -382,6 +382,28 @@ public class AdminController {
                 "report", report.toMap());
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.service.BulkUserService bulkUsers;
+
+    /** Manage Users > Bulk add users: CSV with Name, Chapter Name, Phone Number, Role. */
+    @PostMapping(value = "/users/bulk-upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('USERS:EDIT')")
+    public Map<String, Object> bulkUploadUsers(@RequestParam MultipartFile file) throws IOException {
+        com.rahbar.service.BulkUserService.Result r = bulkUsers.upload(file);
+        return Map.of("message", "Processed " + r.report().toMap().get("totalRows") + " row(s): " + r.added().size() + " account(s) added, "
+                        + r.duplicates().size() + " possible duplicate(s) not added, " + r.report().failedCount() + " failed.",
+                "report", r.report().toMap(), "added", r.added(), "duplicates", r.duplicates());
+    }
+
+    @GetMapping("/users/bulk-template")
+    @PreAuthorize("hasAuthority('USERS:EDIT')")
+    public ResponseEntity<byte[]> bulkUsersTemplate() {
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"users_template.csv\"")
+                .body(com.rahbar.service.BulkUserService.template().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+    }
+
     /** Empty CSV template (with one example row) for the student or sponsor bulk upload. */
     @GetMapping("/templates/{kind}")
     @PreAuthorize("hasAuthority('STUDENTS:EDIT') or hasAuthority('SPONSORSHIPS:EDIT')")
