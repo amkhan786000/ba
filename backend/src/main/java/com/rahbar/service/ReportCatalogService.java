@@ -100,6 +100,15 @@ public class ReportCatalogService {
             new ReportDefinition("users_by_role", "Setup", "Users by role",
                     "Number of active and inactive users in each role.", false),
 
+            new ReportDefinition("sign_ins_by_day", "Sign-ins", "Sign-ins by day",
+                    "How many people signed in to Rahbar each day (last 30 days unless a date range is chosen): sign-ins, different people and failed attempts, with a total.", true),
+            new ReportDefinition("sign_ins_by_person", "Sign-ins", "Sign-ins by person",
+                    "Everyone who signed in during the period: role, chapter, how many times, on how many days, first and last sign-in.", true),
+            new ReportDefinition("sign_ins_by_role", "Sign-ins", "Sign-ins by role",
+                    "For each role: active accounts, how many of them signed in during the period (and what share) and how many sign-ins.", true),
+            new ReportDefinition("not_signed_in", "Sign-ins", "Active users who didn't sign in",
+                    "Active accounts with no sign-in during the period, with their last sign-in ever (or never), to follow up.", true),
+
             new ReportDefinition("activity_log", "System", "Activity log",
                     "Who did what and when (last 30 days unless a date range is chosen).", true)
     );
@@ -211,7 +220,8 @@ public class ReportCatalogService {
     }
 
     /** Reports about the whole organisation (not filtered per chapter / RCC center): not for scoped users. */
-    private static final Set<String> ORGANISATION_WIDE = Set.of("sponsors_by_chapter", "users_by_role", "activity_log", "volunteers", "online_payments_80g");
+    private static final Set<String> ORGANISATION_WIDE = Set.of("sponsors_by_chapter", "users_by_role", "activity_log", "volunteers", "online_payments_80g",
+            "sign_ins_by_day", "sign_ins_by_person", "sign_ins_by_role", "not_signed_in");
 
     /** Reports with people's contact details that also need VIEW on the screen they come from. */
     private static final Map<String, com.rahbar.security.Section> NEEDS_SECTION = Map.of(
@@ -393,6 +403,10 @@ public class ReportCatalogService {
                 case "rcc_centers" -> rccCenters();
                 case "users_by_role" -> usersByRole();
                 case "activity_log" -> activityLog(from, to);
+                case "sign_ins_by_day" -> signInsByDay(from, to);
+                case "sign_ins_by_person" -> signInsByPerson(from, to);
+                case "sign_ins_by_role" -> signInsByRole(from, to);
+                case "not_signed_in" -> notSignedIn(from, to);
                 default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid report type selected.");
             };
         } finally {
@@ -1114,6 +1128,117 @@ public class ReportCatalogService {
                     "action", a.getAction(), "method", a.getMethod(), "path", a.getPath(),
                     "result", a.getStatusCode(), "ip_address", a.getIpAddress()));
         }
+        return rows;
+    }
+
+    // ---------------------------------------------------------------- sign-ins
+
+    /** The period the sign-in reports cover: the dates chosen, else the last 30 days up to today. */
+    static LocalDate[] signInPeriod(LocalDate from, LocalDate to) {
+        LocalDate end = to == null ? LocalDate.now() : to;
+        LocalDate start = from == null ? LocalDate.now().minusDays(30) : from;
+        return new LocalDate[]{start, end};
+    }
+
+    /** One row per day of the period (days without sign-ins too, up to a year), and a total row. */
+    private List<Map<String, Object>> signInsByDay(LocalDate from, LocalDate to) {
+        LocalDate[] p = signInPeriod(from, to);
+        Map<LocalDate, long[]> perDay = new TreeMap<>();
+        Map<LocalDate, Set<Long>> people = new HashMap<>();
+        if (!p[0].isAfter(p[1]) && java.time.temporal.ChronoUnit.DAYS.between(p[0], p[1]) <= 366) {
+            for (LocalDate d = p[0]; !d.isAfter(p[1]); d = d.plusDays(1)) perDay.put(d, new long[2]);
+        }
+        Set<Long> everyone = new HashSet<>();
+        for (ActivityLog a : activityLogService.signIns(from, to)) {
+            LocalDate d = a.getCreatedAt().toLocalDate();
+            perDay.computeIfAbsent(d, k -> new long[2])[0]++;
+            if (a.getUserId() != null) {
+                people.computeIfAbsent(d, k -> new HashSet<>()).add(a.getUserId());
+                everyone.add(a.getUserId());
+            }
+        }
+        for (ActivityLog a : activityLogService.failedSignIns(from, to)) perDay.computeIfAbsent(a.getCreatedAt().toLocalDate(), k -> new long[2])[1]++;
+        List<Map<String, Object>> rows = new ArrayList<>();
+        long total = 0, failed = 0;
+        for (Map.Entry<LocalDate, long[]> e : perDay.entrySet()) {
+            rows.add(row("date", e.getKey(), "day", e.getKey().getDayOfWeek().getDisplayName(java.time.format.TextStyle.SHORT, Locale.ENGLISH),
+                    "sign_ins", e.getValue()[0], "people", people.getOrDefault(e.getKey(), Set.of()).size(), "failed_attempts", e.getValue()[1]));
+            total += e.getValue()[0];
+            failed += e.getValue()[1];
+        }
+        if (!rows.isEmpty()) rows.add(row("date", "Total", "day", "", "sign_ins", total, "people", everyone.size(), "failed_attempts", failed));
+        return rows;
+    }
+
+    /** Everyone who signed in, most sign-ins first. */
+    private List<Map<String, Object>> signInsByPerson(LocalDate from, LocalDate to) {
+        Map<Long, List<LocalDateTime>> times = new HashMap<>();
+        for (ActivityLog a : activityLogService.signIns(from, to)) {
+            if (a.getUserId() != null) times.computeIfAbsent(a.getUserId(), k -> new ArrayList<>()).add(a.getCreatedAt());
+        }
+        Map<Integer, String> roleNames = roleNames();
+        Map<Long, User> users = new HashMap<>();
+        userRepository.findAllById(times.keySet()).forEach(u -> users.put(u.getId(), u));
+        List<Map<String, Object>> rows = new ArrayList<>();
+        times.forEach((id, list) -> {
+            User u = users.get(id);
+            rows.add(row("user_id", u == null ? null : u.getUserId(), "name", u == null ? "(deleted user)" : u.getName(),
+                    "role", u == null ? null : roleNames.getOrDefault(u.getRoleId(), "Unknown"),
+                    "chapter", u == null ? null : u.getChapterName(), "sign_ins", list.size(),
+                    "days_signed_in", list.stream().map(LocalDateTime::toLocalDate).distinct().count(),
+                    "first_sign_in", list.get(0), "last_sign_in", list.get(list.size() - 1)));
+        });
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> (Integer) r.get("sign_ins")).reversed()
+                .thenComparing(r -> String.valueOf(r.get("name")), String.CASE_INSENSITIVE_ORDER));
+        return rows;
+    }
+
+    /** Per role (the main role): active accounts, how many signed in, their share and the sign-ins. */
+    private List<Map<String, Object>> signInsByRole(LocalDate from, LocalDate to) {
+        Map<Integer, String> roleNames = roleNames();
+        Map<Long, Integer> roleOf = new HashMap<>();
+        Map<Integer, Long> active = new TreeMap<>();
+        for (User u : userRepository.findAll()) {
+            roleOf.put(u.getId(), u.getRoleId());
+            if (!"Inactive".equalsIgnoreCase(u.getStatus()) && u.getMergedIntoId() == null) active.merge(u.getRoleId(), 1L, Long::sum);
+        }
+        Map<Integer, Set<Long>> people = new HashMap<>();
+        Map<Integer, Long> signIns = new HashMap<>();
+        for (ActivityLog a : activityLogService.signIns(from, to)) {
+            if (a.getUserId() == null) continue;
+            Integer role = roleOf.getOrDefault(a.getUserId(), a.getRoleId());
+            people.computeIfAbsent(role, k -> new HashSet<>()).add(a.getUserId());
+            signIns.merge(role, 1L, Long::sum);
+        }
+        Set<Integer> roles = new TreeSet<>(Comparator.nullsLast(Comparator.naturalOrder()));
+        roles.addAll(active.keySet());
+        roles.addAll(people.keySet());
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Integer role : roles) {
+            long accounts = active.getOrDefault(role, 0L);
+            int signedIn = people.getOrDefault(role, Set.of()).size();
+            rows.add(row("role", roleNames.getOrDefault(role, "Unknown"), "active_accounts", accounts, "people_signed_in", signedIn,
+                    "share_signed_in", accounts == 0 ? "-" : Math.round(100.0 * signedIn / accounts) + "%",
+                    "sign_ins", signIns.getOrDefault(role, 0L)));
+        }
+        return rows;
+    }
+
+    /** Active accounts with no sign-in in the period, the longest unseen first (never signed in at the top). */
+    private List<Map<String, Object>> notSignedIn(LocalDate from, LocalDate to) {
+        Set<Long> signedIn = new HashSet<>();
+        activityLogService.signIns(from, to).forEach(a -> { if (a.getUserId() != null) signedIn.add(a.getUserId()); });
+        Map<Long, LocalDateTime> last = activityLogService.lastSignIns();
+        Map<Integer, String> roleNames = roleNames();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (User u : userRepository.findAll()) {
+            if ("Inactive".equalsIgnoreCase(u.getStatus()) || u.getMergedIntoId() != null || signedIn.contains(u.getId())) continue;
+            rows.add(row("user_id", u.getUserId(), "name", u.getName(), "role", roleNames.getOrDefault(u.getRoleId(), "Unknown"),
+                    "chapter", u.getChapterName(), "email", u.getEmail(), "phone", u.getPhone(),
+                    "last_sign_in", last.containsKey(u.getId()) ? last.get(u.getId()) : "Never"));
+        }
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> r.get("last_sign_in") instanceof LocalDateTime t ? t : LocalDateTime.MIN)
+                .thenComparing(r -> String.valueOf(r.get("name")), String.CASE_INSENSITIVE_ORDER));
         return rows;
     }
 
