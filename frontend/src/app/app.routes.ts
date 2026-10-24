@@ -66,6 +66,12 @@ import { AdminAlumniComponent } from './admin/admin-alumni.component';
 import { CoachingStudentsComponent } from './admin/coaching-students.component';
 import { CoachingDashboardComponent } from './admin/coaching-dashboard.component';
 import { ImpactReportComponent } from './admin/impact-report.component';
+import { CareersComponent } from './admin/careers.component';
+import { EventsComponent } from './admin/events.component';
+import { HelplineComponent } from './admin/helpline.component';
+import { StudentCareersComponent } from './student/student-careers.component';
+import { PortalEventsComponent } from './shared/portal/portal-events.component';
+import { PortalHelplineComponent } from './shared/portal/portal-helpline.component';
 import { SponsorRenewalAdminComponent } from './admin/sponsor-renewal.component';
 import { SponsorImpactComponent } from './sponsor/sponsor-impact.component';
 import { SponsorRenewalComponent } from './sponsor/sponsor-renewal.component';
@@ -181,6 +187,9 @@ export const routes: Routes = [
       { path: 'applications/ranking', component: AdminInterviewRankingComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
       { path: 'alumni', component: AdminAlumniComponent, canActivate: [permissionGuard], data: { permission: 'ALUMNI' } },
       { path: 'rcc-students', redirectTo: 'coaching/students', pathMatch: 'full' },
+      { path: 'careers', component: CareersComponent, canActivate: [permissionGuard], data: { permission: 'CAREERS' } },
+      { path: 'events', component: EventsComponent, canActivate: [permissionGuard], data: { permission: 'EVENTS' } },
+      { path: 'helpline', component: HelplineComponent, canActivate: [permissionGuard], data: { permission: 'HELPLINE' } },
       { path: 'impact-report', component: ImpactReportComponent, canActivate: [permissionGuard], data: { permission: 'REPORTS' } },
       { path: 'sponsor-renewal', component: SponsorRenewalAdminComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
       { path: 'coaching/dashboard', component: CoachingDashboardComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
@@ -303,6 +312,8 @@ export const routes: Routes = [
         { path: '/sponsor/progress', label: 'Student Progress', icon: 'mdi-chart-line' },
         { path: '/sponsor/notes', label: 'Notes from Students', icon: 'mdi-message-text-outline' },
         { path: '/sponsor/impact', label: 'My Impact', icon: 'mdi-hand-heart' },
+        { path: '/sponsor/events', label: 'Events', icon: 'mdi-calendar-star' },
+        { path: '/sponsor/helpline', label: 'Helpline', icon: 'mdi-lifebuoy' },
         { path: '/sponsor/renewal', label: 'Renewal', icon: 'mdi-autorenew' },
         { path: '/sponsor/apply', label: 'Apply for Sponsorship', icon: 'mdi-hand-heart-outline', section: 'SPONSOR_APPLY' },
         { path: '/sponsor/reb', label: 'Rahbar-e-Banaat', icon: 'mdi-human-female-girl' },
@@ -321,6 +332,8 @@ export const routes: Routes = [
       { path: 'reb', component: SponsorRebComponent },
       { path: 'notes', component: SponsorNotesComponent },
       { path: 'impact', component: SponsorImpactComponent },
+      { path: 'events', component: PortalEventsComponent },
+      { path: 'helpline', component: PortalHelplineComponent },
       { path: 'renewal', component: SponsorRenewalComponent },
       { path: 'apply', component: ApplySponsorshipComponent, canActivate: [permissionGuard], data: { permission: 'SPONSOR_APPLY' } }
     ]
@@ -336,6 +349,9 @@ export const routes: Routes = [
         { path: '/student/payments', label: 'Payments', icon: 'mdi-cash-multiple' },
         { path: '/student/progress', label: 'Progress', icon: 'mdi-chart-line' },
         { path: '/student/notes', label: 'Write to my Sponsor', icon: 'mdi-message-text-outline' },
+        { path: '/student/careers', label: 'Careers', icon: 'mdi-briefcase-outline' },
+        { path: '/student/events', label: 'Events', icon: 'mdi-calendar-star' },
+        { path: '/student/helpline', label: 'Helpline', icon: 'mdi-lifebuoy' },
         { path: '/student/alumni', label: 'Alumni Profile', icon: 'mdi-school' },
         { path: '/student/documents', label: 'Documents', icon: 'mdi-file-document-box-multiple-outline' },
         { path: '/student/faq', label: 'Help & FAQ', icon: 'mdi-help-circle-outline' }
@@ -347,6 +363,9 @@ export const routes: Routes = [
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
       { path: 'profile', component: ProfileComponent },
       { path: 'dashboard', component: StudentDashboardComponent },
+      { path: 'careers', component: StudentCareersComponent },
+      { path: 'events', component: PortalEventsComponent },
+      { path: 'helpline', component: PortalHelplineComponent },
       { path: 'payments', component: StudentPaymentsComponent },
       { path: 'progress', component: StudentProgressComponent },
       { path: 'alumni', component: StudentAlumniComponent },

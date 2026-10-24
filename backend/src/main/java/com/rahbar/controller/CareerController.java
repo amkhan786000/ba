@@ -92,6 +92,12 @@ public class CareerController {
         return Map.of("message", "Placement deleted.");
     }
 
+    @GetMapping("/api/admin/careers/students")
+    @PreAuthorize("hasAuthority('CAREERS:EDIT')")
+    public List<Map<String, Object>> students(@RequestParam(required = false) String q) {
+        return service.students(q);
+    }
+
     // ---------------------------------------------------------------- employers
 
     @GetMapping("/api/admin/careers/employers")

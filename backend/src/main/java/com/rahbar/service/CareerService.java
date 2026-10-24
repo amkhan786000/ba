@@ -320,6 +320,19 @@ public class CareerService {
         return out;
     }
 
+    /** Students and graduates the user may see, matching q (to record a placement for). */
+    public List<Map<String, Object>> students(String q) {
+        if (q == null || q.trim().length() < 2) return List.of();
+        StudentScope.Scope scope = studentScope.current();
+        return users.findByRoleId(ServiceSupport.STUDENT_ROLE).stream()
+                .filter(u -> u.getMergedIntoId() == null && scope.includes(u))
+                .filter(u -> com.rahbar.util.Paging.matches(q, u.getName(), u.getUserId(), u.getPhone()))
+                .limit(20)
+                .map(u -> Map.<String, Object>of("id", u.getId(), "name", u.getName(), "code", u.getUserId() == null ? "" : u.getUserId(),
+                        "study_status", StudyStatus.label(u.getStudyStatus())))
+                .toList();
+    }
+
     // ================================================================ student portal
 
     /** Open openings (with whether I'm interested), my placements and my guidance requests. */
