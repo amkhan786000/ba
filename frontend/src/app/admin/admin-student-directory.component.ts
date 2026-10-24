@@ -24,6 +24,8 @@ interface StudentRow {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
   sponsor_id: number | null; sponsor_code: string | null; sponsor_name: string | null; status: string | null;
   study_status: string | null;
+  /** Delete (Super Admin): allowed only with nothing but the user and their application / family details. */
+  can_delete?: boolean; delete_blockers?: string[];
 }
 
 type Row = Record<string, any>;
@@ -139,7 +141,11 @@ interface BaDetails {
                     <td class="tablet-hide">{{ r.sponsor_code || '-' }}</td><td>{{ r.sponsor_name || 'Unassigned' }}</td>
                     <td><span class="badge" [ngClass]="studyBadge(r.study_status)">{{ studyLabel(r.study_status) }}</span></td>
                     <td><span class="badge" [ngClass]="(r.status || '').toLowerCase() === 'active' ? 'badge-success' : 'badge-danger'">{{ r.status }}</span></td>
-                    <td><button class="btn btn-xs btn-primary" (click)="openDetails(r.id)">View Details</button></td>
+                    <td class="text-nowrap"><button class="btn btn-xs btn-primary" (click)="openDetails(r.id)">View Details</button>
+                      <span class="d-inline-block ml-1" [title]="deleteTitle(r)">
+                        <button class="btn btn-xs btn-outline-danger" (click)="deleteStudent(r)" [disabled]="!r.can_delete || deleting"
+                                [style.pointer-events]="r.can_delete ? null : 'none'" aria-label="Delete student"><i class="mdi mdi-delete"></i></button>
+                      </span></td>
                   </tr>
                 </tbody>
               </table>
@@ -605,6 +611,22 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   /** A filter changed: back to page 1 and ask the server. */
   refilter(): void { this.page = 1; this.load(); }
+
+  deleting = false;
+
+  deleteTitle(r: StudentRow): string {
+    return r.can_delete ? 'Delete this student' : "Can't delete: " + (r.delete_blockers ?? []).join('; ');
+  }
+
+  /** Super Admin: deletes a student who only has their account and application / family details. */
+  deleteStudent(r: StudentRow): void {
+    if (!r.can_delete || !confirm(`Delete ${r.name} (${r.user_id || 'no ID'}) permanently? This removes their account and application details and can't be undone.`)) return;
+    this.deleting = true;
+    this.api.delete<{ message: string }>(`/admin/students/${r.id}`).subscribe({
+      next: (m) => { this.deleting = false; this.message = m.message; this.load(); },
+      error: (e) => { this.deleting = false; this.error = errorText(e, 'Could not delete the student.'); }
+    });
+  }
 
   clearFilters(): void {
     this.search = '';
