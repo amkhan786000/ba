@@ -163,6 +163,16 @@ a:hover { color: var(--brand-700); text-decoration: none; }
 .topbar-crumbs small { color: var(--muted); font-size: 12px; font-weight: 500; }
 .topbar-crumbs strong { color: var(--ink); font-size: 16px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+/* Help & FAQ, next to the bell: an outlined pill with a label (just the icon on phones). */
+.help-btn {
+  height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink-2); font-weight: 600; font-size: 14px;
+  display: inline-flex; align-items: center; gap: 6px; text-decoration: none; transition: all .15s ease;
+}
+.help-btn i { font-size: 20px; color: var(--brand-600, #4f7a00); }
+.help-btn:hover, .help-btn.active { border-color: var(--line-strong); color: var(--ink); background: var(--bg); text-decoration: none; }
+.help-btn:focus { outline: none; box-shadow: 0 0 0 3px var(--brand-100); }
+@media (max-width: 575px) { .help-btn { width: 40px; padding: 0; justify-content: center; } .help-btn span { display: none; } }
 .user-wrap { position: relative; }
 .user-chip {
   display: flex; align-items: center; gap: 10px;

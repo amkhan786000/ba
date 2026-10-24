@@ -81,6 +81,9 @@ type NavEntry = { link: NavLink; group?: undefined } | { group: { key: string; l
             <strong>{{ currentLabel }}</strong>
           </div>
           <div class="topbar-right">
+            <a class="help-btn" [routerLink]="[sectionRoot, 'faq']" routerLinkActive="active" title="Help & FAQ" aria-label="Help & FAQ">
+              <i class="mdi mdi-help-circle-outline"></i><span>Help</span>
+            </a>
             <app-notification-bell (opened)="menuOpen = false"></app-notification-bell>
             <div class="user-wrap" (click)="$event.stopPropagation()">
             <div class="user-chip" role="button" tabindex="0" (click)="toggleUserMenu()" (keydown.enter)="toggleUserMenu()">
@@ -110,6 +113,7 @@ type NavEntry = { link: NavLink; group?: undefined } | { group: { key: string; l
                   <i *ngIf="a.root === sectionRoot" class="mdi mdi-check ml-auto"></i></a>
               </ng-container>
               <a [routerLink]="[sectionRoot, 'profile']" (click)="menuOpen = false"><i class="mdi mdi-account-circle-outline"></i><span>My profile</span></a>
+              <a [routerLink]="[sectionRoot, 'faq']" (click)="menuOpen = false"><i class="mdi mdi-help-circle-outline"></i><span>Help & FAQ</span></a>
               <a href="#" class="danger" (click)="logout($event)"><i class="mdi mdi-logout-variant"></i><span>Sign out</span></a>
             </div>
             </div>
