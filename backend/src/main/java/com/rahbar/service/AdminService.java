@@ -727,6 +727,10 @@ public class AdminService {
     @org.springframework.beans.factory.annotation.Autowired
     private UserDeletionService userDeletion;
 
+    /** Books & materials the student received (shown in their profile). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private MaterialService materialService;
+
     /** Student Directory > Delete (Super Admin; see UserDeletionService#deleteStudent). */
     public void deleteStudent(Long userId) {
         studentScope.requireStudent(userId);
@@ -796,6 +800,7 @@ public class AdminService {
         result.put("documents", Rows.list(studentProgressRepository.findByGranteeIdOrderByCreatedAtDesc(userId)));
         result.put("statusHistory", Rows.list(statusHistoryRepository.findByUserIdOrderByHistoryIdDesc(userId)));
         result.put("sponsorHistory", sponsorHistory(userId));
+        result.put("materials", materialService.forScholar(userId));
         result.put("onBehalf", SponsorMappingService.onBehalfFields(grantorGranteeRepository.findFirstByGranteeId(userId).orElse(null),
                 sponsorMappingService.chapterNames()));
         return result;

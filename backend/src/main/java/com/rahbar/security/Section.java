@@ -87,6 +87,14 @@ public enum Section {
     /** Communication > Helpline: issues raised by students and sponsors. EDIT assigns, replies and resolves them. */
     HELPLINE("Helpline (student & sponsor issues)"),
     /**
+     * Community > Materials: books, uniforms, devices... stock received from donors and handed out to scholarship
+     * students, coaching students and REB girls. Chapter / RCC-scoped users hand out to their own students. EDIT
+     * records stock and hand-outs.
+     */
+    MATERIALS("Books & materials"),
+    /** Community > Volunteer Hours: hours given by volunteers, mentors and alumni. EDIT logs, approves and prints certificates. */
+    VOLUNTEER_HOURS("Volunteer hours"),
+    /**
      * People who offered to mentor, tutor, sponsor or join a chapter through the public website. VIEW lists them
      * (and notifies of new ones); EDIT sets their follow-up status and notes, or deletes a sign-up.
      */
