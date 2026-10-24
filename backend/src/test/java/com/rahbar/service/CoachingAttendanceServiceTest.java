@@ -64,6 +64,22 @@ class CoachingAttendanceServiceTest {
     }
 
     @Test
+    void opensOnTheFirstClassThatHasStudents() {
+        com.rahbar.entity.RccCenter c = new com.rahbar.entity.RccCenter();
+        c.setRccCenterId(10L);
+        c.setCenterName("Patna");
+        when(access.centers()).thenReturn(List.of(c));
+        CoachingStudent eight = student(1, 8);
+        eight.setStatus("ACTIVE");
+        when(students.findAll()).thenReturn(List.of(eight));
+        when(students.findByRccCenterIdAndClassLevelAndStatusOrderByNameAsc(10L, 8, "ACTIVE")).thenReturn(List.of(eight));
+        Map<String, Object> reg = service.register(null, null, null);
+        assertEquals(8, reg.get("class_level"));
+        assertEquals(1L, ((Map<?, ?>) reg.get("students_per_class")).get(8));
+        assertEquals(1, ((List<?>) reg.get("rows")).size());
+    }
+
+    @Test
     void refusesFutureDaysOtherClassesAndUnknownMarks() {
         when(access.requireCenter(10)).thenReturn(10L);
         when(access.centerIds()).thenReturn(Set.of(10L));
