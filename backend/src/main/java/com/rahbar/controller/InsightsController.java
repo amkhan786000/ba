@@ -25,8 +25,8 @@ public class InsightsController {
     /** chapterId is ignored for users who only cover their own chapter. */
     @GetMapping("/chapter-dashboard")
     @PreAuthorize("hasAuthority('CHAPTER_DASHBOARD:VIEW')")
-    public Map<String, Object> chapterDashboard(@RequestParam(required = false) Long chapterId) {
-        return chapterDashboardService.dashboard(chapterId);
+    public Map<String, Object> chapterDashboard(@RequestParam(required = false) Long chapterId, @RequestParam(required = false) String sessionYear) {
+        return chapterDashboardService.dashboard(chapterId, sessionYear);
     }
 
     /** studyStatus: the students' study statuses to check (repeat or comma separated); default STUDYING. */

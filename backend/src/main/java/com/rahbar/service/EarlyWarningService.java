@@ -70,10 +70,18 @@ public class EarlyWarningService {
      * or empty for both.
      */
     public Map<String, Object> list(String kind, String view, String signal, String q) {
+        return list(kind, view, signal, q, null);
+    }
+
+    /** sessionYear: scholarship students of that session year ("none": without one); coaching students have none, so they're left out. */
+    public Map<String, Object> list(String kind, String view, String signal, String q, String sessionYear) {
         LocalDate today = LocalDate.now();
+        boolean byYear = sessionYear != null && !sessionYear.isBlank();
         List<Map<String, Object>> rows = new ArrayList<>();
-        if (kind == null || kind.isBlank() || SCHOLAR.equalsIgnoreCase(kind)) rows.addAll(scholars(today));
-        if (kind == null || kind.isBlank() || COACHING.equalsIgnoreCase(kind)) rows.addAll(coaching(today));
+        List<Map<String, Object>> scholarRows = kind == null || kind.isBlank() || SCHOLAR.equalsIgnoreCase(kind) ? scholars(today) : List.of();
+        List<Integer> years = StudentDirectorySearch.years(scholarRows);
+        scholarRows.stream().filter(r -> StudentDirectorySearch.sessionYearMatches(r.get("year"), sessionYear)).forEach(rows::add);
+        if (!byYear && (kind == null || kind.isBlank() || COACHING.equalsIgnoreCase(kind))) rows.addAll(coaching(today));
 
         Map<String, Integer> bySignal = new TreeMap<>();
         int needs = 0, followed = 0;
@@ -95,6 +103,7 @@ public class EarlyWarningService {
         out.put("followed_up", followed);
         out.put("by_signal", bySignal);
         out.put("coaching", !coachingAccess.centerIds().isEmpty());
+        out.put("years", years);
         return out;
     }
 
@@ -149,7 +158,10 @@ public class EarlyWarningService {
             if (StudyStatus.ON_HOLD.equals(StudyStatus.of(u.getStudyStatus()))) signals.add(new Signal("ON_HOLD", "Studies on hold", u.getStudyStatusNote()));
             Map<String, Object> row = row(SCHOLAR, u.getId(), u.getName(), u.getUserId(), u.getChapterName(),
                     u.getYear() == null ? "Scholarship" : "Scholarship " + u.getYear(), u.getPhone(), signals, last.get(u.getId()), today);
-            if (row != null) rows.add(row);
+            if (row != null) {
+                row.put("year", u.getYear());
+                rows.add(row);
+            }
         }
         return rows;
     }

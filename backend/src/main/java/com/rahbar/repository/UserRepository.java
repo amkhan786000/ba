@@ -157,7 +157,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("""
         select new map(u.id as id, u.userId as user_id, u.name as student_name, u.email as student_email, u.phone as student_phone,
                        u.chapterId as chapter_id, ch.chapterName as chapter_name, s.name as sponsor_name, i.institutionName as institution_name,
-                       c.courseName as course_name, sic.institutionId as institution_id, sic.courseId as course_id)
+                       c.courseName as course_name, sic.institutionId as institution_id, sic.courseId as course_id, u.year as year)
         from User u
         left join Chapter ch on ch.chapterId = u.chapterId
         left join GrantorGrantee gg on gg.granteeId = u.id
@@ -189,7 +189,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("""
         select new map(u.id as id, u.userId as user_id, u.name as name, u.email as email, u.phone as phone,
                        u.chapterId as chapter_id, ch.chapterName as chapter_name, cs.name as current_sponsor_name, gg.grantorId as current_sponsor_id,
-                       cs.userId as current_sponsor_code)
+                       cs.userId as current_sponsor_code, u.year as year)
         from User u
         left join Chapter ch on ch.chapterId = u.chapterId
         left join GrantorGrantee gg on gg.granteeId = u.id
@@ -202,7 +202,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** Admin student directory: filters are optional (null = no filter); search is a LIKE pattern. */
     @Query("""
         select new map(u.id as id, u.userId as user_id, u.name as name, u.email as email, u.phone as phone,
-                       u.chapterId as chapter_id, ch.chapterName as chapter_name, u.status as status, u.studyStatus as study_status, max(s.id) as sponsor_id, max(s.userId) as sponsor_code, max(s.name) as sponsor_name,
+                       u.chapterId as chapter_id, ch.chapterName as chapter_name, u.status as status, u.studyStatus as study_status, u.year as year, max(s.id) as sponsor_id, max(s.userId) as sponsor_code, max(s.name) as sponsor_name,
                        max(i.institutionName) as institution_name, max(c.courseName) as course_name)
         from User u
         left join Chapter ch on ch.chapterId = u.chapterId
@@ -216,7 +216,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
           and (:courseId is null or sic.courseId = :courseId)
           and (:search is null or u.name like :search or u.email like :search or u.userId like :search
                or s.name like :search or s.userId like :search)
-        group by u.id, u.userId, u.name, u.email, u.phone, u.chapterId, ch.chapterName, u.status, u.studyStatus
+        group by u.id, u.userId, u.name, u.email, u.phone, u.chapterId, ch.chapterName, u.status, u.studyStatus, u.year
         order by u.id desc
         """)
     List<Map<String, Object>> searchStudentDirectory(@Param("institutionId") String institutionId,

@@ -7,6 +7,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent } from '../shared/pager/pager.component';
+import { SessionYearSelectComponent } from '../shared/session-year-select.component';
 import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { AppDatePipe } from '../shared/app-date';
@@ -22,7 +23,7 @@ interface Due {
 @Component({
   selector: 'app-admin-payment-dues',
   standalone: true,
-  imports: [ListPopupComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [SessionYearSelectComponent, ListPopupComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row">
       <div class="col-12">
@@ -53,7 +54,10 @@ interface Due {
             Reminders go out automatically every morning: once per overdue installment, and once when the next one becomes due
             (the "show as due" days in Payment Config, 30 by default).
           </p>
-          <input class="form-control" style="max-width: 260px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+          <div class="d-flex align-items-start" style="gap: 8px">
+            <app-session-year-select [years]="table.last?.years" [(value)]="sessionYear" (valueChange)="table.filter()"></app-session-year-select>
+            <input class="form-control" style="max-width: 260px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+          </div>
         </div>
         <div class="table-responsive">
           <table class="table mb-0">
@@ -91,8 +95,10 @@ interface Due {
 export class AdminPaymentDuesComponent implements OnInit, OnDestroy {
   q = '';
   filter = '';
-  readonly table = new ServerTable<Due, PagedResult<Due> & { summary: Record<string, number> }>(
-    (p) => this.api.get('/admin/payments/dues', { q: this.q, status: this.filter, ...p }),
+  /** Session year of the students ('' all, 'none' not set); the cards follow it. */
+  sessionYear = '';
+  readonly table = new ServerTable<Due, PagedResult<Due> & { summary: Record<string, number>; years?: number[] }>(
+    (p) => this.api.get('/admin/payments/dues', { q: this.q, status: this.filter, sessionYear: this.sessionYear, ...p }),
     (e) => (this.error = errorText(e, 'Could not load payment dues.')), 10);
   sending = false;
   message = '';

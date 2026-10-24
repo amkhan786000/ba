@@ -25,14 +25,14 @@ public class DashboardController {
 
     @GetMapping("/dashboard")
     @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
-    public Map<String, Object> overview(@RequestParam(required = false) Integer year) {
-        return dashboards.overview(year);
+    public Map<String, Object> overview(@RequestParam(required = false) Integer year, @RequestParam(required = false) String sessionYear) {
+        return dashboards.withSessionYears(dashboards.forSessionYear(sessionYear, () -> dashboards.overview(year)));
     }
 
     @GetMapping("/dashboards/students")
     @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
-    public Map<String, Object> students() {
-        return dashboards.students();
+    public Map<String, Object> students(@RequestParam(required = false) String sessionYear) {
+        return dashboards.withSessionYears(dashboards.forSessionYear(sessionYear, dashboards::students));
     }
 
     /** Students per institution and per course: period = now (default), all, or a session year. */
@@ -44,8 +44,8 @@ public class DashboardController {
 
     @GetMapping("/dashboards/sponsors")
     @PreAuthorize("hasAuthority('SPONSORSHIPS:VIEW')")
-    public Map<String, Object> sponsors(@RequestParam(required = false) Integer year) {
-        return dashboards.sponsors(year);
+    public Map<String, Object> sponsors(@RequestParam(required = false) Integer year, @RequestParam(required = false) String sessionYear) {
+        return dashboards.withSessionYears(dashboards.forSessionYear(sessionYear, () -> dashboards.sponsors(year)));
     }
 
     @GetMapping("/dashboards/applications")

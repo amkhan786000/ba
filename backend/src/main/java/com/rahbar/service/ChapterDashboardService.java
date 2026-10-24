@@ -77,6 +77,11 @@ public class ChapterDashboardService {
     }
 
     public Map<String, Object> dashboard(Long requestedChapterId) {
+        return dashboard(requestedChapterId, null);
+    }
+
+    /** sessionYear: only the chapter's students of that session year ("none": without one; empty: all). */
+    public Map<String, Object> dashboard(Long requestedChapterId, String sessionYear) {
         boolean scoped = Access.chapterScoped();
         Long chapterId = scoped ? Access.current().getUser().getChapterId() : requestedChapterId;
         Map<String, Object> body = new LinkedHashMap<>();
@@ -93,7 +98,10 @@ public class ChapterDashboardService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Chapter not found."));
         body.put("chapter", Rows.of(chapter));
 
-        List<User> students = userRepository.findByRoleIdAndChapterId(6, chapterId);
+        List<User> allStudents = userRepository.findByRoleIdAndChapterId(6, chapterId);
+        body.put("session_years", PaymentInstallmentService.sessionYears(allStudents.stream().map(User::getId).toList(),
+                allStudents.stream().collect(java.util.stream.Collectors.toMap(User::getId, u -> u, (a, b) -> a))));
+        List<User> students = allStudents.stream().filter(u -> PaymentInstallmentService.ofSessionYear(u, sessionYear)).toList();
         Set<Long> studentIds = new HashSet<>();
         students.forEach(u -> studentIds.add(u.getId()));
         List<User> sponsors = userRepository.findByRoleIdAndChapterId(5, chapterId);

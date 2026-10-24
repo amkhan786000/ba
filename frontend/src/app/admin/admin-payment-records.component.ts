@@ -5,6 +5,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent } from '../shared/pager/pager.component';
+import { SessionYearSelectComponent } from '../shared/session-year-select.component';
 import { PagedResult, ServerTable } from '../shared/pager/server-table';
 import { isoDate, uploadUrl } from '../shared/format';
 import { InstallmentRow, installmentBadge, takesPayments } from '../shared/installments';
@@ -20,7 +21,7 @@ import { DateInputComponent } from '../shared/date-input.component';
 @Component({
   selector: 'app-admin-payment-records',
   standalone: true,
-  imports: [DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
+  imports: [SessionYearSelectComponent, DateInputComponent, AppDatePipe, CommonModule, FormsModule, AlertsComponent, PagerComponent, CardTableDirective],
   template: `
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Payment Records</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
@@ -42,7 +43,10 @@ import { DateInputComponent } from '../shared/date-input.component';
             Installments are created when a student is mapped to a sponsor, from the course's semesters, the Payment Config
             of the student's session year and the student's payment start date. <strong>Due</strong> = due soon (see "Show as due" in Payment Config), <strong>Overdue</strong> = the date has passed and it isn't paid.
           </p>
-          <input class="form-control" style="max-width: 280px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+          <div class="d-flex align-items-start" style="gap: 8px">
+            <app-session-year-select [years]="table.last?.years" [(value)]="sessionYear" (valueChange)="table.filter()"></app-session-year-select>
+            <input class="form-control" style="max-width: 280px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+          </div>
         </div>
         <div class="table-responsive">
           <table class="table table-sm table-centered mb-0">
@@ -101,9 +105,11 @@ import { DateInputComponent } from '../shared/date-input.component';
 })
 export class AdminPaymentRecordsComponent implements OnInit, OnDestroy {
   q = '';
+  /** Session year of the students ('' all, 'none' not set); the cards follow it. */
+  sessionYear = '';
   status = '';
-  readonly table = new ServerTable<InstallmentRow, PagedResult<InstallmentRow> & { summary: { status: string; count: number }[] }>(
-    (p) => this.api.get('/admin/payment-records', { q: this.q, status: this.status, ...p }),
+  readonly table = new ServerTable<InstallmentRow, PagedResult<InstallmentRow> & { summary: { status: string; count: number }[]; years?: number[] }>(
+    (p) => this.api.get('/admin/payment-records', { q: this.q, status: this.status, sessionYear: this.sessionYear, ...p }),
     (e) => (this.error = errorText(e, 'Could not load payment records.')));
   saving = false;
   message = '';
