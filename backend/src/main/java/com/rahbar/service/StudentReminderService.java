@@ -157,6 +157,27 @@ public class StudentReminderService {
         return body;
     }
 
+    /**
+     * For the early-warning list: students (of those given) expected to report who haven't uploaded a report for the
+     * latest due date that has passed, with that due date's title.
+     */
+    public Map<Long, String> overdueReports(Collection<User> students) {
+        List<ProgressDueDate> dates = dueDateRepository.findAllByOrderByDueDateAsc();
+        LocalDate today = LocalDate.now();
+        int last = -1;
+        for (int i = 0; i < dates.size(); i++) if (dates.get(i).getDueDate().isBefore(today)) last = i;
+        Map<Long, String> out = new HashMap<>();
+        if (last < 0) return out;
+        LocalDate from = windowStart(dates, last);
+        Map<Long, List<LocalDateTime>> uploads = uploadsByStudent();
+        for (User u : students) {
+            if (StudyStatus.getsReminders(u.getStudyStatus()) && !uploadedSince(uploads.get(u.getId()), from)) {
+                out.put(u.getId(), dates.get(last).getTitle() + " (due " + dates.get(last).getDueDate() + ")");
+            }
+        }
+        return out;
+    }
+
     // ------------------------------------------------------------------ reminders
 
     /** Every day at 8:00 (server time) unless app.reminders.cron says otherwise. */

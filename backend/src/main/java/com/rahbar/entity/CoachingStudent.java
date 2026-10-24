@@ -79,4 +79,22 @@ public class CoachingStudent extends Modifiable {
 
     @Column(name = "remarks", length = 500)
     private String remarks;
+
+    @Column(name = "email", length = 150)
+    private String email;
+
+    /** Class 10: when the office invited them to apply for the Rahbar scholarship (null: not yet). */
+    @Column(name = "invited_at")
+    private java.time.LocalDateTime invitedAt;
+
+    @Column(name = "invited_by")
+    private Long invitedBy;
+
+    /** How they were invited: CALL, EMAIL or OTHER. */
+    @Column(name = "invite_method", length = 10)
+    private String inviteMethod;
+
+    /** Their Rahbar scholarship application (scholarship_applications.id), once they applied. */
+    @Column(name = "application_id")
+    private Long applicationId;
 }

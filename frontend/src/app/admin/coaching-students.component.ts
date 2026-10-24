@@ -17,14 +17,14 @@ interface Student {
   class_level: number; name: string; gender: string | null; date_of_birth: string | null; school_name: string | null;
   previous_class_percent: number | null; father_name: string | null; father_occupation: string | null; mother_name: string | null;
   guardian_mobile: string | null; student_mobile: string | null; family_income: number | null; address: string | null;
-  aadhaar_last4: string | null; status: string; remarks: string | null;
+  aadhaar_last4: string | null; status: string; remarks: string | null; email: string | null;
 }
 type Page = PagedResult<Student> & CoachingScope & { by_class: Record<string, number> };
 
 const EMPTY_FORM = {
   rccCenterId: null as number | null, classLevel: 7 as number | null, admissionNo: '', admissionDate: '', name: '', gender: 'M',
   dateOfBirth: '', schoolName: '', previousClassPercent: '', fatherName: '', fatherOccupation: '', motherName: '',
-  guardianMobile: '', studentMobile: '', familyIncome: '', address: '', aadhaarLast4: '', status: 'ACTIVE', remarks: ''
+  guardianMobile: '', studentMobile: '', email: '', familyIncome: '', address: '', aadhaarLast4: '', status: 'ACTIVE', remarks: ''
 };
 type StudentForm = typeof EMPTY_FORM;
 
@@ -119,6 +119,8 @@ type StudentForm = typeof EMPTY_FORM;
                 <div class="col-md-3 form-group"><label>Previous class marks (%)</label><input type="number" min="0" max="100" class="form-control" [(ngModel)]="form.previousClassPercent"></div>
                 <div class="col-md-3 form-group"><label>Aadhaar (last 4 digits)</label><input class="form-control" maxlength="4" inputmode="numeric" [(ngModel)]="form.aadhaarLast4"></div>
                 <div class="col-md-6 form-group"><label>Student's mobile</label><input class="form-control" [(ngModel)]="form.studentMobile"></div>
+                <div class="col-md-6 form-group"><label>Email <span class="text-muted small">(student's or parent's; for the scholarship invitation)</span></label>
+                  <input type="email" class="form-control" maxlength="150" [(ngModel)]="form.email"></div>
               </div>
               <h6>Family</h6>
               <div class="row">
@@ -188,7 +190,7 @@ export class CoachingStudentsComponent implements OnInit, OnDestroy {
       rccCenterId: r.rcc_center_id, classLevel: r.class_level, admissionNo: s(r.admission_no), admissionDate: s(r.admission_date),
       name: r.name, gender: r.gender === 'F' ? 'F' : 'M', dateOfBirth: s(r.date_of_birth), schoolName: s(r.school_name),
       previousClassPercent: s(r.previous_class_percent), fatherName: s(r.father_name), fatherOccupation: s(r.father_occupation),
-      motherName: s(r.mother_name), guardianMobile: s(r.guardian_mobile), studentMobile: s(r.student_mobile),
+      motherName: s(r.mother_name), guardianMobile: s(r.guardian_mobile), studentMobile: s(r.student_mobile), email: s(r.email),
       familyIncome: s(r.family_income), address: s(r.address), aadhaarLast4: s(r.aadhaar_last4), status: r.status, remarks: s(r.remarks)
     };
   }
