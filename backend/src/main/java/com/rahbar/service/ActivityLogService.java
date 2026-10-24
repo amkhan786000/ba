@@ -91,6 +91,32 @@ public class ActivityLogService {
         return activityLogRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(start, end);
     }
 
+    /** Successful sign-ins ("Signed in...") in an inclusive day range (default: the last 30 days), oldest first. */
+    public List<ActivityLog> signIns(LocalDate from, LocalDate to) {
+        return withPrefix(from, to, SIGNED_IN);
+    }
+
+    /** Failed sign-in attempts ("Failed sign-in...") in the same kind of range. */
+    public List<ActivityLog> failedSignIns(LocalDate from, LocalDate to) {
+        return withPrefix(from, to, FAILED_SIGN_IN);
+    }
+
+    /** users.id -> their last successful sign-in ever. */
+    public Map<Long, LocalDateTime> lastSignIns() {
+        Map<Long, LocalDateTime> out = new HashMap<>();
+        for (Object[] r : activityLogRepository.lastSignIns()) out.put((Long) r[0], (LocalDateTime) r[1]);
+        return out;
+    }
+
+    /** What AuthService writes for a successful / failed sign-in (the start of the action text). */
+    static final String SIGNED_IN = "Signed in", FAILED_SIGN_IN = "Failed sign-in";
+
+    private List<ActivityLog> withPrefix(LocalDate from, LocalDate to, String prefix) {
+        LocalDateTime start = (from == null ? LocalDate.now().minusDays(30) : from).atStartOfDay();
+        LocalDateTime end = (to == null ? LocalDate.now() : to).plusDays(1).atStartOfDay();
+        return activityLogRepository.findByCreatedAtBetweenAndActionStartingWithOrderByCreatedAtAsc(start, end, prefix);
+    }
+
     private static String blankToNull(String v) {
         return v == null || v.isBlank() ? null : v.trim();
     }

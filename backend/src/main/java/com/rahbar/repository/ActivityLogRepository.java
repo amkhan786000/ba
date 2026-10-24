@@ -34,4 +34,11 @@ public interface ActivityLogRepository extends JpaRepository<ActivityLog, Long> 
                              @Param("from") LocalDateTime from, @Param("to") LocalDateTime to, Pageable pageable);
 
     List<ActivityLog> findByCreatedAtBetweenOrderByCreatedAtDesc(LocalDateTime from, LocalDateTime to);
+
+    /** Entries whose action starts with the text (e.g. "Signed in", "Failed sign-in") in a period, oldest first. */
+    List<ActivityLog> findByCreatedAtBetweenAndActionStartingWithOrderByCreatedAtAsc(LocalDateTime from, LocalDateTime to, String actionPrefix);
+
+    /** Each user's last successful sign-in ever: [users.id, when]. */
+    @Query("select a.userId, max(a.createdAt) from ActivityLog a where a.userId is not null and a.action like 'Signed in%' group by a.userId")
+    List<Object[]> lastSignIns();
 }

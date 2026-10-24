@@ -9,6 +9,7 @@ import { asDate } from '../shared/format';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { formatAppDate } from '../shared/app-date';
 import { DateInputComponent } from '../shared/date-input.component';
+import { ColumnChartComponent, SeriesData } from '../shared/charts/column-chart.component';
 
 interface ReportDef { key: string; category: string; title: string; description: string; dateRange: boolean; sessionYear?: boolean }
 interface ReportData { key: string; title: string; columns: string[]; rows: Record<string, unknown>[] }
@@ -22,6 +23,7 @@ const CATEGORY_ICONS: Record<string, string> = {
   Payments: 'mdi-cash-multiple',
   Setup: 'mdi-cog-outline',
   Staff: 'mdi-teach',
+  'Sign-ins': 'mdi-login',
   System: 'mdi-history'
 };
 
@@ -33,7 +35,7 @@ const CATEGORY_ICONS: Record<string, string> = {
 @Component({
   selector: 'app-admin-reports',
   standalone: true,
-  imports: [DateInputComponent, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective],
+  imports: [DateInputComponent, CommonModule, FormsModule, AlertsComponent, PagerComponent, PaginatePipe, CardTableDirective, ColumnChartComponent],
   styles: [`
     .report-actions { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
     .report-table th { white-space: nowrap; cursor: pointer; user-select: none; }
@@ -136,6 +138,9 @@ const CATEGORY_ICONS: Record<string, string> = {
 
               <p *ngIf="!data.rows.length" class="text-center text-muted my-5">No data for this report{{ viewing.dateRange && (from || to) ? ' in the selected dates' : '' }}.</p>
 
+              <div *ngIf="data.key === 'sign_ins_by_day' && signInChart" class="mb-3">
+                <app-column-chart [data]="signInChart" ariaLabel="Sign-ins and people per day" emptyText="Nobody signed in in this period."></app-column-chart>
+              </div>
               <ng-container *ngIf="data.rows.length">
                 <div class="table-responsive">
                   <table class="table table-sm table-striped table-hover report-table mb-0">
@@ -252,6 +257,19 @@ export class AdminReportsComponent implements OnInit {
       },
       error: (e) => { this.loading = ''; this.error = errorText(e, 'Could not load the report.'); }
     });
+  }
+
+  /** Sign-ins by day: sign-ins and different people per day (without the total row), as columns. */
+  get signInChart(): SeriesData | null {
+    if (!this.data || this.data.key !== 'sign_ins_by_day') return null;
+    const days = this.data.rows.filter((r) => r['date'] !== 'Total');
+    if (!days.length) return null;
+    const label = (d: unknown) => { const s = String(d); return s.length >= 10 ? s.slice(8, 10) + '/' + s.slice(5, 7) : s; };
+    return {
+      labels: days.map((r) => label(r['date'])),
+      series: [{ name: 'Sign-ins', values: days.map((r) => Number(r['sign_ins']) || 0) },
+        { name: 'People', values: days.map((r) => Number(r['people']) || 0) }]
+    };
   }
 
   close(): void { this.viewing = null; this.data = null; }
