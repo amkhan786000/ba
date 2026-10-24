@@ -52,7 +52,7 @@ interface SponsorOption { id: number; user_id: string; name: string }
 
 /** BA (Rahbar) details of a student: RCC center, sponsor and chapter - all optional. */
 interface BaDetails {
-  rccName: string; sponsorId: number | null; chapterId: number | null; collegeType: string; sponsorChangeReason?: string;
+  rccName: string; sponsorId: number | null; chapterId: number | null; collegeType: string; selfFinanced: boolean; sponsorChangeReason?: string;
   onBehalf?: boolean; donorChapterId?: number | null; donorLabel?: string;
 }
 
@@ -269,6 +269,13 @@ interface BaDetails {
                   <option value="ANY">Doesn't matter</option>
                 </select>
                 <small class="text-muted">With the session year, picks the Payment Config (Govt or Private college) for the installments.</small>
+              </div>
+              <div class="col-md-4 form-group"><label>Self financed</label>
+                <select class="form-control" [(ngModel)]="ba.selfFinanced" [disabled]="!editing">
+                  <option [ngValue]="false">No</option>
+                  <option [ngValue]="true">Yes</option>
+                </select>
+                <small class="text-muted">Yes: the student pays for their own studies.</small>
               </div>
               <div class="col-12 form-group" *ngIf="editing && sponsorChanged">
                 <label>Why is the sponsor changing? <span class="text-muted small">(kept in the sponsor history)</span></label>
@@ -586,7 +593,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   tab = 'profile';
   editing = false;
   edit: Record<string, string> = {};
-  ba: BaDetails = { rccName: '', sponsorId: null, chapterId: null, collegeType: '' };
+  ba: BaDetails = { rccName: '', sponsorId: null, chapterId: null, collegeType: '', selfFinanced: false };
   /** The sponsor when the profile was opened: a change asks for a reason (kept in the sponsor history). */
   private originalSponsorId: number | null = null;
   get sponsorChanged(): boolean { return this.ba.sponsorId !== this.originalSponsorId; }
@@ -717,7 +724,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
         this.editing = false;
         const p = res.profile, b = res.bank ?? {}, c = res.course ?? {};
         const s = (v: unknown) => (v === null || v === undefined ? '' : String(v));
-        this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null, collegeType: s(p['college_type']), sponsorChangeReason: '',
+        this.ba = { rccName: s(p['rcc_name']), sponsorId: res.sponsor?.['id'] ?? null, chapterId: p['chapter_id'] ?? null, collegeType: s(p['college_type']), selfFinanced: p['self_financed'] === true, sponsorChangeReason: '',
                     onBehalf: !!res.onBehalf?.['on_behalf'], donorChapterId: (res.onBehalf?.['donor_chapter_id'] as number | null) ?? null,
                     donorLabel: s(res.onBehalf?.['donor_label']) };
         this.originalSponsorId = this.ba.sponsorId;
@@ -766,7 +773,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     const e = this.edit;
     const body: Record<string, unknown> = {
       name: e['name'], refId: e['refId'], email: e['email'], phone: e['phone'],
-      rccName: this.ba.rccName, sponsorId: this.ba.sponsorId, chapterId: this.ba.chapterId, collegeType: this.ba.collegeType,
+      rccName: this.ba.rccName, sponsorId: this.ba.sponsorId, chapterId: this.ba.chapterId, collegeType: this.ba.collegeType, selfFinanced: this.ba.selfFinanced,
       sponsorChangeReason: this.sponsorChanged ? this.ba.sponsorChangeReason : null,
       ...(this.canMap && this.ba.sponsorId ? { onBehalf: !!this.ba.onBehalf, donorChapterId: this.ba.onBehalf ? this.ba.donorChapterId : null,
         donorLabel: this.ba.onBehalf ? this.ba.donorLabel : null } : {}),
