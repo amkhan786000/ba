@@ -119,6 +119,85 @@ public class UserDeletionService {
         jdbc.update("DELETE FROM users WHERE id = ?", id);
     }
 
+    // ---------------------------------------------------------------- students (Student Directory > Delete)
+
+    /** A student's own records, deleted with them: the application / family details row. */
+    private static final List<String> STUDENT_OWN = List.of("grantee_details.user_id");
+
+    /**
+     * For each of these students, why they can't be deleted (empty: they can): anything but their user and their
+     * application / family details row (payments, installments, sponsor, course, bank details, progress, ...),
+     * another role besides Student, or records they created. One query per linked table for the whole list.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<String>> studentBlockers(Collection<Long> ids) {
+        Map<Long, List<String>> out = new LinkedHashMap<>();
+        if (ids.isEmpty()) return out;
+        ids.forEach(id -> out.put(id, new ArrayList<>()));
+        Set<String> columns = columns();
+        Set<String> checked = new HashSet<>(STUDENT_OWN);
+        for (Map.Entry<String, String> link : LINKS.entrySet()) {
+            checked.add(link.getKey());
+            if (STUDENT_OWN.contains(link.getKey()) || !columns.contains(link.getKey())) continue;
+            countPerUser(link.getKey(), ids).forEach((id, n) -> out.computeIfPresent(id, (k, l) -> { l.add(n + " " + link.getValue()); return l; }));
+        }
+        Map<Long, Map<String, Long>> other = new HashMap<>();
+        for (String fk : foreignKeys()) {
+            if (checked.contains(fk) || REMOVED_WITH_USER.contains(fk) || LINK_CLEARED.contains(fk)) continue;
+            String table = fk.substring(0, fk.indexOf('.')).replace('_', ' ');
+            countPerUser(fk, ids).forEach((id, n) -> other.computeIfAbsent(id, k -> new TreeMap<>()).merge(table, n, Long::sum));
+        }
+        other.forEach((id, t) -> t.forEach((table, n) -> out.computeIfPresent(id, (k, l) -> { l.add(n + " " + table + " record(s) they created or changed"); return l; })));
+        String in = String.join(",", Collections.nCopies(ids.size(), "?"));
+        for (Map<String, Object> r : jdbc.queryForList("SELECT DISTINCT user_id FROM user_additional_roles WHERE role_id <> 6 AND user_id IN (" + in + ")", ids.toArray())) {
+            out.computeIfPresent(((Number) r.get("user_id")).longValue(), (k, l) -> { l.add("another role besides Student"); return l; });
+        }
+        for (Map<String, Object> r : jdbc.queryForList("SELECT id FROM users WHERE role_id <> 6 AND id IN (" + in + ")", ids.toArray())) {
+            out.computeIfPresent(((Number) r.get("id")).longValue(), (k, l) -> { l.add("their main role isn't Student"); return l; });
+        }
+        return out;
+    }
+
+    /**
+     * Super Admin: deletes a student who has only their user and their application / family details (deleted too).
+     * Otherwise 400 with the reasons: set them Dropped out or the account inactive instead.
+     */
+    @Transactional
+    public void deleteStudent(Long id) {
+        requireSuperAdmin();
+        users.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Student not found."));
+        if (Access.current().getUser().getId().equals(id)) throw new ApiException(HttpStatus.BAD_REQUEST, "This is your own account.");
+        List<String> why = studentBlockers(List.of(id)).get(id);
+        if (!why.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "This student can't be deleted: " + String.join("; ", why)
+                    + ". Set them as Dropped out or make the account inactive instead.");
+        }
+        Set<String> columns = columns();
+        for (String c : STUDENT_OWN) {
+            if (columns.contains(c)) jdbc.update("DELETE FROM " + table(c) + " WHERE " + column(c) + " = ?", id);
+        }
+        for (String c : LINK_CLEARED) {
+            if (columns.contains(c)) jdbc.update("UPDATE " + table(c) + " SET " + column(c) + " = NULL WHERE " + column(c) + " = ?", id);
+        }
+        for (String c : REMOVED_WITH_USER) {
+            if (columns.contains(c)) jdbc.update("DELETE FROM " + table(c) + " WHERE " + column(c) + " = ?", id);
+        }
+        jdbc.update("DELETE FROM users WHERE id = ?", id);
+    }
+
+    /** users.id -> how many rows of table.column point to them (only ids that have some); a user's own row doesn't count. */
+    private Map<Long, Long> countPerUser(String tableColumn, Collection<Long> ids) {
+        String in = String.join(",", Collections.nCopies(ids.size(), "?"));
+        boolean self = tableColumn.startsWith("users.");
+        Map<Long, Long> out = new HashMap<>();
+        for (Map<String, Object> r : jdbc.queryForList("SELECT " + column(tableColumn) + " AS uid, COUNT(*) AS n FROM " + table(tableColumn)
+                + " WHERE " + column(tableColumn) + " IN (" + in + ")" + (self ? " AND id <> " + column(tableColumn) : "")
+                + " GROUP BY " + column(tableColumn), ids.toArray())) {
+            out.put(((Number) r.get("uid")).longValue(), ((Number) r.get("n")).longValue());
+        }
+        return out;
+    }
+
     private static void requireSuperAdmin() {
         if (!Access.isSuperAdmin()) throw new ApiException(HttpStatus.FORBIDDEN, "Only the Super Admin can delete users.");
     }

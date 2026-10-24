@@ -302,6 +302,14 @@ public class AdminController {
 
     // ------------------------------------------------------------- student directory
 
+    /** Super Admin: deletes a student who has only their user and application / family details. */
+    @DeleteMapping("/students/{userId}")
+    @PreAuthorize("hasAuthority('STUDENTS:EDIT')")
+    public Map<String, String> deleteStudent(@PathVariable Long userId) {
+        adminService.deleteStudent(userId);
+        return Map.of("message", "Student deleted.");
+    }
+
     @GetMapping("/students")
     @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
     public Map<String, Object> listStudents(@RequestParam(defaultValue = "0") int start,

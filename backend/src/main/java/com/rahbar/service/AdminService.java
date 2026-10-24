@@ -721,7 +721,35 @@ public class AdminService {
         int to = Math.min(from + Math.max(length, 0), filtered.size());
         return Map.of("recordsTotal", studentScope.current().all() ? userRepository.countByRoleId(STUDENT_ROLE) : (long) filtered.size(),
                 "recordsFiltered", (long) filtered.size(),
-                "data", new ArrayList<>(filtered.subList(from, to)));
+                "data", withDeleteInfo(filtered.subList(from, to)));
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private UserDeletionService userDeletion;
+
+    /** Student Directory > Delete (Super Admin; see UserDeletionService#deleteStudent). */
+    public void deleteStudent(Long userId) {
+        studentScope.requireStudent(userId);
+        userDeletion.deleteStudent(userId);
+    }
+
+    /**
+     * The Delete button of each row: only the Super Admin may delete, and only a student with nothing but their user and
+     * application / family details; delete_blockers says why not (shown on the disabled button).
+     */
+    private List<Map<String, Object>> withDeleteInfo(List<Map<String, Object>> page) {
+        boolean superAdmin = com.rahbar.security.Access.isSuperAdmin();
+        Map<Long, List<String>> blockers = superAdmin
+                ? userDeletion.studentBlockers(page.stream().map(r -> toLong(r.get("id"))).toList()) : Map.of();
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (Map<String, Object> r : page) {
+            Map<String, Object> row = new LinkedHashMap<>(r);
+            List<String> why = superAdmin ? blockers.getOrDefault(toLong(r.get("id")), List.of()) : List.of("Only the Super Admin can delete students.");
+            row.put("can_delete", why.isEmpty());
+            row.put("delete_blockers", why);
+            out.add(row);
+        }
+        return out;
     }
 
     public Map<String, Object> studentDetails(Long userId) {
