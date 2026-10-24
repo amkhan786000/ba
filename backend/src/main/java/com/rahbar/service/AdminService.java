@@ -658,7 +658,7 @@ public class AdminService {
     public Map<String, Object> sponsorMappingScreen(Long sponsorId, boolean hideContactInfo) {
         com.rahbar.security.StudentScope.Scope scope = studentScope.current();
         Map<String, Object> sponsor = Rows.pick(requireVisibleSponsor(sponsorId),
-                "id", "user_id", "name", "email", "chapter_id", "chapter_name");
+                "id", "user_id", "name", "care_of", "email", "chapter_id", "chapter_name");
         if (hideContactInfo) sponsor.remove("email");
 
         List<User> mapped = new ArrayList<>(userRepository.findGranteesOf(sponsorId).stream()
@@ -865,6 +865,13 @@ public class AdminService {
             saveStudentCourse(userId, str(data.get("institutionId")), toLong(data.get("courseId")));
         }
         installmentService.sync(userId); // course, session year, college type or start date may have changed
+    }
+
+    /** Edit Sponsor > c/o: who brought the sponsor (at most 150 characters); empty clears it. */
+    static String careOf(Object v) {
+        String s = v == null ? "" : String.valueOf(v).trim();
+        if (s.length() > 150) throw new ApiException(HttpStatus.BAD_REQUEST, "c/o can be at most 150 characters.");
+        return s.isEmpty() ? null : s;
     }
 
     /** BA Details > Self financed: true / "YES" / "Y" is Yes; anything else (empty too) is No. */
@@ -1309,7 +1316,7 @@ public class AdminService {
 
     public Map<String, Object> sponsorDetails(Long userId) {
         Map<String, Object> profile = Rows.pick(requireVisibleSponsor(userId),
-                "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name", "status");
+                "id", "user_id", "name", "care_of", "email", "phone", "chapter_id", "chapter_name", "status");
         com.rahbar.security.StudentScope.Scope scope = studentScope.current();
         List<User> students = new ArrayList<>(userRepository.findGranteesOf(userId).stream().filter(scope::includes).toList());
         students.sort(Comparator.comparing(User::getName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
@@ -1326,6 +1333,7 @@ public class AdminService {
         User user = requireVisibleSponsor(userId);
         boolean hidden = hidesDetailsOf(user); // the editor saw blanks: keep the real details
         if (data.get("name") != null) user.setName(str(data.get("name")));
+        if (data.containsKey("careOf")) user.setCareOf(careOf(data.get("careOf")));
         if (!hidden && data.get("email") != null) user.setEmail(str(data.get("email")));
         if (!hidden && data.get("phone") != null) user.setPhone(str(data.get("phone")));
         if (!hidden && data.containsKey("chapterId")) user.setChapterId(requireChapter(chapterRepository, data.get("chapterId")));

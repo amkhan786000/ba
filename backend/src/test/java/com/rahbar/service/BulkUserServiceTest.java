@@ -128,4 +128,18 @@ class BulkUserServiceTest {
         assertEquals("md imran", BulkUserService.canonical("MD IMRAN"));
         assertEquals("9876543210", BulkUserService.mobile("+91 98765 43210"));
     }
+
+    @Test
+    void careOfIsTakenFromTheName() throws Exception {
+        assertArrayEquals(new String[]{"Abdul Rahman", "Imran Khan"}, BulkUserService.splitCareOf("Abdul Rahman c/o Imran Khan"));
+        assertArrayEquals(new String[]{"Abdul Rahman", "Imran Khan"}, BulkUserService.splitCareOf("Abdul Rahman C/O. Imran Khan"));
+        assertArrayEquals(new String[]{"Abdul Rahman", "Imran Khan"}, BulkUserService.splitCareOf("Abdul Rahman (c/o Imran Khan)"));
+        assertArrayEquals(new String[]{"Abdul Rahman", "Imran Khan"}, BulkUserService.splitCareOf("Abdul Rahman care of Imran Khan"));
+        assertArrayEquals(new String[]{"Coconut Trader", null}, BulkUserService.splitCareOf("Coconut Trader"));
+
+        BulkUserService.Result r = upload("Name,Chapter Name,Phone Number,Role\nAbdul Rahman c/o Imran Khan,Jeddah,9822222222,Sponsor\n");
+        assertEquals("Abdul Rahman", saved.get(0).getName());
+        assertEquals("Imran Khan", saved.get(0).getCareOf());
+        assertEquals("Imran Khan", r.added().get(0).get("care_of"));
+    }
 }

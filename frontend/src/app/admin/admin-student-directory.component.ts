@@ -48,7 +48,7 @@ interface StudentDetails {
 
 
 /** A sponsor, convenor or coordinator a student can be mapped to (from /admin/sponsorships). */
-interface SponsorOption { id: number; user_id: string; name: string }
+interface SponsorOption { id: number; user_id: string; name: string; care_of?: string | null }
 
 /** BA (Rahbar) details of a student: RCC center, sponsor and chapter - all optional. */
 interface BaDetails {
@@ -243,7 +243,7 @@ interface BaDetails {
               <div class="col-md-4 form-group"><label>Sponsor</label>
                 <select class="form-control" [(ngModel)]="ba.sponsorId" [disabled]="!editing || !canMap">
                   <option [ngValue]="null">No sponsor</option>
-                  <option *ngFor="let sp of sponsorOptions()" [ngValue]="sp.id">{{ sp.name }} ({{ sp.user_id }})</option>
+                  <option *ngFor="let sp of sponsorOptions()" [ngValue]="sp.id">{{ sp.name }} ({{ sp.user_id }}){{ sp.care_of ? ' c/o ' + sp.care_of : '' }}</option>
                 </select>
                 <small *ngIf="details.sponsor?.['email']" class="text-muted">Current sponsor's email: {{ details.sponsor?.['email'] }}</small>
                 <small *ngIf="editing && !canMap" class="text-muted d-block">Changing the sponsor needs the Sponsorships (manage) permission.</small>

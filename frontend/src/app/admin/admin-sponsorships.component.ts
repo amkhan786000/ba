@@ -20,6 +20,8 @@ interface SponsorRow {
   id: number;
   user_id: string;
   name: string;
+  /** Who brought the sponsor ("c/o"). */
+  care_of?: string | null;
   email: string | null;
   phone: string | null;
   chapter_id: number | null;
@@ -87,7 +89,7 @@ interface FeeRow {
                 <tbody>
                   <tr *ngIf="!table.loading && !table.rows.length"><td [attr.colspan]="showDetails ? 5 : 3" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let s of table.rows">
-                    <td><strong>{{ s.name }}</strong><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
+                    <td><strong>{{ s.name }}</strong><span *ngIf="s.care_of" class="small text-muted"> c/o {{ s.care_of }}</span><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
                     <td>
                       <a *ngIf="s.student_count; else noStudents" href="" class="badge badge-light border student-count"
                          (click)="$event.preventDefault(); showStudents(s)" [title]="'See the students of ' + s.name">{{ s.student_count }}</a>
@@ -167,6 +169,8 @@ interface FeeRow {
             <h5 class="text-info border-bottom pb-2"><i class="mdi mdi-account-circle"></i> Master Account Details</h5>
             <div class="row">
               <div class="col-md-6 form-group"><label>Full Name</label><input type="text" class="form-control" [(ngModel)]="edit.name"></div>
+              <div class="col-md-6 form-group"><label>c/o <span class="text-muted small">(who brought this sponsor, optional)</span></label>
+                <input type="text" class="form-control" maxlength="150" [(ngModel)]="edit.careOf" placeholder="e.g. Imran Khan"></div>
               <div class="col-md-6 form-group"><label>Email Address</label><input type="email" class="form-control" [(ngModel)]="edit.email"></div>
               <div class="col-md-6 form-group"><label>Phone (Mobile 1)</label><input type="text" class="form-control" [(ngModel)]="edit.phone"></div>
               <div class="col-md-6 form-group"><label>Chapter</label>
@@ -345,7 +349,7 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
   file: File | null = null;
   uploading = false;
 
-  edit: { id: number; name: string; email: string; phone: string; chapterId: number | null } | null = null;
+  edit: { id: number; name: string; careOf: string; email: string; phone: string; chapterId: number | null } | null = null;
   editError = '';
   chapters: Chapter[] = [];
   editName = '';
@@ -474,7 +478,7 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
         this.prefs = preferencesFrom(p as Record<string, unknown>);
         this.editName = p['name'] ?? '';
         this.editError = '';
-        this.edit = { id, name: p['name'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', chapterId: p['chapter_id'] === null || p['chapter_id'] === undefined ? null : Number(p['chapter_id']) };
+        this.edit = { id, name: p['name'] ?? '', careOf: p['care_of'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', chapterId: p['chapter_id'] === null || p['chapter_id'] === undefined ? null : Number(p['chapter_id']) };
         this.students = res.students ?? [];
       },
       error: (e) => (this.error = errorText(e, 'Could not load sponsor details.'))
