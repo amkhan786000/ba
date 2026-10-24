@@ -9,11 +9,13 @@ import { AppDatePipe } from '../shared/app-date';
 import { StatTileComponent } from '../shared/charts/stat-tile.component';
 import { ColumnChartComponent, SeriesData } from '../shared/charts/column-chart.component';
 import { BarChartComponent, BarDatum } from '../shared/bar-chart/bar-chart.component';
+import { DonutChartComponent, Slice } from '../shared/charts/donut-chart.component';
+import { FunnelChartComponent, Stage } from '../shared/charts/funnel-chart.component';
 import { CoachingScope } from './coaching-students.component';
 
 interface Tiles {
   students: number; girls: number; boys: number; left: number; admitted_this_year: number; teachers: number;
-  exams_this_year: number; average_percent_3_months: number | null;
+  exams_this_year: number; average_percent_3_months: number | null; attendance_30_days: number | null;
 }
 interface RecentExam {
   id: number; name: string; exam_date: string; class_level: number; center_name: string | null; appeared: number;
@@ -25,7 +27,7 @@ interface CenterRow {
 }
 interface Dashboard extends CoachingScope {
   center_id: number | null; center_name: string | null; tiles: Tiles; by_class: SeriesData; average_trend: SeriesData;
-  admissions: SeriesData; recent_exams: RecentExam[]; centers_summary?: CenterRow[]; students_by_center?: BarDatum[];
+  admissions: SeriesData; attendance_trend: SeriesData; marks_bands: Slice[]; scholarship_funnel: Stage[]; recent_exams: RecentExam[]; centers_summary?: CenterRow[]; students_by_center?: BarDatum[];
 }
 
 /**
@@ -35,7 +37,7 @@ interface Dashboard extends CoachingScope {
 @Component({
   selector: 'app-coaching-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, StatTileComponent, ColumnChartComponent, BarChartComponent],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe, StatTileComponent, ColumnChartComponent, BarChartComponent, DonutChartComponent, FunnelChartComponent],
   styles: [`
     .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-bottom: 20px; }
     .header-title small { text-transform: none; font-weight: normal; color: #6b776f; }
@@ -65,6 +67,9 @@ interface Dashboard extends CoachingScope {
         <app-stat-tile label="Average marks" icon="mdi-chart-line" [tone]="tone(d.tiles.average_percent_3_months)"
                        [value]="d.tiles.average_percent_3_months != null ? d.tiles.average_percent_3_months + '%' : null"
                        sub="exams of the last 3 months"></app-stat-tile>
+        <app-stat-tile label="Attendance" icon="mdi-calendar-check" [tone]="attendanceTone(d.tiles.attendance_30_days)"
+                       [value]="d.tiles.attendance_30_days != null ? d.tiles.attendance_30_days + '%' : null" sub="last 30 days"
+                       [link]="canAttendance ? '/admin/coaching/attendance' : null" linkText="Attendance"></app-stat-tile>
       </div>
 
       <div class="card" *ngIf="d.centers_summary as rows"><div class="card-body">
@@ -101,6 +106,19 @@ interface Dashboard extends CoachingScope {
           <app-column-chart [data]="d.average_trend" unit="%" [max100]="true" ariaLabel="Average marks per class by month" emptyText="No exam marks yet."></app-column-chart>
         </div></div></div>
         <div class="col-lg-6"><div class="card"><div class="card-body">
+          <h4 class="header-title">Attendance by month <small>· last 12 months</small></h4>
+          <app-column-chart [data]="d.attendance_trend" unit="%" [max100]="true" ariaLabel="Attendance by month" emptyText="No attendance marked yet."></app-column-chart>
+        </div></div></div>
+        <div class="col-lg-6"><div class="card"><div class="card-body">
+          <h4 class="header-title">How students did <small>· their latest exam</small></h4>
+          <app-donut-chart [data]="d.marks_bands" caption="students" emptyText="No exam marks yet." [colours]="bandColours"></app-donut-chart>
+        </div></div></div>
+        <div class="col-lg-6"><div class="card"><div class="card-body">
+          <h4 class="header-title">Class 10 → Rahbar scholarship</h4>
+          <app-funnel-chart [data]="d.scholarship_funnel" emptyText="No Class 10 students yet."></app-funnel-chart>
+          <a routerLink="/admin/coaching/scholarship" class="small">Ready for Scholarship →</a>
+        </div></div></div>
+        <div class="col-lg-6"><div class="card"><div class="card-body">
           <h4 class="header-title">Admissions by month <small>· last 12 months</small></h4>
           <app-column-chart [data]="d.admissions" ariaLabel="Admissions by month" emptyText="No admissions with a date yet."></app-column-chart>
         </div></div></div>
@@ -135,6 +153,13 @@ export class CoachingDashboardComponent implements OnInit {
 
   get canTeachers(): boolean { return this.auth.can('COACHING_TEACHERS'); }
   get canExams(): boolean { return this.auth.can('COACHING_EXAMS'); }
+  get canAttendance(): boolean { return this.auth.can('COACHING_ATTENDANCE'); }
+  /** 75%+, 60-74%, 40-59%, below 40%: green to red. */
+  readonly bandColours = ['#4f7a00', '#8fb339', '#e0a800', '#c0392b'];
+
+  attendanceTone(p: number | null): 'success' | 'warning' | 'danger' | 'primary' {
+    return p == null ? 'primary' : p >= 85 ? 'success' : p >= 75 ? 'warning' : 'danger';
+  }
 
   ngOnInit(): void { this.load(); }
 

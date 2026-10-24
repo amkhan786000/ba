@@ -1,11 +1,15 @@
 package com.rahbar.controller;
 
+import com.rahbar.service.CoachingAttendanceService;
 import com.rahbar.service.CoachingDashboardService;
 import com.rahbar.service.CoachingExamService;
+import com.rahbar.service.CoachingPipelineService;
 import com.rahbar.service.CoachingService;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
@@ -21,11 +25,63 @@ public class CoachingController {
     private final CoachingService coaching;
     private final CoachingExamService exams;
     private final CoachingDashboardService dashboard;
+    private final CoachingAttendanceService attendance;
+    private final CoachingPipelineService pipeline;
 
-    public CoachingController(CoachingService coaching, CoachingExamService exams, CoachingDashboardService dashboard) {
+    public CoachingController(CoachingService coaching, CoachingExamService exams, CoachingDashboardService dashboard,
+                              CoachingAttendanceService attendance, CoachingPipelineService pipeline) {
         this.coaching = coaching;
         this.exams = exams;
         this.dashboard = dashboard;
+        this.attendance = attendance;
+        this.pipeline = pipeline;
+    }
+
+    // ---------------------------------------------------------------- attendance
+
+    /** A class's register on a day (date empty: today). */
+    @GetMapping("/attendance")
+    @PreAuthorize("hasAuthority('COACHING_ATTENDANCE:VIEW')")
+    public Map<String, Object> register(@RequestParam(required = false) Long centerId, @RequestParam Integer classLevel,
+                                        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return attendance.register(centerId, classLevel, date);
+    }
+
+    /** Body: { centerId, classLevel, date, entries: [{ studentId, status: P | A | L | "" }] }. */
+    @PutMapping("/attendance")
+    @PreAuthorize("hasAuthority('COACHING_ATTENDANCE:EDIT')")
+    public Map<String, Object> saveAttendance(@RequestBody Map<String, Object> body) {
+        return attendance.save(body);
+    }
+
+    /** Each student's attendance between two days (default: the last 30 days), lowest first. */
+    @GetMapping("/attendance/summary")
+    @PreAuthorize("hasAuthority('COACHING_ATTENDANCE:VIEW')")
+    public Map<String, Object> attendanceSummary(@RequestParam(required = false) Long centerId, @RequestParam(required = false) Integer classLevel,
+                                                 @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from, @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return attendance.summary(centerId, classLevel, from, to);
+    }
+
+    // ---------------------------------------------------------------- ready for scholarship
+
+    /** Class 10 students with their results, invites and scholarship applications. */
+    @GetMapping("/pipeline")
+    @PreAuthorize("hasAuthority('RCC_STUDENTS:VIEW')")
+    public Map<String, Object> pipeline(@RequestParam(required = false) Long centerId) {
+        return pipeline.list(centerId);
+    }
+
+    /** Body: { method: CALL | OTHER | "" (clears) }. */
+    @PutMapping("/pipeline/{id}/invited")
+    @PreAuthorize("hasAuthority('RCC_STUDENTS:EDIT')")
+    public Map<String, Object> markInvited(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return pipeline.markInvited(id, body.get("method") == null ? null : String.valueOf(body.get("method")));
+    }
+
+    @PostMapping("/pipeline/{id}/email-invite")
+    @PreAuthorize("hasAuthority('RCC_STUDENTS:EDIT')")
+    public Map<String, Object> emailInvite(@PathVariable Long id) {
+        return pipeline.emailInvite(id);
     }
 
     /** All the user's centers together (centerId empty), or one center; coordinators and teachers get their own. */

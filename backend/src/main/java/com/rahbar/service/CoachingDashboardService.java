@@ -29,10 +29,17 @@ public class CoachingDashboardService {
     private final CoachingExamPrizeRepository prizes;
     private final CoachingAccess access;
     private final CoachingService coaching;
+    private final CoachingAttendanceRepository attendance;
+    private final CoachingResults coachingResults;
+    private final CoachingPipelineService pipeline;
 
     public CoachingDashboardService(CoachingStudentRepository students, CoachingTeacherRepository teachers, CoachingExamRepository exams,
                                     CoachingExamSubjectRepository examSubjects, CoachingExamMarkRepository marks,
-                                    CoachingExamPrizeRepository prizes, CoachingAccess access, CoachingService coaching) {
+                                    CoachingExamPrizeRepository prizes, CoachingAccess access, CoachingService coaching,
+                                    CoachingAttendanceRepository attendance, CoachingResults coachingResults, CoachingPipelineService pipeline) {
+        this.attendance = attendance;
+        this.coachingResults = coachingResults;
+        this.pipeline = pipeline;
         this.students = students;
         this.teachers = teachers;
         this.exams = exams;
@@ -84,6 +91,9 @@ public class CoachingDashboardService {
         List<Result> recent = examList.stream().filter(e -> !e.getExamDate().isBefore(today.minusMonths(3)))
                 .flatMap(e -> results.getOrDefault(e.getId(), List.of()).stream()).toList();
         tiles.put("average_percent_3_months", average(recent));
+        List<CoachingAttendance> attendanceYear = attendance.findByAttDateBetween(today.minusMonths(MONTHS - 1).withDayOfMonth(1), today).stream()
+                .filter(a -> chosen.contains(a.getRccCenterId())).toList();
+        tiles.put("attendance_30_days", attendancePercent(attendanceYear.stream().filter(a -> !a.getAttDate().isBefore(today.minusDays(29))).toList()));
         out.put("tiles", tiles);
 
         // students by class (and gender)
@@ -107,6 +117,25 @@ public class CoachingDashboardService {
             if (values.stream().anyMatch(Objects::nonNull)) trend.add(Map.of("name", "Class " + c, "values", values));
         }
         out.put("average_trend", Map.of("labels", monthLabels, "series", trend));
+        List<Object> attendanceByMonth = new ArrayList<>();
+        for (YearMonth m : months) attendanceByMonth.add(attendancePercent(attendanceYear.stream().filter(a -> YearMonth.from(a.getAttDate()).equals(m)).toList()));
+        out.put("attendance_trend", Map.of("labels", monthLabels, "series", List.of(Map.of("name", "Attendance %", "values", attendanceByMonth))));
+
+        // how the studying students did in their latest exam
+        Map<Long, CoachingResults.StudentClass> classes = new HashMap<>();
+        active.forEach(st -> classes.put(st.getId(), new CoachingResults.StudentClass(st.getRccCenterId(), st.getClassLevel(), st.getAdmissionDate())));
+        int[] bands = new int[4];
+        coachingResults.of(classes).values().forEach(list -> list.stream().map(CoachingResults.ExamResult::percent).filter(Objects::nonNull).findFirst()
+                .ifPresent(p -> bands[p.doubleValue() < 40 ? 0 : p.doubleValue() < 60 ? 1 : p.doubleValue() < 75 ? 2 : 3]++));
+        out.put("marks_bands", List.of(Map.of("label", "75% and above", "value", bands[3]), Map.of("label", "60–74%", "value", bands[2]),
+                Map.of("label", "40–59%", "value", bands[1]), Map.of("label", "Below 40%", "value", bands[0])));
+
+        // Class 10 -> Rahbar scholarship
+        List<CoachingStudent> ten = active.stream().filter(st -> CoachingPipelineService.SCHOLARSHIP_CLASS == st.getClassLevel()).toList();
+        Map<Long, ScholarshipApplication> apps = pipeline.link(ten);
+        List<Map<String, Object>> stages = ten.stream().map(st -> Map.<String, Object>of("stage", CoachingPipelineService.stage(st, apps.get(st.getId())))).toList();
+        out.put("scholarship_funnel", CoachingPipelineService.funnel(stages));
+
         out.put("admissions", Map.of("labels", monthLabels, "series", List.of(Map.of("name", "Admissions", "values",
                 months.stream().map(m -> studentList.stream().filter(s -> s.getAdmissionDate() != null && YearMonth.from(s.getAdmissionDate()).equals(m)).count()).toList()))));
 
@@ -173,6 +202,13 @@ public class CoachingDashboardService {
         totals.forEach((examId, byStudent) -> byStudent.forEach((studentId, total) ->
                 out.computeIfAbsent(examId, k -> new ArrayList<>()).add(new Result(examId, studentId, total, max.getOrDefault(examId, BigDecimal.ZERO)))));
         return out;
+    }
+
+    /** Present / (present + absent) of these marks, or null. */
+    private static BigDecimal attendancePercent(List<CoachingAttendance> list) {
+        long present = list.stream().filter(a -> "P".equals(a.getStatus())).count();
+        long absent = list.stream().filter(a -> "A".equals(a.getStatus())).count();
+        return CoachingAttendanceService.percent(present, absent);
     }
 
     /** Average percentage (one decimal), or null when there are no results. */

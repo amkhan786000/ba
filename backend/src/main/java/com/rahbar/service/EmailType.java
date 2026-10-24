@@ -200,6 +200,13 @@ public enum EmailType {
             "Dear {{name}},\n\nYour scholarship application #{{application_id}} is now '{{status}}'. {{comments}}"
                     + "\n\nRegards,\nRahbar - Bihar Anjuman",
             List.of("name", "application_id", "status", "comments"), List.of()),
+    COACHING_SCHOLARSHIP_INVITE("Applications", "To a Class 10 coaching student: apply for the scholarship",
+            "Sent from Coaching Center > Ready for Scholarship to invite a Class 10 coaching student to apply.",
+            "Bihar Anjuman: apply for the Rahbar scholarship",
+            "Dear {{name}},\n\nWell done on your studies at {{center}}. Applications for the Rahbar Diploma & Paramedical "
+                    + "Sponsorship are open, and we would like you to apply:\n\n{{apply_url}}\n\nAsk your coaching center "
+                    + "if you need help with the form.\n\nRegards,\nRahbar - Bihar Anjuman",
+            List.of("name", "center", "apply_url"), List.of("apply_url")),
     INTERVIEW_SCHEDULED("Applications", "Interview scheduled",
             "Sent to an applicant when their interview is scheduled.",
             "Rahbar: Interview scheduled",

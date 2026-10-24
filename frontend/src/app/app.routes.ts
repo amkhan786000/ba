@@ -65,6 +65,9 @@ import { AdminInterviewRankingComponent } from './admin/admin-interview-ranking.
 import { AdminAlumniComponent } from './admin/admin-alumni.component';
 import { CoachingStudentsComponent } from './admin/coaching-students.component';
 import { CoachingDashboardComponent } from './admin/coaching-dashboard.component';
+import { CoachingAttendanceComponent } from './admin/coaching-attendance.component';
+import { CoachingScholarshipComponent } from './admin/coaching-scholarship.component';
+import { EarlyWarningComponent } from './admin/early-warning.component';
 import { CoachingTeachersComponent } from './admin/coaching-teachers.component';
 import { CoachingExamsComponent } from './admin/coaching-exams.component';
 import { AdminVolunteersComponent } from './admin/admin-volunteers.component';
@@ -175,6 +178,9 @@ export const routes: Routes = [
       { path: 'alumni', component: AdminAlumniComponent, canActivate: [permissionGuard], data: { permission: 'ALUMNI' } },
       { path: 'rcc-students', redirectTo: 'coaching/students', pathMatch: 'full' },
       { path: 'coaching/dashboard', component: CoachingDashboardComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
+      { path: 'coaching/attendance', component: CoachingAttendanceComponent, canActivate: [permissionGuard], data: { permission: 'COACHING_ATTENDANCE' } },
+      { path: 'coaching/scholarship', component: CoachingScholarshipComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
+      { path: 'early-warning', component: EarlyWarningComponent, canActivate: [permissionGuard], data: { permission: 'EARLY_WARNING' } },
       { path: 'coaching/students', component: CoachingStudentsComponent, canActivate: [permissionGuard], data: { permission: 'RCC_STUDENTS' } },
       { path: 'coaching/teachers', component: CoachingTeachersComponent, canActivate: [permissionGuard], data: { permission: 'COACHING_TEACHERS' } },
       { path: 'coaching/exams', component: CoachingExamsComponent, canActivate: [permissionGuard], data: { permission: 'COACHING_EXAMS' } },

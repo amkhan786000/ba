@@ -113,6 +113,8 @@ public class CoachingService {
         s.setMotherName(text(b.get("motherName"), "Mother's name", 150, false));
         s.setGuardianMobile(mobile(b.get("guardianMobile"), "Parent / guardian mobile"));
         s.setStudentMobile(mobile(b.get("studentMobile"), "Student's mobile"));
+        s.setEmail(text(b.get("email"), "Email", 150, false));
+        if (s.getEmail() != null && !s.getEmail().matches("[^@\\s]+@[^@\\s]+\\.[^@\\s]+")) throw bad("Enter a valid email address.");
         s.setFamilyIncome(number(b.get("familyIncome"), "Family income", null));
         s.setAddress(text(b.get("address"), "Address", 500, false));
         String aadhaar = text(b.get("aadhaarLast4"), "Aadhaar", 4, false);

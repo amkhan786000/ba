@@ -68,6 +68,14 @@ public enum Section {
      * EDIT sets up exams, enters marks, generates the prizes and manages the subject list.
      */
     COACHING_EXAMS("Coaching center exams & marks"),
+    /** Coaching Center > Attendance: the daily register. EDIT marks it (coordinators and coaching teachers by default). */
+    COACHING_ATTENDANCE("Coaching center attendance"),
+    /**
+     * Students > Early Warning: scholarship and coaching students showing signs of dropping out (low or falling marks,
+     * overdue reports or installments, absences). Chapter / RCC-scoped users see their own students. EDIT records
+     * follow-up calls and visits.
+     */
+    EARLY_WARNING("Early warning & follow-ups"),
     /**
      * People who offered to mentor, tutor, sponsor or join a chapter through the public website. VIEW lists them
      * (and notifies of new ones); EDIT sets their follow-up status and notes, or deletes a sign-up.

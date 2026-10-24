@@ -24,7 +24,8 @@ class CoachingDashboardServiceTest {
     private final CoachingAccess access = mock(CoachingAccess.class);
     private final CoachingService coaching = mock(CoachingService.class);
     private final CoachingDashboardService service = new CoachingDashboardService(students, mock(CoachingTeacherRepository.class), exams,
-            examSubjects, marks, mock(CoachingExamPrizeRepository.class), access, coaching);
+            examSubjects, marks, mock(CoachingExamPrizeRepository.class), access, coaching, mock(CoachingAttendanceRepository.class),
+            new CoachingResults(exams, examSubjects, marks), mock(CoachingPipelineService.class));
 
     private static CoachingStudent student(long id, long center, int cls, String gender) {
         CoachingStudent s = new CoachingStudent();
