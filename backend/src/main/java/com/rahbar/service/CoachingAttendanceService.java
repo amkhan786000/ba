@@ -47,7 +47,13 @@ public class CoachingAttendanceService {
     public Map<String, Object> register(Long centerId, Integer classLevel, LocalDate date) {
         // no center chosen yet: the first of the user's centers
         Long center = centerId == null && !access.centers().isEmpty() ? access.centers().get(0).getRccCenterId() : access.requireCenter(centerId);
-        Integer cls = CoachingService.classLevel(classLevel);
+        // studying students per class at the center; no class chosen yet: the first class that has students
+        Map<Integer, Long> perClass = new TreeMap<>();
+        CoachingService.CLASSES.forEach(c -> perClass.put(c, 0L));
+        students.findAll().stream().filter(s -> center.equals(s.getRccCenterId()) && "ACTIVE".equals(s.getStatus()))
+                .forEach(s -> perClass.merge(s.getClassLevel(), 1L, Long::sum));
+        Integer cls = classLevel != null ? CoachingService.classLevel(classLevel)
+                : perClass.entrySet().stream().filter(e -> e.getValue() > 0).map(Map.Entry::getKey).findFirst().orElse(CoachingService.CLASSES.get(0));
         LocalDate day = date == null ? LocalDate.now() : date;
         Map<Long, String> marked = new HashMap<>();
         attendance.findByRccCenterIdAndClassLevelAndAttDate(center, cls, day).forEach(a -> marked.put(a.getStudentId(), a.getStatus()));
@@ -72,6 +78,7 @@ public class CoachingAttendanceService {
         out.put("class_level", cls);
         out.put("date", day);
         out.put("marked", !marked.isEmpty());
+        out.put("students_per_class", perClass);
         out.put("rows", rows);
         return out;
     }

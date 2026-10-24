@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
@@ -8,7 +9,7 @@ import { AppDatePipe } from '../shared/app-date';
 import { CoachingCenter, CoachingScope } from './coaching-students.component';
 
 interface RegisterRow { student_id: number; name: string; admission_no: string | null; status: 'P' | 'A' | 'L' | null; percent_30_days: number | null }
-type Register = CoachingScope & { rcc_center_id: number; class_level: number; date: string; marked: boolean; rows: RegisterRow[] };
+type Register = CoachingScope & { rcc_center_id: number; class_level: number; date: string; marked: boolean; rows: RegisterRow[]; students_per_class: Record<string, number> };
 interface SummaryRow { student_id: number; name: string; class_level: number; center_name: string | null; present: number; absent: number; leave: number; percent: number | null }
 interface Summary { from: string; to: string; rows: SummaryRow[] }
 
@@ -19,7 +20,7 @@ interface Summary { from: string; to: string; rows: SummaryRow[] }
 @Component({
   selector: 'app-coaching-attendance',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertsComponent, AppDatePipe],
+  imports: [CommonModule, FormsModule, RouterLink, AlertsComponent, AppDatePipe],
   styles: [`
     .marks .btn { min-width: 38px; }
     .low { color: #b42318; font-weight: 600; }
@@ -29,14 +30,16 @@ interface Summary { from: string; to: string; rows: SummaryRow[] }
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
 
     <div class="card"><div class="card-body">
+      <h4 class="header-title">{{ canEdit ? 'Mark attendance' : 'Attendance register' }}</h4>
+      <p class="text-muted small">{{ canEdit ? 'Choose the class and the day, tap P, A or L for each student, then Save.' : 'You can see the register; marking it needs "Coaching center attendance: manage".' }}</p>
       <div class="d-flex flex-wrap align-items-end mb-3" style="gap: 10px">
         <div *ngIf="!scoped"><label class="small mb-0" for="ac">Center</label>
-          <select id="ac" class="form-control" [(ngModel)]="centerId" (ngModelChange)="loadRegister()">
+          <select id="ac" class="form-control" [(ngModel)]="centerId" (ngModelChange)="classLevel = null; loadRegister()">
             <option *ngFor="let c of centers" [ngValue]="c.rcc_center_id">{{ c.center_name }}</option>
           </select></div>
         <div><label class="small mb-0" for="acl">Class</label>
           <select id="acl" class="form-control" [(ngModel)]="classLevel" (ngModelChange)="loadRegister()">
-            <option *ngFor="let c of classes" [ngValue]="c">Class {{ c }}</option>
+            <option *ngFor="let c of classes" [ngValue]="c">Class {{ c }} ({{ reg?.students_per_class?.[c] ?? 0 }} students)</option>
           </select></div>
         <div><label class="small mb-0" for="ad">Date</label>
           <input id="ad" type="date" class="form-control" [max]="today" [(ngModel)]="date" (ngModelChange)="loadRegister()"></div>
@@ -44,7 +47,11 @@ interface Summary { from: string; to: string; rows: SummaryRow[] }
       </div>
 
       <p *ngIf="reg && !reg.marked && reg.rows.length" class="small text-warning mb-2"><i class="mdi mdi-alert-circle-outline"></i> Not marked yet for this day.</p>
-      <p *ngIf="reg && !reg.rows.length" class="text-muted">No studying students in class {{ classLevel }} here.</p>
+      <div *ngIf="reg && !reg.rows.length" class="alert alert-light border mb-0">
+        <ng-container *ngIf="totalStudents; else none">No studying students in class {{ classLevel }} here. Choose another class above.</ng-container>
+        <ng-template #none>There are no coaching students at this center yet, so there is nobody to mark.
+          <a routerLink="/admin/coaching/students">Add students in Coaching Center › Students</a> first.</ng-template>
+      </div>
       <div class="table-responsive" *ngIf="reg?.rows?.length"><table class="table table-sm mb-0">
         <thead class="thead-light"><tr><th>Student</th><th>{{ date | appDate }}</th><th class="text-right">Last 30 days</th></tr></thead>
         <tbody><tr *ngFor="let r of reg!.rows">
@@ -94,7 +101,8 @@ export class CoachingAttendanceComponent implements OnInit {
   reg: Register | null = null;
   summary: Summary | null = null;
   centerId: number | null = null;
-  classLevel = 10;
+  /** null until the server picks the first class with students. */
+  classLevel: number | null = null;
   date = this.today;
   from = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
   to = this.today;
@@ -111,6 +119,7 @@ export class CoachingAttendanceComponent implements OnInit {
   get centers(): CoachingCenter[] { return this.reg?.centers ?? []; }
   get scoped(): boolean { return this.reg?.scoped ?? false; }
   get classes(): number[] { return this.reg?.classes ?? [7, 8, 9, 10]; }
+  get totalStudents(): number { return Object.values(this.reg?.students_per_class ?? {}).reduce((a, b) => a + b, 0); }
   get dirty(): boolean { return Object.keys(this.marks).some((k) => this.marks[+k] !== this.original[+k]); }
 
   ngOnInit(): void { this.loadRegister(); this.loadSummary(); }
@@ -121,6 +130,7 @@ export class CoachingAttendanceComponent implements OnInit {
       next: (r) => {
         this.reg = r;
         this.centerId = r.rcc_center_id;
+        this.classLevel = r.class_level;
         this.marks = {};
         this.original = {};
         r.rows.forEach((x) => { this.marks[x.student_id] = x.status; this.original[x.student_id] = x.status; });

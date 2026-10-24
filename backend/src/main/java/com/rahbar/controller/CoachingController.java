@@ -39,10 +39,10 @@ public class CoachingController {
 
     // ---------------------------------------------------------------- attendance
 
-    /** A class's register on a day (date empty: today). */
+    /** A class's register on a day (date empty: today; center / class empty: the first with students). */
     @GetMapping("/attendance")
     @PreAuthorize("hasAuthority('COACHING_ATTENDANCE:VIEW')")
-    public Map<String, Object> register(@RequestParam(required = false) Long centerId, @RequestParam Integer classLevel,
+    public Map<String, Object> register(@RequestParam(required = false) Long centerId, @RequestParam(required = false) Integer classLevel,
                                         @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return attendance.register(centerId, classLevel, date);
     }
