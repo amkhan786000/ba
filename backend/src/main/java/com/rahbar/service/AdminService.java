@@ -441,6 +441,7 @@ public class AdminService {
     public void deleteRccCenter(Long id) {
         if (Access.rccScoped()) throw Access.forbidden("You can only edit your own RCC center.");
         rccCenterRepository.deleteById(id);
+        sponsorCoachingCenters.forgetCenter(id);
     }
 
     // --------------------------------------------------------------------- courses
@@ -1324,6 +1325,10 @@ public class AdminService {
         return uId;
     }
 
+    /** Coaching centers a sponsor runs / pays for (Edit Sponsor; shown on Coaching Centers). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private SponsorCoachingCenterService sponsorCoachingCenters;
+
     public Map<String, Object> sponsorDetails(Long userId) {
         Map<String, Object> profile = Rows.pick(requireVisibleSponsor(userId),
                 "id", "user_id", "name", "care_of", "email", "phone", "chapter_id", "chapter_name", "status");
@@ -1336,6 +1341,7 @@ public class AdminService {
         List<Map<String, Object>> rows = Rows.pickAll(students, "id", "user_id", "name", "email", "phone", "status", "year", "chapter_name", "study_status");
         rows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters)));
         profile.putAll(SponsorPreferenceService.of(requireVisibleSponsor(userId)));
+        profile.put("coaching_center_ids", sponsorCoachingCenters.centersOf(userId));
         return Map.of("profile", profile, "students", rows);
     }
 
@@ -1344,6 +1350,7 @@ public class AdminService {
         boolean hidden = hidesDetailsOf(user); // the editor saw blanks: keep the real details
         if (data.get("name") != null) user.setName(str(data.get("name")));
         if (data.containsKey("careOf")) user.setCareOf(careOf(data.get("careOf")));
+        if (data.containsKey("coachingCenterIds")) sponsorCoachingCenters.set(userId, com.rahbar.util.Ids.toLongs(data.get("coachingCenterIds")));
         if (!hidden && data.get("email") != null) user.setEmail(str(data.get("email")));
         if (!hidden && data.get("phone") != null) user.setPhone(str(data.get("phone")));
         if (!hidden && data.containsKey("chapterId")) user.setChapterId(requireChapter(chapterRepository, data.get("chapterId")));

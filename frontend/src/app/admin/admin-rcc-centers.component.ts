@@ -8,6 +8,9 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 
+/** A sponsor who runs / pays for a coaching center. */
+export interface CenterSponsor { id: number; user_id: string; name: string; care_of: string | null; }
+
 export interface RccCenter {
   rccCenterId?: number;
   centerName: string;
@@ -40,18 +43,23 @@ export interface RccCenter {
             <h4 class="header-title mb-3">RCC Center List</h4>
             <div class="row mb-3">
               <div class="col-12 col-md-4">
-                <input type="text" class="form-control" placeholder="Search Center, Incharge, or Location..." [(ngModel)]="search" />
+                <input type="text" class="form-control" placeholder="Search Center, Incharge, Location or Sponsor..." [(ngModel)]="search" />
               </div>
             </div>
             <div class="table-responsive">
               <table class="table table-striped table-centered mb-0">
-                <thead><tr><th>Center Name</th><th>Incharge Name</th><th>Contact Number</th><th>Location</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Center Name</th><th>Incharge Name</th><th>Contact Number</th><th>Location</th><th>Sponsors</th><th>Actions</th></tr></thead>
                 <tbody>
                   <tr *ngFor="let c of visible | paginate: pg.page : pg.size">
                     <td>{{ c.centerName }}</td>
                     <td>{{ c.inchargeName }}</td>
                     <td>{{ c.contactNumber }}</td>
                     <td>{{ c.location }}</td>
+                    <td class="small">
+                      <div *ngFor="let s of sponsorsOf(c)"><strong>{{ s.name }}</strong><span *ngIf="s.care_of" class="text-muted"> c/o {{ s.care_of }}</span>
+                        <span class="text-muted"> · {{ s.user_id }}</span></div>
+                      <span *ngIf="!sponsorsOf(c).length" class="text-muted">-</span>
+                    </td>
                     <td>
                       <a *ngIf="canEdit" [routerLink]="['/', section, 'rcc-centers', c.rccCenterId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
                       <button *ngIf="canEdit && !scoped" type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="remove(c)">Delete</button>
@@ -91,12 +99,17 @@ export class AdminRccCentersComponent implements OnInit {
       next: (c) => (this.centers = c),
       error: (e) => (this.error = errorText(e, 'Could not load RCC centers.'))
     });
+    this.api.get<Record<string, CenterSponsor[]>>('/admin/rcc-centers/sponsors').subscribe({ next: (s) => (this.sponsors = s) });
   }
+
+  /** Sponsors who run / pay for the center (ticked on Edit Sponsor). */
+  sponsors: Record<string, CenterSponsor[]> = {};
+  sponsorsOf(c: RccCenter): CenterSponsor[] { return this.sponsors[String(c.rccCenterId)] ?? []; }
 
   get visible(): RccCenter[] {
     const f = this.search.toLowerCase();
     return this.centers.filter((c) =>
-      [c.centerName, c.inchargeName, c.location].some((v) => (v ?? '').toLowerCase().includes(f)));
+      [c.centerName, c.inchargeName, c.location, ...this.sponsorsOf(c).map((s) => s.name)].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 
   remove(c: RccCenter): void {

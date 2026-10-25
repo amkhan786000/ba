@@ -53,6 +53,7 @@ public class UserDeletionService {
         LINKS.put("mentorships.alumni_user_id", "mentoring (as mentor)");
         LINKS.put("sponsor_followups.sponsor_user_id", "sponsor follow-ups");
         LINKS.put("users.merged_into_id", "account(s) merged into this one");
+        LINKS.put("sponsor_coaching_centers.sponsor_user_id", "coaching center(s) they support");
     }
 
     /** Deleted with the user: they only belong to the sign-in. */
