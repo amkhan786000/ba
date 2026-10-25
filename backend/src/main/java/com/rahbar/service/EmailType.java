@@ -21,15 +21,17 @@ public enum EmailType {
             "Sent when someone asks to reset a forgotten password.",
             "Rahbar: your password reset code",
             "Dear {{name}},\n\nYour code to reset your Rahbar password is: {{code}}\n\nIt is valid for {{minutes}} minutes. "
-                    + "If you didn't ask for this, ignore this email; your password stays the same.\n\nRegards,\nRahbar - Bihar Anjuman",
-            List.of("name", "code", "minutes"), List.of("code")),
+                    + "If you didn't ask for this, ignore this email; your password stays the same.\n\nRahbar: {{sign_in_url}}"
+                    + "\n\nRegards,\nRahbar - Bihar Anjuman",
+            List.of("name", "code", "minutes", "sign_in_url"), List.of("code")),
     PASSWORD_RESET_BY_ADMIN("Account", "Password reset by an administrator",
             "Sent with a temporary password when an administrator resets someone's password (Manage Users).",
             "Rahbar: your password was reset",
             "Dear {{name}},\n\nAn administrator reset your Rahbar password. Sign in with this temporary password:\n\n"
-                    + "    {{password}}\n\nYou will be asked to choose your own password straight after signing in.\n\n"
+                    + "    {{password}}\n\nSign in at: {{sign_in_url}}\n\n"
+                    + "You will be asked to choose your own password straight after signing in.\n\n"
                     + "Regards,\nRahbar - Bihar Anjuman",
-            List.of("name", "password"), List.of("password")),
+            List.of("name", "password", "sign_in_url"), List.of("password")),
     ACCOUNT_CREATED("Account", "New account (Manage Users)",
             "Sent with a temporary password when an administrator adds a user in Manage Users.",
             "Rahbar: your account has been created",
