@@ -134,7 +134,7 @@ public class EarlyWarningService {
         reports.values().forEach(l -> l.sort(Comparator.comparing(StudentProgress::getCreatedAt, Comparator.nullsFirst(Comparator.naturalOrder()))));
         Map<Long, LocalDate> lateInstallment = new HashMap<>();
         for (PaymentInstallment i : installments.findByGranteeIdInOrderByGranteeIdAscInstallmentNoAsc(ids)) {
-            if (i.getPaymentId() == null && i.getDueDate() != null && i.getDueDate().isBefore(today.minusDays(INSTALLMENT_LATE_DAYS))) {
+            if (i.isOpen() && i.getDueDate() != null && i.getDueDate().isBefore(today.minusDays(INSTALLMENT_LATE_DAYS))) {
                 lateInstallment.merge(i.getGranteeId(), i.getDueDate(), (a, b) -> a.isBefore(b) ? a : b);
             }
         }

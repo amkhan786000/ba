@@ -1036,7 +1036,10 @@ public class AdminService {
         String text = trimToNull(note);
         if (text != null && text.length() > 500) throw new ApiException(HttpStatus.BAD_REQUEST, "The note can be at most 500 characters.");
 
-        boolean newlyGraduated = StudyStatus.GRADUATED.equals(s) && !StudyStatus.GRADUATED.equals(user.getStudyStatus());
+        if (StudyStatus.GRADUATED.equals(user.getStudyStatus())) { // graduated is final
+            throw new ApiException(HttpStatus.BAD_REQUEST, user.getName() + " has graduated; the study status can't be changed.");
+        }
+        boolean newlyGraduated = StudyStatus.GRADUATED.equals(s);
         user.setStudyStatus(s);
         user.setStudyStatusDate(effective);
         user.setStudyStatusNote(text);
@@ -1047,7 +1050,7 @@ public class AdminService {
         h.setEffectiveDate(effective);
         h.setNote(text);
         statusHistoryRepository.save(h);
-        installmentService.sync(userId); // graduated / dropped out: no more unpaid installments
+        installmentService.sync(userId); // graduated: the rest "Not needed"; dropped out: no more unpaid installments
         if (newlyGraduated) { // good news for the sponsor
             grantorGranteeRepository.findFirstByGranteeId(userId).ifPresent(gg -> notificationService.notify(gg.getGrantorId(),
                     user.getName() + " has graduated", user.getName() + " has completed their studies. Thank you for your support.",

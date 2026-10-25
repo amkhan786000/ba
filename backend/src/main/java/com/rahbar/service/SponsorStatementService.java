@@ -95,7 +95,7 @@ public class SponsorStatementService {
             if (s == null) continue;
             List<PaymentInstallment> mine = installments.stream().filter(i -> i.getGranteeId().equals(id)).toList();
             List<Payment> paid = payments.stream().filter(p -> p.getGranteeId().equals(id)).toList();
-            int outstanding = (int) mine.stream().filter(i -> i.getPaymentId() == null && !i.getDueDate().isAfter(asOf)).count();
+            int outstanding = (int) mine.stream().filter(i -> i.isOpen() && !i.getDueDate().isAfter(asOf)).count();
             Map<String, Object> course = Rows.first(studentCourseRepository.findCourseDetails(id));
             String courseText = course == null ? "" : course.get("course_name") + " - " + course.get("institution_name");
             lines.add(new Line(s, courseText, mine.size(), paid.size(), outstanding, latest.get(id)));

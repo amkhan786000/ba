@@ -44,4 +44,14 @@ public class PaymentInstallment extends Modifiable {
     /** The payment that paid this installment, if any. */
     @Column(name = "payment_id", unique = true)
     private Long paymentId;
+
+    /** The student graduated before it fell due: kept in the plan, never due (shown as "Not needed"). */
+    @Column(name = "not_needed", nullable = false)
+    @org.hibernate.annotations.ColumnDefault("0")
+    private boolean notNeeded = false;
+
+    /** Still to be paid: not paid and not "Not needed". */
+    public boolean isOpen() {
+        return paymentId == null && !notNeeded;
+    }
 }

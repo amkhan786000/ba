@@ -188,6 +188,7 @@ export class ConvenorPaymentsComponent implements OnInit {
       : 'Last Payment: No payments yet';
     this.currentStatus = !rows.length ? 'No schedule yet'
       : rows.every((r) => r.status === 'Paid') ? 'All Paid'
+      : rows.every((r) => r.status === 'Paid' || r.status === 'Not needed') ? 'Graduated: the rest is not needed'
       : rows.some((r) => r.status === 'Overdue') ? 'Overdue'
       : rows.some((r) => r.status === 'Due') ? 'Due' : 'Not Due';
   }

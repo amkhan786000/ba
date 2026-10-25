@@ -31,7 +31,7 @@ interface Detail {
 /** One installment with its student (all students on one list). */
 interface Item { d: Detail; i: InstallmentRow; sid: string }
 
-const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2, Paid: 3 };
+const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2, Paid: 3, 'Not needed': 4 };
 
 /**
  * Sponsor > Payments: every installment of every sponsored student on one list (what needs paying first), with
@@ -98,6 +98,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
               <option value="Due">Due</option>
               <option value="Not Due">Upcoming</option>
               <option value="Paid">Paid</option>
+              <option value="Not needed">Not needed (graduated)</option>
             </select>
           </div>
           <div class="col-6 col-md-2 form-group">

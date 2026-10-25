@@ -380,7 +380,7 @@ public class DashboardService {
                     SELECT COUNT(*) paid, COALESCE(SUM(CASE WHEN DATE(p.payment_date) <= i.due_date THEN 1 ELSE 0 END), 0) on_time,
                            AVG(CASE WHEN DATE(p.payment_date) > i.due_date THEN DATEDIFF(p.payment_date, i.due_date) END) avg_days_late
                     FROM payment_installments i JOIN payments p ON p.payment_id = i.payment_id JOIN users s ON s.id = i.grantee_id
-                    WHERE i.due_date >= ? AND i.due_date < ?%s""".formatted(scope), LocalDate.of(year, 1, 1), LocalDate.of(year + 1, 1, 1));
+                    WHERE i.not_needed = 0 AND i.due_date >= ? AND i.due_date < ?%s""".formatted(scope), LocalDate.of(year, 1, 1), LocalDate.of(year + 1, 1, 1));
             kpis.put("onTimeRate", percent(num(punctual.get("on_time")), num(punctual.get("paid"))));
             kpis.put("avgDaysLate", punctual.get("avg_days_late") == null ? null : Math.round(((Number) punctual.get("avg_days_late")).doubleValue()));
 
@@ -399,7 +399,7 @@ public class DashboardService {
                     SELECT sp.user_id, sp.name, COUNT(DISTINCT i.grantee_id) students, COUNT(*) installments,
                            MIN(i.due_date) oldest_due
                     FROM payment_installments i JOIN users sp ON sp.id = i.grantor_id JOIN users s ON s.id = i.grantee_id
-                    WHERE i.payment_id IS NULL AND i.due_date < ? AND s.merged_into_id IS NULL%s%s
+                    WHERE i.payment_id IS NULL AND i.not_needed = 0 AND i.due_date < ? AND s.merged_into_id IS NULL%s%s
                     GROUP BY sp.id, sp.user_id, sp.name ORDER BY installments DESC, oldest_due LIMIT 10""".formatted(IN_PROGRAMME, scope), today));
         }
         if (can(Section.ONLINE_PAYMENTS)) {
@@ -491,7 +491,7 @@ public class DashboardService {
         jdbc.queryForList("""
                 SELECT MONTH(i.due_date) m, COUNT(*) due, COUNT(i.payment_id) paid
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
-                WHERE i.due_date >= ? AND i.due_date < ? AND s.merged_into_id IS NULL%s GROUP BY m"""
+                WHERE i.not_needed = 0 AND i.due_date >= ? AND i.due_date < ? AND s.merged_into_id IS NULL%s GROUP BY m"""
                 .formatted(scope), LocalDate.of(year, 1, 1), LocalDate.of(year + 1, 1, 1))
                 .forEach(r -> {
                     int m = (int) num(r.get("m")) - 1;
@@ -509,7 +509,7 @@ public class DashboardService {
                        COALESCE(SUM(CASE WHEN i.due_date <= ? THEN 1 ELSE 0 END), 0) d60,
                        COUNT(*) d90
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
-                WHERE i.payment_id IS NULL AND i.due_date >= ? AND i.due_date <= ? AND s.merged_into_id IS NULL%s%s"""
+                WHERE i.payment_id IS NULL AND i.not_needed = 0 AND i.due_date >= ? AND i.due_date <= ? AND s.merged_into_id IS NULL%s%s"""
                 .formatted(IN_PROGRAMME, scope), today.plusDays(7), today.plusDays(30), today.plusDays(60), today, today.plusDays(90));
         return List.of(point("Within 7 days", r.get("d7")), point("Within 30 days", r.get("d30")),
                 point("Within 60 days", r.get("d60")), point("Within 90 days", r.get("d90")));
@@ -656,7 +656,7 @@ public class DashboardService {
     private long lapsedSponsors(String scope, LocalDate today) {
         return count("""
                 SELECT COUNT(DISTINCT i.grantor_id) FROM payment_installments i JOIN users s ON s.id = i.grantee_id
-                WHERE i.payment_id IS NULL AND i.due_date < ? AND s.merged_into_id IS NULL%s%s""".formatted(IN_PROGRAMME, scope),
+                WHERE i.payment_id IS NULL AND i.not_needed = 0 AND i.due_date < ? AND s.merged_into_id IS NULL%s%s""".formatted(IN_PROGRAMME, scope),
                 today.minusDays(30));
     }
 
@@ -664,7 +664,7 @@ public class DashboardService {
         return jdbc.queryForMap("""
                 SELECT COUNT(*) installments, COUNT(DISTINCT i.grantee_id) students, COUNT(DISTINCT i.grantor_id) sponsors
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
-                WHERE i.payment_id IS NULL AND i.due_date < ? AND s.merged_into_id IS NULL%s%s""".formatted(IN_PROGRAMME, scope), today);
+                WHERE i.payment_id IS NULL AND i.not_needed = 0 AND i.due_date < ? AND s.merged_into_id IS NULL%s%s""".formatted(IN_PROGRAMME, scope), today);
     }
 
     /** How many of the installments that fell due this year (up to today) are paid. */
@@ -673,7 +673,7 @@ public class DashboardService {
         Map<String, Object> r = jdbc.queryForMap("""
                 SELECT COUNT(*) due, COUNT(i.payment_id) paid
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
-                WHERE i.due_date >= ? AND i.due_date <= ? AND s.merged_into_id IS NULL%s""".formatted(scope),
+                WHERE i.not_needed = 0 AND i.due_date >= ? AND i.due_date <= ? AND s.merged_into_id IS NULL%s""".formatted(scope),
                 LocalDate.of(year, 1, 1), end);
         BigDecimal due = money(r.get("due")), paid = money(r.get("paid"));
         Map<String, Object> out = new LinkedHashMap<>();
@@ -720,7 +720,7 @@ public class DashboardService {
                        COALESCE(SUM(CASE WHEN i.due_date < ? AND i.due_date >= ? THEN 1 ELSE 0 END), 0) b3,
                        COALESCE(SUM(CASE WHEN i.due_date < ? THEN 1 ELSE 0 END), 0) b4
                 FROM payment_installments i JOIN users s ON s.id = i.grantee_id
-                WHERE i.payment_id IS NULL AND i.due_date < ? AND s.merged_into_id IS NULL%s%s""".formatted(IN_PROGRAMME, scope),
+                WHERE i.payment_id IS NULL AND i.not_needed = 0 AND i.due_date < ? AND s.merged_into_id IS NULL%s%s""".formatted(IN_PROGRAMME, scope),
                 today.minusDays(30), today.minusDays(30), today.minusDays(90), today.minusDays(90), today.minusDays(180),
                 today.minusDays(180), today);
         return List.of(point("Up to 30 days", r.get("b1")), point("31–90 days", r.get("b2")),
