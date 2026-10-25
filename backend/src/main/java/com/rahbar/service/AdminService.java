@@ -923,6 +923,31 @@ public class AdminService {
     }
 
     /** Edit Sponsor > c/o: who brought the sponsor (at most 150 characters); empty clears it. */
+    /** How a sponsor can have been introduced (Edit Sponsor > Introduction). */
+    static final Set<String> INTRODUCED_VIA = Set.of("WHATSAPP", "MESSAGE", "EMAIL", "OTHER");
+
+    /**
+     * Edit Sponsor > Introduction: introducedVia (WHATSAPP, MESSAGE, EMAIL, OTHER or blank), introducedViaOther (what
+     * "other" was, only kept for OTHER) and introducedOn (the date it was communicated; not in the future).
+     */
+    static void setIntroduction(User user, Map<String, Object> data) {
+        String via = data.get("introducedVia") == null ? "" : String.valueOf(data.get("introducedVia")).strip().toUpperCase(Locale.ROOT);
+        if (!via.isEmpty() && !INTRODUCED_VIA.contains(via)) throw new ApiException(HttpStatus.BAD_REQUEST, "Choose how the sponsor was introduced.");
+        String other = "OTHER".equals(via) ? trimToNull(data.get("introducedViaOther") == null ? null : String.valueOf(data.get("introducedViaOther"))) : null;
+        if (other != null && other.length() > 100) throw new ApiException(HttpStatus.BAD_REQUEST, "\"Other\" can be at most 100 characters.");
+        Object on = data.get("introducedOn");
+        java.time.LocalDate date;
+        try {
+            date = on == null || String.valueOf(on).isBlank() ? null : java.time.LocalDate.parse(String.valueOf(on).substring(0, 10));
+        } catch (RuntimeException e) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "The communication date must be a date like 2026-01-15.");
+        }
+        if (date != null && date.isAfter(java.time.LocalDate.now())) throw new ApiException(HttpStatus.BAD_REQUEST, "The communication date can't be in the future.");
+        user.setIntroducedVia(via.isEmpty() ? null : via);
+        user.setIntroducedViaOther(other);
+        user.setIntroducedOn(date);
+    }
+
     static String careOf(Object v) {
         String s = v == null ? "" : String.valueOf(v).trim();
         if (s.length() > 150) throw new ApiException(HttpStatus.BAD_REQUEST, "c/o can be at most 150 characters.");
@@ -1381,7 +1406,8 @@ public class AdminService {
 
     public Map<String, Object> sponsorDetails(Long userId) {
         Map<String, Object> profile = Rows.pick(requireVisibleSponsor(userId),
-                "id", "user_id", "name", "care_of", "email", "phone", "chapter_id", "chapter_name", "status");
+                "id", "user_id", "name", "care_of", "introduced_via", "introduced_via_other", "introduced_on",
+                "email", "phone", "chapter_id", "chapter_name", "status");
         com.rahbar.security.StudentScope.Scope scope = studentScope.current();
         List<User> students = new ArrayList<>(userRepository.findGranteesOf(userId).stream().filter(scope::includes).toList());
         students.sort(Comparator.comparing(User::getName, Comparator.nullsFirst(String.CASE_INSENSITIVE_ORDER)));
@@ -1400,6 +1426,7 @@ public class AdminService {
         boolean hidden = hidesDetailsOf(user); // the editor saw blanks: keep the real details
         if (data.get("name") != null) user.setName(str(data.get("name")));
         if (data.containsKey("careOf")) user.setCareOf(careOf(data.get("careOf")));
+        if (data.containsKey("introducedVia") || data.containsKey("introducedOn")) setIntroduction(user, data);
         if (data.containsKey("coachingCenterIds")) sponsorCoachingCenters.set(userId, com.rahbar.util.Ids.toLongs(data.get("coachingCenterIds")));
         if (!hidden && data.get("email") != null) user.setEmail(str(data.get("email")));
         if (!hidden && data.get("phone") != null) user.setPhone(str(data.get("phone")));

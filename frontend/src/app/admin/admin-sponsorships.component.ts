@@ -23,6 +23,8 @@ interface SponsorRow {
   name: string;
   /** Who brought the sponsor ("c/o"). */
   care_of?: string | null;
+  /** How the introduction came (WHATSAPP, MESSAGE, EMAIL, OTHER + what), and the date it was communicated. */
+  introduced_via?: string | null; introduced_via_other?: string | null; introduced_on?: string | null;
   email: string | null;
   phone: string | null;
   chapter_id: number | null;
@@ -90,7 +92,9 @@ interface FeeRow {
                 <tbody>
                   <tr *ngIf="!table.loading && !table.rows.length"><td [attr.colspan]="showDetails ? 5 : 3" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let s of table.rows">
-                    <td><strong>{{ s.name }}</strong><span *ngIf="s.care_of" class="small text-muted"> c/o {{ s.care_of }}</span><br><small class="text-muted">ID: {{ s.user_id }}</small></td>
+                    <td><strong>{{ s.name }}</strong><span *ngIf="s.care_of" class="small text-muted"> c/o {{ s.care_of }}</span><br><small class="text-muted">ID: {{ s.user_id }}</small>
+                      <div *ngIf="s.introduced_via || s.introduced_on" class="small text-muted"><i class="mdi mdi-account-arrow-right"></i>
+                        {{ introducedVia(s) }}{{ introducedVia(s) && s.introduced_on ? ' · ' : '' }}{{ s.introduced_on ? (s.introduced_on | appDate) : '' }}</div></td>
                     <td>
                       <a *ngIf="s.student_count; else noStudents" href="" class="badge badge-light border student-count"
                          (click)="$event.preventDefault(); showStudents(s)" [title]="'See the students of ' + s.name">{{ s.student_count }}</a>
@@ -170,8 +174,6 @@ interface FeeRow {
             <h5 class="text-info border-bottom pb-2"><i class="mdi mdi-account-circle"></i> Master Account Details</h5>
             <div class="row">
               <div class="col-md-6 form-group"><label>Full Name</label><input type="text" class="form-control" [(ngModel)]="edit.name"></div>
-              <div class="col-md-6 form-group"><label>c/o <span class="text-muted small">(who brought this sponsor, optional)</span></label>
-                <input type="text" class="form-control" maxlength="150" [(ngModel)]="edit.careOf" placeholder="e.g. Imran Khan"></div>
               <div class="col-md-6 form-group"><label>Email Address</label><input type="email" class="form-control" [(ngModel)]="edit.email"></div>
               <div class="col-md-6 form-group"><label>Phone (Mobile 1)</label><input type="text" class="form-control" [(ngModel)]="edit.phone"></div>
               <div class="col-md-6 form-group"><label>Chapter</label>
@@ -191,6 +193,21 @@ interface FeeRow {
                   </div>
                 </div>
               </div>
+            </div>
+            <h5 class="text-info border-bottom pb-2 mt-4"><i class="mdi mdi-account-arrow-right"></i> Introduction
+              <small class="text-muted">(when someone introduced this sponsor; all optional)</small></h5>
+            <div class="row">
+              <div class="col-md-6 form-group"><label for="sp-careof">c/o <span class="text-muted small">(who introduced them)</span></label>
+                <input id="sp-careof" type="text" class="form-control" maxlength="150" [(ngModel)]="edit.careOf" placeholder="e.g. Imran Khan"></div>
+              <div class="col-md-3 form-group"><label for="sp-via">Introduced via</label>
+                <select id="sp-via" class="form-control" [(ngModel)]="edit.introducedVia">
+                  <option value="">--</option>
+                  <option *ngFor="let v of viaOptions" [value]="v.key">{{ v.label }}</option>
+                </select></div>
+              <div class="col-md-3 form-group"><label for="sp-on">Communication date</label>
+                <input id="sp-on" type="date" class="form-control" [max]="today" [(ngModel)]="edit.introducedOn"></div>
+              <div class="col-12 form-group" *ngIf="edit.introducedVia === 'OTHER'"><label for="sp-other">Other: how?</label>
+                <input id="sp-other" type="text" class="form-control" maxlength="100" [(ngModel)]="edit.introducedViaOther" placeholder="e.g. At the annual dinner"></div>
             </div>
             <h5 class="text-success border-bottom pb-2 mt-4"><i class="mdi mdi-heart-outline"></i> Student preferences
               <small class="text-muted">(what kind of student this sponsor would like)</small></h5>
@@ -361,7 +378,19 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
   file: File | null = null;
   uploading = false;
 
-  edit: { id: number; name: string; careOf: string; email: string; phone: string; chapterId: number | null; coachingCenterIds: number[] } | null = null;
+  edit: {
+    id: number; name: string; careOf: string; email: string; phone: string; chapterId: number | null; coachingCenterIds: number[];
+    introducedVia: string; introducedViaOther: string; introducedOn: string;
+  } | null = null;
+
+  readonly today = new Date().toISOString().slice(0, 10);
+  readonly viaOptions = [{ key: 'WHATSAPP', label: 'WhatsApp' }, { key: 'MESSAGE', label: 'Message (SMS)' }, { key: 'EMAIL', label: 'Email' }, { key: 'OTHER', label: 'Other' }];
+
+  /** "via WhatsApp" (for OTHER: what it was) for the list. */
+  introducedVia(s: SponsorRow): string {
+    const via = s.introduced_via === 'OTHER' ? (s.introduced_via_other || 'Other') : this.viaOptions.find((v) => v.key === s.introduced_via)?.label;
+    return via ? 'via ' + via : '';
+  }
   /** Coaching centers to tick on Edit Sponsor (null until loaded, or when the user can't see them). */
   centers: RccCenter[] | null = null;
 
@@ -502,7 +531,8 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
         this.editName = p['name'] ?? '';
         this.editError = '';
         this.edit = { id, name: p['name'] ?? '', careOf: p['care_of'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', chapterId: p['chapter_id'] === null || p['chapter_id'] === undefined ? null : Number(p['chapter_id']),
-                      coachingCenterIds: ((p['coaching_center_ids'] ?? []) as unknown[]).map(Number) };
+                      coachingCenterIds: ((p['coaching_center_ids'] ?? []) as unknown[]).map(Number),
+                      introducedVia: p['introduced_via'] ?? '', introducedViaOther: p['introduced_via_other'] ?? '', introducedOn: p['introduced_on'] ?? '' };
         this.students = res.students ?? [];
       },
       error: (e) => (this.error = errorText(e, 'Could not load sponsor details.'))
