@@ -148,10 +148,20 @@ public class AdminController {
     // ---------------------------------------------------------------- RCC centers
 
     @GetMapping("/rcc-centers")
-    @PreAuthorize("hasAuthority('RCC_CENTERS:VIEW') or hasAuthority('STUDENTS:VIEW') or hasAuthority('USERS:VIEW')")
+    @PreAuthorize("hasAuthority('RCC_CENTERS:VIEW') or hasAuthority('STUDENTS:VIEW') or hasAuthority('USERS:VIEW') or hasAuthority('SPONSOR_DETAILS:EDIT')")
     public List<RccCenter> listRccCenters() {
         return adminService.listRccCenters();
     }
+
+    /** Coaching Centers page: rcc_center_id -> the sponsors who run / pay for it (set on Edit Sponsor). */
+    @GetMapping("/rcc-centers/sponsors")
+    @PreAuthorize("hasAuthority('RCC_CENTERS:VIEW')")
+    public Map<Long, List<Map<String, Object>>> rccCenterSponsors() {
+        return sponsorCoachingCenters.sponsorsByCenter();
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.service.SponsorCoachingCenterService sponsorCoachingCenters;
 
     @PostMapping("/rcc-centers")
     @PreAuthorize("hasAuthority('RCC_CENTERS:EDIT')")

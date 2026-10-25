@@ -8,6 +8,7 @@ import { AuthService } from '../core/services/auth.service';
 import { StudyStatusService } from '../core/services/study-status.service';
 import { ChapterService } from '../core/services/chapter.service';
 import { Chapter } from './admin-chapters.component';
+import { RccCenter } from './admin-rcc-centers.component';
 import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { BulkReport, BulkReportComponent } from '../shared/bulk-report.component';
 import { PagerComponent } from '../shared/pager/pager.component';
@@ -179,6 +180,17 @@ interface FeeRow {
                   <option *ngFor="let c of chapterOptions(edit.chapterId)" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
                 </select>
               </div>
+              <div class="col-12 form-group" *ngIf="centers">
+                <label>Coaching centers they run / pay for <small class="text-muted">(tick all that apply)</small></label>
+                <div *ngIf="!centers.length" class="small text-muted">No coaching centers yet.</div>
+                <div class="d-flex flex-wrap" style="gap: 4px 16px">
+                  <div class="custom-control custom-checkbox" *ngFor="let c of centers">
+                    <input type="checkbox" class="custom-control-input" [id]="'sp-center-' + c.rccCenterId"
+                           [checked]="hasCenter(c.rccCenterId)" (change)="toggleCenter(c.rccCenterId)">
+                    <label class="custom-control-label" [for]="'sp-center-' + c.rccCenterId">{{ c.centerName }}</label>
+                  </div>
+                </div>
+              </div>
             </div>
             <h5 class="text-success border-bottom pb-2 mt-4"><i class="mdi mdi-heart-outline"></i> Student preferences
               <small class="text-muted">(what kind of student this sponsor would like)</small></h5>
@@ -349,7 +361,17 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
   file: File | null = null;
   uploading = false;
 
-  edit: { id: number; name: string; careOf: string; email: string; phone: string; chapterId: number | null } | null = null;
+  edit: { id: number; name: string; careOf: string; email: string; phone: string; chapterId: number | null; coachingCenterIds: number[] } | null = null;
+  /** Coaching centers to tick on Edit Sponsor (null until loaded, or when the user can't see them). */
+  centers: RccCenter[] | null = null;
+
+  hasCenter(id: number | undefined): boolean { return id != null && !!this.edit?.coachingCenterIds.includes(id); }
+
+  toggleCenter(id: number | undefined): void {
+    if (!this.edit || id == null) return;
+    const ids = this.edit.coachingCenterIds;
+    this.edit.coachingCenterIds = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
+  }
   editError = '';
   chapters: Chapter[] = [];
   editName = '';
@@ -472,13 +494,15 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
   openEdit(id: number): void {
     if (!this.canEditProfile) return;
     if (!this.prefOptions) this.api.get<PreferenceOptions>('/sponsor-applications/preference-options').subscribe({ next: (o) => (this.prefOptions = o) });
-    this.api.get<{ profile: Record<string, string | null>; students: SponsorStudent[] }>(`/admin/sponsors/${id}`).subscribe({
+    if (!this.centers) this.api.get<RccCenter[]>('/admin/rcc-centers').subscribe({ next: (c) => (this.centers = c), error: () => (this.centers = null) });
+    this.api.get<{ profile: Record<string, any>; students: SponsorStudent[] }>(`/admin/sponsors/${id}`).subscribe({
       next: (res) => {
         const p = res.profile;
         this.prefs = preferencesFrom(p as Record<string, unknown>);
         this.editName = p['name'] ?? '';
         this.editError = '';
-        this.edit = { id, name: p['name'] ?? '', careOf: p['care_of'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', chapterId: p['chapter_id'] === null || p['chapter_id'] === undefined ? null : Number(p['chapter_id']) };
+        this.edit = { id, name: p['name'] ?? '', careOf: p['care_of'] ?? '', email: p['email'] ?? '', phone: p['phone'] ?? '', chapterId: p['chapter_id'] === null || p['chapter_id'] === undefined ? null : Number(p['chapter_id']),
+                      coachingCenterIds: ((p['coaching_center_ids'] ?? []) as unknown[]).map(Number) };
         this.students = res.students ?? [];
       },
       error: (e) => (this.error = errorText(e, 'Could not load sponsor details.'))
@@ -489,7 +513,9 @@ export class AdminSponsorshipsComponent implements OnInit, OnDestroy {
     if (!this.edit) return;
     this.saving = true;
     this.editError = '';
-    const { id, ...body } = this.edit;
+    const { id, coachingCenterIds, ...rest } = this.edit;
+    // the centers only when they could be shown (else the sponsor's centers stay as they are)
+    const body = this.centers ? { ...rest, coachingCenterIds } : rest;
     this.api.put<{ message: string }>(`/admin/sponsors/${id}`, { ...body, preferences: this.prefs }).subscribe({
       next: () => { this.saving = false; this.edit = null; this.message = 'Profile Updated Successfully!'; this.load(); },
       // Shown inside the pop-up (the page's own alert is hidden behind it).

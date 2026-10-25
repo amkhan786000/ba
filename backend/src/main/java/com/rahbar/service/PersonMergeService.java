@@ -118,6 +118,10 @@ public class PersonMergeService {
                 + "WHERE k.grantee_detail_id <=> r.grantee_detail_id AND k.application_id <=> r.application_id)",
                 keepId, removeId, keepId);
         for (String[] m : MOVE_IF_MISSING) if (count(m[0], m[1], keepId) == 0) moveAll(m[0], m[1], keepId, removeId);
+        // coaching centers they support: the kept account gets the ones it doesn't have yet
+        jdbc.update("INSERT IGNORE INTO sponsor_coaching_centers (sponsor_user_id, rcc_center_id) "
+                + "SELECT ?, rcc_center_id FROM sponsor_coaching_centers WHERE sponsor_user_id = ?", keepId, removeId);
+        jdbc.update("DELETE FROM sponsor_coaching_centers WHERE sponsor_user_id = ?", removeId);
         if (count("grantor_grantees", "grantee_id", keepId) == 0) moveAll("grantor_grantees", "grantee_id", keepId, removeId);
         else jdbc.update("DELETE FROM grantor_grantees WHERE grantee_id = ?", removeId);
         if (student) jdbc.update("DELETE FROM payment_installments WHERE grantee_id = ?", removeId); // rebuilt for the kept account
