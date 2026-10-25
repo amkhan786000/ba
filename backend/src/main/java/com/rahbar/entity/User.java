@@ -87,6 +87,18 @@ public class User extends Modifiable {
     @Column(name = "care_of", length = 150)
     private String careOf;
 
+    /** Sponsors: how the introduction came (WHATSAPP, MESSAGE, EMAIL or OTHER; null = not said). */
+    @Column(name = "introduced_via", length = 20)
+    private String introducedVia;
+
+    /** Sponsors: what "OTHER" was, e.g. "At the annual dinner". */
+    @Column(name = "introduced_via_other", length = 100)
+    private String introducedViaOther;
+
+    /** Sponsors: the date the introduction was communicated. */
+    @Column(name = "introduced_on")
+    private java.time.LocalDate introducedOn;
+
     /** Sponsors: the kind of student they'd like to sponsor (GOVT, PRIVATE or ANY; null = not said). */
     @Column(name = "pref_college_type", length = 10)
     private String prefCollegeType;
