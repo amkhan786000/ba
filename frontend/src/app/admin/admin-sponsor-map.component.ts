@@ -36,8 +36,7 @@ interface MapScreen {
         <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-center">
           <h4 class="page-title mb-2 mb-md-0">Sponsor: <strong class="text-primary">{{ data?.sponsor?.name }}</strong>
             <span *ngIf="data?.sponsor?.care_of" class="text-info"> (c/o <strong>{{ data!.sponsor.care_of }}</strong>)</span>
-            <span *ngIf="data?.sponsor?.chapter_name"><span class="text-muted font-weight-normal"> from chapter</span>
-              <strong class="text-success">{{ data!.sponsor.chapter_name }}</strong></span></h4>
+            <span *ngIf="data?.sponsor?.chapter_name"><span class="text-muted font-weight-normal"> from </span><strong class="text-success">{{ chapterLabel(data!.sponsor.chapter_name) }}</strong></span></h4>
           <div class="page-title-right">
             <a [routerLink]="['/', section, 'sponsorships']" class="btn btn-secondary waves-effect waves-light"><i class="mdi mdi-arrow-left"></i> Back</a>
           </div>
@@ -199,6 +198,12 @@ export class AdminSponsorMapComponent implements OnInit {
   /** The session years of the students listed, newest first. */
   get yearList(): number[] {
     return [...new Set((this.data?.availableStudents ?? []).map((s) => s.year).filter((y): y is number => y != null))].sort((a, b) => b - a);
+  }
+
+  /** "Dubai" -> "Dubai Chapter" (a name that already ends in "Chapter" stays as it is). */
+  chapterLabel(name: string | null): string {
+    const n = (name ?? '').trim();
+    return /\bchapter$/i.test(n) ? n : n + ' Chapter';
   }
 
   /** Show only the students who fit the sponsor's preferences. */
