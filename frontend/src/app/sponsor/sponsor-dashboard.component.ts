@@ -75,7 +75,8 @@ interface Overview {
     <!-- My impact -->
     <div class="row" *ngIf="overview?.impact as im">
       <div class="col-6 col-xl-3"><div class="card-box">
-        <h4 class="header-title mt-0">Given so far</h4><h2>{{ im.payments }} installment{{ im.payments === 1 ? '' : 's' }}</h2>
+        <h4 class="header-title mt-0">Given so far</h4><h2>{{ im.payments }}
+          <span class="h6 text-muted font-weight-normal">installment{{ im.payments === 1 ? '' : 's' }}</span></h2>
         <small class="text-muted">paid{{ im.since_year ? ' since ' + im.since_year : '' }}</small></div></div>
       <div class="col-6 col-xl-3"><div class="card-box">
         <h4 class="header-title mt-0">Students supported</h4><h2>{{ im.students_supported }}</h2>
