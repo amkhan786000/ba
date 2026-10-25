@@ -81,12 +81,20 @@ interface ExamForm { rccCenterId: number | null; classLevel: number; name: strin
 
     <div class="card" *ngIf="canEdit && !scoped && subjectList"><div class="card-body">
       <h4 class="header-title">Subjects</h4>
-      <p class="text-muted small">The subjects exams can have (shared by every center).</p>
+      <p class="text-muted small">The subjects exams can have (shared by every center). Renaming one also renames it in the exams that use it.</p>
       <div class="d-flex flex-wrap mb-2" style="gap: 6px">
-        <span *ngFor="let s of subjectList" class="badge border p-2" [ngClass]="s.active ? 'badge-light' : 'badge-secondary'">{{ s.name }}
-          <a href="" class="ml-1" (click)="$event.preventDefault(); toggleSubject(s)" [title]="s.active ? 'Hide from new exams' : 'Use again'">
-            <i class="mdi" [ngClass]="s.active ? 'mdi-eye-off' : 'mdi-eye'"></i></a>
-          <a href="" class="ml-1 text-danger" (click)="$event.preventDefault(); deleteSubject(s)" title="Delete"><i class="mdi mdi-close"></i></a></span>
+        <ng-container *ngFor="let s of subjectList">
+          <span *ngIf="renaming?.id === s.id" class="d-inline-flex align-items-center border rounded p-1" style="gap: 4px">
+            <input class="form-control form-control-sm" style="width: 160px" maxlength="80" [(ngModel)]="renaming!.name"
+                   (keydown.enter)="renameSubject()" (keydown.escape)="renaming = null" aria-label="Subject name">
+            <button class="btn btn-xs btn-primary" (click)="renameSubject()" [disabled]="!renaming!.name.trim()">Save</button>
+            <button class="btn btn-xs btn-light" (click)="renaming = null">Cancel</button></span>
+          <span *ngIf="renaming?.id !== s.id" class="badge border p-2" [ngClass]="s.active ? 'badge-light' : 'badge-secondary'">{{ s.name }}
+            <a href="" class="ml-1" (click)="$event.preventDefault(); renaming = { id: s.id, name: s.name }" title="Rename"><i class="mdi mdi-pencil"></i></a>
+            <a href="" class="ml-1" (click)="$event.preventDefault(); toggleSubject(s)" [title]="s.active ? 'Hide from new exams' : 'Use again'">
+              <i class="mdi" [ngClass]="s.active ? 'mdi-eye-off' : 'mdi-eye'"></i></a>
+            <a href="" class="ml-1 text-danger" (click)="$event.preventDefault(); deleteSubject(s)" title="Delete"><i class="mdi mdi-close"></i></a></span>
+        </ng-container>
       </div>
       <div class="d-flex" style="gap: 6px; max-width: 420px">
         <input class="form-control form-control-sm" maxlength="80" [(ngModel)]="newSubject" placeholder="New subject, e.g. Computer">
@@ -333,6 +341,18 @@ export class CoachingExamsComponent implements OnInit {
     this.api.post('/admin/coaching/subjects', { name: this.newSubject, sortOrder: (this.subjectList?.length ?? 0) + 1 }).subscribe({
       next: () => { this.newSubject = ''; this.load(); },
       error: (e) => (this.error = errorText(e, 'Could not add the subject.'))
+    });
+  }
+
+  /** The subject being renamed, with its new name. */
+  renaming: { id: number; name: string } | null = null;
+
+  renameSubject(): void {
+    const r = this.renaming;
+    if (!r || !r.name.trim()) return;
+    this.api.put(`/admin/coaching/subjects/${r.id}`, { name: r.name }).subscribe({
+      next: () => { this.renaming = null; this.message = 'Subject renamed.'; this.load(); },
+      error: (e) => (this.error = errorText(e, 'Could not rename the subject.'))
     });
   }
 
