@@ -61,6 +61,8 @@ public class FileAccessService {
     private boolean mayRead(User me, String file) {
         // Stored paths may carry a folder (legacy rows): match on the file name at the end.
         String like = "%/" + file, likeWin = "%\\\\" + file;
+        // Files attached to Admin > Documents: only through the document, which knows who may read it.
+        if (file.startsWith(OrgDocumentService.FILE_PREFIX)) return false;
         // Rahbar-e-Banaat documents and photos (minors): only people with "REB: private details & documents".
         if (file.startsWith("reb_") || exists("select 1 from reb_student_documents where file_path = ?", file)) {
             return Access.can(com.rahbar.security.Section.REB_STUDENT_PRIVATE, com.rahbar.security.Section.Level.VIEW);

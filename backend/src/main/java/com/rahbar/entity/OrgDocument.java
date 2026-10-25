@@ -5,7 +5,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * An organisation document (by-laws, policies, ...) kept as text: pasted in, not uploaded. Admin > Documents.
+ * An organisation document (by-laws, policies, ...): text pasted in, and / or an attached PDF or Word file. Admin > Documents.
  * Named OrgDocument so it doesn't clash with the PDF library's Document class.
  */
 @Entity
@@ -23,9 +23,17 @@ public class OrgDocument extends Modifiable {
     @Column(nullable = false, length = 200)
     private String title;
 
-    /** The text as pasted; line breaks are kept and Markdown (## heading, **bold**, lists) is shown formatted. */
+    /** The text as pasted (empty when the document is only its attached file); line breaks are kept and Markdown (## heading, **bold**, lists) is shown formatted. */
     @Column(nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;
+
+    /** An attached PDF / Word file (the stored file name), if any; shown for download beside (or instead of) the text. */
+    @Column(length = 255)
+    private String attachmentPath;
+
+    /** The attached file's name as uploaded, e.g. "By-laws 2024.pdf". */
+    @Column(length = 255)
+    private String attachmentName;
 
     /** When the document (or this version of it) took effect, e.g. the date by-laws were adopted. */
     private java.time.LocalDate effectiveDate;

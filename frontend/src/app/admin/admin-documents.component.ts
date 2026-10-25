@@ -17,18 +17,26 @@ const PORTAL_AREAS: Record<string, number> = { coordinator: ROLE.COORDINATOR, co
 interface DocRow {
   id: number; category_id: number; title: string; effective_date: string | null; archived: boolean;
   updated_at: string | null; updated_by_name: string | null; earlier_versions?: number; visibility?: string; readers?: string; snippet?: string;
+  /** The attached PDF / Word file's name, if any. */
+  attachment_name?: string | null;
 }
 interface Doc {
   id: number; category_id: number; category_name: string | null; title: string; content: string; effective_date: string | null;
   archived: boolean; created_at: string | null; created_by_name: string | null; updated_at: string | null; updated_by_name: string | null;
   visibility?: string; visible_roles?: number[]; readers?: string;
+  /** The attached PDF / Word file's name, if any (opened through /admin/documents/{id}/file). */
+  attachment_name?: string | null;
 }
 interface Category { id: number; name: string; description: string | null; display_order: number; documents: number }
-interface Revision { id: number; title: string; content: string; effective_date: string | null; created_at: string; replaced_by_name: string | null }
+interface Revision {
+  id: number; title: string; content: string; effective_date: string | null; created_at: string; replaced_by_name: string | null;
+  attachment_name?: string | null;
+}
 
 /**
- * Admin > Documents: the organisation's by-laws and other documents, kept as text in categories. The text is
- * pasted in (not uploaded); line breaks are kept and Markdown is shown formatted. Every change keeps the earlier
+ * Admin > Documents: the organisation's by-laws and other documents, in categories: text pasted in (line breaks
+ * are kept and Markdown is shown formatted) and / or an attached PDF or Word file (a PDF opens in a new tab, Word
+ * files download). Every change keeps the earlier
  * version, which can be viewed and restored. Documents are archived, not deleted (only the Super Admin deletes).
  * Who may read a document is chosen on it: everyone (every signed-in user, also in the portals) or some roles;
  * people who edit documents see them all. The same page is the read-only Documents page of the portals.
@@ -77,7 +85,8 @@ interface Revision { id: number; title: string; content: string; effective_date:
               <div class="list-group">
                 <a *ngFor="let d of g.docs" class="list-group-item list-group-item-action py-2" [class.active]="d.id === current?.id"
                    tabindex="0" (click)="open(d.id)" (keydown.enter)="open(d.id)">
-                  <div>{{ d.title }} <span *ngIf="d.archived" class="badge badge-secondary ml-1">Archived</span></div>
+                  <div>{{ d.title }} <i *ngIf="d.attachment_name" class="mdi" [ngClass]="fileIcon(d.attachment_name)" [title]="d.attachment_name"></i>
+                    <span *ngIf="d.archived" class="badge badge-secondary ml-1">Archived</span></div>
                   <small [class.text-muted]="d.id !== current?.id">{{ d.effective_date ? 'Effective ' + (d.effective_date | appDate) : 'Updated ' + (d.updated_at | appDate) }}</small>
                   <div *ngIf="d.snippet" class="small font-italic mt-1" [class.text-muted]="d.id !== current?.id">{{ d.snippet }}</div>
                 </a>
@@ -116,21 +125,33 @@ interface Revision { id: number; title: string; content: string; effective_date:
                 <small class="text-muted">People who can edit documents always see every document.</small>
               </div>
             </div>
+            <div class="form-group">
+              <label for="d-file" class="mb-1">Attached file <small class="text-muted">(PDF or Word: .pdf, .doc, .docx, at most 20 MB)</small></label>
+              <div *ngIf="edit.fileName && !edit.removeFile && !edit.file" class="d-flex align-items-center mb-1">
+                <i class="mdi mr-1" [ngClass]="fileIcon(edit.fileName)"></i><span class="mr-2">{{ edit.fileName }}</span>
+                <button type="button" class="btn btn-xs btn-outline-danger" (click)="edit.removeFile = true">Remove</button>
+              </div>
+              <div *ngIf="edit.removeFile && !edit.file" class="small text-muted mb-1">The file will be removed when you save
+                (it stays with the earlier version). <a href="" (click)="$event.preventDefault(); edit.removeFile = false">Keep it</a></div>
+              <input id="d-file" type="file" class="form-control-file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                     (change)="pickFile($event)">
+              <small *ngIf="edit.file" class="d-block text-muted mt-1">{{ edit.fileName ? 'Replaces the current file.' : '' }} {{ edit.file.name }} will be attached when you save.</small>
+            </div>
             <div class="d-flex justify-content-between align-items-end mb-1">
-              <label for="d-content" class="mb-0">Text *</label>
+              <label for="d-content" class="mb-0">Text {{ hasFile ? '(optional with a file)' : '*' }}</label>
               <div class="btn-group btn-group-sm">
                 <button type="button" class="btn" [ngClass]="preview ? 'btn-light' : 'btn-secondary'" (click)="preview = false">Write</button>
                 <button type="button" class="btn" [ngClass]="preview ? 'btn-secondary' : 'btn-light'" (click)="preview = true" [disabled]="!edit.content">Preview</button>
               </div>
             </div>
             <textarea *ngIf="!preview" id="d-content" class="form-control doc-editor" [(ngModel)]="edit.content"
-                      placeholder="Paste the text of the document here."></textarea>
+                      [placeholder]="hasFile ? 'Optional: paste the text too, so it can be read and searched here.' : 'Paste the text of the document here.'"></textarea>
             <div *ngIf="preview" class="border rounded p-3 doc-text website-prose" [innerHTML]="edit.content | websiteMarkdown"></div>
             <small class="text-muted d-block mt-1">Paste the text as it is: line breaks are kept. Optional formatting: <code>## Heading</code>, <code>**bold**</code>, lines starting with <code>-</code> or <code>1.</code> become lists.</small>
-            <p *ngIf="edit.id" class="small text-muted mt-2 mb-0">Saving keeps the current text as an earlier version.</p>
+            <p *ngIf="edit.id" class="small text-muted mt-2 mb-0">Saving keeps the current text and file as an earlier version.</p>
             <div class="d-flex justify-content-end mt-3">
               <button class="btn btn-light mr-2" (click)="cancelEdit()">Cancel</button>
-              <button class="btn btn-primary" (click)="save()" [disabled]="busy || !edit.title.trim() || !edit.categoryId || !edit.content.trim() || (edit.visibility === 'ROLES' && !edit.roles.length)">{{ busy ? 'Saving…' : 'Save' }}</button>
+              <button class="btn btn-primary" (click)="save()" [disabled]="busy || !edit.title.trim() || !edit.categoryId || (!edit.content.trim() && !hasFile) || (edit.visibility === 'ROLES' && !edit.roles.length)">{{ busy ? 'Saving…' : 'Save' }}</button>
             </div>
           </div>
         </div>
@@ -150,7 +171,7 @@ interface Revision { id: number; title: string; content: string; effective_date:
                 <div *ngIf="current.readers" class="small mt-1"><i class="mdi mdi-eye-outline mr-1"></i>Can read: {{ current.readers }}</div>
               </div>
               <div class="d-flex flex-wrap">
-                <button class="btn btn-sm btn-outline-secondary mr-1 mb-1" (click)="copy()"><i class="mdi mdi-content-copy mr-1"></i>{{ copied ? 'Copied' : 'Copy text' }}</button>
+                <button *ngIf="current.content" class="btn btn-sm btn-outline-secondary mr-1 mb-1" (click)="copy()"><i class="mdi mdi-content-copy mr-1"></i>{{ copied ? 'Copied' : 'Copy text' }}</button>
                 <button class="btn btn-sm btn-outline-secondary mr-1 mb-1" (click)="openVersions()" *ngIf="currentRow?.earlier_versions">
                   <i class="mdi mdi-history mr-1"></i>Earlier versions ({{ currentRow?.earlier_versions }})</button>
                 <button *ngIf="canEdit" class="btn btn-sm btn-primary mr-1 mb-1" (click)="editDoc()">Edit</button>
@@ -159,7 +180,13 @@ interface Revision { id: number; title: string; content: string; effective_date:
               </div>
             </div>
             <hr>
-            <div class="doc-text website-prose" [innerHTML]="current.content | websiteMarkdown"></div>
+            <div *ngIf="current.attachment_name" class="border rounded p-2 mb-3 d-flex flex-wrap align-items-center" style="gap: 8px">
+              <i class="mdi mdi-24px" [ngClass]="fileIcon(current.attachment_name)"></i>
+              <span class="mr-auto text-break">{{ current.attachment_name }}</span>
+              <button *ngIf="isPdf(current.attachment_name)" class="btn btn-sm btn-primary" (click)="openFile()"><i class="mdi mdi-open-in-new mr-1"></i>Open</button>
+              <button class="btn btn-sm btn-outline-primary" (click)="downloadFile()"><i class="mdi mdi-download mr-1"></i>Download</button>
+            </div>
+            <div *ngIf="current.content" class="doc-text website-prose" [innerHTML]="current.content | websiteMarkdown"></div>
           </div>
         </div>
 
@@ -231,7 +258,9 @@ interface Revision { id: number; title: string; content: string; effective_date:
               <div class="col-md-8" *ngIf="version">
                 <h5 class="mt-3 mt-md-0">{{ version.title }}</h5>
                 <p class="small text-muted" *ngIf="version.effective_date">Effective {{ version.effective_date | appDate }}</p>
-                <div class="border rounded p-3 doc-text website-prose" [innerHTML]="version.content | websiteMarkdown"></div>
+                <p *ngIf="version.attachment_name" class="small"><i class="mdi" [ngClass]="fileIcon(version.attachment_name)"></i>
+                  <a href="" (click)="$event.preventDefault(); downloadVersionFile()">{{ version.attachment_name }}</a></p>
+                <div *ngIf="version.content" class="border rounded p-3 doc-text website-prose" [innerHTML]="version.content | websiteMarkdown"></div>
               </div>
             </div>
           </div>
@@ -255,7 +284,11 @@ export class AdminDocumentsComponent implements OnInit {
   private searchTimer: ReturnType<typeof setTimeout> | null = null;
   categoryId: number | null = null;
   showArchived = false;
-  edit: { id: number | null; title: string; categoryId: number | null; effectiveDate: string; content: string; visibility: string; roles: number[] } | null = null;
+  edit: {
+    id: number | null; title: string; categoryId: number | null; effectiveDate: string; content: string; visibility: string; roles: number[];
+    /** The current file's name; a newly chosen file; the current file is to be removed. */
+    fileName: string | null; file: File | null; removeFile: boolean;
+  } | null = null;
   roleOptions: { id: number; name: string }[] = [];
   preview = false;
   cat: { id: number | null; name: string; description: string; displayOrder: number } | null = null;
@@ -335,7 +368,8 @@ export class AdminDocumentsComponent implements OnInit {
     this.current = null;
     this.preview = false;
     this.loadRoleOptions();
-    this.edit = { id: null, title: '', categoryId: this.categoryId, effectiveDate: '', content: '', visibility: 'PUBLIC', roles: [] };
+    this.edit = { id: null, title: '', categoryId: this.categoryId, effectiveDate: '', content: '', visibility: 'PUBLIC', roles: [],
+      fileName: null, file: null, removeFile: false };
   }
 
   editDoc(): void {
@@ -343,7 +377,7 @@ export class AdminDocumentsComponent implements OnInit {
     this.preview = false;
     this.loadRoleOptions();
     this.edit = { id: d.id, title: d.title, categoryId: d.category_id, effectiveDate: d.effective_date ?? '', content: d.content,
-      visibility: d.visibility ?? 'PUBLIC', roles: [...(d.visible_roles ?? [])] };
+      visibility: d.visibility ?? 'PUBLIC', roles: [...(d.visible_roles ?? [])], fileName: d.attachment_name ?? null, file: null, removeFile: false };
   }
 
   cancelEdit(): void {
@@ -357,9 +391,13 @@ export class AdminDocumentsComponent implements OnInit {
     if (!e) return;
     this.busy = true;
     const body = { title: e.title, categoryId: e.categoryId, effectiveDate: e.effectiveDate || null, content: e.content,
-      visibility: e.visibility, visibleRoleIds: e.visibility === 'ROLES' ? e.roles : [] };
-    const req = e.id ? this.api.put<{ message: string; id: number }>(`/admin/documents/${e.id}`, body)
-      : this.api.post<{ message: string; id: number }>('/admin/documents', body);
+      visibility: e.visibility, visibleRoleIds: e.visibility === 'ROLES' ? e.roles : [], removeFile: e.removeFile && !e.file };
+    // the details as JSON and the file (if one was chosen) in one request
+    const form = new FormData();
+    form.append('data', new Blob([JSON.stringify(body)], { type: 'application/json' }));
+    if (e.file) form.append('file', e.file);
+    const req = e.id ? this.api.put<{ message: string; id: number }>(`/admin/documents/${e.id}`, form)
+      : this.api.post<{ message: string; id: number }>('/admin/documents', form);
     req.subscribe({
       next: (r) => { this.busy = false; this.edit = null; this.message = r.message; this.load(r.id); },
       error: (err) => { this.busy = false; this.error = errorText(err, 'Could not save the document.'); }
@@ -391,6 +429,44 @@ export class AdminDocumentsComponent implements OnInit {
       next: (r) => { this.message = r.message; this.current = null; this.load(); },
       error: (e) => (this.error = errorText(e, 'Could not delete the document.'))
     });
+  }
+
+  /** The editor has a file: the current one (not being removed) or a newly chosen one. */
+  get hasFile(): boolean { return !!this.edit && (!!this.edit.file || (!!this.edit.fileName && !this.edit.removeFile)); }
+
+  pickFile(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const f = input.files?.[0] ?? null;
+    if (!this.edit || !f) return;
+    if (!/\.(pdf|docx?)$/i.test(f.name)) { this.error = 'Attach a PDF or a Word file (.pdf, .doc or .docx).'; input.value = ''; return; }
+    if (f.size > 20 * 1024 * 1024) { this.error = 'The file is too large (at most 20 MB).'; input.value = ''; return; }
+    this.edit.file = f;
+  }
+
+  isPdf(name: string | null | undefined): boolean { return /\.pdf$/i.test(name ?? ''); }
+
+  fileIcon(name: string | null | undefined): string { return this.isPdf(name) ? 'mdi-file-pdf text-danger' : 'mdi-file-word text-primary'; }
+
+  /** A PDF opens in a new tab (the file needs the sign-in, so it is fetched first). */
+  openFile(): void {
+    const d = this.current!;
+    const tab = window.open('', '_blank');
+    this.api.blobUrl(`/admin/documents/${d.id}/file${this.asRole ? '?asRole=' + this.asRole : ''}`).subscribe({
+      next: (url) => { if (tab) tab.location.href = url; else window.location.href = url; setTimeout(() => URL.revokeObjectURL(url), 60_000); },
+      error: (e) => { tab?.close(); this.error = errorText(e, 'Could not open the file.'); }
+    });
+  }
+
+  downloadFile(): void {
+    const d = this.current!;
+    this.api.download(`/admin/documents/${d.id}/file`, { asRole: this.asRole }, d.attachment_name ?? 'document')
+      .subscribe({ error: (e) => (this.error = errorText(e, 'Could not download the file.')) });
+  }
+
+  downloadVersionFile(): void {
+    const d = this.current!, v = this.version!;
+    this.api.download(`/admin/documents/${d.id}/revisions/${v.id}/file`, {}, v.attachment_name ?? 'document')
+      .subscribe({ error: (e) => (this.error = errorText(e, 'Could not download the file.')) });
   }
 
   copy(): void {
