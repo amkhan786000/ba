@@ -37,7 +37,21 @@ public class EmailTemplateService {
         EmailTemplate custom = templateRepository.findById(type.name()).orElse(null);
         String subject = custom == null ? type.defaultSubject : custom.getSubject();
         String body = custom == null ? type.defaultBody : custom.getBody();
-        return new RenderedEmail(fill(subject, values).replaceAll("\\s+", " ").trim(), fill(body, values));
+        // {{sign_in_url}} works in every email, unless the sender gave its own
+        Map<String, Object> all = new HashMap<>(values == null ? Map.of() : values);
+        all.putIfAbsent("sign_in_url", signInUrl(siteUrl));
+        return new RenderedEmail(fill(subject, all).replaceAll("\\s+", " ").trim(), fill(body, all));
+    }
+
+    /** The site's addresses (the first one is the one emails link to). */
+    @org.springframework.beans.factory.annotation.Value("${app.cors.allowed-origins:}")
+    private String siteUrl;
+
+    /** The sign-in page for emails: the first allowed origin + /login (e.g. https://rahbar.example.org/login). */
+    static String signInUrl(String siteUrl) {
+        String first = siteUrl == null ? "" : siteUrl.split(",")[0].trim();
+        if (first.endsWith("/")) first = first.substring(0, first.length() - 1);
+        return first.isEmpty() ? "the Rahbar website" : first + "/login";
     }
 
     /** Replaces {{name}} with values.get("name"); unknown placeholders become empty. */
