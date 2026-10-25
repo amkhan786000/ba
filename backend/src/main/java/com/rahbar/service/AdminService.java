@@ -294,6 +294,7 @@ public class AdminService {
         if (UserRoles.has(user, Role.SUPER_ADMIN, userRepository)) requireMayAssignRole(Role.SUPER_ADMIN);
         boolean hidden = hidesDetailsOf(user); // a sponsor's details the editor isn't allowed to see stay as they are
         if (body.get("name") != null) user.setName(String.valueOf(body.get("name")));
+        if (body.containsKey("careOf")) user.setCareOf(careOf(body.get("careOf")));
         if (!hidden && body.containsKey("email")) user.setEmail(trimToNull(str(body.get("email"))));
         if (body.get("roleId") != null) {
             Integer roleId = Integer.valueOf(String.valueOf(body.get("roleId")));
