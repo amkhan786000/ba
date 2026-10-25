@@ -38,14 +38,17 @@ import { DateInputComponent } from '../shared/date-input.component';
 
     <div class="card">
       <div class="card-body">
-        <div class="d-flex flex-column flex-md-row justify-content-between mb-3">
-          <p class="text-muted mb-2 mb-md-0 mr-md-3">
-            Installments are created when a student is mapped to a sponsor, from the course's semesters, the Payment Config
-            of the student's session year and the student's payment start date. <strong>Due</strong> = due soon (see "Show as due" in Payment Config), <strong>Overdue</strong> = the date has passed and it isn't paid.
-          </p>
-          <div class="d-flex align-items-start" style="gap: 8px">
-            <app-session-year-select [years]="table.last?.years" [(value)]="sessionYear" (valueChange)="table.filter()"></app-session-year-select>
-            <input class="form-control" style="max-width: 280px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+        <p class="text-muted mb-2">
+          Installments are created when a student is mapped to a sponsor, from the course's semesters, the Payment Config
+          of the student's session year and the student's payment start date. <strong>Due</strong> = due soon (see "Show as due" in Payment Config), <strong>Overdue</strong> = the date has passed and it isn't paid.
+        </p>
+        <!-- filters on their own line, so the search box has room -->
+        <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 8px">
+          <app-session-year-select [years]="table.last?.years" [(value)]="sessionYear" (valueChange)="table.filter()"></app-session-year-select>
+          <div class="input-group" style="flex: 1 1 280px; max-width: 460px">
+            <div class="input-group-prepend"><span class="input-group-text bg-white"><i class="mdi mdi-magnify"></i></span></div>
+            <input class="form-control" placeholder="Search student or sponsor (name or ID)" aria-label="Search student or sponsor"
+                   [(ngModel)]="q" (ngModelChange)="table.search()">
           </div>
         </div>
         <div class="table-responsive">
