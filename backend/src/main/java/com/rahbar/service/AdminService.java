@@ -160,6 +160,9 @@ public class AdminService {
         Map<Long, String> centers = new HashMap<>();
         rccCenterRepository.findAll().forEach(c -> centers.put(c.getRccCenterId(), c.getCenterName()));
         Map<Long, LocalDateTime> lastSignIn = activityLogService.lastSignIns();
+        // The Delete button: only the Super Admin, and only for a user with nothing linked to them.
+        boolean superAdmin = com.rahbar.security.Access.isSuperAdmin();
+        Map<Long, List<String>> blockers = superAdmin ? userDeletion.blockers(result.getContent()) : Map.of();
         for (User u : result.getContent()) {
             Map<String, Object> row = Rows.of(u);
             row.put("role_name", roleNames.get(u.getRoleId()));
@@ -168,6 +171,9 @@ public class AdminService {
             List<Integer> more = rolesOf.getOrDefault(u.getId(), Set.of()).stream().filter(r -> !r.equals(u.getRoleId())).sorted().toList();
             row.put("additional_role_ids", more);
             row.put("additional_role_names", more.stream().map(roleNames::get).filter(Objects::nonNull).toList());
+            List<String> why = superAdmin ? blockers.getOrDefault(u.getId(), List.of()) : List.of("Only the Super Admin can delete users.");
+            row.put("can_delete", why.isEmpty());
+            row.put("delete_blockers", why);
             rows.add(row);
         }
         return pageBody(result, rows);

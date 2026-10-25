@@ -42,6 +42,8 @@ export interface UserRow {
   must_change_password?: boolean | null;
   last_sign_in?: string | null;
   created_at?: string | null;
+  /** Delete (Super Admin): allowed only when nothing in Rahbar is linked to the user; otherwise why not. */
+  can_delete?: boolean; delete_blockers?: string[];
 }
 
 interface BulkUsersResult {
@@ -140,6 +142,10 @@ export interface RoleOption {
                         <span *ngIf="resetting === u.id" class="spinner-border spinner-border-sm"></span>
                         <i *ngIf="resetting !== u.id" class="mdi mdi-lock-reset"></i> Reset password
                       </button>
+                      <span *ngIf="canEdit" class="d-inline-block ml-1" [title]="deleteTitle(u)">
+                        <button type="button" class="btn btn-sm btn-outline-danger" (click)="deleteUser(u)" [disabled]="!u.can_delete || deleting"
+                                [style.pointer-events]="u.can_delete ? null : 'none'" aria-label="Delete user"><i class="mdi mdi-delete"></i></button>
+                      </span>
                     </td>
                   </tr>
                 </tbody>
@@ -403,6 +409,22 @@ export class AdminUsersComponent implements OnInit, OnDestroy {
   rccCenters: RccCenter[] = [];
 
   get canEdit(): boolean { return this.auth.can('USERS', 'EDIT'); }
+
+  deleting = false;
+
+  deleteTitle(u: UserRow): string {
+    return u.can_delete ? 'Delete this user' : "Can't delete: " + (u.delete_blockers ?? []).join('; ');
+  }
+
+  /** Super Admin: deletes a user with nothing linked to them (the server checks again). */
+  deleteUser(u: UserRow): void {
+    if (!u.can_delete || !confirm(`Delete ${u.name} (${u.user_id || 'no ID'}) permanently? This removes their account and can't be undone.`)) return;
+    this.deleting = true;
+    this.api.delete<{ message: string }>(`/admin/users/${u.id}`).subscribe({
+      next: (m) => { this.deleting = false; this.message = m.message; this.load(); },
+      error: (e) => { this.deleting = false; this.error = errorText(e, 'Could not delete the user.'); }
+    });
+  }
 
   resetting: number | null = null;
   tempPassword: { name: string; message: string; password: string } | null = null;

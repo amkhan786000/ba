@@ -49,11 +49,12 @@ class UserDeletionServiceTest {
                         "web_pages.created_by", "users.created_by", "trusted_devices.user_id"));
         when(jdbc.queryForList(contains("key_column_usage"), eq(String.class)))
                 .thenReturn(List.of("payments.grantor_id", "notifications.user_id", "web_pages.created_by", "users.created_by", "trusted_devices.user_id"));
-        when(jdbc.queryForObject(startsWith("SELECT COUNT(*) FROM `"), eq(Long.class), any(Object[].class))).thenAnswer(i -> {
+        when(jdbc.queryForList(contains("GROUP BY"), any(Object[].class))).thenAnswer(i -> {
             String sql = i.getArgument(0);
-            String t = sql.substring(sql.indexOf('`') + 1, sql.indexOf('`', sql.indexOf('`') + 1));
+            String t = sql.substring(sql.indexOf("FROM `") + 6, sql.indexOf('`', sql.indexOf("FROM `") + 6));
             String c = sql.substring(sql.indexOf("WHERE `") + 7, sql.indexOf('`', sql.indexOf("WHERE `") + 7));
-            return rows.getOrDefault(t + "." + c, 0L);
+            long n = rows.getOrDefault(t + "." + c, 0L);
+            return n == 0 ? List.of() : List.of(Map.<String, Object>of("uid", 5L, "n", n));
         });
         return u;
     }
@@ -100,5 +101,19 @@ class UserDeletionServiceTest {
         me.setId(1L);
         when(users.findById(1L)).thenReturn(Optional.of(me));
         assertTrue(service.blockers(1L).contains("This is your own account."));
+    }
+
+    @Test
+    void aWholePageIsCheckedAtOnce() {
+        signIn(Role.SUPER_ADMIN);
+        User linked = target(null);
+        User free = new User();
+        free.setId(9L);
+        free.setRoleId(5);
+        rows.put("payments.grantor_id", 3L); // user 5 only
+        Map<Long, List<String>> why = service.blockers(List.of(linked, free));
+        assertEquals(List.of("3 payment(s) made as sponsor"), why.get(5L));
+        assertEquals(List.of(), why.get(9L));
+        verify(jdbc).queryForList(contains("`payments` WHERE `grantor_id` IN (?,?)"), any(Object[].class));
     }
 }
