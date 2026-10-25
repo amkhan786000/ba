@@ -52,8 +52,16 @@ public class SponsorStatementService {
         this.emailService = emailService;
     }
 
-    /** One student's line on the statement, in installments (amounts are never shown). */
-    private record Line(User student, String course, int dueCount, int paidCount, int outstanding, StudentProgress latestProgress) {}
+    /** The application / family details (father's name and profession, address, mobile numbers). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.rahbar.repository.GranteeDetailsRepository granteeDetailsRepository;
+
+    /**
+     * One student's line on the statement, in installments (amounts are never shown), with a few details about the
+     * student for the sponsor (family: their application / family details, may be null).
+     */
+    record Line(User student, String course, int dueCount, int paidCount, int outstanding, StudentProgress latestProgress,
+                com.rahbar.entity.GranteeDetails family) {}
 
     /** The sponsor's statement for the year as a PDF. */
     @Transactional(readOnly = true)
@@ -98,7 +106,7 @@ public class SponsorStatementService {
             int outstanding = (int) mine.stream().filter(i -> i.isOpen() && !i.getDueDate().isAfter(asOf)).count();
             Map<String, Object> course = Rows.first(studentCourseRepository.findCourseDetails(id));
             String courseText = course == null ? "" : course.get("course_name") + " - " + course.get("institution_name");
-            lines.add(new Line(s, courseText, mine.size(), paid.size(), outstanding, latest.get(id)));
+            lines.add(new Line(s, courseText, mine.size(), paid.size(), outstanding, latest.get(id), familyOf(id)));
         }
         lines.sort(Comparator.comparing(l -> String.valueOf(l.student().getName()), String.CASE_INSENSITIVE_ORDER));
         try {
@@ -150,7 +158,20 @@ public class SponsorStatementService {
         return n + (n == 1 ? " installment" : " installments");
     }
 
-    private static byte[] render(User sponsor, int year, LocalDate asOf, List<Line> lines, List<Payment> payments,
+    /** The student's latest application / family details, if any. */
+    private com.rahbar.entity.GranteeDetails familyOf(Long studentId) {
+        if (granteeDetailsRepository == null) return null;
+        return granteeDetailsRepository.findByUserId(studentId).stream()
+                .max(Comparator.comparing(com.rahbar.entity.GranteeDetails::getGranteeDetailId)).orElse(null);
+    }
+
+    /** "-" for nothing. */
+    private static String or(String... values) {
+        for (String v : values) if (v != null && !v.isBlank()) return v.strip();
+        return "-";
+    }
+
+    static byte[] render(User sponsor, int year, LocalDate asOf, List<Line> lines, List<Payment> payments,
                                  Map<Long, User> students, Map<Long, Integer> installmentNo) throws DocumentException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Document doc = new Document(PageSize.A4, 36, 36, 36, 36);
@@ -206,6 +227,27 @@ public class SponsorStatementService {
             doc.add(t);
         }
         doc.add(new Paragraph(" "));
+
+        if (!lines.isEmpty()) {
+            doc.add(heading(new Paragraph("Student details", h2)));
+            PdfPTable t = new PdfPTable(new float[]{3f, 3.4f, 3f, 3.6f, 1.6f});
+            t.setWidthPercentage(100);
+            t.setHeaderRows(1);
+            for (String h : List.of("Student", "Phone / email", "Father (profession)", "Address", "Study status")) t.addCell(head(h, bold));
+            for (Line l : lines) {
+                User s = l.student();
+                com.rahbar.entity.GranteeDetails f = l.family();
+                t.addCell(cell(s.getName() + "\n" + s.getUserId(), text));
+                t.addCell(cell(or(s.getPhone(), f == null ? null : f.getStudentMobile()) + "\n" + or(s.getEmail()), text));
+                String father = f == null ? "-" : or(f.getFatherName());
+                String profession = f == null ? null : f.getFatherProfession();
+                t.addCell(cell(father + (profession == null || profession.isBlank() ? "" : "\n(" + profession.strip() + ")"), text));
+                t.addCell(cell(f == null ? "-" : or(f.getAddress()), text));
+                t.addCell(cell(StudyStatus.label(s.getStudyStatus()), text));
+            }
+            doc.add(t);
+            doc.add(new Paragraph(" "));
+        }
 
         doc.add(heading(new Paragraph("Payments in " + year, h2)));
         if (payments.isEmpty()) {
