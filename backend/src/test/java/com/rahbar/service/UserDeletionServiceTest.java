@@ -74,10 +74,9 @@ class UserDeletionServiceTest {
         rows.put("web_pages.created_by", 1L);
         rows.put("notifications.user_id", 4L); // goes with the user: not a reason
         List<String> why = service.blockers(5L);
-        assertTrue(why.stream().anyMatch(w -> w.startsWith("Belongs to a chapter")));
         assertTrue(why.contains("2 student(s) mapped to them as sponsor"));
         assertTrue(why.contains("1 web pages record(s) they created or changed"));
-        assertEquals(3, why.size());
+        assertEquals(2, why.size()); // their chapter doesn't count
         assertThrows(ApiException.class, () -> service.delete(5L));
         verify(jdbc, never()).update(startsWith("DELETE FROM users"), any(Object[].class));
     }

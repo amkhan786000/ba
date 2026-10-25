@@ -14,8 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 
 /**
- * Users > Edit > Delete (Super Admin only): a user can be deleted only when nothing in Rahbar is linked to them: no
- * students or sponsor, payments, installments, applications, course, progress, chapter or RCC centre, and nothing
+ * Users > Delete (Super Admin only): a user can be deleted only when nothing in Rahbar is linked to them: no students or
+ * sponsor, payments, installments, applications, course, progress or RCC centre (their chapter doesn't count), and nothing
  * they created or changed (any other record that points to them). Otherwise the reasons are listed and the account
  * can be deactivated instead.
  * <p>
@@ -97,7 +97,6 @@ public class UserDeletionService {
                 if (superAdmins == null) superAdmins = superAdmins();
                 if (superAdmins <= 1) why.add("This is the only Super Admin.");
             }
-            if (u.getChapterId() != null) why.add("Belongs to a chapter" + (u.getChapterName() == null ? "" : " (" + u.getChapterName() + ")") + ": remove the chapter first.");
             if (u.getRccCenterId() != null) why.add("Belongs to an RCC centre: remove it first.");
             out.put(u.getId(), why);
         }
