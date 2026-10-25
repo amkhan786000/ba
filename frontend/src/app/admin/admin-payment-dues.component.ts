@@ -48,15 +48,18 @@ interface Due {
 
     <div class="card">
       <div class="card-body">
-        <div class="d-flex flex-column flex-md-row justify-content-between mb-3">
-          <p class="text-muted mb-2 mb-md-0">
-            From the installments created when each student was mapped to a sponsor (see Payment Records).
-            Reminders go out automatically every morning: once per overdue installment, and once when the next one becomes due
-            (the "show as due" days in Payment Config, 30 by default).
-          </p>
-          <div class="d-flex align-items-start" style="gap: 8px">
-            <app-session-year-select [years]="table.last?.years" [(value)]="sessionYear" (valueChange)="table.filter()"></app-session-year-select>
-            <input class="form-control" style="max-width: 260px" placeholder="Search student or sponsor" [(ngModel)]="q" (ngModelChange)="table.search()">
+        <p class="text-muted mb-2">
+          From the installments created when each student was mapped to a sponsor (see Payment Records).
+          Reminders go out automatically every morning: once per overdue installment, and once when the next one becomes due
+          (the "show as due" days in Payment Config, 30 by default).
+        </p>
+        <!-- filters on their own line, so the search box has room -->
+        <div class="d-flex flex-wrap align-items-center mb-3" style="gap: 8px">
+          <app-session-year-select [years]="table.last?.years" [(value)]="sessionYear" (valueChange)="table.filter()"></app-session-year-select>
+          <div class="input-group" style="flex: 1 1 280px; max-width: 460px">
+            <div class="input-group-prepend"><span class="input-group-text bg-white"><i class="mdi mdi-magnify"></i></span></div>
+            <input class="form-control" placeholder="Search student or sponsor (name or ID)" aria-label="Search student or sponsor"
+                   [(ngModel)]="q" (ngModelChange)="table.search()">
           </div>
         </div>
         <div class="table-responsive">
