@@ -15,7 +15,7 @@ type Row = Record<string, any>;
 
 interface Detail {
   grantee: Row;
-  /** On behalf of an anonymous donor: on_behalf, donor_chapter, donor_label, on_behalf_text. */
+  /** On behalf of an anonymous sponsor: on_behalf, donor_chapter, donor_label, on_behalf_text. */
   onBehalf?: Row;
   bankDetails: Row | null;
   payments: Row[];
@@ -152,7 +152,7 @@ const STATUS_ORDER: Record<string, number> = { Overdue: 0, Due: 1, 'Not Due': 2,
                 <td *ngIf="canPayOnline"><input *ngIf="payableOnline(r)" type="checkbox" [checked]="chosen.has(r.i.installment_id)"
                   (change)="toggleChosen(r)" [attr.aria-label]="'Choose installment ' + r.i.installment_no"></td>
                 <td><strong>{{ r.d.grantee['name'] }}</strong><div class="small text-muted">{{ r.d.grantee['user_id'] }}<span *ngIf="r.d.former"> · no longer yours</span></div>
-                  <span *ngIf="r.d.onBehalf?.['on_behalf']" class="badge badge-info">{{ r.d.onBehalf?.['donor_label'] || 'Anonymous donor' }} · {{ r.d.onBehalf?.['donor_chapter'] }}</span></td>
+                  <span *ngIf="r.d.onBehalf?.['on_behalf']" class="badge badge-info">{{ r.d.onBehalf?.['donor_label'] || 'Anonymous sponsor' }} · {{ r.d.onBehalf?.['donor_chapter'] }}</span></td>
                 <td class="font-weight-bold">Installment {{ r.i.installment_no }}</td>
                 <td>{{ r.i.due_date | appDate }}</td>
                 <td><span class="badge" [ngClass]="badge(r.i.status)">{{ r.i.status === 'Not Due' ? 'Upcoming' : r.i.status }}</span></td>

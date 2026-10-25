@@ -49,7 +49,8 @@ public class ChapterDashboardService {
     /**
      * Students sponsored on behalf of this chapter's anonymous donors (wherever the student and the sponsor are): the
      * student, the donor's label, and the sponsor who brought the donor, who is the person to contact (their name,
-     * phone and chapter: as "contact_*", shown to the chapter on purpose). The donor's identity is never in Rahbar.
+     * phone and chapter: as "contact_*", shown to the chapter on purpose). Who the anonymous sponsor is shows only to
+     * the Super Admin and the Application Administrator.
      */
     private List<Map<String, Object>> anonymousSponsorships(Long chapterId) {
         List<Map<String, Object>> rows = new ArrayList<>();
@@ -65,6 +66,14 @@ public class ChapterDashboardService {
             r.put("student_chapter", st.getChapterName());
             r.put("study_status", StudyStatus.label(st.getStudyStatus()));
             r.put("donor_label", gg.getDonorLabel());
+            // "Anonymous via <the sponsor who mapped>"; who the anonymous sponsor is: Super Admin / App Admin only
+            r.put("anonymous_via", "Anonymous via " + (sp == null ? "a sponsor" : sp.getName()));
+            User donor = gg.getDonorUserId() != null && SponsorMappingService.seesAnonymousSponsors()
+                    ? userRepository.findById(gg.getDonorUserId()).orElse(null) : null;
+            if (donor != null) {
+                r.put("donor_name", donor.getName());
+                r.put("donor_code", donor.getUserId());
+            }
             r.put("contact_name", sp == null ? null : sp.getName());
             r.put("contact_code", sp == null ? null : sp.getUserId());
             r.put("contact_phone", sp == null ? null : sp.getPhone());

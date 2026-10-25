@@ -679,7 +679,7 @@ public class AdminService {
         grantorGranteeRepository.findByGrantorId(sponsorId).forEach(g -> mine.put(g.getGranteeId(), g));
         Map<Long, String> chapters = sponsorMappingService.chapterNames();
         List<Map<String, Object>> mappedRows = Rows.pickAll(mapped, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name");
-        mappedRows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters)));
+        mappedRows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters, this::userOrNull)));
         result.put("mappedStudents", mappedRows);
         List<Map<String, Object>> available = new ArrayList<>();
         for (Map<String, Object> r : visibleStudentRows(userRepository.findStudentsAvailableFor(sponsorId))) {
@@ -725,18 +725,56 @@ public class AdminService {
         }
         requireVisibleSponsor(sponsorId);
         for (Long studentId : studentIds) studentScope.requireStudent(studentId);
-        if (onBehalf != null && onBehalf.donorChapterId() != null) requireChapter(chapterRepository, onBehalf.donorChapterId());
+        onBehalf = checkOnBehalf(onBehalf, sponsorId);
         for (Long studentId : studentIds) {
             sponsorMappingService.map(studentId, sponsorId, "Accepted", false, null, onBehalf, true);
         }
     }
 
-    /** { onBehalf: true, donorChapterId, donorLabel } from a request (null when not on behalf). */
+    /**
+     * { onBehalf: true, donorChapterId, donorLabel, donorUserId } from a request (null when not on behalf). Only the
+     * Super Admin and the Application Administrator may send donorUserId (the anonymous sponsor's own account); then
+     * the chapter may be left out (it is theirs).
+     */
     public static com.rahbar.dto.OnBehalf onBehalf(Map<String, Object> body) {
         if (body == null || !Boolean.TRUE.equals(body.get("onBehalf"))) return null;
         Object ch = body.get("donorChapterId");
-        if (ch == null || String.valueOf(ch).isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "Choose the anonymous donor's chapter.");
-        return new com.rahbar.dto.OnBehalf(Long.valueOf(String.valueOf(ch).trim()), body.get("donorLabel") == null ? null : String.valueOf(body.get("donorLabel")));
+        boolean setsDonor = body.containsKey("donorUserId");
+        Object d = body.get("donorUserId");
+        Long donor = d == null || String.valueOf(d).isBlank() ? null : Long.valueOf(String.valueOf(d).trim());
+        if (setsDonor && !SponsorMappingService.seesAnonymousSponsors()) {
+            throw Access.forbidden("Only the Super Admin or the Application Administrator can choose the anonymous sponsor.");
+        }
+        boolean noChapter = ch == null || String.valueOf(ch).isBlank();
+        if (noChapter && donor == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Choose the anonymous sponsor's chapter.");
+        return new com.rahbar.dto.OnBehalf(noChapter ? null : Long.valueOf(String.valueOf(ch).trim()),
+                body.get("donorLabel") == null ? null : String.valueOf(body.get("donorLabel")), donor, setsDonor);
+    }
+
+    /**
+     * Checks the chapter and the anonymous sponsor (a sponsor, not the one mapping); without a chapter, theirs is used.
+     */
+    private com.rahbar.dto.OnBehalf checkOnBehalf(com.rahbar.dto.OnBehalf onBehalf, Long sponsorId) {
+        if (onBehalf == null) return null;
+        Long chapterId = onBehalf.donorChapterId();
+        if (onBehalf.donorUserId() != null) {
+            Long donor = requireSponsor(onBehalf.donorUserId());
+            if (donor.equals(sponsorId)) throw new ApiException(HttpStatus.BAD_REQUEST, "The anonymous sponsor can't be the sponsor who maps the student.");
+            if (chapterId == null) chapterId = userRepository.findById(donor).map(User::getChapterId).orElse(null);
+        }
+        if (chapterId != null) requireChapter(chapterRepository, chapterId);
+        return new com.rahbar.dto.OnBehalf(chapterId, onBehalf.label(), onBehalf.donorUserId(), onBehalf.setsDonor());
+    }
+
+    /** Super Admin / Application Administrator: links (null: unlinks) the anonymous sponsor's account to the student's sponsorship. */
+    public void linkAnonymousSponsor(Long studentId, Object donorUserId) {
+        studentScope.requireStudent(studentId);
+        sponsorMappingService.linkAnonymousSponsor(studentId, requireSponsor(donorUserId));
+    }
+
+    /** The anonymous sponsor's account, for the Super Admin and the Application Administrator. */
+    private User userOrNull(Long id) {
+        return id == null ? null : userRepository.findById(id).orElse(null);
     }
 
     // ------------------------------------------------------------- student directory
@@ -835,7 +873,7 @@ public class AdminService {
         result.put("sponsorHistory", sponsorHistory(userId));
         result.put("materials", materialService.forScholar(userId));
         result.put("onBehalf", SponsorMappingService.onBehalfFields(grantorGranteeRepository.findFirstByGranteeId(userId).orElse(null),
-                sponsorMappingService.chapterNames()));
+                sponsorMappingService.chapterNames(), this::userOrNull));
         return result;
     }
 
@@ -867,7 +905,7 @@ public class AdminService {
             boolean onBehalfChanged = sendsOnBehalf && sponsorId != null && Objects.equals(sponsorId, current) && !sameOnBehalf(now, onBehalf);
             if (!Objects.equals(sponsorId, current) || onBehalfChanged) {
                 requireMayMap(); // the BA Details form always sends the sponsor; only a change needs the permission
-                if (onBehalf != null) requireChapter(chapterRepository, onBehalf.donorChapterId());
+                if (onBehalf != null) onBehalf = checkOnBehalf(onBehalf, sponsorId);
                 if (sponsorId == null) updateSponsor(userId, null, str(data.get("sponsorChangeReason")));
                 else sponsorMappingService.map(userId, sponsorId, "Accepted", false, str(data.get("sponsorChangeReason")), onBehalf, sendsOnBehalf);
             }
@@ -997,8 +1035,10 @@ public class AdminService {
             r.put("started_at", h.getStartedAt());
             r.put("ended_at", h.getEndedAt());
             r.put("end_reason", h.getEndReason());
-            r.put("on_behalf_text", Boolean.TRUE.equals(h.getOnBehalf())
-                    ? SponsorMappingService.onBehalfText(h.getDonorLabel(), chapters.get(h.getDonorChapterId())) : null);
+            User donor = Boolean.TRUE.equals(h.getOnBehalf()) && h.getDonorUserId() != null && SponsorMappingService.seesAnonymousSponsors()
+                    ? userOrNull(h.getDonorUserId()) : null;
+            r.put("on_behalf_text", !Boolean.TRUE.equals(h.getOnBehalf()) ? null : donor != null ? SponsorMappingService.adminText(donor)
+                    : SponsorMappingService.onBehalfText(h.getDonorLabel(), chapters.get(h.getDonorChapterId())));
             rows.add(r);
         }
         return rows;
@@ -1009,7 +1049,8 @@ public class AdminService {
         if (!was && onBehalf == null) return true;
         if (was != (onBehalf != null)) return false;
         String label = onBehalf.label() == null || onBehalf.label().isBlank() ? null : onBehalf.label().strip();
-        return Objects.equals(gg.getDonorChapterId(), onBehalf.donorChapterId()) && Objects.equals(gg.getDonorLabel(), label);
+        return Objects.equals(gg.getDonorChapterId(), onBehalf.donorChapterId()) && Objects.equals(gg.getDonorLabel(), label)
+                && (!onBehalf.setsDonor() || Objects.equals(gg.getDonorUserId(), onBehalf.donorUserId()));
     }
 
     /** Maps the student to the sponsor, or removes the mapping when sponsorId is null. */
@@ -1348,7 +1389,7 @@ public class AdminService {
         grantorGranteeRepository.findByGrantorId(userId).forEach(g -> mine.put(g.getGranteeId(), g));
         Map<Long, String> chapters = sponsorMappingService.chapterNames();
         List<Map<String, Object>> rows = Rows.pickAll(students, "id", "user_id", "name", "email", "phone", "status", "year", "chapter_name", "study_status");
-        rows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters)));
+        rows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters, this::userOrNull)));
         profile.putAll(SponsorPreferenceService.of(requireVisibleSponsor(userId)));
         profile.put("coaching_center_ids", sponsorCoachingCenters.centersOf(userId));
         return Map.of("profile", profile, "students", rows);

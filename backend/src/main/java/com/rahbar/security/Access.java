@@ -25,6 +25,13 @@ public final class Access {
         return current().hasRole(Role.SUPER_ADMIN);
     }
 
+    /** The Super Admin or the Application Administrator (e.g. the only ones who see who an anonymous sponsor is). */
+    public static boolean isAdmin() {
+        return current().hasRole(Role.SUPER_ADMIN) || current().hasRole(APP_ADMIN);
+    }
+
+    private static final int APP_ADMIN = 2;
+
     /** True when the user's permissions only cover their own chapter. */
     public static boolean chapterScoped() {
         return Role.SCOPE_CHAPTER.equals(current().getScope());

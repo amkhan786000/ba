@@ -95,38 +95,104 @@ public class SponsorMappingService {
     }
 
     /**
-     * What a screen shows about a sponsorship on behalf of an anonymous donor: on_behalf, donor_chapter_id,
-     * donor_chapter, donor_label and on_behalf_text ("on behalf of Donor A, a donor from Jeddah Chapter").
+     * What a screen shows about a sponsorship on behalf of an anonymous sponsor: on_behalf, donor_chapter_id,
+     * donor_chapter, donor_label and on_behalf_text ("on behalf of Donor A, an anonymous sponsor from Jeddah Chapter").
+     * Who the anonymous sponsor is never shows, except to the Super Admin and the Application Administrator.
      */
     public static Map<String, Object> onBehalfFields(GrantorGrantee gg, Map<Long, String> chapterNames) {
+        return onBehalfFields(gg, chapterNames, null);
+    }
+
+    /**
+     * As {@link #onBehalfFields(GrantorGrantee, Map)}; users looks up the anonymous sponsor's account, so the Super
+     * Admin and the Application Administrator also get donor_user_id, donor_name and donor_code (and see the name in
+     * on_behalf_text).
+     */
+    public static Map<String, Object> onBehalfFields(GrantorGrantee gg, Map<Long, String> chapterNames, java.util.function.Function<Long, User> users) {
         Map<String, Object> m = new LinkedHashMap<>();
         boolean on = gg != null && Boolean.TRUE.equals(gg.getOnBehalf());
         m.put("on_behalf", on);
         m.put("donor_chapter_id", on ? gg.getDonorChapterId() : null);
         m.put("donor_chapter", on ? chapterNames.get(gg.getDonorChapterId()) : null);
         m.put("donor_label", on ? gg.getDonorLabel() : null);
-        m.put("on_behalf_text", on ? onBehalfText(gg.getDonorLabel(), chapterNames.get(gg.getDonorChapterId())) : null);
+        String text = on ? onBehalfText(gg.getDonorLabel(), chapterNames.get(gg.getDonorChapterId())) : null;
+        User donor = on && users != null && gg.getDonorUserId() != null && seesAnonymousSponsors() ? users.apply(gg.getDonorUserId()) : null;
+        if (donor != null) {
+            m.put("donor_user_id", donor.getId());
+            m.put("donor_name", donor.getName());
+            m.put("donor_code", donor.getUserId());
+            text = adminText(donor);
+        }
+        m.put("on_behalf_text", text);
         return m;
     }
 
-    /** "on behalf of a donor from Jeddah Chapter" (with the label: "on behalf of Donor A, a donor from Jeddah Chapter"). */
+    /** What the Super Admin and the Application Administrator see: "on behalf of Asha Khan (1042), anonymous". */
+    public static String adminText(User donor) {
+        return "on behalf of " + donor.getName() + " (" + donor.getUserId() + "), anonymous to everyone else";
+    }
+
+    /** Only the Super Admin and the Application Administrator see who an anonymous sponsor is. */
+    public static boolean seesAnonymousSponsors() {
+        try {
+            return com.rahbar.security.Access.isAdmin();
+        } catch (RuntimeException e) {
+            return false; // nobody signed in (e.g. a scheduled job)
+        }
+    }
+
+    /**
+     * "on behalf of an anonymous sponsor from Jeddah Chapter" (with the label: "on behalf of Donor A, an anonymous
+     * sponsor from Jeddah Chapter"); never a name.
+     */
     public static String onBehalfText(String label, String chapter) {
-        String from = "a donor from " + (chapter == null ? "another chapter" : chapter);
+        String from = "an anonymous sponsor" + (chapter == null ? "" : " from " + chapter);
         return "on behalf of " + (label == null || label.isBlank() ? from : label + ", " + from);
     }
 
     private static void setOnBehalf(GrantorGrantee gg, com.rahbar.dto.OnBehalf onBehalf) {
-        boolean on = onBehalf != null && onBehalf.donorChapterId() != null;
+        boolean was = Boolean.TRUE.equals(gg.getOnBehalf());
+        boolean on = onBehalf != null && (onBehalf.donorChapterId() != null || onBehalf.donorUserId() != null);
         gg.setOnBehalf(on);
         gg.setDonorChapterId(on ? onBehalf.donorChapterId() : null);
         String label = on && onBehalf.label() != null ? onBehalf.label().strip() : null;
         gg.setDonorLabel(label == null || label.isEmpty() ? null : label.length() > 80 ? label.substring(0, 80) : label);
+        // the anonymous sponsor's account: as given (admins), else the one already linked stays
+        gg.setDonorUserId(!on ? null : onBehalf.setsDonor() ? onBehalf.donorUserId() : was ? gg.getDonorUserId() : null);
     }
 
     private static void copyOnBehalf(GrantorGrantee gg, com.rahbar.entity.SponsorMappingHistory h) {
         h.setOnBehalf(Boolean.TRUE.equals(gg.getOnBehalf()));
         h.setDonorChapterId(gg.getDonorChapterId());
         h.setDonorLabel(gg.getDonorLabel());
+        h.setDonorUserId(gg.getDonorUserId());
+    }
+
+    /**
+     * Super Admin / Application Administrator: links (or, with null, unlinks) the anonymous sponsor's own account to a
+     * student's sponsorship on behalf of an anonymous sponsor, e.g. one made before anonymous sponsors had accounts.
+     * Their chapter becomes the donor's chapter (whose Chapter Dashboard lists the student) when they have one.
+     */
+    @Transactional
+    public void linkAnonymousSponsor(Long granteeId, Long donorUserId) {
+        if (!seesAnonymousSponsors()) throw com.rahbar.security.Access.forbidden("Only the Super Admin or the Application Administrator can do this.");
+        GrantorGrantee gg = grantorGranteeRepository.findFirstByGranteeId(granteeId)
+                .filter(g -> Boolean.TRUE.equals(g.getOnBehalf()))
+                .orElseThrow(() -> new com.rahbar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                        "This student isn't sponsored on behalf of an anonymous sponsor."));
+        if (donorUserId != null) {
+            if (donorUserId.equals(gg.getGrantorId())) {
+                throw new com.rahbar.exception.ApiException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                        "The anonymous sponsor can't be the sponsor who mapped the student.");
+            }
+            userRepository.findById(donorUserId).map(User::getChapterId).ifPresent(gg::setDonorChapterId);
+        }
+        gg.setDonorUserId(donorUserId);
+        grantorGranteeRepository.save(gg);
+        for (com.rahbar.entity.SponsorMappingHistory h : historyRepository.findByGranteeIdAndEndedAtIsNull(granteeId)) {
+            copyOnBehalf(gg, h);
+            historyRepository.save(h);
+        }
     }
 
     /** Moves the student's existing mapping to the sponsor (nothing happens when the student has no mapping). */

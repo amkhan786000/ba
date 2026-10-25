@@ -22,7 +22,7 @@ public class GrantorGrantee extends Modifiable {
     @Column(name = "status")
     private String status = "Pending";
 
-    /** On behalf of an anonymous donor (see dto.OnBehalf): the sponsor is the contact, the donor has no account. */
+    /** On behalf of an anonymous sponsor (see dto.OnBehalf): the sponsor is the contact and the sponsor of record. */
     @Column(name = "on_behalf", nullable = false)
     @org.hibernate.annotations.ColumnDefault("0")
     private Boolean onBehalf = false;
@@ -34,5 +34,9 @@ public class GrantorGrantee extends Modifiable {
     /** A short label for the donor, e.g. "Donor A" (never a name). */
     @Column(name = "donor_label", length = 80)
     private String donorLabel;
+
+    /** The anonymous sponsor's own account (users.id), when linked; only the Super Admin and App Admin see who it is. */
+    @Column(name = "donor_user_id")
+    private Long donorUserId;
 
 }
