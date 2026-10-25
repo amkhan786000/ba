@@ -27,7 +27,8 @@ import java.util.*;
  * account per row (any role but Student, which has its own upload in the Student Directory). A name like
  * "Abdul Rahman c/o Imran Khan" is saved as the name "Abdul Rahman" with c/o "Imran Khan" (who brought them).
  * <ul>
- *   <li>Chapter Name must be an existing chapter (ignoring case); a Chapter Lead needs one.</li>
+ *   <li>Name, Chapter Name and Role are required; Chapter Name must be an existing chapter (ignoring case).</li>
+ *   <li>Any phone number is taken as typed (spaces / dashes removed; an Indian one as its 10 digits, others with "+").</li>
  *   <li>An empty phone number gets a generated one starting with 5: Indian mobiles start with 6 to 9, so it can never be
  *   someone's real number (Data Quality lists it as invalid until the real one is entered).</li>
  *   <li>A name that looks like someone already in Rahbar in the same chapter (any role), or like an earlier row of the file
@@ -96,11 +97,11 @@ public class BulkUserService {
             Map<String, String> columns = new HashMap<>(); // normalised -> header as in the file
             for (String h : parser.getHeaderNames()) columns.put(key(h), h);
             String nameCol = column(columns, "name", "fullname"), roleCol = column(columns, "role", "rolename");
-            if (nameCol == null || roleCol == null) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "The file needs the columns Name and Role (and optionally Chapter Name and Phone Number). "
+            String chapterCol = column(columns, "chaptername", "chapter"), phoneCol = column(columns, "phonenumber", "phone", "mobile", "mobilenumber");
+            if (nameCol == null || chapterCol == null || roleCol == null || phoneCol == null) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "The file needs the columns Name, Chapter Name, Phone Number and Role. "
                         + "Download the template from the upload window.");
             }
-            String chapterCol = column(columns, "chaptername", "chapter"), phoneCol = column(columns, "phonenumber", "phone", "mobile", "mobilenumber");
 
             for (CSVRecord row : parser) {
                 int rowNumber = (int) row.getRecordNumber() + 1; // +1 for the header line
@@ -110,7 +111,12 @@ public class BulkUserService {
                 try {
                     String roleName = value(row, roleCol), chapterName = value(row, chapterCol), phone = value(row, phoneCol);
                     if (name == null && roleName == null && chapterName == null && phone == null) { report.skipped(rowNumber, null, "Empty row."); continue; }
-                    if (name == null) { report.skipped(rowNumber, null, "No name."); continue; }
+                    // Name, Chapter Name and Role are required; the phone number is optional
+                    List<String> missing = new ArrayList<>();
+                    if (name == null) missing.add("Name");
+                    if (chapterName == null) missing.add("Chapter Name");
+                    if (roleName == null) missing.add("Role");
+                    if (!missing.isEmpty()) throw bad(String.join(", ", missing) + (missing.size() == 1 ? " is" : " are") + " required.");
                     // "Abdul Rahman c/o Imran Khan": the name, and who brought them (c/o)
                     String[] split = splitCareOf(name);
                     String fullName = name;
@@ -130,7 +136,6 @@ public class BulkUserService {
                         chapterId = chapters.findByChapterNameIgnoreCase(chapterName.trim()).map(Chapter::getChapterId)
                                 .orElseThrow(() -> bad("Chapter '" + chapterName + "' doesn't exist. Add it in Chapters first, or fix the spelling."));
                     }
-                    if (Role.SCOPE_CHAPTER.equals(role.getScope()) && chapterId == null) throw bad(role.getRoleName() + " needs a chapter.");
 
                     String canon = nameInChapter(name, chapterId);
                     List<String> alike = existingByName.getOrDefault(canon, List.of());
@@ -148,13 +153,14 @@ public class BulkUserService {
                         continue;
                     }
 
-                    boolean generated = phone == null;
+                    String typedPhone = phone(phone);
+                    boolean generated = typedPhone == null; // blank, or no digits at all (e.g. "NA")
                     String mobile;
                     if (generated) {
                         mobile = placeholderPhone(phonesTaken);
                     } else {
-                        mobile = mobile(phone);
-                        if (phonesTaken.contains(mobile)) {
+                        mobile = typedPhone;
+                        if (phonesTaken.contains(digits(mobile))) {
                             report.skipped(rowNumber, reference, "Phone " + mobile + " already belongs to another account.");
                             continue;
                         }
@@ -175,7 +181,7 @@ public class BulkUserService {
                     u.setPasswordHash(passwordEncoder.encode(PasswordPolicy.DEFAULT_PASSWORD));
                     u.setMustChangePassword(true);
                     users.save(u);
-                    phonesTaken.add(mobile);
+                    phonesTaken.add(digits(mobile));
                     report.created();
                     if (generated) report.warning(rowNumber, reference, "No phone number, so " + mobile + " was generated (not a real number). Add the real one in Manage Users.");
 
@@ -239,13 +245,19 @@ public class BulkUserService {
         throw new IllegalStateException("Could not generate a free phone number.");
     }
 
-    /** A 10-digit Indian mobile from what was typed (+91 / spaces allowed). */
-    static String mobile(String typed) {
+    /**
+     * Any phone number, as typed without spaces or dashes: an Indian one (+91 / 0 / 10 digits) as its 10 digits, like
+     * the rest of Rahbar; another country's with its "+" kept (+966500621750). Null when there are no digits at all.
+     */
+    static String phone(String typed) {
         String d = digits(typed);
-        if (d.length() == 12 && d.startsWith("91")) d = d.substring(2);
-        if (d.length() == 11 && d.startsWith("0")) d = d.substring(1);
-        if (!d.matches("[6-9][0-9]{9}")) throw bad("Phone number '" + typed + "' isn't a 10-digit mobile number.");
-        return d;
+        if (d.isEmpty()) return null;
+        boolean plus = typed.trim().startsWith("+") || typed.trim().startsWith("00");
+        if (typed.trim().startsWith("00")) d = d.substring(2);
+        if (d.length() == 12 && d.startsWith("91")) return d.substring(2);
+        if (!plus && d.length() == 11 && d.startsWith("0")) return d.substring(1);
+        if (d.length() > 20) throw bad("Phone number '" + typed + "' is too long.");
+        return plus ? "+" + d : d;
     }
 
     private static String digits(String s) {

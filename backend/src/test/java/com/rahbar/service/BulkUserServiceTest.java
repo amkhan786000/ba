@@ -92,7 +92,8 @@ class BulkUserServiceTest {
 
     @Test
     void anEmptyPhoneGetsAMadeUpNumberNoRealMobileHas() throws Exception {
-        BulkUserService.Result r = upload("Name,Chapter Name,Phone Number,Role\nAbdul Rahman,Jeddah,,Sponsor\n");
+        BulkUserService.Result r = upload("Name,Chapter Name,Phone Number,Role\nAbdul Rahman,Jeddah,,Sponsor\nSaudi Sponsor,Jeddah,+966 50 062 1750,Sponsor\n");
+        assertEquals("+966500621750", r.added().get(1).get("phone"));
         String phone = (String) r.added().get(0).get("phone");
         assertTrue(phone.matches("5\\d{9}"), phone);
         assertEquals(true, r.added().get(0).get("phone_generated"));
@@ -107,18 +108,20 @@ class BulkUserServiceTest {
                 A One,Nowhere,,Sponsor
                 B Two,,,Chapter Lead
                 C Three,Patna,,Student
-                D Four,Patna,12345,Sponsor
+                ,Patna,,Sponsor
                 E Five,Patna,9800000001,Sponsor
                 F Six,Patna,,Pilot
+                G Seven,Patna,,
                 """);
         assertTrue(r.added().isEmpty());
         List<String> reasons = ((List<Map<String, Object>>) r.report().toMap().get("problems")).stream().map(p -> String.valueOf(p.get("reason"))).toList();
         assertTrue(reasons.get(0).contains("doesn't exist"));
-        assertTrue(reasons.get(1).contains("needs a chapter"));
+        assertTrue(reasons.get(1).contains("Chapter Name is required"));
         assertTrue(reasons.get(2).contains("Student Directory"));
-        assertTrue(reasons.get(3).contains("10-digit"));
+        assertTrue(reasons.get(3).contains("Name is required"));
         assertTrue(reasons.get(4).contains("already belongs"));
         assertTrue(reasons.get(5).contains("Unknown role"));
+        assertTrue(reasons.get(6).contains("Role is required"));
     }
 
     @Test
@@ -126,7 +129,12 @@ class BulkUserServiceTest {
         assertEquals("md imran", BulkUserService.canonical(" Mohd.  Imran "));
         assertEquals("md imran", BulkUserService.canonical("Muhammad Imran"));
         assertEquals("md imran", BulkUserService.canonical("MD IMRAN"));
-        assertEquals("9876543210", BulkUserService.mobile("+91 98765 43210"));
+        assertEquals("9876543210", BulkUserService.phone("+91 98765 43210"));
+        assertEquals("9876543210", BulkUserService.phone("09876543210"));
+        assertEquals("+966500621750", BulkUserService.phone("+966 50 062 1750"));
+        assertEquals("+966500621750", BulkUserService.phone("00966-50-062-1750"));
+        assertEquals("12345", BulkUserService.phone("12345")); // any number is a phone number
+        assertNull(BulkUserService.phone("NA"));
     }
 
     @Test
@@ -141,5 +149,10 @@ class BulkUserServiceTest {
         assertEquals("Abdul Rahman", saved.get(0).getName());
         assertEquals("Imran Khan", saved.get(0).getCareOf());
         assertEquals("Imran Khan", r.added().get(0).get("care_of"));
+    }
+
+    @Test
+    void allFourColumnsMustBeThere() {
+        assertThrows(com.rahbar.exception.ApiException.class, () -> upload("Name,Chapter Name,Role\nA,Patna,Sponsor\n"));
     }
 }

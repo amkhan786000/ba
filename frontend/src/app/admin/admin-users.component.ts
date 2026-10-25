@@ -186,9 +186,10 @@ export interface RoleOption {
               <p>Upload a CSV with the columns <strong>Name</strong>, <strong>Chapter Name</strong>, <strong>Phone Number</strong> and <strong>Role</strong>
                 (e.g. Sponsor, Chapter Lead, Office Coordinator). <a href="" (click)="$event.preventDefault(); template()">Download the template</a>.</p>
               <ul class="small text-muted">
-                <li>Chapter Name must match a chapter in Rahbar; a Chapter Lead needs one.</li>
+                <li><strong>Name, Chapter Name and Role are required</strong>; Chapter Name must match a chapter in Rahbar.</li>
                 <li>Someone brought by another person: write <em>Abdul Rahman c/o Imran Khan</em>; "Imran Khan" is kept as their c/o.</li>
-                <li>No phone number? One starting with 5 is made up (never a real mobile); add the real number later.</li>
+                <li>Any phone number works, from any country (e.g. +966 50 062 1750). No phone number? One starting with 5 is made up
+                  (never a real mobile); add the real number later.</li>
                 <li>A name that looks like someone already in Rahbar <strong>in the same chapter</strong>, or twice in the file for the same chapter, is
                   <strong>not added</strong> and listed for you to check (Md / Mohd / Mohammad are treated as the same).</li>
                 <li>Everyone signs in with their user ID email (shown after the upload) or phone and the temporary password, and must choose their own.
