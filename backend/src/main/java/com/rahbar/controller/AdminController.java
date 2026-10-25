@@ -302,6 +302,17 @@ public class AdminController {
         return adminService.sponsorMappingScreen(userId, hideSponsorContacts());
     }
 
+    /**
+     * Super Admin / Application Administrator: body { donorUserId } (null unlinks): the anonymous sponsor's own account
+     * behind the student's sponsorship on behalf of an anonymous sponsor.
+     */
+    @PostMapping("/students/{studentId}/anonymous-sponsor")
+    @PreAuthorize("hasAuthority('SPONSORSHIPS:EDIT')")
+    public Map<String, String> linkAnonymousSponsor(@PathVariable Long studentId, @RequestBody Map<String, Object> body) {
+        adminService.linkAnonymousSponsor(studentId, body.get("donorUserId"));
+        return Map.of("message", body.get("donorUserId") == null ? "Anonymous sponsor unlinked." : "Anonymous sponsor linked.");
+    }
+
     @PostMapping("/sponsorships/{userId}/map")
     @PreAuthorize("hasAuthority('SPONSORSHIPS:EDIT')")
     public Map<String, String> mapStudentsToSponsor(@PathVariable Long userId, @RequestBody Map<String, Object> body) {

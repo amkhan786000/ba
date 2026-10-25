@@ -107,7 +107,7 @@ class SponsorMappingChapterTest {
         service.map(10L, 21L, "Assigned", false);
         assertFalse(saved[0].getOnBehalf());
         assertNull(saved[0].getDonorChapterId());
-        assertEquals("on behalf of Donor A, a donor from Jeddah Chapter", SponsorMappingService.onBehalfText("Donor A", "Jeddah Chapter"));
-        assertEquals("on behalf of a donor from Jeddah Chapter", SponsorMappingService.onBehalfText(null, "Jeddah Chapter"));
+        assertEquals("on behalf of Donor A, an anonymous sponsor from Jeddah Chapter", SponsorMappingService.onBehalfText("Donor A", "Jeddah Chapter"));
+        assertEquals("on behalf of an anonymous sponsor from Jeddah Chapter", SponsorMappingService.onBehalfText(null, "Jeddah Chapter"));
     }
 }

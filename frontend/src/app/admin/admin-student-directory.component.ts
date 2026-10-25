@@ -42,7 +42,7 @@ interface StudentDetails {
   sponsorHistory?: Row[];
   /** Books & materials handed out to the student. */
   materials?: Row[];
-  /** The current sponsorship on behalf of an anonymous donor: on_behalf, donor_chapter_id, donor_label, on_behalf_text. */
+  /** The current sponsorship on behalf of an anonymous sponsor: on_behalf, donor_chapter_id, donor_label, on_behalf_text. */
   onBehalf?: Row;
 }
 
@@ -251,11 +251,11 @@ interface BaDetails {
                 <div *ngIf="editing && canMap && ba.sponsorId" class="mt-2">
                   <div class="custom-control custom-checkbox">
                     <input type="checkbox" class="custom-control-input" id="baOnBehalf" [(ngModel)]="ba.onBehalf">
-                    <label class="custom-control-label" for="baOnBehalf">On behalf of an anonymous donor</label>
+                    <label class="custom-control-label" for="baOnBehalf">On behalf of an anonymous sponsor</label>
                   </div>
                   <ng-container *ngIf="ba.onBehalf">
-                    <select class="form-control form-control-sm mt-1" [(ngModel)]="ba.donorChapterId" aria-label="Donor's chapter">
-                      <option [ngValue]="null">-- Donor's chapter --</option>
+                    <select class="form-control form-control-sm mt-1" [(ngModel)]="ba.donorChapterId" aria-label="Anonymous sponsor's chapter">
+                      <option [ngValue]="null">-- Their chapter --</option>
                       <option *ngFor="let c of chapterOptions(ba.donorChapterId ?? null)" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
                     </select>
                     <input class="form-control form-control-sm mt-1" maxlength="80" [(ngModel)]="ba.donorLabel" placeholder="Label, e.g. Donor A (never a name)">

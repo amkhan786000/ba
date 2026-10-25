@@ -36,9 +36,11 @@ interface Dashboard {
   chapter: { chapter_id: number; chapter_name: string; lead_name: string | null; lead_phone: string | null; lead_email: string | null } | null;
   counts: Counts | null;
   students?: StudentRow[]; sponsors?: SponsorRow[]; dues?: DueRow[]; applications?: ApplicationRow[];
-  /** Students sponsored on behalf of this chapter's anonymous donors, with the sponsor to contact. */
+  /** Students sponsored on behalf of this chapter's anonymous sponsors, with the sponsor to contact. */
   anonymousSponsorships?: {
     id: number; user_id: string; name: string; student_chapter: string | null; study_status: string; donor_label: string | null;
+    /** "Anonymous via <the sponsor who mapped>"; donor_name / donor_code: Super Admin and App Admin only. */
+    anonymous_via: string; donor_name?: string; donor_code?: string;
     contact_name: string | null; contact_code: string | null; contact_phone: string | null; contact_chapter: string | null;
   }[];
 }
@@ -121,16 +123,18 @@ type Tab = 'students' | 'sponsors' | 'dues' | 'applications';
       <div class="card" *ngIf="data!.anonymousSponsorships?.length">
         <div class="card-body">
           <h4 class="header-title">Anonymous sponsorships <small class="text-muted">{{ data!.anonymousSponsorships!.length }} student(s)</small></h4>
-          <p class="text-muted small">Donors of this chapter who stay anonymous sponsor these students through another sponsor. Their names
-            aren't in Rahbar: to reach a donor, contact the sponsor shown.</p>
+          <p class="text-muted small">Sponsors of this chapter who stay anonymous sponsor these students through another sponsor. Their names
+            are hidden: to reach them, contact the sponsor shown.</p>
           <div class="table-responsive"><table class="table table-sm mb-0">
-            <thead><tr><th>Student</th><th>Student's chapter</th><th>Study status</th><th>Donor</th><th>Contact (sponsor)</th></tr></thead>
+            <thead><tr><th>Student</th><th>Student's chapter</th><th>Study status</th><th>Anonymous sponsor</th><th>Contact (sponsor)</th></tr></thead>
             <tbody>
               <tr *ngFor="let a of data!.anonymousSponsorships">
                 <td><strong>{{ a.name }}</strong><div class="small text-muted">{{ a.user_id }}</div></td>
                 <td>{{ a.student_chapter || '-' }}</td>
                 <td>{{ a.study_status }}</td>
-                <td>{{ a.donor_label || 'Anonymous donor' }}</td>
+                <td>{{ a.anonymous_via }}<div *ngIf="a.donor_label" class="small text-muted">{{ a.donor_label }}</div>
+                  <div *ngIf="a.donor_name" class="small text-info" title="Only the Super Admin and the Application Administrator see this">
+                    <i class="mdi mdi-lock-outline"></i> {{ a.donor_name }} ({{ a.donor_code }})</div></td>
                 <td>{{ a.contact_name || '-' }} <small class="text-muted">{{ a.contact_code }}</small>
                   <div class="small">{{ a.contact_phone || '' }}{{ a.contact_chapter ? ' · ' + a.contact_chapter : '' }}</div></td>
               </tr>

@@ -8,12 +8,17 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe, pageOf } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { ChapterService } from '../core/services/chapter.service';
+import { AuthService } from '../core/services/auth.service';
 import { IdRange, inIdRange, parseIdRange } from '../shared/id-range';
 import { Chapter } from './admin-chapters.component';
 
 interface MapScreen {
   sponsor: { id: number; user_id: string; name: string; care_of?: string | null; email: string | null; chapter_name: string | null };
-  mappedStudents: { id: number; user_id: string; name: string; email: string | null; on_behalf_text?: string | null }[];
+  mappedStudents: {
+    id: number; user_id: string; name: string; email: string | null; on_behalf?: boolean; on_behalf_text?: string | null;
+    /** Super Admin / App Admin only: the anonymous sponsor's account. */
+    donor_user_id?: number | null;
+  }[];
   availableStudents: {
     id: number; user_id: string; name: string; email: string | null;
     current_sponsor_name: string | null; current_sponsor_id: number | null; current_sponsor_code: string | null;
@@ -114,12 +119,20 @@ interface MapScreen {
               <div class="border rounded p-2 mt-3">
                 <div class="custom-control custom-checkbox">
                   <input type="checkbox" class="custom-control-input" id="onBehalf" name="onBehalf" [(ngModel)]="onBehalf.on">
-                  <label class="custom-control-label" for="onBehalf">On behalf of an anonymous donor</label>
+                  <label class="custom-control-label" for="onBehalf">On behalf of an anonymous sponsor</label>
                 </div>
-                <small class="text-muted d-block">{{ data.sponsor.name }} stays the sponsor and the contact; the donor gets no account. The donor's
-                  chapter sees these students on its Chapter Dashboard, with {{ data.sponsor.name }} to contact. Students keep their own chapter.</small>
+                <small class="text-muted d-block">{{ data.sponsor.name }} stays the sponsor, the contact and the one who pays; everyone sees
+                  "Anonymous via {{ data.sponsor.name }}". Only the Super Admin and the Application Administrator see who the anonymous sponsor is.
+                  Their chapter sees these students on its Chapter Dashboard. Students keep their own chapter.</small>
                 <div class="row mt-2" *ngIf="onBehalf.on">
-                  <div class="col-md-6 form-group mb-2"><label for="donorChapter">Donor's chapter</label>
+                  <div class="col-12 form-group mb-2" *ngIf="isAdmin">
+                    <label for="donorUser">Anonymous sponsor <span class="text-muted small">(optional now, can be linked later; only admins see this)</span></label>
+                    <select id="donorUser" name="donorUser" class="form-control" [(ngModel)]="onBehalf.donorUserId">
+                      <option [ngValue]="null">-- Not known yet --</option>
+                      <option *ngFor="let s of donorOptions" [ngValue]="s.id">{{ s.name }} ({{ s.user_id }})</option>
+                    </select></div>
+                  <div class="col-md-6 form-group mb-2"><label for="donorChapter">Their chapter
+                    <span *ngIf="onBehalf.donorUserId" class="text-muted small">(blank: the anonymous sponsor's own)</span></label>
                     <select id="donorChapter" name="donorChapter" class="form-control" [(ngModel)]="onBehalf.chapterId">
                       <option [ngValue]="null">-- Choose --</option>
                       <option *ngFor="let c of chapterOptions()" [ngValue]="c.chapterId">{{ c.chapterName }}</option>
@@ -129,7 +142,7 @@ interface MapScreen {
                 </div>
               </div>
               <div class="mt-3">
-                <button type="submit" class="btn btn-primary btn-block waves-effect waves-light" [disabled]="saving || (onBehalf.on && onBehalf.chapterId === null)">
+                <button type="submit" class="btn btn-primary btn-block waves-effect waves-light" [disabled]="saving || (onBehalf.on && onBehalf.chapterId === null && !onBehalf.donorUserId)">
                   <i class="mdi mdi-check-all mr-1"></i> Map Selected Students to Sponsor <span *ngIf="selected.size">({{ selected.size }})</span>
                 </button>
               </div>
@@ -145,7 +158,7 @@ interface MapScreen {
             <button type="button" class="close" (click)="confirming = false" aria-label="Close">&times;</button></div>
           <div class="modal-body">
             <p class="mb-2">Map <strong>{{ selected.size }}</strong> student(s) to <strong class="text-primary">{{ data.sponsor.name }}</strong>
-              <span *ngIf="data.sponsor.care_of" class="text-info"> (c/o {{ data.sponsor.care_of }})</span><span *ngIf="onBehalf.on">, on behalf of an anonymous donor</span>?</p>
+              <span *ngIf="data.sponsor.care_of" class="text-info"> (c/o {{ data.sponsor.care_of }})</span><span *ngIf="onBehalf.on">, on behalf of an anonymous sponsor</span>?</p>
             <div *ngIf="movers.length" class="alert alert-warning mb-2">
               <strong><i class="mdi mdi-alert"></i> {{ movers.length }} of them already have a sponsor.</strong>
               They will be moved to {{ data.sponsor.name }}, and their current sponsor will be told.
@@ -180,7 +193,13 @@ interface MapScreen {
                 <tbody>
                   <tr *ngIf="!data.mappedStudents.length"><td colspan="3" class="text-center text-muted">No students assigned yet.</td></tr>
                   <tr *ngFor="let m of data.mappedStudents | paginate: pgMapped.page : pgMapped.size">
-                    <td><strong>{{ m.name }}</strong><div *ngIf="m.on_behalf_text" class="small text-info">{{ m.on_behalf_text }}</div></td>
+                    <td><strong>{{ m.name }}</strong><div *ngIf="m.on_behalf_text" class="small text-info">{{ m.on_behalf_text }}</div>
+                      <div *ngIf="isAdmin && m.on_behalf" class="d-flex align-items-center mt-1" style="gap: 4px">
+                        <select class="form-control form-control-sm" style="max-width: 220px" [ngModel]="m.donor_user_id ?? null"
+                                (ngModelChange)="linkDonor(m, $event)" aria-label="Anonymous sponsor">
+                          <option [ngValue]="null">Anonymous sponsor: not linked</option>
+                          <option *ngFor="let s of donorOptions" [ngValue]="s.id">{{ s.name }} ({{ s.user_id }})</option>
+                        </select></div></td>
                     <td><code class="text-primary">{{ m.user_id }}</code></td>
                     <td>{{ m.email || '-' }}</td>
                   </tr>
@@ -212,17 +231,41 @@ export class AdminSponsorMapComponent implements OnInit {
   message = '';
   error = '';
 
-  /** The students ticked are sponsored on behalf of an anonymous donor of this chapter (with a short label). */
-  onBehalf: { on: boolean; chapterId: number | null; label: string } = { on: false, chapterId: null, label: '' };
+  /**
+   * The students ticked are sponsored on behalf of an anonymous sponsor of this chapter (with a short label); admins
+   * may also choose the anonymous sponsor's own account.
+   */
+  onBehalf: { on: boolean; chapterId: number | null; label: string; donorUserId: number | null } = { on: false, chapterId: null, label: '', donorUserId: null };
+
+  /** Only the Super Admin and the Application Administrator see and choose who an anonymous sponsor is. */
+  get isAdmin(): boolean { return this.auth.isAdmin(); }
+
+  /** Sponsors to choose the anonymous sponsor from (admins), without this page's sponsor. */
+  donorOptions: { id: number; name: string; user_id: string }[] = [];
+
+  /** Admins: links (or unlinks) the anonymous sponsor's account behind a mapped student. */
+  linkDonor(m: { id: number; name: string }, donorUserId: number | null): void {
+    this.api.post<{ message: string }>(`/admin/students/${m.id}/anonymous-sponsor`, { donorUserId }).subscribe({
+      next: (r) => { this.message = r.message; this.load(); },
+      error: (e) => { this.error = errorText(e, 'Could not link the anonymous sponsor.'); this.load(); }
+    });
+  }
   chapters: Chapter[] = [];
 
-  constructor(private api: ApiService, private chapterList: ChapterService) {
+  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService) {
     this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
   }
 
   chapterOptions(): Chapter[] { return ChapterService.options(this.chapters, this.onBehalf.chapterId); }
 
-  ngOnInit(): void { this.load(); }
+  ngOnInit(): void {
+    this.load();
+    if (this.isAdmin) {
+      this.api.get<{ id: number; name: string; user_id: string }[]>('/admin/sponsorships').subscribe({
+        next: (s) => (this.donorOptions = s.filter((x) => String(x.id) !== String(this.id) && x.user_id !== '12'))
+      });
+    }
+  }
 
   load(): void {
     this.api.get<MapScreen>(`/admin/sponsorships/${encodeURIComponent(this.id)}/map`).subscribe({
@@ -311,7 +354,9 @@ export class AdminSponsorMapComponent implements OnInit {
     this.api.post<{ message: string }>(`/admin/sponsorships/${encodeURIComponent(this.id)}/map`, {
       studentIds: [...this.selected],
       onBehalf: this.onBehalf.on, donorChapterId: this.onBehalf.on ? this.onBehalf.chapterId : null,
-      donorLabel: this.onBehalf.on ? this.onBehalf.label : null
+      donorLabel: this.onBehalf.on ? this.onBehalf.label : null,
+      // the anonymous sponsor's account: only admins send it
+      ...(this.onBehalf.on && this.isAdmin ? { donorUserId: this.onBehalf.donorUserId } : {})
     }).subscribe({
       next: (r) => { this.saving = false; this.message = r.message; this.load(); },
       error: (e) => { this.saving = false; this.error = errorText(e, 'Could not map students.'); }

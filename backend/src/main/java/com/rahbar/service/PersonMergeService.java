@@ -49,6 +49,8 @@ public class PersonMergeService {
             {"chats", "sender_id", "chat message(s) sent"},
             {"chats", "receiver_id", "chat message(s) received"},
             {"approvals", "approver_id", "approval(s)"},
+            {"grantor_grantees", "donor_user_id", "student(s) sponsored anonymously"},
+            {"sponsor_mapping_history", "donor_user_id", "anonymous sponsorship history row(s)"},
     };
 
     /** [table, column, what]: one row per person; moves only when the kept account has none. */
