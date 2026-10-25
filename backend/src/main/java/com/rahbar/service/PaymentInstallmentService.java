@@ -54,6 +54,8 @@ public class PaymentInstallmentService {
     /** Default "show as due" lead time when a Payment Config has none. */
     public static final int DEFAULT_NOTICE_DAYS = 30;
     public static final String NOT_DUE = "Not Due";
+    /** The student graduated (early or on time) before it was paid: never due. */
+    public static final String NOT_NEEDED = "Not needed";
 
     /** College types (BA Details > College type, and Payment Config). */
     public static final String GOVT = "GOVT";
@@ -127,10 +129,15 @@ public class PaymentInstallmentService {
 
     /** Works out the student's schedule; {@code problem} says what is missing when there is none. */
     public InstallmentPlan plan(User student) {
+        return plan(student, false);
+    }
+
+    /** graduated: the plan she had (her unpaid installments are kept as "Not needed"), whatever her study status. */
+    private InstallmentPlan plan(User student, boolean graduated) {
         Long sponsorId = currentSponsor(student.getId());
         if (sponsorId == null) return problem("The student is not mapped to a sponsor.");
-        if ("Inactive".equalsIgnoreCase(student.getStatus())) return problem("The student's account is inactive.");
-        if (!StudyStatus.inProgramme(student.getStudyStatus())) {
+        if (!graduated && "Inactive".equalsIgnoreCase(student.getStatus())) return problem("The student's account is inactive.");
+        if (!graduated && !StudyStatus.inProgramme(student.getStudyStatus())) {
             return problem("The student is " + StudyStatus.label(student.getStudyStatus()).toLowerCase(Locale.ROOT) + ".");
         }
         Map<String, Object> course = Rows.first(studentCourseRepository.findCourseInfo(student.getId()));
@@ -177,10 +184,13 @@ public class PaymentInstallmentService {
             if (r.getPaymentId() != null && !isPaid(payments.get(r.getPaymentId()))) r.setPaymentId(null);
         }
 
-        InstallmentPlan plan = plan(student);
+        // Graduated (early or on time): the plan stays, its unpaid installments marked "Not needed".
+        boolean graduated = StudyStatus.GRADUATED.equals(StudyStatus.of(student.getStudyStatus()));
+        InstallmentPlan plan = graduated ? plan(student, true) : plan(student);
         List<PaymentInstallment> remove = new ArrayList<>();
         if (!plan.ok()) {
-            rows.stream().filter(r -> r.getPaymentId() == null).forEach(remove::add);
+            if (graduated) rows.stream().filter(r -> r.getPaymentId() == null).forEach(r -> r.setNotNeeded(true));
+            else rows.stream().filter(r -> r.getPaymentId() == null).forEach(remove::add);
         } else {
             Map<Integer, PaymentInstallment> byNo = new HashMap<>();
             rows.forEach(r -> byNo.put(r.getInstallmentNo(), r));
@@ -198,6 +208,7 @@ public class PaymentInstallmentService {
                 r.setGrantorId(plan.sponsorId());
                 r.setDueDate(due);
                 r.setAmount(plan.amount());
+                r.setNotNeeded(graduated);
             }
             rows.stream().filter(r -> r.getPaymentId() == null && r.getInstallmentNo() > plan.count()).forEach(remove::add);
         }
@@ -218,7 +229,10 @@ public class PaymentInstallmentService {
         Iterator<Payment> next = unlinked.iterator();
         for (PaymentInstallment r : rows) {
             if (!next.hasNext()) break;
-            if (r.getPaymentId() == null) r.setPaymentId(next.next().getPaymentId());
+            if (r.getPaymentId() == null) {
+                r.setPaymentId(next.next().getPaymentId());
+                r.setNotNeeded(false); // paid after all
+            }
         }
         installmentRepository.saveAll(rows);
     }
@@ -306,10 +320,11 @@ public class PaymentInstallmentService {
 
     /**
      * Paid; Overdue once the due date has passed; Due from {@code noticeDays} before the due date until the due
-     * date itself; otherwise Not Due.
+     * date itself; Not needed when the student graduated before paying it; otherwise Not Due.
      */
     public static String status(PaymentInstallment i, LocalDate today, int noticeDays) {
         if (i.getPaymentId() != null) return PAID;
+        if (i.isNotNeeded()) return NOT_NEEDED;
         if (i.getDueDate().isBefore(today)) return OVERDUE;
         return i.getDueDate().isAfter(today.plusDays(noticeDays)) ? NOT_DUE : DUE;
     }
@@ -469,7 +484,7 @@ public class PaymentInstallmentService {
 
         // Cards above the table: every status of the installments the user may see (search and status filter aside).
         Map<String, long[]> counts = new LinkedHashMap<>();
-        for (String st : List.of(OVERDUE, DUE, NOT_DUE, PAID)) counts.put(st, new long[1]);
+        for (String st : List.of(OVERDUE, DUE, NOT_DUE, PAID, NOT_NEEDED)) counts.put(st, new long[1]);
         List<PaymentInstallment> filtered = new ArrayList<>();
         for (PaymentInstallment i : all) {
             String st = status(i, today, notice.getOrDefault(i.getGranteeId(), DEFAULT_NOTICE_DAYS));

@@ -67,7 +67,8 @@ public class PaymentReminderService {
             User sponsor = users.get(gg.getGrantorId());
 
             // From the stored installments (see PaymentInstallmentService): due = its date has come.
-            List<PaymentInstallment> installments = byStudent.getOrDefault(student.getId(), List.of());
+            List<PaymentInstallment> installments = byStudent.getOrDefault(student.getId(), List.of()).stream()
+                    .filter(i -> !i.isNotNeeded()).toList(); // graduated before they fell due: not part of the dues
             int total = installments.size();
             long paid = installments.stream().filter(i -> i.getPaymentId() != null).count();
             int dueSoFar = (int) installments.stream().filter(i -> !i.getDueDate().isAfter(today)).count();

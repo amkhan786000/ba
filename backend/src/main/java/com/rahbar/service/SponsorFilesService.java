@@ -155,7 +155,7 @@ public class SponsorFilesService {
         mappings.findByGrantorId(sponsorId).forEach(m -> current.add(m.getGranteeId()));
         LocalDate today = LocalDate.now();
         List<PaymentInstallment> upcoming = installments.findByGrantorIdOrderByGranteeIdAscInstallmentNoAsc(sponsorId).stream()
-                .filter(i -> i.getPaymentId() == null && i.getDueDate() != null && !i.getDueDate().isBefore(today) && current.contains(i.getGranteeId()))
+                .filter(i -> i.isOpen() && i.getDueDate() != null && !i.getDueDate().isBefore(today) && current.contains(i.getGranteeId()))
                 .toList();
         Map<Long, String> names = new HashMap<>();
         users.findAllById(current).forEach(u -> names.put(u.getId(), u.getName()));

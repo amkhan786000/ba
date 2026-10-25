@@ -318,15 +318,18 @@ interface BaDetails {
             <!-- Study status (separate from the account's Active / Inactive) -->
             <div *ngIf="tab === 'study'">
               <p class="text-muted small">
-                Graduated and Dropped-out students no longer get payment dues or reminders; students on hold keep their
-                sponsor but get no reminders. This is separate from the login account's Active / Inactive.
+                Graduated and Dropped-out students no longer get payment dues or reminders (a graduate's unpaid installments
+                show as "Not needed"); students on hold keep their sponsor but get no reminders. Graduated is final: it
+                can't be changed afterwards. This is separate from the login account's Active / Inactive.
               </p>
               <p>
                 Current: <span class="badge" [ngClass]="studyBadge(details.profile['study_status'])">{{ studyLabel(details.profile['study_status']) }}</span>
                 <span *ngIf="details.profile['study_status_date']" class="text-muted"> since {{ fmt(details.profile['study_status_date'], '') }}</span>
                 <span *ngIf="details.profile['study_status_note']" class="text-muted"> · {{ details.profile['study_status_note'] }}</span>
               </p>
-              <div class="row" *ngIf="canEdit">
+              <div *ngIf="canEdit && graduated" class="alert alert-light border small py-2">
+                <i class="mdi mdi-lock-outline"></i> Graduated is final, so the study status can't be changed.</div>
+              <div class="row" *ngIf="canEdit && !graduated">
                 <div class="col-md-3 form-group"><label>New status</label>
                   <select class="form-control" [(ngModel)]="study.status">
                     <option *ngFor="let st of studyStatuses" [value]="st.code">{{ st.label }}</option>
@@ -804,7 +807,12 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   studyLabel(status: unknown): string { return this.statuses.label(status as string | null); }
   studyBadge(status: unknown): string { return studyStatusBadge(status as string | null); }
 
+  /** Graduated is final: the study status can't be changed afterwards. */
+  get graduated(): boolean { return this.details?.profile?.['study_status'] === 'GRADUATED'; }
+
   saveStudyStatus(): void {
+    if (this.study.status === 'GRADUATED' && !confirm('Mark as Graduated? This is final: the study status can\'t be changed afterwards, '
+        + 'and any installments not paid yet will be marked "Not needed".')) return;
     this.busy = true;
     this.error = '';
     this.api.post<{ message: string }>(`/admin/students/${encodeURIComponent(this.currentId)}/study-status`, this.study).subscribe({

@@ -6,8 +6,11 @@ export interface InstallmentRow {
   installment_id: number;
   installment_no: number;
   due_date: string;
-  /** Paid; Due (within the Payment Config's "show as due" days before its date); Overdue (date passed); Not Due. */
-  status: 'Paid' | 'Due' | 'Overdue' | 'Not Due';
+  /**
+   * Paid; Due (within the Payment Config's "show as due" days before its date); Overdue (date passed); Not Due;
+   * Not needed (the student graduated before it was paid: never due).
+   */
+  status: 'Paid' | 'Due' | 'Overdue' | 'Not Due' | 'Not needed';
   student_id: number;
   sponsor_id: number;
   student_code?: string | null;
@@ -22,12 +25,13 @@ export interface InstallmentRow {
   student_proof_url: string | null;
 }
 
-/** Paid green, Due red, Overdue dark red, Not Due orange. */
+/** Paid green, Due red, Overdue dark red, Not Due orange, Not needed grey. */
 export function installmentBadge(status: string): string {
   switch (status) {
     case 'Paid': return 'badge-inst-paid';
     case 'Due': return 'badge-inst-due';
     case 'Overdue': return 'badge-inst-overdue';
+    case 'Not needed': return 'badge-inst-not-needed';
     default: return 'badge-inst-not-due';
   }
 }
@@ -39,6 +43,7 @@ export function installmentSummary(rows: { status: string }[]): string {
   if (n('Overdue')) parts.push(`${n('Overdue')} overdue`);
   if (n('Due')) parts.push(`${n('Due')} due`);
   if (n('Not Due')) parts.push(`${n('Not Due')} to come`);
+  if (n('Not needed')) parts.push(`${n('Not needed')} not needed`);
   return parts.join(' · ');
 }
 
