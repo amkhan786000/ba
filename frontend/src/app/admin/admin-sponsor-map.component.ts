@@ -34,8 +34,10 @@ interface MapScreen {
     <div class="row">
       <div class="col-12">
         <div class="page-title-box d-flex flex-column flex-md-row justify-content-between align-items-center">
-          <h4 class="page-title mb-2 mb-md-0">Sponsor: <span class="text-primary">{{ data?.sponsor?.name }}</span>
-            <small *ngIf="data?.sponsor?.care_of" class="text-muted"> c/o {{ data!.sponsor.care_of }}</small></h4>
+          <h4 class="page-title mb-2 mb-md-0">Sponsor: <strong class="text-primary">{{ data?.sponsor?.name }}</strong>
+            <span *ngIf="data?.sponsor?.care_of" class="text-info"> (c/o <strong>{{ data!.sponsor.care_of }}</strong>)</span>
+            <span *ngIf="data?.sponsor?.chapter_name"><span class="text-muted font-weight-normal"> from chapter</span>
+              <strong class="text-success">{{ data!.sponsor.chapter_name }}</strong></span></h4>
           <div class="page-title-right">
             <a [routerLink]="['/', section, 'sponsorships']" class="btn btn-secondary waves-effect waves-light"><i class="mdi mdi-arrow-left"></i> Back</a>
           </div>
