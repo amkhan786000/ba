@@ -114,7 +114,7 @@ public class NotificationService {
                     .ifPresent(u -> {
                         Map<String, Object> v = new HashMap<>(values == null ? Map.of() : values);
                         v.put("name", u.getName());
-                        emailService.send(emailType, u.getEmail(), v);
+                        emailService.sendInBackground(emailType, u.getEmail(), v); // the request doesn't wait for the mail server
                     });
         }
         return true;
