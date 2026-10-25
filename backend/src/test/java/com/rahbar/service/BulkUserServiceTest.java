@@ -155,4 +155,19 @@ class BulkUserServiceTest {
     void allFourColumnsMustBeThere() {
         assertThrows(com.rahbar.exception.ApiException.class, () -> upload("Name,Chapter Name,Role\nA,Patna,Sponsor\n"));
     }
+
+    @Test
+    void aRowThatFailsDoesntMakeTheNextOneADuplicate() throws Exception {
+        // row 2's phone is someone else's, so it isn't added: row 3 (same name and chapter) is then added, not "a duplicate of row 2"
+        BulkUserService.Result r = upload("""
+                Name,Chapter Name,Phone Number,Role
+                Dr. Mohamed Firoze,Jeddah,9800000001,Sponsor
+                Dr. Mohamed Firoze,Jeddah,+966 50 062 1750,Sponsor
+                Dr. Mohamed Firoze,Jeddah,+966 50 062 1750,Sponsor
+                """);
+        assertEquals(1, r.added().size());
+        assertEquals("+966500621750", r.added().get(0).get("phone"));
+        assertEquals(1, r.duplicates().size());
+        assertEquals("row 3 of this file", r.duplicates().get(0).get("looks_like"));
+    }
 }

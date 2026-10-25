@@ -91,6 +91,7 @@ public class BulkUserService {
             existingByName.computeIfAbsent(nameInChapter(u.getName(), u.getChapterId()), k -> new ArrayList<>()).add(u.getName() + " (" + Objects.requireNonNullElse(u.getUserId(), "no ID")
                     + ", " + roleNames.getOrDefault(u.getRoleId(), "?") + (u.getChapterId() == null ? "" : ", " + chapterNames.get(u.getChapterId())) + ")");
         }
+        // name + chapter of the rows added so far (a row that failed or was skipped doesn't count)
         Map<String, Integer> fileRows = new HashMap<>();
         try (CSVParser parser = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true).setIgnoreHeaderCase(true)
                 .setTrim(true).setAllowMissingColumnNames(true).build().parse(new StringReader(text))) {
@@ -139,7 +140,7 @@ public class BulkUserService {
 
                     String canon = nameInChapter(name, chapterId);
                     List<String> alike = existingByName.getOrDefault(canon, List.of());
-                    Integer earlier = fileRows.putIfAbsent(canon, rowNumber);
+                    Integer earlier = fileRows.get(canon);
                     if (!alike.isEmpty() || earlier != null) {
                         Map<String, Object> d = new LinkedHashMap<>();
                         d.put("row", rowNumber);
@@ -182,6 +183,7 @@ public class BulkUserService {
                     u.setMustChangePassword(true);
                     users.save(u);
                     phonesTaken.add(digits(mobile));
+                    fileRows.put(canon, rowNumber);
                     report.created();
                     if (generated) report.warning(rowNumber, reference, "No phone number, so " + mobile + " was generated (not a real number). Add the real one in Manage Users.");
 
