@@ -8,6 +8,7 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
 import { PagerComponent, PageState, PaginatePipe, pageOf } from '../shared/pager/pager.component';
 import { CardTableDirective } from '../shared/card-table.directive';
 import { ChapterService } from '../core/services/chapter.service';
+import { IdRange, inIdRange, parseIdRange } from '../shared/id-range';
 import { Chapter } from './admin-chapters.component';
 
 interface MapScreen {
@@ -59,8 +60,15 @@ interface MapScreen {
               </div>
             </div>
             <div class="form-group d-flex" style="gap: 8px">
-              <input type="text" class="form-control" placeholder="Search students..." [(ngModel)]="search">
+              <input type="text" class="form-control" placeholder="Search a name or ID, or a range: pvt001-pvt120" [(ngModel)]="search" (ngModelChange)="pg.page = 1">
               <app-session-year-select [years]="yearList" [(value)]="sessionYear" (valueChange)="pg.page = 1"></app-session-year-select>
+            </div>
+            <div class="d-flex flex-wrap align-items-center small mb-2" style="gap: 8px">
+              <span *ngIf="range" class="text-info"><i class="mdi mdi-format-list-numbered"></i>
+                IDs {{ rangeId(range.from) }} to {{ rangeId(range.to) }}: <strong>{{ visible.length }}</strong> student(s)</span>
+              <button type="button" class="btn btn-xs btn-outline-primary" *ngIf="visible.length" (click)="tickAllShown()">
+                <i class="mdi mdi-checkbox-multiple-marked-outline"></i> Tick all {{ visible.length }} shown</button>
+              <button type="button" class="btn btn-xs btn-light border" *ngIf="selected.size" (click)="selected.clear()">Clear {{ selected.size }} ticked</button>
             </div>
             <form (ngSubmit)="submit()">
               <p class="text-muted small">Students ticked below will be assigned to <strong>{{ data.sponsor.name }}</strong>. Students who already have another sponsor will be moved.</p>
@@ -211,12 +219,23 @@ export class AdminSponsorMapComponent implements OnInit {
 
   get fitCount(): number { return (this.data?.availableStudents ?? []).filter((s) => s.match?.fits).length; }
 
+  /** A range of IDs typed in the search box ("pvt001-pvt120"), else null. */
+  get range(): IdRange | null { return parseIdRange(this.search); }
+
   get visible() {
     const f = this.search.toLowerCase();
+    const range = this.range;
     return (this.data?.availableStudents ?? []).filter((s) => !this.onlyFits || s.match?.fits)
       .filter((s) => !this.sessionYear || (this.sessionYear === 'none' ? s.year == null : String(s.year) === this.sessionYear)).filter((s) =>
-      [s.name, s.user_id, s.current_sponsor_name, s.current_sponsor_code].some((v) => (v ?? '').toLowerCase().includes(f)));
+      range ? inIdRange(s.user_id, range)
+        : [s.name, s.user_id, s.current_sponsor_name, s.current_sponsor_code].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
+
+  /** PVT + 7 -> "PVT007", the way the IDs are written. */
+  rangeId(n: number): string { return (this.range?.prefix ?? '') + String(n).padStart(3, '0'); }
+
+  /** Ticks every student the search shows, on all pages (select-all in the table only ticks this page). */
+  tickAllShown(): void { this.visible.forEach((s) => this.selected.add(s.id)); }
 
   /** Students on the page being shown (select-all only ticks these). */
   get pageRows() {
