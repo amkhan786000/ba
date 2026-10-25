@@ -21,6 +21,8 @@ export interface UserRow {
   /** The user's code (shown as "User Id"). */
   user_id: string;
   name: string;
+  /** Sponsors: who brought them ("c/o"). */
+  care_of?: string | null;
   email: string | null;
   phone?: string | null;
   role_id: number;

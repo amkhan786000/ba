@@ -33,6 +33,10 @@ import { RccCenter } from './admin-rcc-centers.component';
                 <label for="name">Name</label>
                 <input type="text" class="form-control" id="name" name="name" [(ngModel)]="form.name" required>
               </div>
+              <div class="form-group" *ngIf="isSponsor">
+                <label for="careOf">c/o <small class="text-muted">(who brought this sponsor, optional)</small></label>
+                <input type="text" class="form-control" id="careOf" name="careOf" maxlength="150" [(ngModel)]="form.careOf">
+              </div>
               <div class="form-group">
                 <label for="email">Email</label>
                 <input type="email" class="form-control" id="email" name="email" [(ngModel)]="form.email" [placeholder]="masked ? 'Hidden' : 'Optional'" [disabled]="masked">
@@ -115,7 +119,7 @@ export class AdminUserEditComponent implements OnInit {
   @Input() id = '';
 
   roles: RoleOption[] = [];
-  form: { name: string; email: string; roleId: number; additionalRoleIds: number[]; status: string; chapterId: number | null; rccCenterId: number | null } | null = null;
+  form: { name: string; careOf: string; email: string; roleId: number; additionalRoleIds: number[]; status: string; chapterId: number | null; rccCenterId: number | null } | null = null;
   chapters: Chapter[] = [];
   rccCenters: RccCenter[] = [];
   private originalChapterId: number | null = null;
@@ -148,12 +152,15 @@ export class AdminUserEditComponent implements OnInit {
       next: (u) => {
         this.originalChapterId = u.chapter_id ?? null;
         this.masked = !!u.masked;
-        this.form = { name: u.name, email: u.email ?? '', roleId: u.role_id, additionalRoleIds: u.additional_role_ids ?? [], status: u.status,
+        this.form = { name: u.name, careOf: u.care_of ?? '', email: u.email ?? '', roleId: u.role_id, additionalRoleIds: u.additional_role_ids ?? [], status: u.status,
                       chapterId: u.chapter_id ?? null, rccCenterId: u.rcc_center_id ?? null };
       },
       error: (err) => (this.error = err?.error?.error ?? 'Could not load user.')
     });
   }
+
+  /** c/o is kept for sponsors (main or additional role). */
+  get isSponsor(): boolean { return !!this.form && (this.form.roleId === ROLE.SPONSOR || this.form.additionalRoleIds.includes(ROLE.SPONSOR)); }
 
   /** Roles that can be added besides the main one. */
   extraRoleChoices(main: number | null): RoleOption[] { return this.assignableRoles.filter((r) => r.roleId !== main); }
