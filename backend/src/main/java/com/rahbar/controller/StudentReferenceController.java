@@ -18,16 +18,21 @@ public class StudentReferenceController {
         this.service = service;
     }
 
-    /** The current year, how many students still have no reference number, and the numbers given so far. */
+    /** year (default: the current one): the years, chapters with how many are left, the next numbers and batches. */
     @GetMapping
-    public Map<String, Object> overview() {
-        return service.overview();
+    public Map<String, Object> overview(@RequestParam(required = false) Integer year) {
+        return service.overview(year);
     }
 
-    /** Body: { year } (the current year): numbers every student of that session year who has none. */
+    /**
+     * Body: { year, chapterId } (chapterId: only that chapter's students; 0: those without a chapter; left out:
+     * every chapter): numbers the students of that session year who have none, carrying on from the last number.
+     */
     @PostMapping("/generate")
     public Map<String, Object> generate(@RequestBody Map<String, Object> body) {
         Object year = body == null ? null : body.get("year");
-        return service.generate(year == null || String.valueOf(year).isBlank() ? null : Integer.valueOf(String.valueOf(year).trim()));
+        Object chapter = body == null ? null : body.get("chapterId");
+        return service.generate(year == null || String.valueOf(year).isBlank() ? null : Integer.valueOf(String.valueOf(year).trim()),
+                chapter == null || String.valueOf(chapter).isBlank() ? null : Long.valueOf(String.valueOf(chapter).trim()));
     }
 }
