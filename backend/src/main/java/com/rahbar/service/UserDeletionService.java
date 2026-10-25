@@ -14,8 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.*;
 
 /**
- * Users > Edit > Delete (Super Admin only): a user can be deleted only when nothing in Rahbar is linked to them: no
- * students or sponsor, payments, installments, applications, course, progress, chapter or RCC centre, and nothing
+ * Users > Delete (Super Admin only): a user can be deleted only when nothing in Rahbar is linked to them: no students or
+ * sponsor, payments, installments, applications, course, progress or RCC centre (their chapter doesn't count), and nothing
  * they created or changed (any other record that points to them). Otherwise the reasons are listed and the account
  * can be deactivated instead.
  * <p>
@@ -75,29 +75,47 @@ public class UserDeletionService {
     public List<String> blockers(Long id) {
         requireSuperAdmin();
         User u = users.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "User not found."));
-        List<String> out = new ArrayList<>();
-        if (Access.current().getUser().getId().equals(id)) out.add("This is your own account.");
-        if (ServiceSupport.UNASSIGNED_GRANTOR_CODE.equals(u.getUserId())) out.add("This is the \"unassigned\" placeholder sponsor Rahbar needs.");
-        if (UserRoles.has(u, Role.SUPER_ADMIN, users) && superAdmins() <= 1) out.add("This is the only Super Admin.");
-        if (u.getChapterId() != null) out.add("Belongs to a chapter" + (u.getChapterName() == null ? "" : " (" + u.getChapterName() + ")") + ": remove the chapter first.");
-        if (u.getRccCenterId() != null) out.add("Belongs to an RCC centre: remove it first.");
+        return blockers(List.of(u)).get(id);
+    }
 
+    /**
+     * Manage Users: for each of these users, why they can't be deleted (empty: they can). One query per linked table
+     * for the whole list; the caller decides who may delete.
+     */
+    @Transactional(readOnly = true)
+    public Map<Long, List<String>> blockers(Collection<User> people) {
+        Map<Long, List<String>> out = new LinkedHashMap<>();
+        if (people.isEmpty()) return out;
+        Long me = Access.current().getUser().getId();
+        Map<Long, Set<Integer>> rolesOf = UserRoles.byUser(people, users);
+        Long superAdmins = null;
+        for (User u : people) {
+            List<String> why = new ArrayList<>();
+            if (me.equals(u.getId())) why.add("This is your own account.");
+            if (ServiceSupport.UNASSIGNED_GRANTOR_CODE.equals(u.getUserId())) why.add("This is the \"unassigned\" placeholder sponsor Rahbar needs.");
+            if (rolesOf.getOrDefault(u.getId(), Set.of()).contains(Role.SUPER_ADMIN)) {
+                if (superAdmins == null) superAdmins = superAdmins();
+                if (superAdmins <= 1) why.add("This is the only Super Admin.");
+            }
+            if (u.getRccCenterId() != null) why.add("Belongs to an RCC centre: remove it first.");
+            out.put(u.getId(), why);
+        }
+        Set<Long> ids = out.keySet();
         Set<String> columns = columns();
         Set<String> checked = new HashSet<>();
         for (Map.Entry<String, String> link : LINKS.entrySet()) {
             checked.add(link.getKey());
             if (!columns.contains(link.getKey())) continue;
-            long n = count(link.getKey(), id);
-            if (n > 0) out.add(n + " " + link.getValue());
+            countPerUser(link.getKey(), ids).forEach((id, n) -> out.get(id).add(n + " " + link.getValue()));
         }
         // Anything else pointing to the user (mostly "created by" / "changed by"): their work stays linked to them.
-        Map<String, Long> other = new TreeMap<>();
+        Map<Long, Map<String, Long>> other = new HashMap<>();
         for (String fk : foreignKeys()) {
             if (checked.contains(fk) || REMOVED_WITH_USER.contains(fk) || LINK_CLEARED.contains(fk)) continue;
-            long n = count(fk, id);
-            if (n > 0) other.merge(fk.substring(0, fk.indexOf('.')).replace('_', ' '), n, Long::sum);
+            String table = fk.substring(0, fk.indexOf('.')).replace('_', ' ');
+            countPerUser(fk, ids).forEach((id, n) -> other.computeIfAbsent(id, k -> new TreeMap<>()).merge(table, n, Long::sum));
         }
-        other.forEach((table, n) -> out.add(n + " " + table + " record(s) they created or changed"));
+        other.forEach((id, t) -> t.forEach((table, n) -> out.get(id).add(n + " " + table + " record(s) they created or changed")));
         return out;
     }
 
@@ -206,14 +224,6 @@ public class UserDeletionService {
         Long n = jdbc.queryForObject("""
                 SELECT COUNT(DISTINCT u.id) FROM users u LEFT JOIN user_additional_roles r ON r.user_id = u.id
                 WHERE (u.role_id = ? OR r.role_id = ?) AND u.status = 'Active'""", Long.class, Role.SUPER_ADMIN, Role.SUPER_ADMIN);
-        return n == null ? 0 : n;
-    }
-
-    /** Rows whose column points to the user; on the users table the user's own row doesn't count. */
-    private long count(String tableColumn, Long id) {
-        boolean self = tableColumn.startsWith("users.");
-        Long n = jdbc.queryForObject("SELECT COUNT(*) FROM " + table(tableColumn) + " WHERE " + column(tableColumn) + " = ?"
-                + (self ? " AND id <> ?" : ""), Long.class, self ? new Object[]{id, id} : new Object[]{id});
         return n == null ? 0 : n;
     }
 
