@@ -138,6 +138,37 @@ interface MapScreen {
         </div>
       </div>
 
+      <!-- Asked before mapping several students, or any student who already has a sponsor -->
+      <div *ngIf="confirming && data" class="modal fade show d-block" tabindex="-1" (click)="confirming = false">
+        <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()"><div class="modal-content">
+          <div class="modal-header"><h5 class="modal-title">Map {{ selected.size }} student(s)?</h5>
+            <button type="button" class="close" (click)="confirming = false" aria-label="Close">&times;</button></div>
+          <div class="modal-body">
+            <p class="mb-2">Map <strong>{{ selected.size }}</strong> student(s) to <strong class="text-primary">{{ data.sponsor.name }}</strong>
+              <span *ngIf="data.sponsor.care_of" class="text-info"> (c/o {{ data.sponsor.care_of }})</span><span *ngIf="onBehalf.on">, on behalf of an anonymous donor</span>?</p>
+            <div *ngIf="movers.length" class="alert alert-warning mb-2">
+              <strong><i class="mdi mdi-alert"></i> {{ movers.length }} of them already have a sponsor.</strong>
+              They will be moved to {{ data.sponsor.name }}, and their current sponsor will be told.
+              <div class="table-responsive mt-2" style="max-height: 240px"><table class="table table-sm mb-0 bg-white">
+                <thead class="thead-light"><tr><th>Student</th><th>Current sponsor</th></tr></thead>
+                <tbody><tr *ngFor="let s of movers"><td>{{ s.name }} <small class="text-muted">{{ s.user_id }}</small></td>
+                  <td>{{ s.current_sponsor_name || s.current_sponsor_code }}</td></tr></tbody>
+              </table></div>
+              <div class="custom-control custom-checkbox mt-2">
+                <input type="checkbox" class="custom-control-input" id="confirmMove" [(ngModel)]="moveConfirmed">
+                <label class="custom-control-label" for="confirmMove">Yes, move these {{ movers.length }} student(s) from their current sponsor</label>
+              </div>
+            </div>
+            <p *ngIf="!movers.length" class="text-muted small mb-0">None of them has a sponsor yet.</p>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" (click)="confirming = false">Cancel</button>
+            <button type="button" class="btn btn-primary" (click)="map()" [disabled]="saving || (movers.length > 0 && !moveConfirmed)">
+              Yes, map {{ selected.size }} student(s)</button>
+          </div>
+        </div></div>
+      </div>
+
       <div class="col-12 col-xl-5 mt-4 mt-xl-0">
         <div class="card">
           <div class="card-body">
@@ -256,9 +287,26 @@ export class AdminSponsorMapComponent implements OnInit {
     for (const s of this.pageRows) { if (on) this.selected.add(s.id); else this.selected.delete(s.id); }
   }
 
+  /** The confirmation popup is open. */
+  confirming = false;
+  /** The ticked students who already have a sponsor were confirmed to be moved. */
+  moveConfirmed = false;
+
+  /** Ticked students who already have (another) sponsor: mapping moves them. */
+  get movers() {
+    return (this.data?.availableStudents ?? []).filter((s) => this.selected.has(s.id) && s.current_sponsor_id);
+  }
+
+  /** Several students, or any who already has a sponsor: ask first. One unassigned student is mapped straight away. */
   submit(): void {
     this.error = '';
     if (!this.selected.size) { this.error = 'Please select at least one student.'; return; }
+    if (this.selected.size > 1 || this.movers.length) { this.moveConfirmed = false; this.confirming = true; return; }
+    this.map();
+  }
+
+  map(): void {
+    this.confirming = false;
     this.saving = true;
     this.api.post<{ message: string }>(`/admin/sponsorships/${encodeURIComponent(this.id)}/map`, {
       studentIds: [...this.selected],

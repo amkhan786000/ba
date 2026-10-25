@@ -681,7 +681,16 @@ public class AdminService {
         List<Map<String, Object>> mappedRows = Rows.pickAll(mapped, "id", "user_id", "name", "email", "phone", "chapter_id", "chapter_name");
         mappedRows.forEach(r -> r.putAll(SponsorMappingService.onBehalfFields(mine.get((Long) r.get("id")), chapters)));
         result.put("mappedStudents", mappedRows);
-        List<Map<String, Object>> available = visibleStudentRows(userRepository.findStudentsAvailableFor(sponsorId));
+        List<Map<String, Object>> available = new ArrayList<>();
+        for (Map<String, Object> r : visibleStudentRows(userRepository.findStudentsAvailableFor(sponsorId))) {
+            Map<String, Object> row = new LinkedHashMap<>(r);
+            if (UNASSIGNED_GRANTOR_CODE.equals(row.get("current_sponsor_code"))) { // the "unassigned" placeholder: no sponsor
+                row.put("current_sponsor_id", null);
+                row.put("current_sponsor_name", null);
+                row.put("current_sponsor_code", null);
+            }
+            available.add(row);
+        }
         // what the sponsor would like: students who fit come first, with why (Edit Sponsor > Student preferences)
         User sponsorUser = requireVisibleSponsor(sponsorId);
         SponsorMatch.Wish wish = SponsorMatch.Wish.of(sponsorUser);
