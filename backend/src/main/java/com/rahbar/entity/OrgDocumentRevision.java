@@ -24,4 +24,11 @@ public class OrgDocumentRevision extends Modifiable {
     private String content;
 
     private java.time.LocalDate effectiveDate;
+
+    /** The file attached to this version (stored file name and name as uploaded), if any. */
+    @Column(length = 255)
+    private String attachmentPath;
+
+    @Column(length = 255)
+    private String attachmentName;
 }

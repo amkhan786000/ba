@@ -13,12 +13,18 @@ import com.rahbar.util.Rows;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.*;
 
 /**
- * Admin > Documents: by-laws and other organisation documents kept as text, in categories. Saving a changed
+ * Admin > Documents: by-laws and other organisation documents, in categories: text pasted in, and / or an attached
+ * PDF or Word (.doc / .docx) file, which only the document's readers can open. Saving a changed
  * document keeps the previous version, which can be viewed and restored. Documents are archived rather than
  * deleted; only the Super Admin can delete one.
  * <p>
@@ -30,6 +36,19 @@ public class OrgDocumentService {
 
     /** About 2 MB of text: far more than any by-law. */
     static final int MAX_CONTENT = 2_000_000;
+
+    /** Attached files: at most 20 MB. */
+    static final long MAX_FILE = 20L * 1024 * 1024;
+
+    /** Stored attachments start with this; they are only served through the document (see FileAccessService). */
+    public static final String FILE_PREFIX = "orgdoc_";
+
+    /** The file types that may be attached: extension -> content type. */
+    static final Map<String, String> FILE_TYPES = Map.of("pdf", "application/pdf", "doc", "application/msword",
+            "docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private FileStorageService files;
 
     private final OrgDocumentRepository documents;
     private final OrgDocumentCategoryRepository categories;
@@ -160,7 +179,8 @@ public class OrgDocumentService {
         Reader reader = reader(asRole);
         List<String> words = q == null ? List.of() : Arrays.stream(q.toLowerCase(Locale.ROOT).split("\\s+")).filter(w -> !w.isBlank()).toList();
         List<OrgDocument> all = documents.findAllByOrderByTitleAsc().stream().filter(d -> mayRead(d, reader))
-                .filter(d -> words.isEmpty() || words.stream().allMatch(w -> (d.getTitle() + "\n" + d.getContent()).toLowerCase(Locale.ROOT).contains(w)))
+                .filter(d -> words.isEmpty() || words.stream().allMatch(w -> (d.getTitle() + "\n" + d.getContent() + "\n"
+                        + Objects.toString(d.getAttachmentName(), "")).toLowerCase(Locale.ROOT).contains(w)))
                 .toList();
         boolean editor = reader.editor();
         Map<Integer, String> names = editor ? roleNames() : Map.of();
@@ -179,6 +199,7 @@ public class OrgDocumentService {
             r.put("updated_by_name", who.get(d.getUpdatedBy()));
             r.put("earlier_versions", versions.getOrDefault(d.getId(), 0L));
             r.put("length", d.getContent() == null ? 0 : d.getContent().length());
+            r.put("attachment_name", d.getAttachmentName());
             if (!words.isEmpty()) r.put("snippet", snippet(d.getContent(), words));
             if (editor) {
                 r.put("visibility", d.getVisibility());
@@ -204,6 +225,7 @@ public class OrgDocumentService {
         OrgDocument d = require(id);
         if (!mayRead(d, reader)) throw new ApiException(HttpStatus.NOT_FOUND, "Document not found.");
         Map<String, Object> r = Rows.of(d);
+        r.remove("attachment_path"); // opened through GET /{id}/file
         if (reader.editor()) {
             r.put("readers", readers(d, roleNames()));
             r.put("visible_roles", new ArrayList<>(d.visibleRoles()));
@@ -223,8 +245,17 @@ public class OrgDocumentService {
     }
 
     /** Body: { categoryId, title, content, effectiveDate }. When the title, text or date changes, the old version is kept. */
-    @Transactional
     public OrgDocument save(Long id, Map<String, Object> body) {
+        return save(id, body, null);
+    }
+
+    /**
+     * Body: { categoryId, title, content, effectiveDate, visibility, visibleRoleIds, removeFile }; file: a PDF or Word
+     * file to attach (replacing the one it had). A document needs its text, a file, or both. When the title, text,
+     * date or file changes, the old version (with its file) is kept.
+     */
+    @Transactional
+    public OrgDocument save(Long id, Map<String, Object> body, MultipartFile file) {
         OrgDocument d = id == null ? new OrgDocument() : require(id);
         Long categoryId = body.get("categoryId") == null || String.valueOf(body.get("categoryId")).isBlank() ? null
                 : Long.valueOf(String.valueOf(body.get("categoryId")));
@@ -232,8 +263,8 @@ public class OrgDocumentService {
         String title = text(body.get("title"), "Title", 200, true);
         // the text is kept exactly as pasted (only trailing blank lines are dropped)
         Object raw = body.get("content");
-        String content = raw == null ? null : String.valueOf(raw).replace("\r\n", "\n").stripTrailing();
-        if (content == null || content.isBlank()) throw bad("Paste the text of the document.");
+        String content = raw == null ? "" : String.valueOf(raw).replace("\r\n", "\n").stripTrailing();
+        if (content.isBlank()) content = "";
         if (content.length() > MAX_CONTENT) throw bad("The text is too long.");
         LocalDate effective;
         try {
@@ -242,20 +273,107 @@ public class OrgDocumentService {
         } catch (RuntimeException e) {
             throw bad("The effective date must be a date like 2026-01-15.");
         }
-        if (d.getId() != null && (!d.getTitle().equals(title) || !d.getContent().equals(content) || !Objects.equals(d.getEffectiveDate(), effective))) {
+        boolean newFile = file != null && !file.isEmpty();
+        if (newFile) checkFile(file);
+        boolean removeFile = !newFile && "true".equalsIgnoreCase(String.valueOf(body.get("removeFile")));
+        String path = removeFile ? null : d.getAttachmentPath(), name = removeFile ? null : d.getAttachmentName();
+        if (content.isEmpty() && path == null && !newFile) throw bad("Paste the text of the document or attach a PDF / Word file.");
+        if (newFile) {
+            name = attachmentName(file.getOriginalFilename());
+            path = files.store(file, FILE_PREFIX + System.currentTimeMillis() + "_" + files.sanitizeFilename(name));
+        }
+        if (body.containsKey("visibility") || d.getId() == null) setReaders(d, body);
+        return apply(d, categoryId, title, content, effective, path, name);
+    }
+
+    /** Saves the document, keeping the version it replaces when the title, text, date or file changes. */
+    private OrgDocument apply(OrgDocument d, Long categoryId, String title, String content, LocalDate effective, String path, String name) {
+        if (d.getId() != null && (!d.getTitle().equals(title) || !d.getContent().equals(content) || !Objects.equals(d.getEffectiveDate(), effective)
+                || !Objects.equals(d.getAttachmentPath(), path))) {
             OrgDocumentRevision r = new OrgDocumentRevision();
             r.setDocumentId(d.getId());
             r.setTitle(d.getTitle());
             r.setContent(d.getContent());
             r.setEffectiveDate(d.getEffectiveDate());
+            r.setAttachmentPath(d.getAttachmentPath());
+            r.setAttachmentName(d.getAttachmentName());
             revisions.save(r);
         }
         d.setCategoryId(categoryId);
         d.setTitle(title);
         d.setContent(content);
         d.setEffectiveDate(effective);
-        if (body.containsKey("visibility") || d.getId() == null) setReaders(d, body);
+        d.setAttachmentPath(path);
+        d.setAttachmentName(name);
         return documents.save(d);
+    }
+
+    /** A PDF, .doc or .docx of at most 20 MB, checked by its name and by what the file really is. */
+    static void checkFile(MultipartFile file) {
+        if (file.getSize() > MAX_FILE) throw bad("The file is too large (at most 20 MB).");
+        String ext = extension(file.getOriginalFilename());
+        if (!FILE_TYPES.containsKey(ext)) throw bad("Attach a PDF or a Word file (.pdf, .doc or .docx).");
+        byte[] head = new byte[8];
+        int n;
+        try (InputStream in = file.getInputStream()) {
+            n = in.readNBytes(head, 0, head.length);
+        } catch (IOException e) {
+            throw bad("The file could not be read.");
+        }
+        boolean ok = switch (ext) {
+            case "pdf" -> n >= 5 && head[0] == '%' && head[1] == 'P' && head[2] == 'D' && head[3] == 'F' && head[4] == '-';
+            case "docx" -> n >= 4 && head[0] == 'P' && head[1] == 'K' && head[2] == 3 && head[3] == 4; // a zip
+            default -> n >= 8 && (head[0] & 0xFF) == 0xD0 && (head[1] & 0xFF) == 0xCF && (head[2] & 0xFF) == 0x11 && (head[3] & 0xFF) == 0xE0
+                    && (head[4] & 0xFF) == 0xA1 && (head[5] & 0xFF) == 0xB1 && head[6] == 0x1A && (head[7] & 0xFF) == 0xE1; // old Word
+        };
+        if (!ok) throw bad("The file isn't a real ." + ext + " file.");
+    }
+
+    /** "by-laws.PDF" -> "pdf". */
+    static String extension(String name) {
+        String n = name == null ? "" : name.strip();
+        int dot = n.lastIndexOf('.');
+        return dot < 0 ? "" : n.substring(dot + 1).toLowerCase(Locale.ROOT);
+    }
+
+    /** The name to show and download it as: the uploaded name without any folder, at most 200 characters. */
+    static String attachmentName(String original) {
+        String n = original == null ? "" : original.replace('\\', '/');
+        n = n.substring(n.lastIndexOf('/') + 1).strip();
+        if (n.isEmpty()) n = "document";
+        if (n.length() > 200) {
+            String ext = extension(n);
+            n = n.substring(0, 200 - ext.length() - 1) + "." + ext;
+        }
+        return n;
+    }
+
+    /** An attached file to send: where it is, the name to send it as and its content type. */
+    public record Attachment(Path path, String name, String contentType) {
+    }
+
+    /** The document's attached file, for whoever may read the document (in a portal: that role). */
+    public Attachment file(Long id, Integer asRole) {
+        OrgDocument d = require(id);
+        if (!mayRead(d, reader(asRole))) throw new ApiException(HttpStatus.NOT_FOUND, "Document not found.");
+        return attachment(d.getAttachmentPath(), d.getAttachmentName());
+    }
+
+    /** The file an earlier version had (people who edit documents). */
+    public Attachment revisionFile(Long id, Long revisionId) {
+        require(id);
+        OrgDocumentRevision r = revisions.findById(revisionId).filter(x -> x.getDocumentId().equals(id))
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Version not found."));
+        return attachment(r.getAttachmentPath(), r.getAttachmentName());
+    }
+
+    private Attachment attachment(String path, String name) {
+        ApiException none = new ApiException(HttpStatus.NOT_FOUND, "This document has no file attached.");
+        if (path == null) throw none;
+        Path p = files.resolve(path);
+        if (!Files.isRegularFile(p)) throw none;
+        String shown = name == null ? path : name;
+        return new Attachment(p, shown, FILE_TYPES.getOrDefault(extension(shown), "application/octet-stream"));
     }
 
     /** Body: visibility PUBLIC | ROLES (default PUBLIC), visibleRoleIds: [role ids] (for ROLES). */
@@ -310,24 +428,20 @@ public class OrgDocumentService {
         List<Map<String, Object>> rows = new ArrayList<>();
         for (OrgDocumentRevision r : list) {
             Map<String, Object> row = Rows.of(r);
+            row.remove("attachment_path"); // opened through GET /{id}/revisions/{revisionId}/file
             row.put("replaced_by_name", who.get(r.getCreatedBy()));
             rows.add(row);
         }
         return rows;
     }
 
-    /** Makes an earlier version the current one again (the current text is kept as a version too). */
+    /** Makes an earlier version (with its file) the current one again (the current one is kept as a version too). */
     @Transactional
     public OrgDocument restore(Long id, Long revisionId) {
         OrgDocument d = require(id);
         OrgDocumentRevision r = revisions.findById(revisionId).filter(x -> x.getDocumentId().equals(id))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Version not found."));
-        Map<String, Object> body = new HashMap<>();
-        body.put("categoryId", d.getCategoryId());
-        body.put("title", r.getTitle());
-        body.put("content", r.getContent());
-        body.put("effectiveDate", r.getEffectiveDate() == null ? null : r.getEffectiveDate().toString());
-        return save(id, body);
+        return apply(d, d.getCategoryId(), r.getTitle(), r.getContent(), r.getEffectiveDate(), r.getAttachmentPath(), r.getAttachmentName());
     }
 
     // ---------------------------------------------------------------- categories

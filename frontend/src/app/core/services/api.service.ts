@@ -37,7 +37,10 @@ export class ApiService {
       .pipe(
         switchMap(async (res) => {
           const disposition = res.headers.get('Content-Disposition') ?? '';
-          const match = /filename="?([^";]+)"?/.exec(disposition);
+          // filename*=UTF-8''... (any language) when given, else filename="..."
+          const encoded = /filename\*=UTF-8''([^;]+)/i.exec(disposition);
+          const plain = /filename="?([^";]+)"?/.exec(disposition);
+          const match = encoded ? [encoded[0], decodeURIComponent(encoded[1])] : plain;
           const url = URL.createObjectURL(res.body as Blob);
           const a = document.createElement('a');
           a.href = url;
