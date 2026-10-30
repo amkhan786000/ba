@@ -48,7 +48,8 @@ interface StudentsDashboard {
         <app-stat-tile label="Completion rate" icon="mdi-flag-checkered" [tone]="rateTone(k('completionRate'))"
                        [value]="pct(k('completionRate'))" sub="graduated of those who finished or left"></app-stat-tile>
         <app-stat-tile label="Without a sponsor" icon="mdi-account-alert" [tone]="k('withoutSponsor') ? 'warning' : 'success'"
-                       [value]="k('withoutSponsor')" sub="studying now" link="/admin/sponsorships" linkText="Map sponsors"></app-stat-tile>
+                       [value]="k('withoutSponsor')" sub="studying now" link="/admin/sponsorships" linkText="Map sponsors"
+                       link2="/admin/students" link2Text="Show students" [link2Query]="{ study: 'STUDYING', sponsored: 'no' }"></app-stat-tile>
         <app-stat-tile label="Without a course" icon="mdi-book-alert" [tone]="k('withoutCourse') ? 'warning' : 'success'"
                        [value]="k('withoutCourse')" sub="no college / course set" link="/admin/manage-students" linkText="Assign"></app-stat-tile>
         <app-stat-tile label="Without bank details" icon="mdi-bank-remove" [tone]="k('withoutBank') ? 'warning' : 'success'"

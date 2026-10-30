@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Subject, Subscription, debounceTime } from 'rxjs';
 import { FEATURES } from '../core/models/features';
 import { ApiService } from '../core/services/api.service';
@@ -628,7 +629,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   showUpload = false;
   csv: File | null = null;
 
-  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService, private statuses: StudyStatusService) {}
+  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService, private statuses: StudyStatusService, private route: ActivatedRoute) {}
 
   /** The study statuses (from the server), for the filter and the Study tab. */
   get studyStatuses(): { code: string; label: string }[] { return this.statuses.list; }
@@ -673,6 +674,10 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Deep links from the dashboards, e.g. ?study=STUDYING&sponsored=no.
+    const q = this.route.snapshot.queryParamMap;
+    this.fStudy = q.get('study') ?? this.fStudy;
+    this.fSponsored = q.get('sponsored') ?? this.fSponsored;
     this.sub = this.search$.pipe(debounceTime(300)).subscribe(() => { this.page = 1; this.load(); });
     this.api.get<Institution[]>('/admin/institutions').subscribe({ next: (i) => (this.institutions = i) });
     this.api.get<CourseRow[]>('/admin/courses').subscribe({ next: (c) => (this.courses = c) });

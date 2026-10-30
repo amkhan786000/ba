@@ -16,14 +16,18 @@ import { RouterLink } from '@angular/router';
     .value { font-size: 26px; font-weight: 700; color: #17231c; line-height: 1.2; font-variant-numeric: tabular-nums; }
     .sub { font-size: 12px; color: #3d4a43; }
     .sub.up { color: #15803d; } .sub.down { color: #c0262d; }
-    a.more { font-size: 12px; margin-top: auto; }
+    .links { margin-top: auto; display: flex; gap: 14px; flex-wrap: wrap; }
+    a.more { font-size: 12px; }
   `],
   template: `
     <div class="tile" [style.--tone]="toneColour">
       <span class="label"><i *ngIf="icon" class="mdi" [ngClass]="icon"></i>{{ label }}</span>
       <span class="value">{{ value ?? '–' }}</span>
       <span *ngIf="sub" class="sub" [class.up]="trend === 'up'" [class.down]="trend === 'down'">{{ sub }}</span>
-      <a *ngIf="link" class="more" [routerLink]="link">{{ linkText }} →</a>
+      <div *ngIf="link" class="links">
+        <a class="more" [routerLink]="link">{{ linkText }} →</a>
+        <a *ngIf="link2" class="more" [routerLink]="link2" [queryParams]="link2Query">{{ link2Text }} →</a>
+      </div>
     </div>
   `
 })
@@ -34,6 +38,10 @@ export class StatTileComponent {
   @Input() icon = '';
   @Input() link: string | null = null;
   @Input() linkText = 'Open';
+  /** An optional second link beside the first, e.g. to a pre-filtered list. */
+  @Input() link2: string | null = null;
+  @Input() link2Text = 'Open';
+  @Input() link2Query: Record<string, string> | null = null;
   @Input() tone: 'primary' | 'success' | 'warning' | 'danger' | 'info' | 'purple' = 'primary';
   @Input() trend: 'up' | 'down' | null = null;
 
