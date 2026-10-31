@@ -17,6 +17,8 @@ public interface StudentInstitutionCourseRepository extends JpaRepository<Studen
 
     long countByInstitutionId(String institutionId);
 
+    List<StudentInstitutionCourse> findByInstitutionId(String institutionId);
+
     /** Course start date and length/fees for a student (assigned_at, number_of_semesters, fees_per_semester). */
     @Query("""
         select new map(s.assignedAt as assigned_at, c.numberOfSemesters as number_of_semesters,
