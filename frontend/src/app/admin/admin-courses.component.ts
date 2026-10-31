@@ -89,11 +89,12 @@ export interface CourseRow {
             <h4 class="header-title mb-3">Institution List</h4>
             <div class="table-responsive">
               <table class="table table-striped table-centered mb-0">
-                <thead><tr><th>ID</th><th>Institution</th><th>Address</th><th>Contact</th><th>Courses</th><th>Students</th><th *ngIf="canEdit">Actions</th></tr></thead>
+                <thead><tr><th>ID</th><th>Code</th><th>Institution</th><th>Address</th><th>Contact</th><th>Courses</th><th>Students</th><th *ngIf="canEdit">Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="!institutions.length"><td colspan="7" class="text-center text-muted">No institutions yet.</td></tr>
+                  <tr *ngIf="!institutions.length"><td colspan="8" class="text-center text-muted">No institutions yet.</td></tr>
                   <tr *ngFor="let i of institutions | paginate: ipg.page : ipg.size">
                     <td>{{ i.institutionId }}</td>
+                    <td>{{ i.institutionCode || '-' }}</td>
                     <td>{{ i.institutionName }}</td>
                     <td>{{ i.address }}</td>
                     <td>{{ i.contactNumber }}<div class="small text-muted">{{ i.email }}</div></td>
