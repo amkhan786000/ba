@@ -190,6 +190,13 @@ public class AdminController {
         return adminService.courseStudentCounts();
     }
 
+    /** Body: { toCourseId, deleteFrom }: moves every student on this course to another one (one click). */
+    @PostMapping("/courses/{id}/move-students")
+    @PreAuthorize("hasAuthority('COURSES:EDIT')")
+    public Map<String, Object> moveCourseStudents(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return adminService.moveCourseStudents(id, Ids.toLong(body.get("toCourseId")), Boolean.TRUE.equals(body.get("deleteFrom")));
+    }
+
     /** The students on a course (names: needs Students view). */
     @GetMapping("/courses/{id}/students")
     @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
