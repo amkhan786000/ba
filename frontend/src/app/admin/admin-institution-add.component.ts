@@ -31,12 +31,12 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
                 <input type="text" class="form-control" id="address" name="address" [(ngModel)]="form.address" required>
               </div>
               <div class="form-group">
-                <label for="contact_number">Contact Number</label>
-                <input type="text" class="form-control" id="contact_number" name="contactNumber" [(ngModel)]="form.contactNumber" required>
+                <label for="contact_number">Contact Number <span class="text-muted small">(optional)</span></label>
+                <input type="text" class="form-control" id="contact_number" name="contactNumber" maxlength="15" [(ngModel)]="form.contactNumber">
               </div>
               <div class="form-group">
-                <label for="email">Email</label>
-                <input type="email" class="form-control" id="email" name="email" [(ngModel)]="form.email" required>
+                <label for="email">Email <span class="text-muted small">(optional)</span></label>
+                <input type="email" class="form-control" id="email" name="email" maxlength="100" [(ngModel)]="form.email" email>
               </div>
               <div class="d-flex justify-content-between">
                 <a [routerLink]="['/', section, 'courses']" class="btn btn-light">Back</a>
