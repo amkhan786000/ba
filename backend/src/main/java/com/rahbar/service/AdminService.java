@@ -532,6 +532,11 @@ public class AdminService {
 
     /** Adds or edits a course; students on an edited course get their installments rebuilt (semesters may have changed). */
     public Course saveCourse(Course course) {
+        // the code: given when adding (else the name); an edit keeps the code the course already has
+        String code = course.getCourseId() == null ? null
+                : courseRepository.findById(course.getCourseId()).map(Course::getCourseCode).orElse(null);
+        if (course.getCourseId() == null) code = trimToNull(course.getCourseCode());
+        course.setCourseCode(code != null ? code : course.getCourseName());
         Course saved = courseRepository.saveAndFlush(course);
         if (course.getCourseId() != null) {
             studentCourseRepository.findByCourseId(saved.getCourseId()).forEach(sic -> installmentService.sync(sic.getUserId()));
