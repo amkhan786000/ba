@@ -562,6 +562,9 @@ public class AdminService {
         Institution institution = new Institution();
         institution.setInstitutionId(institutionId);
         institution.setInstitutionName(String.valueOf(body.get("institutionName")));
+        // the code: as given, else the name it was added with (it stays when the name is edited later)
+        String code = trimToNull(str(body.get("institutionCode")));
+        institution.setInstitutionCode(code != null ? code : institution.getInstitutionName());
         institution.setAddress(str(body.get("address")));
         institution.setContactNumber(str(body.get("contactNumber")));
         institution.setEmail(str(body.get("email")));
@@ -580,6 +583,8 @@ public class AdminService {
         String name = trimToNull(str(body.get("institutionName")));
         if (name == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Institution name is required.");
         institution.setInstitutionName(name);
+        // the code isn't changed here; an institution from before codes gets its name as the code
+        if (institution.getInstitutionCode() == null) institution.setInstitutionCode(name);
         institution.setAddress(str(body.get("address")));
         institution.setContactNumber(str(body.get("contactNumber")));
         institution.setEmail(str(body.get("email")));

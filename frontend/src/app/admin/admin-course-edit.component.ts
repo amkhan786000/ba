@@ -8,6 +8,8 @@ import { CourseRow } from './admin-courses.component';
 
 export interface Institution {
   institutionId: string; institutionName: string;
+  /** Short code kept as it is when the name is edited (e.g. "DRIT"); pages show the name. */
+  institutionCode?: string | null;
   address?: string | null; contactNumber?: string | null; email?: string | null;
 }
 

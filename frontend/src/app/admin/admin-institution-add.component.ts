@@ -23,6 +23,12 @@ import { AlertsComponent, errorText } from '../shared/alerts/alerts.component';
                 <input type="text" class="form-control" id="institution_id" name="institutionId" [(ngModel)]="form.institutionId" placeholder="Auto-generated if empty" [disabled]="!!editId">
               </div>
               <div class="form-group">
+                <label for="institution_code">Code</label>
+                <input type="text" class="form-control" id="institution_code" name="institutionCode" maxlength="255" [(ngModel)]="form.institutionCode"
+                       [placeholder]="editId ? '' : 'e.g. DRIT (empty: the name)'" [disabled]="!!editId">
+                <small class="text-muted">{{ editId ? 'The code stays as it is; edit the name below.' : 'Kept as it is when the name is edited later. Pages show the name.' }}</small>
+              </div>
+              <div class="form-group">
                 <label for="institution_name">Institution Name</label>
                 <input type="text" class="form-control" id="institution_name" name="institutionName" [(ngModel)]="form.institutionName" required>
               </div>
@@ -54,7 +60,7 @@ export class AdminInstitutionAddComponent implements OnInit {
   @Input() set section(v: string | undefined) { this._section = v || 'admin'; }
   get section(): string { return this._section; }
   private _section = 'admin';
-  form = { institutionId: '', institutionName: '', address: '', contactNumber: '', email: '' };
+  form = { institutionId: '', institutionCode: '', institutionName: '', address: '', contactNumber: '', email: '' };
   saving = false;
   message = '';
   error = '';
@@ -69,7 +75,7 @@ export class AdminInstitutionAddComponent implements OnInit {
     if (!this.editId) return;
     this.api.get<Record<string, string | null>>(`/admin/institutions/${encodeURIComponent(this.editId)}`).subscribe({
       next: (i) => (this.form = {
-        institutionId: i['institutionId'] ?? '', institutionName: i['institutionName'] ?? '',
+        institutionId: i['institutionId'] ?? '', institutionCode: i['institutionCode'] ?? '', institutionName: i['institutionName'] ?? '',
         address: i['address'] ?? '', contactNumber: i['contactNumber'] ?? '', email: i['email'] ?? ''
       }),
       error: (e) => (this.error = errorText(e, 'Could not load the institution.'))
