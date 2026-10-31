@@ -58,7 +58,10 @@ export interface CourseRow {
                     <td><ng-container *ngTemplateOutlet="count; context: { n: courseStudents(c.course_id), open: openCourse.bind(this, c) }"></ng-container></td>
                     <td class="text-nowrap">
                       <a *ngIf="canEdit" [routerLink]="['/', section, 'courses', c.course_id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
-                      <button *ngIf="canEdit" type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="deleteCourse(c)">Delete</button>
+                      <!-- greyed out while students are on the course (the server refuses too); the wrapper shows why on hover -->
+                      <span *ngIf="canEdit" class="d-inline-block ml-1" [title]="courseBlocker(c.course_id) || 'Delete this course'">
+                        <button type="button" class="btn btn-sm btn-danger waves-effect" (click)="deleteCourse(c)" [disabled]="!!courseBlocker(c.course_id)"
+                                [style.pointer-events]="courseBlocker(c.course_id) ? 'none' : null">Delete</button></span>
                     </td>
                   </tr>
                 </tbody>
@@ -89,7 +92,10 @@ export interface CourseRow {
                     <td><ng-container *ngTemplateOutlet="count; context: { n: institutionStudents(i.institutionId), open: openInstitution.bind(this, i) }"></ng-container></td>
                     <td *ngIf="canEdit" class="text-nowrap">
                       <a [routerLink]="['/', section, 'institutions', i.institutionId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
-                      <button type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="deleteInstitution(i)">Delete</button>
+                      <!-- greyed out while the institution has courses or students (the server refuses too) -->
+                      <span class="d-inline-block ml-1" [title]="institutionBlocker(i.institutionId) || 'Delete this institution'">
+                        <button type="button" class="btn btn-sm btn-danger waves-effect" (click)="deleteInstitution(i)" [disabled]="!!institutionBlocker(i.institutionId)"
+                                [style.pointer-events]="institutionBlocker(i.institutionId) ? 'none' : null">Delete</button></span>
                     </td>
                   </tr>
                 </tbody>
@@ -151,6 +157,19 @@ export class AdminCoursesComponent implements OnInit {
   counts: { courses: Record<string, number>; institutions: Record<string, number> } = { courses: {}, institutions: {} };
   courseStudents(courseId: number): number { return this.counts.courses[String(courseId)] ?? 0; }
   institutionStudents(institutionId: string): number { return this.counts.institutions[institutionId] ?? 0; }
+
+  /** Why the course can't be deleted yet ('' when it can): students are on it. */
+  courseBlocker(courseId: number): string {
+    const n = this.courseStudents(courseId);
+    return n ? "Can't delete: " + n + ' student(s) are on this course. Move them to another course first.' : '';
+  }
+
+  /** Why the institution can't be deleted yet ('' when it can): it still has courses or students. */
+  institutionBlocker(institutionId: string): string {
+    const courses = this.courseCount(institutionId), students = this.institutionStudents(institutionId);
+    if (!courses && !students) return '';
+    return "Can't delete: it has " + courses + ' course(s)' + (students ? ' and ' + students + ' student(s)' : '') + '. Delete its courses first.';
+  }
 
   /** The students list being shown. */
   list: { title: string; byInstitution: boolean; rows: Record<string, unknown>[] | null } | null = null;
