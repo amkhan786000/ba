@@ -25,6 +25,8 @@ interface StudentRow {
   id: number; user_id: string; name: string; email: string | null; phone: string | null;
   sponsor_id: number | null; sponsor_code: string | null; sponsor_name: string | null; status: string | null;
   study_status: string | null;
+  /** The course assigned in BA Details, and its institution (null: none yet). */
+  course_name?: string | null; institution_name?: string | null;
   /** Delete (Super Admin): allowed only with nothing but the user and their application / family details. */
   can_delete?: boolean; delete_blockers?: string[];
 }
@@ -147,13 +149,15 @@ interface BaDetails {
             <div class="table-responsive">
               <table class="table table-bordered table-striped nowrap" style="width:100%">
                 <thead>
-                  <tr><th>Ref_Id</th><th>Name</th><th class="tablet-hide">Email</th><th>Phone</th><th class="tablet-hide">Sponsor ID</th><th>Sponsor Name</th><th>Study</th><th>Status</th><th>Actions</th></tr>
+                  <tr><th>Ref_Id</th><th>Name</th><th>Course</th><th class="tablet-hide">Email</th><th>Phone</th><th class="tablet-hide">Sponsor ID</th><th>Sponsor Name</th><th>Study</th><th>Status</th><th>Actions</th></tr>
                 </thead>
                 <tbody>
-                  <tr *ngIf="loading"><td colspan="9" class="text-center text-muted">Processing...</td></tr>
-                  <tr *ngIf="!loading && !rows.length"><td colspan="9" class="text-center text-muted">No matching records found</td></tr>
+                  <tr *ngIf="loading"><td colspan="10" class="text-center text-muted">Processing...</td></tr>
+                  <tr *ngIf="!loading && !rows.length"><td colspan="10" class="text-center text-muted">No matching records found</td></tr>
                   <tr *ngFor="let r of rows">
-                    <td>{{ r.user_id }}</td><td>{{ r.name }}</td><td class="tablet-hide">{{ r.email }}</td><td>{{ r.phone }}</td>
+                    <td>{{ r.user_id }}</td><td>{{ r.name }}</td>
+                    <td>{{ r.course_name || '-' }}<div *ngIf="r.institution_name" class="small text-muted">{{ r.institution_name }}</div></td>
+                    <td class="tablet-hide">{{ r.email }}</td><td>{{ r.phone }}</td>
                     <td class="tablet-hide">{{ r.sponsor_code || '-' }}</td><td>{{ r.sponsor_name || 'Unassigned' }}</td>
                     <td><span class="badge" [ngClass]="studyBadge(r.study_status)">{{ studyLabel(r.study_status) }}</span></td>
                     <td><span class="badge" [ngClass]="(r.status || '').toLowerCase() === 'active' ? 'badge-success' : 'badge-danger'">{{ r.status }}</span></td>
