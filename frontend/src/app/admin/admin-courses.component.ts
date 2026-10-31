@@ -41,8 +41,14 @@ export interface CourseRow {
           <div class="card-body">
             <h4 class="header-title mb-3">Course List</h4>
             <div class="row mb-3">
+              <div class="col-12 col-md-4 mb-2 mb-md-0">
+                <input type="text" class="form-control" placeholder="Search by Course or Institution..." [(ngModel)]="search" (ngModelChange)="pg.page = 1" />
+              </div>
               <div class="col-12 col-md-4">
-                <input type="text" class="form-control" placeholder="Search by Course or Institution..." [(ngModel)]="search" />
+                <select class="form-control" [(ngModel)]="institutionId" (ngModelChange)="pg.page = 1" aria-label="Institution">
+                  <option value="">All institutions</option>
+                  <option *ngFor="let i of institutions" [value]="i.institutionId">{{ i.institutionName }} ({{ courseCount(i.institutionId) }})</option>
+                </select>
               </div>
             </div>
             <div class="table-responsive">
@@ -144,6 +150,8 @@ export class AdminCoursesComponent implements OnInit {
   courses: CourseRow[] = [];
   institutions: Institution[] = [];
   search = '';
+  /** Course List: only this institution's courses ('' = all). */
+  institutionId = '';
   message = '';
   error = '';
 
@@ -226,6 +234,7 @@ export class AdminCoursesComponent implements OnInit {
 
   get visible(): CourseRow[] {
     const f = this.search.toLowerCase();
-    return this.courses.filter((c) => [c.course_name, c.institution_name].some((v) => (v ?? '').toLowerCase().includes(f)));
+    return this.courses.filter((c) => !this.institutionId || c.institution_id === this.institutionId)
+      .filter((c) => [c.course_name, c.institution_name].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 }
