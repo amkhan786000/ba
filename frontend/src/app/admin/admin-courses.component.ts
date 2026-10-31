@@ -64,6 +64,9 @@ export interface CourseRow {
                     <td><ng-container *ngTemplateOutlet="count; context: { n: courseStudents(c.course_id), open: openCourse.bind(this, c) }"></ng-container></td>
                     <td class="text-nowrap">
                       <a *ngIf="canEdit" [routerLink]="['/', section, 'courses', c.course_id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
+                      <button *ngIf="canEdit && courseStudents(c.course_id)" type="button" class="btn btn-sm btn-outline-primary waves-effect ml-1"
+                              (click)="openMove(c)" title="Move all its students to another course (e.g. a duplicate spelling)">
+                        <i class="mdi mdi-swap-horizontal"></i> Move students</button>
                       <!-- greyed out while students are on the course (the server refuses too); the wrapper shows why on hover -->
                       <span *ngIf="canEdit" class="d-inline-block ml-1" [title]="courseBlocker(c.course_id) || 'Delete this course'">
                         <button type="button" class="btn btn-sm btn-danger waves-effect" (click)="deleteCourse(c)" [disabled]="!!courseBlocker(c.course_id)"
@@ -119,6 +122,34 @@ export interface CourseRow {
               [title]="'See the ' + n + ' student(s)'"><i class="mdi mdi-account-multiple mr-1"></i>{{ n }}</button>
       <ng-template #plain><span [class.text-muted]="!n">{{ n }}</span></ng-template>
     </ng-template>
+
+    <!-- Move students: every student on one course to another, in one click -->
+    <div *ngIf="move" class="modal fade show d-block" tabindex="-1" (click)="move = null">
+      <div class="modal-dialog" (click)="$event.stopPropagation()"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Move students</h5>
+          <button type="button" class="close" (click)="move = null" aria-label="Close">&times;</button></div>
+        <div class="modal-body">
+          <p>Move all <strong>{{ courseStudents(move.from.course_id) }}</strong> student(s) of
+            <strong>{{ move.from.course_name }}</strong> <span class="text-muted">({{ move.from.institution_name }}, {{ move.from.number_of_semesters }} semesters)</span> to:</p>
+          <select class="form-control mb-2" [(ngModel)]="move.toId" aria-label="Move to course">
+            <option [ngValue]="null">-- Choose the course --</option>
+            <option *ngFor="let c of moveTargets" [ngValue]="c.course_id">{{ c.course_name }} ({{ c.institution_name }}) · {{ c.number_of_semesters }} sem · {{ courseStudents(c.course_id) }} students</option>
+          </select>
+          <div *ngIf="moveTo && moveTo.number_of_semesters !== move.from.number_of_semesters" class="alert alert-warning small mb-2">
+            <i class="mdi mdi-alert"></i> {{ moveTo.course_name }} has {{ moveTo.number_of_semesters }} semesters, not {{ move.from.number_of_semesters }}:
+            the moved students' unpaid installments follow the new length (paid ones stay).</div>
+          <div *ngIf="moveTo && moveTo.institution_id !== move.from.institution_id" class="alert alert-light border small mb-2">
+            The students' institution changes to {{ moveTo.institution_name }} too.</div>
+          <div class="custom-control custom-checkbox">
+            <input type="checkbox" class="custom-control-input" id="moveDelete" [(ngModel)]="move.deleteFrom">
+            <label class="custom-control-label" for="moveDelete">Then delete <strong>{{ move.from.course_name }}</strong> (it will have no students)</label>
+          </div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" (click)="move = null">Cancel</button>
+          <button type="button" class="btn btn-primary" (click)="doMove()" [disabled]="busy || !move.toId">
+            Move {{ courseStudents(move.from.course_id) }} student(s)</button></div>
+      </div></div>
+    </div>
 
     <div *ngIf="list" class="modal fade show d-block" tabindex="-1" (click)="list = null">
       <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()"><div class="modal-content">
@@ -177,6 +208,34 @@ export class AdminCoursesComponent implements OnInit {
     const courses = this.courseCount(institutionId), students = this.institutionStudents(institutionId);
     if (!courses && !students) return '';
     return "Can't delete: it has " + courses + ' course(s)' + (students ? ' and ' + students + ' student(s)' : '') + '. Delete its courses first.';
+  }
+
+  /** Move students: from this course, to the chosen one, and whether to delete it afterwards. */
+  move: { from: CourseRow; toId: number | null; deleteFrom: boolean } | null = null;
+  busy = false;
+
+  openMove(c: CourseRow): void { this.move = { from: c, toId: null, deleteFrom: true }; }
+
+  /** Every other course, the same institution's first, then by name. */
+  get moveTargets(): CourseRow[] {
+    const from = this.move?.from;
+    if (!from) return [];
+    return this.courses.filter((c) => c.course_id !== from.course_id).sort((a, b) =>
+      Number(b.institution_id === from.institution_id) - Number(a.institution_id === from.institution_id)
+      || (a.institution_name ?? '').localeCompare(b.institution_name ?? '') || a.course_name.localeCompare(b.course_name));
+  }
+
+  get moveTo(): CourseRow | undefined { return this.courses.find((c) => c.course_id === this.move?.toId); }
+
+  doMove(): void {
+    const m = this.move, to = this.moveTo;
+    if (!m || !to || !confirm(`Move all ${this.courseStudents(m.from.course_id)} student(s) of "${m.from.course_name}" to "${to.course_name}" (${to.institution_name})?`
+        + (m.deleteFrom ? `\n"${m.from.course_name}" will then be deleted.` : ''))) return;
+    this.busy = true;
+    this.api.post<{ message: string }>(`/admin/courses/${m.from.course_id}/move-students`, { toCourseId: to.course_id, deleteFrom: m.deleteFrom }).subscribe({
+      next: (r) => { this.busy = false; this.move = null; this.message = r.message; this.error = ''; this.load(); },
+      error: (e) => { this.busy = false; this.error = errorText(e, 'Could not move the students.'); }
+    });
   }
 
   /** The students list being shown. */

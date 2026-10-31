@@ -498,6 +498,34 @@ public class AdminService {
         return rows;
     }
 
+    /**
+     * Courses > Move students: every student on course "from" moves to course "to" (and its institution), e.g. from a
+     * duplicate spelling to the right one; their installment plans follow the new course's semesters. With
+     * deleteFrom, the emptied course is deleted afterwards. Returns { moved, deleted, message }.
+     */
+    @Transactional
+    public Map<String, Object> moveCourseStudents(Long fromId, Long toId, boolean deleteFrom) {
+        Course from = courseRepository.findById(fromId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Course not found."));
+        Course to = courseRepository.findById(toId == null ? -1L : toId)
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Choose the course to move the students to."));
+        if (from.getCourseId().equals(to.getCourseId())) throw new ApiException(HttpStatus.BAD_REQUEST, "Choose a different course.");
+        List<StudentInstitutionCourse> assigned = studentCourseRepository.findByCourseId(fromId);
+        for (StudentInstitutionCourse s : assigned) {
+            s.setCourseId(to.getCourseId());
+            s.setInstitutionId(to.getInstitutionId());
+        }
+        studentCourseRepository.saveAll(assigned);
+        for (StudentInstitutionCourse s : assigned) installmentService.sync(s.getUserId()); // the new course's semesters
+        boolean deleted = deleteFrom && studentCourseRepository.countByCourseId(fromId) == 0;
+        if (deleted) courseRepository.delete(from);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("moved", assigned.size());
+        out.put("deleted", deleted);
+        out.put("message", assigned.size() + " student(s) moved from \"" + from.getCourseName() + "\" to \"" + to.getCourseName() + "\""
+                + (deleted ? "; \"" + from.getCourseName() + "\" was deleted." : "."));
+        return out;
+    }
+
     public List<Course> coursesByInstitution(String institutionId) {
         return courseRepository.findByInstitutionId(institutionId);
     }

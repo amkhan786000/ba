@@ -183,8 +183,12 @@ interface BaDetails {
     <div class="row"><div class="col-12"><div class="page-title-box">
       <button type="button" class="btn btn-sm btn-light border mb-2" (click)="closeDetails()"><i class="mdi mdi-arrow-left mr-1"></i>Student Directory</button>
       <h4 class="page-title" *ngIf="details">
-        {{ details.profile['name'] }} <small class="text-muted font-14">{{ details.profile['user_id'] }}</small>
+        {{ details.profile['name'] }} <span class="text-muted font-weight-normal">({{ details.profile['user_id'] }})</span>
         <span class="badge ml-1 font-13" [ngClass]="studyBadge(details.profile['study_status'])">{{ studyLabel(details.profile['study_status']) }}</span>
+        <!-- "Studying in course D.Pharm in Patna College" -->
+        <span *ngIf="details.course?.['course_name']" class="font-weight-normal font-16"> in course
+          <strong>{{ details.course!['course_name'] }}</strong><ng-container *ngIf="details.course!['institution_name']"> in
+          <strong>{{ details.course!['institution_name'] }}</strong></ng-container></span>
       </h4>
     </div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
