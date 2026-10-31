@@ -1,7 +1,7 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, Input, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, Subscription, debounceTime } from 'rxjs';
 import { FEATURES } from '../core/models/features';
 import { ApiService } from '../core/services/api.service';
@@ -57,7 +57,12 @@ interface BaDetails {
   onBehalf?: boolean; donorChapterId?: number | null; donorLabel?: string;
 }
 
-/** Port of templates/admin/student_directory.html (server-side table, profile modal with 5 tabs, payments, CSV upload, manual registration). */
+/**
+ * Students > Student Directory: the server-side list (search, filters, CSV upload, manual registration) at
+ * /admin/students, and each student's profile (tabs, payments, study status, ...) as its own page at
+ * /admin/students/:id. Opening a student keeps the list's search, filters and page in the list's address, so Back
+ * returns to it as it was.
+ */
 @Component({
   selector: 'app-admin-student-directory',
   standalone: true,
@@ -68,6 +73,7 @@ interface BaDetails {
     .btn-xs { padding: .15rem .45rem; font-size: .75rem; }
   `],
   template: `
+    <ng-container *ngIf="!pageMode">
     <div class="row"><div class="col-12"><div class="page-title-box"><h4 class="page-title">Student Directory</h4></div></div></div>
     <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
 
@@ -165,19 +171,22 @@ interface BaDetails {
         </div>
       </div>
     </div>
+    </ng-container>
 
-    <!-- ===== Student profile modal ===== -->
-    <div *ngIf="details" class="modal fade show d-block" tabindex="-1" (click)="closeDetails()">
-      <div class="modal-dialog modal-xl modal-dialog-scrollable" (click)="$event.stopPropagation()">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h4 class="modal-title">
-              Student Profile: {{ details.profile['name'] }}
-              <span class="badge ml-2 font-13" [ngClass]="studyBadge(details.profile['study_status'])">{{ studyLabel(details.profile['study_status']) }}</span>
-            </h4>
-            <button type="button" class="close" (click)="closeDetails()">&times;</button>
-          </div>
-          <div class="modal-body">
+    <!-- ===== Student profile: its own page (/admin/students/:id), so it uses the whole screen on a phone and
+         the browser's / phone's Back button returns to the list as it was ===== -->
+    <ng-container *ngIf="pageMode">
+    <div class="row"><div class="col-12"><div class="page-title-box">
+      <button type="button" class="btn btn-sm btn-light border mb-2" (click)="closeDetails()"><i class="mdi mdi-arrow-left mr-1"></i>Student Directory</button>
+      <h4 class="page-title" *ngIf="details">
+        {{ details.profile['name'] }} <small class="text-muted font-14">{{ details.profile['user_id'] }}</small>
+        <span class="badge ml-1 font-13" [ngClass]="studyBadge(details.profile['study_status'])">{{ studyLabel(details.profile['study_status']) }}</span>
+      </h4>
+    </div></div></div>
+    <app-alerts [(message)]="message" [(error)]="error"></app-alerts>
+    <p *ngIf="!details && !error" class="text-muted">Loading…</p>
+    <div *ngIf="details" class="card">
+          <div class="card-body">
             <!-- Phones: the tabs as a dropdown (eight tabs take a third of the screen otherwise). -->
             <select class="form-control mb-3 d-sm-none" [(ngModel)]="tab" aria-label="Section">
               <option *ngFor="let t of visibleTabs" [value]="t.id">{{ t.label }}</option>
@@ -419,20 +428,20 @@ interface BaDetails {
               </table>
             </div>
           </div>
-          <div class="modal-footer justify-content-between flex-column flex-md-row">
+          <div class="card-footer bg-white d-flex justify-content-between flex-column flex-md-row">
             <div class="mb-2 mb-md-0">
               <button *ngIf="canEdit && isActive" type="button" class="btn btn-warning" (click)="action('deactivate')">Deactivate</button>
               <button *ngIf="canEdit && !isActive" type="button" class="btn btn-success" (click)="action('activate')">Activate</button>
             </div>
             <div>
-              <button type="button" class="btn btn-secondary" (click)="closeDetails()">Close</button>
+              <button type="button" class="btn btn-secondary" (click)="closeDetails()">Back to the list</button>
               <button *ngIf="canEdit && !editing" type="button" class="btn btn-info ml-1" (click)="editing = true">Edit Details</button>
+              <button *ngIf="editing" type="button" class="btn btn-light border ml-1" (click)="editing = false; refreshDetails()">Cancel</button>
               <button *ngIf="editing" type="button" class="btn btn-success ml-1" (click)="saveProfile()" [disabled]="busy">Save Profile</button>
             </div>
           </div>
-        </div>
-      </div>
     </div>
+    </ng-container>
 
     <!-- ===== Payment modal ===== -->
     <div *ngIf="pay" class="modal fade show d-block" tabindex="-1" style="z-index: 1065;" (click)="pay = null">
@@ -629,7 +638,44 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   showUpload = false;
   csv: File | null = null;
 
-  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService, private statuses: StudyStatusService, private route: ActivatedRoute) {}
+  constructor(private api: ApiService, private chapterList: ChapterService, private auth: AuthService, private statuses: StudyStatusService, private route: ActivatedRoute,
+              private router: Router) {}
+
+  /** /admin/students/:id: one student's profile as its own page (else: the list). */
+  @Input() id = '';
+  get pageMode(): boolean { return !!this.id; }
+
+  /** The list's search, filters and page, as the list's query parameters (so Back finds the list as it was). */
+  private listState(): Record<string, string | number> {
+    const s: Record<string, string | number> = {};
+    if (this.search.trim()) s['q'] = this.search.trim();
+    if (this.fChapter !== null) s['chapter'] = this.fChapter;
+    if (this.fStudy) s['study'] = this.fStudy;
+    if (this.fStatus) s['status'] = this.fStatus;
+    if (this.fSponsored) s['sponsored'] = this.fSponsored;
+    if (this.fInst) s['inst'] = this.fInst;
+    if (this.fCourse !== null) s['course'] = this.fCourse;
+    if (this.fYear) s['year'] = this.fYear;
+    if (this.page > 1) s['page'] = this.page;
+    if (this.pageSize !== 10) s['size'] = this.pageSize;
+    return s;
+  }
+
+  /** Reads the list's search, filters and page back from the address (also the dashboards' ?study=...&sponsored=...). */
+  private readListState(): void {
+    const q = this.route.snapshot.queryParamMap;
+    const num = (k: string) => (q.get(k) && !isNaN(Number(q.get(k))) ? Number(q.get(k)) : null);
+    this.search = q.get('q') ?? '';
+    this.fChapter = num('chapter');
+    this.fStudy = q.get('study') ?? '';
+    this.fStatus = q.get('status') ?? '';
+    this.fSponsored = q.get('sponsored') ?? '';
+    this.fInst = q.get('inst') ?? '';
+    this.fCourse = num('course');
+    this.fYear = q.get('year') ?? '';
+    this.page = num('page') ?? 1;
+    this.pageSize = num('size') ?? 10;
+  }
 
   /** The study statuses (from the server), for the filter and the Study tab. */
   get studyStatuses(): { code: string; label: string }[] { return this.statuses.list; }
@@ -674,10 +720,20 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Deep links from the dashboards, e.g. ?study=STUDYING&sponsored=no.
-    const q = this.route.snapshot.queryParamMap;
-    this.fStudy = q.get('study') ?? this.fStudy;
-    this.fSponsored = q.get('sponsored') ?? this.fSponsored;
+    if (this.pageMode) {
+      // one student's page: the profile, plus what its tabs choose from
+      this.currentId = this.id;
+      this.tab = this.route.snapshot.queryParamMap.get('tab') ?? 'profile';
+      this.refreshDetails();
+      this.api.get<Institution[]>('/admin/institutions').subscribe({ next: (i) => (this.institutions = i) });
+      this.api.get<CourseRow[]>('/admin/courses').subscribe({ next: (c) => (this.courses = c) });
+      this.api.get<RccCenter[]>('/admin/rcc-centers').subscribe({ next: (r) => (this.rccCenters = r) });
+      this.api.get<SponsorOption[]>('/admin/sponsorships').subscribe({ next: (s) => (this.sponsors = s) });
+      this.chapterList.list().subscribe({ next: (c) => (this.chapters = c) });
+      return;
+    }
+    // The list as it was (search, filters, page), or deep links from the dashboards, e.g. ?study=STUDYING&sponsored=no.
+    this.readListState();
     this.sub = this.search$.pipe(debounceTime(300)).subscribe(() => { this.page = 1; this.load(); });
     this.api.get<Institution[]>('/admin/institutions').subscribe({ next: (i) => (this.institutions = i) });
     this.api.get<CourseRow[]>('/admin/courses').subscribe({ next: (c) => (this.courses = c) });
@@ -690,6 +746,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void { this.sub?.unsubscribe(); }
 
   load(): void {
+    if (this.pageMode) return; // a student's own page has no list
     this.loading = true;
     this.api.get<{ recordsTotal: number; recordsFiltered: number; data: StudentRow[]; years?: number[] }>('/admin/students', {
       start: (this.page - 1) * this.pageSize, length: this.pageSize, search: this.search.trim(),
@@ -726,16 +783,22 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
 
   // ---------------- profile modal
 
-  /** id: the student's users.id. */
+  /**
+   * id: the student's users.id. Opens their profile page; first the list's search, filters and page go into this
+   * page's address, so Back (the button, the browser's or the phone's) returns to the list as it was.
+   */
   openDetails(id: number): void {
-    this.currentId = String(id);
-    this.tab = 'profile';
-    this.refreshDetails();
+    this.router.navigate([], { relativeTo: this.route, queryParams: this.listState(), replaceUrl: true }).then(() =>
+      this.router.navigate([String(id)], { relativeTo: this.route, state: { fromList: true } }));
   }
 
-  closeDetails(): void { this.details = null; this.editing = false; }
+  /** Back to the list: as it was when it opened this student (history), else the plain list. */
+  closeDetails(): void {
+    if (history.state?.fromList) history.back();
+    else this.router.navigate(['..'], { relativeTo: this.route });
+  }
 
-  private refreshDetails(): void {
+  refreshDetails(): void {
     this.api.get<StudentDetails>(`/admin/students/${encodeURIComponent(this.currentId)}`).subscribe({
       next: (res) => {
         this.details = res;
@@ -804,7 +867,7 @@ export class AdminStudentDirectoryComponent implements OnInit, OnDestroy {
     if (e['institutionId'] && e['courseId']) { body['institutionId'] = e['institutionId']; body['courseId'] = e['courseId']; }
     this.busy = true;
     this.api.put<{ message: string }>(`/admin/students/${encodeURIComponent(this.currentId)}`, body).subscribe({
-      next: (r) => { this.busy = false; this.closeDetails(); this.message = r.message; this.load(); },
+      next: (r) => { this.busy = false; this.editing = false; this.message = r.message; this.refreshDetails(); },
       error: (err) => { this.busy = false; this.error = errorText(err, 'Could not save the student.'); }
     });
   }
