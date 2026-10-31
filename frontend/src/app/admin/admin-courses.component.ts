@@ -14,6 +14,8 @@ export interface CourseRow {
   institution_id: string;
   institution_name: string;
   course_name: string;
+  /** Short code kept as it is when the name is edited (pages show the name). */
+  course_code?: string | null;
   course_description: string | null;
   fees_per_semester: number | null;
   number_of_semesters: number | null;
@@ -53,9 +55,10 @@ export interface CourseRow {
             </div>
             <div class="table-responsive">
               <table class="table table-striped table-centered mb-0">
-                <thead><tr><th>Course Name</th><th>Institution</th><th>Description</th><th>Fees/Sem</th><th>Semesters</th><th>Students</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Code</th><th>Course Name</th><th>Institution</th><th>Description</th><th>Fees/Sem</th><th>Semesters</th><th>Students</th><th>Actions</th></tr></thead>
                 <tbody>
                   <tr *ngFor="let c of visible | paginate: pg.page : pg.size">
+                    <td class="small">{{ c.course_code || '-' }}</td>
                     <td>{{ c.course_name }}</td>
                     <td>{{ c.institution_name }}</td>
                     <td>{{ c.course_description }}</td>
@@ -295,6 +298,6 @@ export class AdminCoursesComponent implements OnInit {
   get visible(): CourseRow[] {
     const f = this.search.toLowerCase();
     return this.courses.filter((c) => !this.institutionId || c.institution_id === this.institutionId)
-      .filter((c) => [c.course_name, c.institution_name].some((v) => (v ?? '').toLowerCase().includes(f)));
+      .filter((c) => [c.course_name, c.course_code, c.institution_name].some((v) => (v ?? '').toLowerCase().includes(f)));
   }
 }

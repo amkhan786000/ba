@@ -17,6 +17,8 @@ interface Course {
   courseId?: number;
   institutionId: string;
   courseName: string;
+  /** Short code kept as it is when the name is edited; pages show the name. */
+  courseCode?: string;
   courseDescription: string;
   feesPerSemester: number | null;
   numberOfSemesters: number | null;
@@ -40,6 +42,12 @@ interface Course {
                 <select class="form-control" id="institution_id" name="institutionId" [(ngModel)]="course.institutionId" required>
                   <option *ngFor="let i of institutions" [value]="i.institutionId">{{ i.institutionName }}</option>
                 </select>
+              </div>
+              <div class="form-group">
+                <label for="course_code">Code</label>
+                <input type="text" class="form-control" id="course_code" name="courseCode" maxlength="255" [(ngModel)]="course.courseCode"
+                       [placeholder]="id ? '' : 'e.g. DCE (empty: the name)'" [disabled]="!!id">
+                <small class="text-muted">{{ id ? 'The code stays as it is; edit the name below.' : 'Kept as it is when the name is edited later. Pages show the name.' }}</small>
               </div>
               <div class="form-group">
                 <label for="course_name">Course Name</label>
@@ -104,6 +112,7 @@ export class AdminCourseEditComponent implements OnInit {
           courseId: c.course_id,
           institutionId: c.institution_id,
           courseName: c.course_name,
+          courseCode: c.course_code ?? '',
           courseDescription: c.course_description ?? '',
           feesPerSemester: c.fees_per_semester,
           numberOfSemesters: c.number_of_semesters
