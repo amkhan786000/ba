@@ -460,6 +460,44 @@ public class AdminService {
         return rows;
     }
 
+    /**
+     * Courses page: how many students are on each course and at each institution ({ courses: {id: n},
+     * institutions: {id: n} }), counting only the students the user may see (a Chapter Lead: their chapter's).
+     */
+    public Map<String, Object> courseStudentCounts() {
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        Map<Long, User> users = scope.all() ? Map.of() : studentScope.usersById();
+        Map<Long, Long> byCourse = new HashMap<>();
+        Map<String, Long> byInstitution = new HashMap<>();
+        for (StudentInstitutionCourse s : studentCourseRepository.findAll()) {
+            if (!scope.all() && !scope.includesId(s.getUserId(), users)) continue;
+            byCourse.merge(s.getCourseId(), 1L, Long::sum);
+            byInstitution.merge(s.getInstitutionId(), 1L, Long::sum);
+        }
+        return Map.of("courses", byCourse, "institutions", byInstitution);
+    }
+
+    /** The students on a course (or, with institutionId, at an institution) whom the user may see, by name. */
+    public List<Map<String, Object>> studentsOnCourse(Long courseId, String institutionId) {
+        List<StudentInstitutionCourse> assigned = courseId != null ? studentCourseRepository.findByCourseId(courseId)
+                : studentCourseRepository.findByInstitutionId(institutionId);
+        Map<Long, String> courseNames = new HashMap<>();
+        courseRepository.findAll().forEach(c -> courseNames.put(c.getCourseId(), c.getCourseName()));
+        Map<Long, Long> courseOf = new HashMap<>();
+        assigned.forEach(s -> courseOf.put(s.getUserId(), s.getCourseId()));
+        com.rahbar.security.StudentScope.Scope scope = studentScope.current();
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (User u : userRepository.findAllById(courseOf.keySet())) {
+            if (!scope.includes(u)) continue;
+            Map<String, Object> r = Rows.pick(u, "id", "user_id", "name", "chapter_name", "year", "status");
+            r.put("study_status", StudyStatus.label(u.getStudyStatus()));
+            r.put("course_name", courseNames.get(courseOf.get(u.getId())));
+            rows.add(r);
+        }
+        rows.sort(Comparator.comparing((Map<String, Object> r) -> String.valueOf(r.get("name")), String.CASE_INSENSITIVE_ORDER));
+        return rows;
+    }
+
     public List<Course> coursesByInstitution(String institutionId) {
         return courseRepository.findByInstitutionId(institutionId);
     }

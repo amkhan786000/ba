@@ -47,7 +47,7 @@ export interface CourseRow {
             </div>
             <div class="table-responsive">
               <table class="table table-striped table-centered mb-0">
-                <thead><tr><th>Course Name</th><th>Institution</th><th>Description</th><th>Fees/Sem</th><th>Semesters</th><th>Actions</th></tr></thead>
+                <thead><tr><th>Course Name</th><th>Institution</th><th>Description</th><th>Fees/Sem</th><th>Semesters</th><th>Students</th><th>Actions</th></tr></thead>
                 <tbody>
                   <tr *ngFor="let c of visible | paginate: pg.page : pg.size">
                     <td>{{ c.course_name }}</td>
@@ -55,6 +55,7 @@ export interface CourseRow {
                     <td>{{ c.course_description }}</td>
                     <td>{{ c.fees_per_semester }}</td>
                     <td>{{ c.number_of_semesters }}</td>
+                    <td><ng-container *ngTemplateOutlet="count; context: { n: courseStudents(c.course_id), open: openCourse.bind(this, c) }"></ng-container></td>
                     <td class="text-nowrap">
                       <a *ngIf="canEdit" [routerLink]="['/', section, 'courses', c.course_id, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
                       <button *ngIf="canEdit" type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="deleteCourse(c)">Delete</button>
@@ -76,15 +77,16 @@ export interface CourseRow {
             <h4 class="header-title mb-3">Institution List</h4>
             <div class="table-responsive">
               <table class="table table-striped table-centered mb-0">
-                <thead><tr><th>ID</th><th>Institution</th><th>Address</th><th>Contact</th><th>Courses</th><th *ngIf="canEdit">Actions</th></tr></thead>
+                <thead><tr><th>ID</th><th>Institution</th><th>Address</th><th>Contact</th><th>Courses</th><th>Students</th><th *ngIf="canEdit">Actions</th></tr></thead>
                 <tbody>
-                  <tr *ngIf="!institutions.length"><td colspan="6" class="text-center text-muted">No institutions yet.</td></tr>
+                  <tr *ngIf="!institutions.length"><td colspan="7" class="text-center text-muted">No institutions yet.</td></tr>
                   <tr *ngFor="let i of institutions | paginate: ipg.page : ipg.size">
                     <td>{{ i.institutionId }}</td>
                     <td>{{ i.institutionName }}</td>
                     <td>{{ i.address }}</td>
                     <td>{{ i.contactNumber }}<div class="small text-muted">{{ i.email }}</div></td>
                     <td>{{ courseCount(i.institutionId) }}</td>
+                    <td><ng-container *ngTemplateOutlet="count; context: { n: institutionStudents(i.institutionId), open: openInstitution.bind(this, i) }"></ng-container></td>
                     <td *ngIf="canEdit" class="text-nowrap">
                       <a [routerLink]="['/', section, 'institutions', i.institutionId, 'edit']" class="btn btn-sm btn-primary waves-effect">Edit</a>
                       <button type="button" class="btn btn-sm btn-danger waves-effect ml-1" (click)="deleteInstitution(i)">Delete</button>
@@ -97,6 +99,32 @@ export interface CourseRow {
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- a student count: a button that lists the students (with Students view), else just the number -->
+    <ng-template #count let-n="n" let-open="open">
+      <button *ngIf="n && canSeeStudents; else plain" type="button" class="btn btn-xs btn-light border" (click)="open()"
+              [title]="'See the ' + n + ' student(s)'"><i class="mdi mdi-account-multiple mr-1"></i>{{ n }}</button>
+      <ng-template #plain><span [class.text-muted]="!n">{{ n }}</span></ng-template>
+    </ng-template>
+
+    <div *ngIf="list" class="modal fade show d-block" tabindex="-1" (click)="list = null">
+      <div class="modal-dialog modal-lg" (click)="$event.stopPropagation()"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">{{ list.title }} <small class="text-muted">· {{ list.rows?.length ?? '…' }} student(s)</small></h5>
+          <button type="button" class="close" (click)="list = null" aria-label="Close">&times;</button></div>
+        <div class="modal-body">
+          <p *ngIf="!list.rows" class="text-muted mb-0">Loading…</p>
+          <div class="table-responsive" *ngIf="list.rows"><table class="table table-sm mb-0">
+            <thead class="thead-light"><tr><th>Student</th><th *ngIf="list.byInstitution">Course</th><th>Chapter</th><th>Session</th><th>Study status</th></tr></thead>
+            <tbody><tr *ngFor="let s of list.rows">
+              <td>{{ s['name'] }}<div class="small text-muted">{{ s['user_id'] }}</div></td>
+              <td *ngIf="list.byInstitution">{{ s['course_name'] || '-' }}</td>
+              <td>{{ s['chapter_name'] || '-' }}</td><td>{{ s['year'] || '-' }}</td><td>{{ s['study_status'] }}</td>
+            </tr></tbody>
+          </table></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" (click)="list = null">Close</button></div>
+      </div></div>
     </div>
   `
 })
@@ -116,6 +144,32 @@ export class AdminCoursesComponent implements OnInit {
   constructor(private api: ApiService, private auth: AuthService) {}
 
   get canEdit(): boolean { return this.auth.can('COURSES', 'EDIT'); }
+  /** The names of the students need Students view; the counts don't. */
+  get canSeeStudents(): boolean { return this.auth.can('STUDENTS', 'VIEW'); }
+
+  /** How many students are on each course / at each institution (only those the user may see). */
+  counts: { courses: Record<string, number>; institutions: Record<string, number> } = { courses: {}, institutions: {} };
+  courseStudents(courseId: number): number { return this.counts.courses[String(courseId)] ?? 0; }
+  institutionStudents(institutionId: string): number { return this.counts.institutions[institutionId] ?? 0; }
+
+  /** The students list being shown. */
+  list: { title: string; byInstitution: boolean; rows: Record<string, unknown>[] | null } | null = null;
+
+  openCourse(c: CourseRow): void {
+    const list = { title: `${c.course_name} (${c.institution_name})`, byInstitution: false, rows: null as Record<string, unknown>[] | null };
+    this.list = list;
+    this.api.get<Record<string, unknown>[]>(`/admin/courses/${c.course_id}/students`).subscribe({
+      next: (r) => (list.rows = r), error: (e) => { this.list = null; this.error = errorText(e, 'Could not load the students.'); }
+    });
+  }
+
+  openInstitution(i: Institution): void {
+    const list = { title: i.institutionName, byInstitution: true, rows: null as Record<string, unknown>[] | null };
+    this.list = list;
+    this.api.get<Record<string, unknown>[]>(`/admin/institutions/${encodeURIComponent(i.institutionId)}/students`).subscribe({
+      next: (r) => (list.rows = r), error: (e) => { this.list = null; this.error = errorText(e, 'Could not load the students.'); }
+    });
+  }
 
   ngOnInit(): void { this.load(); }
 
@@ -124,6 +178,7 @@ export class AdminCoursesComponent implements OnInit {
       next: (c) => (this.courses = c),
       error: (e) => (this.error = errorText(e, 'Could not load courses.'))
     });
+    this.api.get<typeof this.counts>('/admin/courses/student-counts').subscribe({ next: (c) => (this.counts = c) });
     this.api.get<Institution[]>('/admin/institutions').subscribe({
       next: (i) => (this.institutions = [...i].sort((a, b) => a.institutionName.localeCompare(b.institutionName))),
       error: (e) => (this.error = errorText(e, 'Could not load institutions.'))

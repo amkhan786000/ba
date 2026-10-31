@@ -183,6 +183,27 @@ public class AdminController {
         return adminService.listCourses();
     }
 
+    /** Courses page: how many students are on each course / at each institution (only those the user may see). */
+    @GetMapping("/courses/student-counts")
+    @PreAuthorize("hasAuthority('COURSES:VIEW') or hasAuthority('STUDENTS:VIEW')")
+    public Map<String, Object> courseStudentCounts() {
+        return adminService.courseStudentCounts();
+    }
+
+    /** The students on a course (names: needs Students view). */
+    @GetMapping("/courses/{id}/students")
+    @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
+    public List<Map<String, Object>> studentsOnCourse(@PathVariable Long id) {
+        return adminService.studentsOnCourse(id, null);
+    }
+
+    /** The students at an institution, with their course. */
+    @GetMapping("/institutions/{id}/students")
+    @PreAuthorize("hasAuthority('STUDENTS:VIEW')")
+    public List<Map<String, Object>> studentsAtInstitution(@PathVariable String id) {
+        return adminService.studentsOnCourse(null, id);
+    }
+
     @GetMapping("/courses/by-institution/{institutionId}")
     @PreAuthorize("hasAuthority('COURSES:VIEW') or hasAuthority('STUDENTS:VIEW')")
     public List<Course> coursesByInstitution(@PathVariable String institutionId) {
