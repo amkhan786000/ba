@@ -19,6 +19,8 @@ interface StudentsDashboard {
   charts: {
     studyStatus: BarDatum[]; bySessionYear: BarDatum[]; bySex: BarDatum[]; byChapter: BarDatum[];
     byInstitution: BarDatum[]; byCourse: BarDatum[]; intakeAndExits: SeriesData; progressReviews: BarDatum[];
+    /** Course with its institution, e.g. "D.Pharm (Patna College)". */
+    byCourseInstitution?: BarDatum[];
   };
 }
 
@@ -128,6 +130,15 @@ interface StudentsDashboard {
           </div></div>
         </div>
       </div>
+      <div class="row">
+        <div class="col-12">
+          <div class="card"><div class="card-body">
+            <h4 class="header-title mb-1">Students by course (institution)</h4>
+            <p class="small text-muted">The same course at two institutions counted apart, e.g. "Diploma (CE) (MMANTC Institute)".</p>
+            <app-bar-chart [data]="enrolment?.byCourseInstitution ?? d.charts.byCourseInstitution ?? []" colour="#0f766e" emptyText="No students for this choice."></app-bar-chart>
+          </div></div>
+        </div>
+      </div>
       <p class="small text-muted">For an Excel table with one column per session year, see Reports → "Students by institution and session year"
         and "Students by course and session year".</p>
       <p class="text-muted small">Charts count students in the programme (studying or on hold) unless they say otherwise.
@@ -140,7 +151,7 @@ export class AdminStudentsDashboardComponent implements OnInit {
   error = '';
   /** "now" (studying or on hold), "all", or a session year, for the college / course charts. */
   period = 'now';
-  enrolment: { years: number[]; byInstitution: BarDatum[]; byCourse: BarDatum[] } | null = null;
+  enrolment: { years: number[]; byInstitution: BarDatum[]; byCourse: BarDatum[]; byCourseInstitution?: BarDatum[] } | null = null;
 
   constructor(private api: ApiService) {}
 
@@ -160,7 +171,7 @@ export class AdminStudentsDashboardComponent implements OnInit {
   }
 
   loadEnrolment(): void {
-    this.api.get<{ years: number[]; byInstitution: BarDatum[]; byCourse: BarDatum[] }>('/admin/dashboards/students/enrolment', { period: this.period })
+    this.api.get<{ years: number[]; byInstitution: BarDatum[]; byCourse: BarDatum[]; byCourseInstitution?: BarDatum[] }>('/admin/dashboards/students/enrolment', { period: this.period })
       .subscribe({ next: (r) => (this.enrolment = r), error: (e) => (this.error = errorText(e, 'Could not load colleges and courses.')) });
   }
 

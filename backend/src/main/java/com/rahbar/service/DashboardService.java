@@ -228,6 +228,7 @@ public class DashboardService {
                 LEFT JOIN student_institution_courses sc ON sc.user_id = s.id
                 LEFT JOIN courses co ON co.course_id = sc.course_id
                 WHERE %s%s%s GROUP BY label ORDER BY value DESC LIMIT 12""".formatted(STUDENT, IN_PROGRAMME, scope)));
+        charts.put("byCourseInstitution", labelled(byCourseInstitution(IN_PROGRAMME + scope) + " LIMIT 12"));
         charts.put("intakeAndExits", intakeAndExits(scope, today.getYear()));
         charts.put("progressReviews", labelled("""
                 SELECT p.review_status label, COUNT(*) value FROM student_progress p JOIN users s ON s.id = p.grantee_id
@@ -305,7 +306,23 @@ public class DashboardService {
                 LEFT JOIN student_institution_courses sc ON sc.user_id = s.id
                 LEFT JOIN courses co ON co.course_id = sc.course_id
                 WHERE %s%s%s GROUP BY label ORDER BY value DESC""".formatted(STUDENT, which, scope), args));
+        body.put("byCourseInstitution", labelled(byCourseInstitution(which + scope), args));
         return body;
+    }
+
+    /**
+     * "Students by course (institution)": "D.Pharm (Patna College)", so courses of the same name at two institutions
+     * are told apart. filter: the rest of the WHERE after the student condition (" AND ...").
+     */
+    private static String byCourseInstitution(String filter) {
+        return """
+                SELECT CASE WHEN co.course_id IS NULL THEN 'Not assigned'
+                            ELSE CONCAT(co.course_name, ' (', COALESCE(ci.institution_name, 'institution missing'), ')') END label,
+                       COUNT(*) value FROM users s
+                LEFT JOIN student_institution_courses sc ON sc.user_id = s.id
+                LEFT JOIN courses co ON co.course_id = sc.course_id
+                LEFT JOIN institutions ci ON BINARY ci.institution_id = BINARY co.institution_id
+                WHERE %s%s GROUP BY label ORDER BY value DESC""".formatted(STUDENT, filter);
     }
 
     // ================================================================ Sponsors & payments
