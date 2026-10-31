@@ -183,6 +183,7 @@ export const routes: Routes = [
       { path: 'sponsorships', component: AdminSponsorshipsComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS' } },
       { path: 'sponsorships/:id/map', component: AdminSponsorMapComponent, canActivate: [permissionGuard], data: { permission: 'SPONSORSHIPS', level: 'EDIT' } },
       { path: 'students', component: AdminStudentDirectoryComponent, canActivate: [permissionGuard], data: { permission: 'STUDENTS' } },
+      { path: 'students/:id', component: AdminStudentDirectoryComponent, canActivate: [permissionGuard], data: { permission: 'STUDENTS' } },
       // Not in the Flask sidebar either: reached by URL (manage students) or from coordinator/convenor menus (applications)
       { path: 'manage-students', component: AdminManageStudentsComponent, canActivate: [permissionGuard], data: { permission: 'STUDENTS' } },
       { path: 'applications', component: AdminApplicationsComponent, canActivate: [permissionGuard], data: { permission: 'APPLICATIONS' } },
